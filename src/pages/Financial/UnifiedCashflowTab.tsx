@@ -1757,6 +1757,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             // um atendimento específico ("o #5 é o Benjamin") sem depender do horário.
                                             const seqMap = new Map<string, number>();
                                             filtered.forEach((a: any, i: number) => seqMap.set(getApptId(a), i + 1));
+                                            // Método de pagamento vindo do caixa (transacoesProducao) — fallback quando
+                                            // o appointment não tem paymentMethod setado (pacotes pré-pagos, por exemplo).
+                                            const methodByApptId = new Map<string, string>();
+                                            (data?.transacoesProducao || []).forEach((t: any) => {
+                                                if (t?.id && t?.metodo) methodByApptId.set(String(t.id), t.metodo);
+                                            });
                                             const hourGroups: Record<number, any[]> = {};
                                             filtered.forEach((a: any) => { const h = parseInt((a.time || '00:00').split(':')[0]) || 0; if (!hourGroups[h]) hourGroups[h] = []; hourGroups[h].push(a); });
                                             const sortedHours = Object.keys(hourGroups).map(Number).sort((a, b) => a - b);
@@ -1779,9 +1785,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                     <span className="w-14 shrink-0 text-[11px] text-gray-400 text-right">Hora</span>
                                                     <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
                                                     <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Tipo de Atendimento</span>
-                                                    <span className="w-28 shrink-0 text-[11px] text-gray-400 text-center">Método</span>
+                                                    <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Método</span>
                                                     <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Situação</span>
-                                                    <span className="w-20 shrink-0 text-[11px] text-gray-400 text-right">Valor</span>
+                                                    <span className="w-24 shrink-0 text-[11px] text-gray-400 text-right">Valor</span>
                                                 </div>
                                                 <div className="space-y-2.5 py-2 pr-2 pl-7">
                                                     {sortedHours.map((hour, idx) => {
@@ -1872,22 +1878,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             m === 'credit_card' || m === 'credito' || m === 'cartao_credito' ? 'Cartão' :
                                                                             m === 'debit_card' || m === 'debito' || m === 'cartao_debito' ? 'Débito' :
                                                                             m === 'transferencia' || m === 'transferencia_bancaria' ? 'Transf.' : m;
+                                                                        const formatMethodBadge = (m?: string | null): string | null => {
+                                                                            if (!m || m === 'pending') return null;
+                                                                            const ml = m.toLowerCase();
+                                                                            if (ml === 'package_prepaid') return 'Pré-pago';
+                                                                            if (ml === 'pix') return 'Pix · Imediato';
+                                                                            if (ml === 'dinheiro' || ml === 'cash') return 'Dinheiro · Imediato';
+                                                                            if (ml === 'credit_card' || ml === 'credito' || ml === 'cartao_credito') return 'Cartão D+30';
+                                                                            if (ml === 'debit_card' || ml === 'debito' || ml === 'cartao_debito') return 'Débito · D+1';
+                                                                            if (ml === 'transferencia' || ml === 'transferencia_bancaria' || ml === 'bank_transfer') return 'Transf. · D+1';
+                                                                            return methodLabel(m);
+                                                                        };
                                                                         const splits: { method: string; amount: number }[] = (a as any).payment?.splitMethods;
-                                                                        const pm = a.paymentMethod;
-                                                                        // Pacote pré-pago/full: dinheiro já entrou na compra do pacote, não nesta
-                                                                        // sessão — mostrar método de pagamento aqui dá a falsa impressão de que
-                                                                        // o valor entrou hoje. Ver caso Victor Gabriel, 2026-07-09.
+                                                                        const resolvedMethod = methodByApptId.get(getApptId(a)) || a.paymentMethod;
+                                                                        // Pacote pré-pago/full: dinheiro entrou na compra do pacote, não nesta
+                                                                        // sessão — não mostrar método de pagamento aqui. Ver caso Victor Gabriel,
+                                                                        // 2026-07-09 e análise do documento de caixa.
                                                                         const methodBadge: string | null = (!isCanceled && !isConvenio && !isLiminar && !isPrepaid)
                                                                             ? (splits?.length >= 2
                                                                                 ? splits.map(s => methodLabel(s.method)).join(' + ')
-                                                                                : pm && pm !== 'pending'
-                                                                                    ? (pm === 'pix' ? 'Pix · Imediato' :
-                                                                                       pm === 'dinheiro' ? 'Dinheiro · Imediato' :
-                                                                                       pm === 'credit_card' || pm === 'credito' || pm === 'cartao_credito' ? 'Cartão D+30' :
-                                                                                       pm === 'debit_card' || pm === 'debito' || pm === 'cartao_debito' ? 'Débito · D+1' :
-                                                                                       pm === 'transferencia' || pm === 'transferencia_bancaria' ? 'Transf. · D+1' :
-                                                                                       pm)
-                                                                                    : null)
+                                                                                : formatMethodBadge(resolvedMethod))
                                                                             : null;
                                                                         const isCartaoD30 = methodBadge === 'Cartão D+30';
 
@@ -1966,20 +1976,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                             <span className={`text-sm font-bold font-mono leading-none ${isCanceled ? 'text-gray-300' : 'text-gray-700'}`}>{a.time || '--:--'}</span>
                                                                                         </div>
                                                                                     </div>
-                                                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                                                        <div className="flex items-center gap-1.5">
-                                                                                            <span className={`text-[15px] font-semibold leading-none truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
-                                                                                            {isNew && <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0 ${isEvaluation ? 'bg-pink-500 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{isEvaluation ? '★ 1ª vez' : '1ª vez'}</span>}
-                                                                                            {phone && (
-                                                                                                <button className="shrink-0 text-blue-400 hover:text-blue-600 transition-colors" title={phone}
-                                                                                                    onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
-                                                                                                    <PhoneIcon style={{ fontSize: 13 }} />
-                                                                                                </button>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <div className="text-xs text-gray-500 truncate">
-                                                                                            {[a.doctor?.fullName || a.professionalName, a.specialty].filter(Boolean).join(' / ')}
-                                                                                        </div>
+                                                                                    <div className="flex-1 min-w-0 self-stretch flex items-center gap-1.5 overflow-hidden">
+                                                                                        <span className={`text-[15px] font-semibold leading-none truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
+                                                                                        {isNew && <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0 ${isEvaluation ? 'bg-pink-500 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{isEvaluation ? '★ 1ª vez' : '1ª vez'}</span>}
+                                                                                        {phone && (
+                                                                                            <button className="shrink-0 text-blue-400 hover:text-blue-600 transition-colors" title={phone}
+                                                                                                onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
+                                                                                                <PhoneIcon style={{ fontSize: 13 }} />
+                                                                                            </button>
+                                                                                        )}
+                                                                                        <span className="text-xs text-gray-500 truncate">
+                                                                                            — {[a.doctor?.fullName || a.professionalName, a.specialty].filter(Boolean).join(' / ')}
+                                                                                        </span>
                                                                                     </div>
                                                                                     <div className="w-32 shrink-0 text-center group relative flex flex-col justify-center">
                                                                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap mx-auto ${typeCls}`}>{typeLabel}</span>
@@ -1990,25 +1998,25 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                             </div>
                                                                                         )}
                                                                                     </div>
-                                                                                    <div className="w-28 shrink-0 text-center flex flex-col justify-center">
-                                                                                        <div className="text-xs font-medium text-gray-700 truncate">{methodBadge || '—'}</div>
+                                                                                    <div className="w-32 shrink-0 self-stretch text-center flex flex-col justify-center">
+                                                                                        <div className="text-xs font-medium text-gray-700 truncate px-1">{methodBadge || '—'}</div>
                                                                                         {isCartaoD30 && !isCanceled && <div className="text-[10px] text-amber-600">D+30</div>}
                                                                                     </div>
                                                                                     <div className="w-32 shrink-0 flex flex-col justify-center items-end gap-0.5">
                                                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
+                                                                                    </div>
+                                                                                    <div className="w-24 shrink-0 self-stretch text-right flex flex-col justify-center">
+                                                                                        <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                                                                            {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
+                                                                                        </span>
                                                                                         {/* Financeiro (Pago/Pendente/Convênio) logo abaixo do valor — sempre
                                                                                             visível, é um eixo independente do status operacional (Atendido)
                                                                                             abaixo dele. Ver DOMAIN_INVARIANTS.md #25: pago não implica
                                                                                             atendido, e vice-versa — os dois precisam aparecer sempre juntos
                                                                                             pra não deixar dúvida sobre se o dinheiro entrou ou não. */}
                                                                                         {paymentBadge && (
-                                                                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${paymentCls}`}>{paymentBadge}</span>
+                                                                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${paymentCls}`}>{paymentBadge}</span>
                                                                                         )}
-                                                                                    </div>
-                                                                                    <div className="w-20 shrink-0 text-right flex flex-col justify-center">
-                                                                                        <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
-                                                                                            {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
-                                                                                        </span>
                                                                                     </div>
                                                                                 </div>
                                                                                 {showNowAfterThis && <NowMarker />}
