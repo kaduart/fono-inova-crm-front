@@ -218,20 +218,19 @@ function resolveBillingType(data: {
  *    pacote particular, não só convênio/liminar).
  *
  * 2. STATUS OPERACIONAL controla qual botão aparece na aba "Confirmar"
- *    (ver o switch perto de "FLUXO DE STATUS" mais abaixo):
- *      scheduled/pending/pre_agendado -> "Confirmar Presença" (handleConfirm)
- *      confirmed/missed               -> "Realizar Atendimento" (handleComplete)
- *      completed/canceled             -> nenhum botão (ação já foi feita)
- *    EXCEÇÃO CONVÊNIO (2026-07-06): para convênio, 'Confirmar Presença' e
- *    'Realizar Atendimento' são a mesma coisa financeiramente (o plano paga
- *    depois, no faturamento). Por isso, para convênio o botão sempre é
- *    'Realizar Atendimento' e sempre chama o fluxo de complete (o backend
- *    resolve o roteamento financeiro internamente), independente de estar
- *    scheduled/confirmed/pre_agendado. Isso evita que sessões fiquem presas
- *    no status 'confirmed' sem consumir guia/gerar receita.
- *    Se adicionar um status novo, ele PRECISA cair em um desses 3 grupos,
- *    senão o botão some silenciosamente (bug de 03/07: 'missed' caía no
- *    `return null` do fim, tratado como estado terminal sem correção).
+ *    (ver "FLUXO DE STATUS" mais abaixo):
+ *      qualquer status não-terminal -> "Realizar Atendimento" (handleComplete)
+ *      completed/canceled           -> nenhum botão (ação já foi feita)
+ *    UNIFICADO (2026-07-10): não existe mais botão "Confirmar Presença" nem
+ *    handleConfirm nesta aba — pra todo billingType (particular/convênio/
+ *    liminar), o botão sempre completa direto, sem exigir confirmar presença
+ *    primeiro. Motivo: usuário não usa a confirmação como etapa separada,
+ *    só quer preencher forma de pagamento e concluir em uma ação. O backend
+ *    já aceita completar de qualquer estado não-terminal (só bloqueia
+ *    completar 2x — ver completeSessionService.v2.js). Isso era só a exceção
+ *    de convênio (2026-07-06); agora é a regra geral. `confirmed` continua
+ *    existindo no domínio (usado por outros fluxos, ex: confirmação rápida
+ *    no card do calendário) — só não é mais uma etapa obrigatória aqui.
  *
  * 3. O payload enviado no complete usa a chave `splitMethods` (não `payments`)
  *    — o backend (`routes/appointment.v2.js`) só lê `req.body.splitMethods`.
@@ -332,7 +331,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [showDebtConfirm, setShowDebtConfirm] = useState(false);
     const [debtConfirmResolve, setDebtConfirmResolve] = useState<((v: boolean | null) => void) | null>(null);
     const [isCompleting, setIsCompleting] = useState(false);
-    const [isConfirming, setIsConfirming] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
     const [processingState, setProcessingState] = useState<{ isProcessing: boolean; message: string } | null>(null);
@@ -567,22 +565,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 borderColor: `${config.color}40`
             }
         };
-    };
-
-    const handleConfirm = async () => {
-        if (!onConfirmAppointment) return;
-        console.log(`[AppointmentDetailModal] handleConfirm disparado — appointmentId=${event?.id}, operationalStatus=${event?.operationalStatus}, billingType=${event?.billingType}, endpoint=/confirm`);
-        setIsConfirming(true);
-        try {
-            await onConfirmAppointment(event?.id);
-            setActiveTab('details');
-        } catch (err: any) {
-            console.error('❌ [Modal] Erro ao confirmar presença:', err);
-            const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Erro ao confirmar presença';
-            toast.error(errMsg, { id: `confirm-error-${event?.id}` });
-        } finally {
-            setIsConfirming(false);
-        }
     };
 
     const handleCancel = async () => {
@@ -1147,32 +1129,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             case 'confirm':
                 return (
                     <div className="space-y-5">
-                        {/* Alerta dinâmico baseado no status e billingType */}
-                        {(() => {
-                            const opStatus = event?.operationalStatus;
-                            const isConvenio = event?.billingType === 'convenio' || event?.paymentMethod === 'convenio' || !!event?.insuranceProvider;
-                            const willComplete = isConvenio || opStatus === 'confirmed' || opStatus === 'missed';
-
-                            return (
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
-                                    <div className="flex items-start gap-3">
-                                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-                                        <div>
-                                            <p className="text-sm text-green-800 font-medium">
-                                                {willComplete
-                                                    ? 'Confirme os detalhes antes de concluir o atendimento.'
-                                                    : 'Confirme os detalhes antes de confirmar a presença.'}
-                                            </p>
-                                            <p className="text-xs text-green-600 mt-0.5">
-                                                {willComplete
-                                                    ? 'Esta ação marcará a consulta como concluída e executará a cobrança/faturamento.'
-                                                    : 'Esta ação marcará a presença do paciente como confirmada. Para concluir o atendimento, clique em "Realizar Atendimento" depois.'}
-                                            </p>
-                                        </div>
-                                    </div>
+                        {/* Toda transição desta aba completa o atendimento direto — ver nota
+                            "UNIFICADO (2026-07-10)" no topo do arquivo. */}
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
+                            <div className="flex items-start gap-3">
+                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="text-sm text-green-800 font-medium">
+                                        Confirme os detalhes antes de concluir o atendimento.
+                                    </p>
+                                    <p className="text-xs text-green-600 mt-0.5">
+                                        Esta ação marcará a consulta como concluída e executará a cobrança/faturamento.
+                                    </p>
                                 </div>
-                            );
-                        })()}
+                            </div>
+                        </div>
 
                         {/* Informações do agendamento — mesmo padrão da aba Detalhes */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1940,14 +1911,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 // 'pre_agendado' também recebe o botão de confirmar — ao confirmar vira agendamento real.
                 const opStatus = event?.operationalStatus;
 
-                // 🏥 CONVÊNIO: confirmar presença e realizar atendimento são a mesma ação financeira
-                // (o plano paga posteriormente via faturamento). Por isso, para convênio o botão
-                // sempre executa o fluxo de complete (o backend resolve o roteamento financeiro internamente), evitando
-                // sessões presas em 'confirmed'.
-                const isConvenioFlow = event?.billingType === 'convenio' || event?.paymentMethod === 'convenio' || !!event?.insuranceProvider || !!event?.insuranceGuide;
-                const canCompleteConvenio = isConvenioFlow && !['completed', 'canceled'].includes(opStatus || '');
+                // 🎯 (2026-07-10) Unificado: qualquer billingType (particular/convênio/liminar)
+                // e qualquer status não-terminal vai direto para "Realizar Atendimento" — sem
+                // exigir um clique separado de "Confirmar Presença" antes. Backend já aceita
+                // completar de qualquer estado não-terminal (não exige 'confirmed' antes, só
+                // bloqueia completar 2x — ver completeSessionService.v2.js). Isso já era a regra
+                // pra convênio (exceção de 2026-07-06); agora vale pra todos os billingTypes.
+                const canCompleteDirectly = !['completed', 'canceled'].includes(opStatus || '');
 
-                if (canCompleteConvenio) {
+                if (canCompleteDirectly) {
                     return (
                         <button
                             onClick={handleComplete}
@@ -1955,89 +1927,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
                                 addToBalance
                                     ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white'
-                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                            }`}
-                        >
-                            {isCompleting || isAddingDebit ? (
-                                <>
-                                    <LoadingSpinner size="small" color="border-white" fullPage={false} />
-                                    <span>
-                                        {isAddingDebit ? 'Registrando débito...' : 'Registrando...'}
-                                    </span>
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle size={18} />
-                                    <span>
-                                        {addToBalance
-                                            ? `Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`
-                                            : 'Realizar Atendimento'
-                                        }
-                                    </span>
-                                </>
-                            )}
-                        </button>
-                    );
-                }
-
-                if (opStatus === 'scheduled' || opStatus === 'pending' || opStatus === 'pre_agendado') {
-                    // 💰 Quando "Adicionar ao Saldo Devedor" está marcado, confirmar presença
-                    // deve COMPLETAR o atendimento e adicionar o débito — não apenas confirmar.
-                    if (addToBalance) {
-                        return (
-                            <button
-                                onClick={handleComplete}
-                                disabled={isCompleting || isAddingDebit}
-                                className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
-                            >
-                                {isCompleting || isAddingDebit ? (
-                                    <>
-                                        <LoadingSpinner size="small" color="border-white" fullPage={false} />
-                                        <span>Registrando débito...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle size={18} />
-                                        <span>
-                                            {`Concluir e Adicionar R$ ${debitAmount % 1 === 0 ? debitAmount.toFixed(0) : debitAmount.toFixed(2).replace('.', ',')} ao Saldo`}
-                                        </span>
-                                    </>
-                                )}
-                            </button>
-                        );
-                    }
-
-                    return (
-                        <button
-                            onClick={handleConfirm}
-                            disabled={isConfirming}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
-                        >
-                            {isConfirming ? (
-                                <>
-                                    <LoadingSpinner size="small" color="border-white" fullPage={false} />
-                                    <span>Confirmando...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle size={18} />
-                                    <span>Confirmar Presença</span>
-                                </>
-                            )}
-                        </button>
-                    );
-                }
-
-                // 'missed' tratado igual 'confirmed': permite corrigir uma falta marcada
-                // errada (paciente foi atendido de verdade) sem precisar reabrir/reagendar.
-                if (opStatus === 'confirmed' || opStatus === 'missed') {
-                    return (
-                        <button
-                            onClick={handleComplete}
-                            disabled={isCompleting || isAddingDebit}
-                            className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
-                                addToBalance 
-                                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white' 
                                     : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
                             }`}
                         >
@@ -2116,7 +2005,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const getTabConfig = (tab: string) => {
         const config = {
             details: { icon: ClipboardCheck, color: 'green', title: 'Detalhes do Agendamento', description: 'Informações completas da consulta' },
-            confirm: { icon: CheckCircle, color: 'green', title: 'Confirmar Agendamento', description: 'Confirme os detalhes do agendamento' },
+            confirm: { icon: CheckCircle, color: 'green', title: 'Finalizar Atendimento', description: 'Registre o pagamento e finalize a consulta' },
             edit: { icon: PencilIcon, color: 'amber', title: 'Editar Agendamento', description: 'Edite os detalhes do agendamento' },
             cancel: { icon: XCircle, color: 'red', title: 'Cancelar Agendamento', description: 'Preencha os dados para cancelamento' }
         };
