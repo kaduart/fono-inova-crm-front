@@ -1230,13 +1230,24 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                       </div>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
-                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{t.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
+                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{subTipo === 'Venda de Pacote' ? 'Venda de Pacote' : `${t.servico}${subTipo ? ' · Sessão' : ''}`}</span>
                                   </div>
-                                  <div className="w-28 shrink-0 text-center">
+                                  <div className="w-28 shrink-0 text-center group relative">
                                       {isMultiPayment ? (
                                           <>
-                                              <div className="text-xs font-medium text-gray-700 truncate">{[...new Set((t as any).paymentForms.map((f: any) => methodLabel(f.method)))].join(' + ')}</div>
+                                              <div className="text-xs font-medium text-gray-700 truncate cursor-default">{[...new Set((t as any).paymentForms.map((f: any) => methodLabel(f.method)))].join(' + ')}</div>
                                               <div className="text-[10px] text-gray-400">{(t as any).paymentForms.length} formas</div>
+                                              <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                                                  <div className="space-y-0.5">
+                                                      {(t as any).paymentForms.map((f: any, i: number) => (
+                                                          <div key={i} className="flex items-center justify-between gap-3">
+                                                              <span className="text-gray-300">{methodLabel(f.method)}</span>
+                                                              <span className="font-semibold">{formatCurrency(f.amount)}</span>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                                  <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                              </div>
                                           </>
                                       ) : (
                                           <>
@@ -1248,12 +1259,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                   <div className="w-20 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{t.tipo}</span>
                                   </div>
-                                  <div className="w-24 shrink-0 text-center">
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                  <div className="w-32 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
                                   {user?.role === 'admin' && (
-                                      <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                                      <div className="w-12 shrink-0 flex items-center justify-end gap-0.5">
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEditPayment(t); }}
                                               title="Editar pagamento"
@@ -1301,39 +1312,43 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                           const totalGrupo = g.items.reduce((s: number, t: any) => s + t.valor, 0);
                           const metodosUnicos = [...new Set(g.items.map((t: any) => methodLabel(t.metodo)))].join(' + ');
                           return (
-                              <div key={g._id} className={`flex items-start gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
-                                  <div className="w-20 shrink-0 pt-0.5">
+                              <div key={g._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
+                                  <div className="w-20 shrink-0">
                                       <div className="text-[11px] text-gray-400">{first.data}</div>
                                       <div className="text-[15px] font-semibold text-gray-900 font-mono">{first.hora}</div>
                                   </div>
-                                  <div className="flex-1 min-w-0 pt-0.5">
+                                  <div className="flex-1 min-w-0">
                                       <div className="text-[15px] font-semibold text-gray-900 truncate">{first.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
                                           {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
                                       </div>
                                   </div>
-                                  <div className="w-28 shrink-0 text-center pt-1.5">
-                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{first.servico}{subTipo ? ` · ${subTipo === 'Venda de Pacote' ? 'Venda' : 'Sessão'}` : ''}</span>
+                                  <div className="w-28 shrink-0 text-center">
+                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{subTipo === 'Venda de Pacote' ? 'Venda de Pacote' : `${first.servico}${subTipo ? ' · Sessão' : ''}`}</span>
                                   </div>
-                                  <div className="w-28 shrink-0 text-center pt-1">
-                                      <div className="text-xs font-medium text-gray-700 truncate">{metodosUnicos}</div>
-                                      <div className="space-y-0.5 mt-1">
-                                          {g.items.map((t: any) => (
-                                              <div key={t.id} className="flex justify-between text-[11px] text-gray-500">
-                                                  <span>{methodLabel(t.metodo)}</span>
-                                                  <span className="font-medium text-gray-700">{formatCurrency(t.valor)}</span>
-                                              </div>
-                                          ))}
+                                  <div className="w-28 shrink-0 text-center group relative">
+                                      <div className="text-xs font-medium text-gray-700 truncate cursor-default">{metodosUnicos}</div>
+                                      <div className="text-[10px] text-gray-400">{g.items.length} formas</div>
+                                      <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                                          <div className="space-y-0.5">
+                                              {g.items.map((t: any) => (
+                                                  <div key={t.id} className="flex items-center justify-between gap-3">
+                                                      <span className="text-gray-300">{methodLabel(t.metodo)}</span>
+                                                      <span className="font-semibold">{formatCurrency(t.valor)}</span>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                          <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                                       </div>
-                                      <div className="text-[10px] text-gray-400 mt-1">{g.items.length} formas</div>
                                   </div>
-                                  <div className="w-20 shrink-0 text-center pt-1.5">
+                                  <div className="w-20 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{first.tipo}</span>
                                   </div>
-                                  <div className="w-24 shrink-0 text-center pt-1.5">
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                  <div className="w-32 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
-                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm pt-2">{formatCurrency(totalGrupo)}</div>
+                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
+                                  {user?.role === 'admin' && <div className="w-12 shrink-0" />}
                               </div>
                           );
                         };
@@ -1386,10 +1401,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                   <div className="w-20 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{first.tipo}</span>
                                   </div>
-                                  <div className="w-24 shrink-0 text-center">
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                  <div className="w-32 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
+                                  {user?.role === 'admin' && <div className="w-12 shrink-0" />}
                               </button>
                           );
                         };
@@ -1427,10 +1443,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Serviço</span>
                                     <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Método</span>
                                     <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
-                                    <span className="text-[11px] text-gray-400 w-24 text-center shrink-0">Situação</span>
+                                    <span className="text-[11px] text-gray-400 w-32 text-center shrink-0">Situação</span>
                                     <span className="text-[11px] text-gray-400 w-20 text-right shrink-0">Valor</span>
+                                    {user?.role === 'admin' && <span className="w-12 shrink-0" />}
                                 </div>
-                                <div className="space-y-1">
+                                <div className="space-y-2.5">
                                     {txFiltradas.length === 0 ? (
                                         <div className="text-center py-6 text-gray-400 text-sm">
                                             {txMetodoFilter !== 'all' || txTipoFilter !== 'all' || txMultiFilter ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
@@ -1757,7 +1774,16 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             );
                                             let nowRendered = false;
                                             return (
-                                                <div className="divide-y divide-gray-50">
+                                                <>
+                                                <div className="flex items-center gap-3 px-4 py-1.5 border-b border-gray-100 bg-gray-50/50">
+                                                    <span className="w-14 shrink-0 text-[11px] text-gray-400 text-right">Hora</span>
+                                                    <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
+                                                    <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Tipo de Atendimento</span>
+                                                    <span className="w-28 shrink-0 text-[11px] text-gray-400 text-center">Método</span>
+                                                    <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Situação</span>
+                                                    <span className="w-20 shrink-0 text-[11px] text-gray-400 text-right">Valor</span>
+                                                </div>
+                                                <div className="space-y-2.5 py-2 pr-2 pl-7">
                                                     {sortedHours.map((hour, idx) => {
                                                         const apts = hourGroups[hour];
                                                         const prevHourEnd = idx > 0 ? sortedHours[idx - 1] * 60 + 59 : -1;
@@ -1927,10 +1953,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             <React.Fragment key={a.id}>
                                                                                 <div
                                                                                     onClick={() => setSelectedApt(a)}
-                                                                                    className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isCompleted ? 'bg-emerald-100/70' : isFirstEval ? 'bg-pink-50/60' : ''}`}
+                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-colors hover:bg-gray-100/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isCompleted ? 'bg-emerald-100/70' : isFirstEval ? 'bg-pink-50/60' : 'bg-gray-50'}`}
                                                                                 >
-                                                                                    <div className="w-14 shrink-0 pt-0.5 text-right">
-                                                                                        {aptIdx === 0 && <span className="text-[9px] font-bold text-gray-300 tracking-widest block leading-none mb-1">{String(hour).padStart(2,'0')}H</span>}
+                                                                                    {aptIdx === 0 && (
+                                                                                        <span className="absolute -left-5 top-1/2 -translate-y-1/2 text-[8px] font-bold text-gray-300 whitespace-nowrap">{String(hour).padStart(2,'0')}H</span>
+                                                                                    )}
+                                                                                    <div className="w-14 shrink-0 text-right flex flex-col justify-center">
                                                                                         <div className="flex items-center justify-end gap-1">
                                                                                             {seqNumber != null && (
                                                                                                 <span className="text-[9px] font-bold text-gray-400 bg-gray-100 rounded-full w-4 h-4 inline-flex items-center justify-center shrink-0" title="Ordem de atendimento do dia">{seqNumber}</span>
@@ -1938,41 +1966,36 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                             <span className={`text-sm font-bold font-mono leading-none ${isCanceled ? 'text-gray-300' : 'text-gray-700'}`}>{a.time || '--:--'}</span>
                                                                                         </div>
                                                                                     </div>
-                                                                                    <div className="flex-1 min-w-0">
-                                                                                        <div className="flex items-center gap-2 mb-1.5">
-                                                                                            <span className={`text-sm font-bold truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
+                                                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                                                        <div className="flex items-center gap-1.5">
+                                                                                            <span className={`text-[15px] font-semibold leading-none truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
                                                                                             {isNew && <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0 ${isEvaluation ? 'bg-pink-500 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{isEvaluation ? '★ 1ª vez' : '1ª vez'}</span>}
                                                                                             {phone && (
-                                                                                                <button className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-600 whitespace-nowrap shrink-0"
+                                                                                                <button className="shrink-0 text-blue-400 hover:text-blue-600 transition-colors" title={phone}
                                                                                                     onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
-                                                                                                    <PhoneIcon style={{ fontSize: 10 }} />{phone}
+                                                                                                    <PhoneIcon style={{ fontSize: 13 }} />
                                                                                                 </button>
                                                                                             )}
                                                                                         </div>
-                                                                                        <div className="flex flex-wrap items-center gap-1.5">
-                                                                                            {pkgProgress}
-                                                                                            {pkgProgress && <span className="text-gray-300 text-[10px] select-none">|</span>}
-                                                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeCls}`}>{typeLabel}</span>
-                                                                                            {methodBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{methodBadge}</span></>}
-                                                                                            {a.specialty && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="text-[10px] text-gray-400">{a.specialty}</span></>}
-                                                                                            {a.professionalName && (
-                                                                                                <>
-                                                                                                    <span className="text-gray-300 text-[10px] select-none">|</span>
-                                                                                                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${isCompleted ? 'text-emerald-700' : 'text-gray-500'}`}>
-                                                                                                        <PersonIcon style={{ fontSize: 11 }} />
-                                                                                                        {(a.professionalName as string).split(' ').slice(0, 2).join(' ')}
-                                                                                                    </span>
-                                                                                                </>
-                                                                                            )}
+                                                                                        <div className="text-xs text-gray-500 truncate">
+                                                                                            {[a.doctor?.fullName || a.professionalName, a.specialty].filter(Boolean).join(' / ')}
                                                                                         </div>
-                                                                                        {isCartaoD30 && !isCanceled && (
-                                                                                            <p className="text-[10px] text-amber-600 mt-1">⚠ Cartão D+30 — entra no caixa em ~30 dias</p>
+                                                                                    </div>
+                                                                                    <div className="w-32 shrink-0 text-center group relative flex flex-col justify-center">
+                                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap mx-auto ${typeCls}`}>{typeLabel}</span>
+                                                                                        {pkgProgress && (
+                                                                                            <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                                                                                                {pkgProgress}
+                                                                                                <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                                                                            </div>
                                                                                         )}
                                                                                     </div>
-                                                                                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                                                                                        <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
-                                                                                            {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
-                                                                                        </span>
+                                                                                    <div className="w-28 shrink-0 text-center flex flex-col justify-center">
+                                                                                        <div className="text-xs font-medium text-gray-700 truncate">{methodBadge || '—'}</div>
+                                                                                        {isCartaoD30 && !isCanceled && <div className="text-[10px] text-amber-600">D+30</div>}
+                                                                                    </div>
+                                                                                    <div className="w-32 shrink-0 flex flex-col justify-center items-end gap-0.5">
+                                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
                                                                                         {/* Financeiro (Pago/Pendente/Convênio) logo abaixo do valor — sempre
                                                                                             visível, é um eixo independente do status operacional (Atendido)
                                                                                             abaixo dele. Ver DOMAIN_INVARIANTS.md #25: pago não implica
@@ -1981,7 +2004,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                         {paymentBadge && (
                                                                                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${paymentCls}`}>{paymentBadge}</span>
                                                                                         )}
-                                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
+                                                                                    </div>
+                                                                                    <div className="w-20 shrink-0 text-right flex flex-col justify-center">
+                                                                                        <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                                                                            {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
+                                                                                        </span>
                                                                                     </div>
                                                                                 </div>
                                                                                 {showNowAfterThis && <NowMarker />}
@@ -1994,6 +2021,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                     })}
                                                     {isToday && !nowRendered && sortedHours.length > 0 && sortedHours[sortedHours.length - 1] * 60 + 59 < nowMin && <NowMarker />}
                                                 </div>
+                                                </>
                                             );
                                         })()}
                                         {/* Rodapé · Caixa Real */}
