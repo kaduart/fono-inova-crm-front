@@ -30,7 +30,7 @@ export interface MetasV3 {
     metaMensal: number;
     diasUteis: number;
     metaDiariaNecessaria: number;
-    tipoMeta: 'producao' | 'caixa' | 'receitaProjetada';
+    tipoMeta: 'producao' | 'caixa' | 'caixaProjetado';
   };
   realizado: { mes: number; hoje: number };
   realizadoLegado?: { mes: number; hoje: number };
@@ -62,7 +62,8 @@ export interface MetasV3 {
   camadas?: {
     producao: { atingido: number; percentual: number };
     caixa: { atingido: number; percentual: number };
-    receitaProjetada: { atingido: number; percentual: number };
+    // Informativo/liquidez (caixa + pipeline) — nunca é a meta principal.
+    caixaProjetado: { atingido: number; percentual: number };
   };
 }
 
@@ -297,6 +298,8 @@ export interface DashboardV3Data {
     convenio: number;
     liminar: number;
   };
+  recebimentosAntecipados?: number;
+  antecipacoes: number;
   retroativos: number;
   aReceberProducao: number;
   backlogContratado: number;

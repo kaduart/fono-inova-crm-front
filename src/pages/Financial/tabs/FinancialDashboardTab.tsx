@@ -380,7 +380,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const totalProducao = data?.revenue?.total ?? 0;
   const liminarAReceber = data ? Math.max(0, (data.revenue?.byMethod?.liminar || 0) - (data.cash?.breakdown?.liminar || 0)) : 0;
   const totalRecebimentoProducao = data?.recebimentoProducao?.total ?? 0;
-  const totalAntecipacoes = data?.recebimentosAntecipados ?? 0;
+  const totalAntecipacoes = data?.antecipacoes ?? 0;
+  const totalRetroativos = data?.retroativos ?? 0;
   const totalAReceberProducao = data?.aReceberProducao ?? 0;
 
   // 🎯 RITMO OPERACIONAL — deve ficar ANTES dos early returns (Rules of Hooks)
@@ -388,9 +389,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const metas = data?.metas;
     if (!metas?.ritmo) return null;
     const pctEsperado = metas.ritmo.percentualEsperado ?? 0;
-    // Meta = caixa + a receber (percentualRealizado já usa essa base após o fix do backend)
-    const pctRealizado = metas.ritmo?.percentualRealizado ?? metas.camadas?.receitaProjetada?.percentual ?? 0;
-    const pctProducao  = metas.camadas?.producao?.percentual ?? 0;
+    // Meta = produção (regime de competência) — alinhado ao contrato FinancialSemantic.js
+    const pctRealizado = metas.ritmo?.percentualRealizado ?? metas.camadas?.producao?.percentual ?? 0;
+    const pctCaixa     = metas.camadas?.caixa?.percentual ?? 0;
     const diff = pctRealizado - pctEsperado;
     const isAtrasado = diff < 0;
     const bgClass = getMetaBg(metas.statusMeta || 'vermelho');
@@ -422,9 +423,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <span>Meta mensal</span>
               </div>
               <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-                <span className="text-gray-500">💰 Financeiro: <span className="font-black text-emerald-700">{pctRealizado.toFixed(1)}%</span></span>
-                <span className="text-gray-500">🏥 Produção: <span className="font-black text-blue-600">{pctProducao.toFixed(1)}%</span></span>
-                <span className="text-gray-400">📈 Dif.: <span className="font-semibold text-gray-500">+{(pctRealizado - pctProducao).toFixed(1)} p.p.</span></span>
+                <span className="text-gray-500">🏥 Produção: <span className="font-black text-blue-600">{pctRealizado.toFixed(1)}%</span></span>
+                <span className="text-gray-500">💰 Caixa: <span className="font-black text-emerald-700">{pctCaixa.toFixed(1)}%</span></span>
+                <span className="text-gray-400">📈 Dif.: <span className="font-semibold text-gray-500">{(pctCaixa - pctRealizado) >= 0 ? '+' : ''}{(pctCaixa - pctRealizado).toFixed(1)} p.p.</span></span>
                 <span className="text-gray-500">⏳ A Receber: <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducao)}</span></span>
               </div>
             </div>
@@ -444,7 +445,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         </div>
       </div>
     );
-  }, [data?.metas?.ritmo?.percentualEsperado, data?.metas?.ritmo?.percentualRealizado, data?.metas?.ritmo?.esperadoAteAgora, data?.metas?.ritmo?.realizadoAteAgora, data?.metas?.ritmo?.diferenca, data?.metas?.gap?.porDia, data?.metas?.statusMeta, data?.metas?.camadas?.producao?.percentual, data?.aReceberProducao]);
+  }, [data?.metas?.ritmo?.percentualEsperado, data?.metas?.ritmo?.percentualRealizado, data?.metas?.ritmo?.esperadoAteAgora, data?.metas?.ritmo?.realizadoAteAgora, data?.metas?.ritmo?.diferenca, data?.metas?.gap?.porDia, data?.metas?.statusMeta, data?.metas?.camadas?.producao?.percentual, data?.metas?.camadas?.caixa?.percentual, data?.aReceberProducao]);
 
   if (loading) return (
     <div className="p-4">
@@ -876,7 +877,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             {[
               {
                 label: 'Recebido da produção',
-                desc: `pago de sessões deste mês · caixa total ${formatCurrency(cash.total)}${totalAntecipacoes > 0 ? ` (inclui ${formatCurrency(totalAntecipacoes)} de contratos antecipados)` : ''}`,
+                desc: `pago de sessões deste mês · caixa total ${formatCurrency(cash.total)}${(totalRetroativos > 0 || totalAntecipacoes > 0) ? ` (inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação de pacote` : null].filter(Boolean).join(' + ')})` : ''}`,
                 value: totalRecebimentoProducao,
                 bg: '#15803D', border: '#166534',
               },
@@ -988,13 +989,13 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     if (!metas) return <div className="p-4 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">Dados de metas indisponíveis para este período.</div>;
 
     const metaValor        = metas.configuracao?.metaMensal ?? 0;
-    // Meta = caixa + a receber da produção do mês (lógica de negócio)
-    const pctRealizado     = metas.ritmo?.percentualRealizado ?? metas.camadas?.receitaProjetada?.percentual ?? 0;
-    const metaRealizado    = metas.realizado?.mes ?? metas.camadas?.receitaProjetada?.atingido ?? totalProducao;
+    // Meta = produção (regime de competência) — alinhado ao contrato FinancialSemantic.js (META.base = PRODUCTION)
+    const pctRealizado     = metas.ritmo?.percentualRealizado ?? metas.camadas?.producao?.percentual ?? 0;
+    const metaRealizado    = metas.realizado?.mes ?? metas.camadas?.producao?.atingido ?? totalProducao;
     const resultadoEcon    = metaRealizado;
     const caixaTotal       = cash?.total ?? 0;
     const producaoTotal    = revenue?.total ?? 0;
-    const pctProducao      = metas.camadas?.producao?.percentual ?? (metaValor > 0 ? (producaoTotal / metaValor) * 100 : 0);
+    const pctCaixaMeta     = metas.camadas?.caixa?.percentual ?? (metaValor > 0 ? (caixaTotal / metaValor) * 100 : 0);
     // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
     const pendentesTotal   = resumo?.pendentes?.allParticularTotal ?? ((data?.particularPendente || 0) + (data?.pacotePendente || 0));
 
@@ -1092,16 +1093,16 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             {/* Coluna direita — breakdown */}
             <div className="w-44 shrink-0 bg-white/70 rounded-xl px-3 py-2.5 space-y-2 border border-gray-100">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Financeiro</span>
-                <span className="font-black text-emerald-700">{pctRealizado.toFixed(1)}%</span>
+                <span className="text-gray-500">Produção</span>
+                <span className="font-black text-blue-600">{pctRealizado.toFixed(1)}%</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Produção</span>
-                <span className="font-black text-blue-600">{pctProducao.toFixed(1)}%</span>
+                <span className="text-gray-500">Caixa</span>
+                <span className="font-black text-emerald-700">{pctCaixaMeta.toFixed(1)}%</span>
               </div>
               <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-1.5">
                 <span className="text-gray-400">Diferença</span>
-                <span className="font-semibold text-gray-500">+{(pctRealizado - pctProducao).toFixed(1)} p.p.</span>
+                <span className="font-semibold text-gray-500">{(pctCaixaMeta - pctRealizado) >= 0 ? '+' : ''}{(pctCaixaMeta - pctRealizado).toFixed(1)} p.p.</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">A receber</span>
@@ -1128,7 +1129,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Breakdown Financeiro</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
-              { label: 'Caixa recebido',  value: caixaTotal,  color: '#10B981', sub: totalAntecipacoes > 0 ? `inclui ${formatCurrency(totalAntecipacoes)} de meses ant.` : 'dinheiro real recebido' },
+              { label: 'Caixa recebido',  value: caixaTotal,  color: '#10B981', sub: (totalRetroativos > 0 || totalAntecipacoes > 0) ? `inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação` : null].filter(Boolean).join(' + ')}` : 'dinheiro real recebido' },
               { label: 'Produção clínica', value: producaoTotal, color: '#2563EB', sub: 'serviços entregues' },
               { label: 'A receber',        value: totalAReceberProducao, color: '#D97706',
                 sub: convenioAReceber > 0 ? `conv. ${formatCurrency(convenioAReceber)}${totalAReceberProducao - convenioAReceber > 0 ? ` · part. ${formatCurrency(totalAReceberProducao - convenioAReceber)}` : ''}` : 'pendente de recebimento' },
@@ -1376,9 +1377,10 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const pctNaoReceb     = totalProducao > 0 ? Math.round((totalNaoReceb / totalProducao) * 100) : 0;
 
     const margemPct = indicadores?.margemPercentual ?? 0; // ← vem da API
-    const margemStatus = margemPct >= 35
+    // status vem pronto da API (indicadores.statusMargem) — frontend só mapeia enum→texto/cor, não decide o corte.
+    const margemStatus = indicadores?.statusMargem === 'bom'
       ? { text: '🟢 Operação saudável', cls: 'bg-emerald-100 text-emerald-700' }
-      : margemPct >= 20
+      : indicadores?.statusMargem === 'atencao'
       ? { text: '🟡 Margem apertada',   cls: 'bg-amber-100 text-amber-800'   }
       : { text: '🔴 Margem crítica',    cls: 'bg-rose-100 text-rose-700'     };
 

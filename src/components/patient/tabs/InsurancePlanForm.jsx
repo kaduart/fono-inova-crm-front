@@ -14,7 +14,7 @@ import {
   IconButton,
   Paper
 } from '@mui/material';
-import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays } from 'lucide-react';
+import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays, AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import API from '../../../services/api';
 import { toast } from 'react-hot-toast';
@@ -44,7 +44,6 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
 
   const [form, setForm] = useState({
     doctorId: '',
-    sessionsPerWeek: 1,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     slots: [{ dayOfWeek: 1, time: '14:00' }],
     sessionValue: 0,
@@ -67,7 +66,6 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
         // O plano (InsurancePlan) não armazena sessionValue; a referência é a guia.
         sessionValue: activePlan?.sessionValue ?? guide.sessionValue ?? prev.sessionValue,
         doctorId: activePlan?.doctor?._id || base.doctor?._id || base.doctorId || prev.doctorId,
-        sessionsPerWeek: activePlan?.sessionsPerWeek ?? prev.sessionsPerWeek,
         startDate: activePlan?.startDate
           ? format(parseISO(activePlan.startDate), 'yyyy-MM-dd')
           : prev.startDate,
@@ -135,7 +133,9 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
     }));
   };
 
-  const handleSubmit = async () => {
+  const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
+
+  const handleSubmit = () => {
     if (!guide?._id) {
       toast.error('Guia não identificada. Recarregue a página e tente novamente.');
       return;
@@ -151,13 +151,17 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
 
     const isReplace = Boolean(existingPlan);
 
-    if (isReplace) {
-      const generatedCount = existingPlan.generatedAppointments?.length || 0;
-      const msg = generatedCount > 0
-        ? `Este plano já possui ${generatedCount} agendamento(s) gerado(s).\n\nAs alterações serão aplicadas apenas às sessões futuras (a partir de hoje). Sessões já realizadas NÃO serão alteradas.\n\nDeseja prosseguir?`
-        : 'Deseja salvar as alterações no plano de atendimento?';
-      if (!window.confirm(msg)) return;
+    if (isReplace && (existingPlan.generatedAppointments?.length || 0) > 0) {
+      setConfirmReplaceOpen(true);
+      return;
     }
+
+    performSave();
+  };
+
+  const performSave = async () => {
+    setConfirmReplaceOpen(false);
+    const isReplace = Boolean(existingPlan);
 
     setSaving(true);
     try {
@@ -185,7 +189,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
           guideId: guide._id,
           doctorId: form.doctorId,
           specialty: guide.specialty,
-          sessionsPerWeek: Number(form.sessionsPerWeek),
+          sessionsPerWeek: form.slots.length,
           startDate: form.startDate,
           slots: form.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
           sessionValue: Number(form.sessionValue) || 0,
@@ -408,18 +412,16 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
             </Box>
           </Box>
 
-          {/* Row 2: Frequência semanal (50%) + Valor por sessão (50%) */}
+          {/* Row 2: Frequência semanal (derivada dos horários, 50%) + Valor por sessão (50%) */}
           <Box sx={{ display: 'flex', gap: 1.5 }}>
             <Box sx={{ flex: 1 }}>
               <TextField
-                select
-                label="Frequência semanal *"
-                value={form.sessionsPerWeek}
-                onChange={(e) => setForm(prev => ({ ...prev, sessionsPerWeek: e.target.value }))}
+                label="Frequência semanal"
+                value={`${form.slots.length}x por semana`}
                 fullWidth
                 size="small"
-                disabled={mode === 'replace'}
-                helperText={mode === 'replace' ? 'Não editável em plano ativo' : ''}
+                disabled
+                helperText="Definida pela quantidade de horários abaixo"
                 InputProps={{
                   sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
                 }}
@@ -430,11 +432,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                     '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
                   }
                 }}
-              >
-                {[1, 2, 3, 4, 5].map(n => (
-                  <MenuItem key={n} value={n}>{n}x por semana</MenuItem>
-                ))}
-              </TextField>
+              />
             </Box>
             <Box sx={{ flex: 1 }}>
               <TextField
@@ -578,6 +576,55 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
             : (existingPlan ? 'Salvar alterações' : 'Criar plano')}
         </Button>
       </DialogActions>
+
+      <Dialog
+        open={confirmReplaceOpen}
+        onClose={() => setConfirmReplaceOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', overflow: 'hidden' } }}
+      >
+        <DialogContent sx={{ pt: 3.5, pb: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+            <Box sx={{
+              flexShrink: 0, width: 36, height: 36, borderRadius: '12px',
+              bgcolor: '#FFF4E5', color: '#C77B1E',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <AlertTriangle size={18} />
+            </Box>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#2C3E50', mb: 0.5 }}>
+                Confirmar edição do plano ativo
+              </Typography>
+              <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
+                Este plano já tem <strong>{existingPlan?.generatedAppointments?.length || 0} agendamento(s)</strong> gerado(s).
+                Ao salvar, só os agendamentos futuros existentes são ajustados (horário/profissional/valor) ou cancelados
+                se saírem da nova grade — <strong>nenhum agendamento novo é criado aqui</strong>. Sessões já realizadas não são alteradas.
+                Para gerar mais sessões, use o botão "Gerar" depois de salvar.
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
+          <Button
+            onClick={() => setConfirmReplaceOpen(false)}
+            sx={{ textTransform: 'none', borderRadius: '40px', px: 2, fontWeight: 600, color: '#5B6E8C' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={performSave}
+            variant="contained"
+            sx={{
+              textTransform: 'none', borderRadius: '40px', px: 2.5, fontWeight: 700,
+              background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)'
+            }}
+          >
+            Confirmar e salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };

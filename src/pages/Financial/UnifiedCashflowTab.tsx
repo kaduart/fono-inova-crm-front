@@ -153,6 +153,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any | null>(null);
     const [editPayment, setEditPayment]   = useState<any | null>(null);
+    const [groupDetailItems, setGroupDetailItems] = useState<any[] | null>(null);
 
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -170,6 +171,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
         try {
             await API.delete(`/v2/payments/${paymentId}`);
             toast.success('Pagamento removido');
+            setGroupDetailItems(null);
             loadDayData();
         } catch (err: any) {
             toast.error(err?.response?.data?.error || 'Erro ao remover pagamento');
@@ -1132,11 +1134,33 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             groups.delete(key);
                           }
                         }
+
+                        // Agrupar recebimentos repetidos (mesmo paciente/serviço/valor, sessões distintas —
+                        // ex: paciente quitando várias sessões atrasadas de uma vez). Diferente do agrupamento
+                        // acima (splitGroupId/venda de pacote): aqui não é "1 pagamento em várias formas",
+                        // é "N pagamentos distintos iguais" — por isso vira modal de detalhe, não breakdown inline.
+                        const recebimentoGroups = new Map<string, any[]>();
+                        const trulySingles: any[] = [];
+                        for (const t of singles) {
+                          const key = `${t.paciente}|${t.packageId || ''}|${t.tipo}|${t.valor}`;
+                          if (!recebimentoGroups.has(key)) recebimentoGroups.set(key, []);
+                          recebimentoGroups.get(key)!.push(t);
+                        }
+                        for (const [key, items] of recebimentoGroups) {
+                          if (items.length === 1) {
+                            trulySingles.push(items[0]);
+                            recebimentoGroups.delete(key);
+                          }
+                        }
+
                         const groupedItems: any[] = [];
                         for (const [splitGroupId, items] of groups) {
                           groupedItems.push({ _isGroup: true, splitGroupId, items, _id: splitGroupId });
                         }
-                        for (const t of singles) {
+                        for (const [key, items] of recebimentoGroups) {
+                          groupedItems.push({ _isRecebimentoGroup: true, items, _id: `receb_${key}` });
+                        }
+                        for (const t of trulySingles) {
                           groupedItems.push({ _isGroup: false, item: t, _id: t.id });
                         }
 
@@ -1145,7 +1169,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                             if (!g._isGroup) return false;
                           }
                           if (txMetodoFilter === 'all' && txTipoFilter === 'all') return true;
-                          if (g._isGroup) {
+                          if (g._isGroup || g._isRecebimentoGroup) {
                             const passesTipo = txTipoFilter === 'all' || g.items[0].tipo === txTipoFilter;
                             const passesMetodo = txMetodoFilter === 'all' || g.items.some((t: any) => t.metodo === txMetodoFilter);
                             return passesTipo && passesMetodo;
@@ -1156,7 +1180,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                         });
 
                         const totalFiltrado = txFiltradas.reduce((s: number, g: any) => {
-                          if (g._isGroup) return s + g.items.reduce((sum: number, t: any) => sum + t.valor, 0);
+                          if (g._isGroup || g._isRecebimentoGroup) return s + g.items.reduce((sum: number, t: any) => sum + t.valor, 0);
                           return s + g.item.valor;
                         }, 0);
 
@@ -1314,7 +1338,64 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                           );
                         };
 
+                        const renderRecebimentoGroup = (g: any) => {
+                          const first = g.items[0];
+                          const subTipo = first.tipo === 'Pacote' ? 'Sessão de Pacote' : null;
+                          const situacao = first.tipo === 'Convênio' ? 'A Faturar'
+                              : first.tipo === 'Pacote' && (first as any).paymentModel === 'prepaid' ? 'Pré-pago'
+                              : (first as any).isPrepago ? 'Pré-pago'
+                              : 'Pago na Sessão';
+                          const situacaoCls = situacao === 'Pré-pago' ? 'bg-indigo-100 text-indigo-700'
+                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
+                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : 'bg-gray-100 text-gray-600';
+                          const borderCls = first.tipo === 'Pacote' ? 'border-green-500'
+                              : first.tipo === 'Convênio' ? 'border-amber-400'
+                              : 'border-blue-400';
+                          const tipoCls = first.tipo === 'Pacote' ? 'bg-green-100 text-green-800'
+                              : first.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800'
+                              : 'bg-blue-100 text-blue-800';
+                          const totalGrupo = g.items.reduce((s: number, t: any) => s + t.valor, 0);
+                          const metodosUnicos = [...new Set(g.items.map((t: any) => methodLabel(t.metodo)))].join(' + ');
+                          return (
+                              <button
+                                  key={g._id}
+                                  onClick={() => setGroupDetailItems(g.items)}
+                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls} hover:bg-gray-100 transition-colors text-left`}
+                              >
+                                  <div className="w-20 shrink-0">
+                                      <div className="text-[11px] text-gray-400">{first.data}</div>
+                                      <div className="text-[15px] font-semibold text-gray-900 font-mono">{first.hora}</div>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="text-[15px] font-semibold text-gray-900 truncate flex items-center gap-1.5">
+                                          {first.paciente}
+                                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-600">{g.items.length}x</span>
+                                      </div>
+                                      <div className="text-xs text-gray-500 truncate">
+                                          {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
+                                      </div>
+                                  </div>
+                                  <div className="w-28 shrink-0 text-center">
+                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{first.servico}{subTipo ? ' · Sessão' : ''}</span>
+                                  </div>
+                                  <div className="w-28 shrink-0 text-center">
+                                      <div className="text-xs font-medium text-gray-700 truncate">{metodosUnicos}</div>
+                                      <div className="text-[10px] text-gray-400">ver detalhes</div>
+                                  </div>
+                                  <div className="w-20 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{first.tipo}</span>
+                                  </div>
+                                  <div className="w-24 shrink-0 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${situacaoCls}`}>{situacao}</span>
+                                  </div>
+                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
+                              </button>
+                          );
+                        };
+
                         return (
+                            <>
                             <div className="bg-white rounded-lg border border-gray-200 p-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                                     <h3 className="text-base font-semibold">💳 Recebimentos {periodTitle}</h3>
@@ -1355,7 +1436,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             {txMetodoFilter !== 'all' || txTipoFilter !== 'all' || txMultiFilter ? 'Nenhuma transação com esse filtro' : `Nenhuma transação ${isRangeActive ? 'no período' : 'hoje'}`}
                                         </div>
                                     ) : txFiltradas.slice(txPage * txPerPage, (txPage + 1) * txPerPage).map((g: any) => (
-                                        g._isGroup ? renderGroup(g) : renderSingle(g.item)
+                                        g._isGroup ? renderGroup(g) : g._isRecebimentoGroup ? renderRecebimentoGroup(g) : renderSingle(g.item)
                                     ))}
                                     {txFiltradas.length > 0 && (() => {
                                         const totalPages = Math.ceil(txFiltradas.length / txPerPage);
@@ -1398,6 +1479,27 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     })()}
                                 </div>
                             </div>
+                            {groupDetailItems && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                    <div className="fixed inset-0 bg-black/50" onClick={() => setGroupDetailItems(null)} />
+                                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl z-10 max-h-[85vh] overflow-y-auto p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-base font-semibold">
+                                                {groupDetailItems[0]?.paciente} — {groupDetailItems.length} recebimentos
+                                            </h3>
+                                            <button onClick={() => setGroupDetailItems(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">×</button>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {groupDetailItems.map((t: any) => renderSingle(t))}
+                                        </div>
+                                        <div className="flex justify-between items-center px-3 py-2 mt-2 rounded-lg bg-gray-100 border border-gray-200">
+                                            <span className="text-sm font-bold text-gray-700">Total</span>
+                                            <span className="text-sm font-bold text-emerald-600">{formatCurrency(groupDetailItems.reduce((s: number, t: any) => s + t.valor, 0))}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            </>
                         );
                     })()}
 
@@ -1634,6 +1736,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             const filtered = [...dayAppointments]
                                                 .filter((a: any) => (appointmentFilter === 'all' || getEffectiveStatus(a) === appointmentFilter) && (appointmentProfFilter === 'all' || a.professionalName === appointmentProfFilter))
                                                 .sort((a: any, b: any) => toMin(a.time || '00:00') - toMin(b.time || '00:00'));
+                                            // Numeração sequencial do dia (#1, #2...) — ajuda a secretária a referenciar
+                                            // um atendimento específico ("o #5 é o Benjamin") sem depender do horário.
+                                            const seqMap = new Map<string, number>();
+                                            filtered.forEach((a: any, i: number) => seqMap.set(getApptId(a), i + 1));
                                             const hourGroups: Record<number, any[]> = {};
                                             filtered.forEach((a: any) => { const h = parseInt((a.time || '00:00').split(':')[0]) || 0; if (!hourGroups[h]) hourGroups[h] = []; hourGroups[h].push(a); });
                                             const sortedHours = Object.keys(hourGroups).map(Number).sort((a, b) => a - b);
@@ -1662,6 +1768,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                 {showNowBefore && <NowMarker />}
                                                                 <div>
                                                                     {apts.map((a: any, aptIdx: number) => {
+                                                                        const seqNumber = seqMap.get(getApptId(a));
                                                                         const effectiveStatus = getEffectiveStatus(a);
                                                                         const isCanceled = effectiveStatus === 'canceled';
                                                                         const isCompleted = effectiveStatus === 'completed';
@@ -1706,14 +1813,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             a.package ? 'bg-purple-100 text-purple-700' :
                                                                             'bg-blue-100 text-blue-700';
 
-                                                                        // Badge de pagamento (status financeiro)
+                                                                        // Badge financeiro — eixo independente do "Atendimento".
+                                                                        // Reflete só o dinheiro (categorias confiáveis, sem inferir tempo/ordem
+                                                                        // de pagamento: isso exigiria paymentTiming no domínio Payment, não
+                                                                        // existe ainda — ver DOMAIN_INVARIANTS.md #25).
+                                                                        const isConvenioPendente = isConvenio && (a.paymentStatus === 'pending_receipt' || a.paymentStatus === 'not_applicable' || a.paymentStatus === 'pending' || !a.paymentStatus);
                                                                         const paymentBadge =
                                                                             isCanceled ? '× Cancelado' :
-                                                                            isConvenio && isCompleted ? '✓ Atendido' :
-                                                                            isConvenio ? null :
+                                                                            isConvenioPendente ? '🟡 Convênio pendente' :
+                                                                            isConvenio ? '✓ Convênio pago' :
                                                                             isLiminar ? null :
-                                                                            statusFinanceiro === 'Pré-pago' ? '✓ Pago' :
-                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? '✓ Pago na sessão' :
+                                                                            statusFinanceiro === 'Pré-pago' ? '📦 Pacote quitado' :
+                                                                            statusFinanceiro === 'Pago na Sessão' || statusFinanceiro === 'Avaliação Paga' ? '✓ Pago' :
                                                                             statusFinanceiro === 'Pacote Pendente' ? '⌛ Sessão pendente' :
                                                                             statusFinanceiro === 'Pendente' ? '⌛ Pendente' :
                                                                             statusFinanceiro === 'Pago Parcial' ? '◑ Parcial' :
@@ -1721,6 +1832,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                                                                         const paymentCls =
                                                                             isCanceled ? 'bg-red-100 text-red-600' :
+                                                                            paymentBadge?.startsWith('🟡') ? 'bg-amber-100 text-amber-700' :
+                                                                            paymentBadge === '📦 Pacote quitado' ? 'bg-violet-100 text-violet-700' :
                                                                             paymentBadge?.startsWith('✓') ? 'bg-emerald-100 text-emerald-700' :
                                                                             paymentBadge?.startsWith('⌛') ? 'bg-amber-100 text-amber-700' :
                                                                             paymentBadge?.startsWith('◑') ? 'bg-orange-100 text-orange-700' :
@@ -1735,7 +1848,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             m === 'transferencia' || m === 'transferencia_bancaria' ? 'Transf.' : m;
                                                                         const splits: { method: string; amount: number }[] = (a as any).payment?.splitMethods;
                                                                         const pm = a.paymentMethod;
-                                                                        const methodBadge: string | null = (!isCanceled && !isConvenio && !isLiminar)
+                                                                        // Pacote pré-pago/full: dinheiro já entrou na compra do pacote, não nesta
+                                                                        // sessão — mostrar método de pagamento aqui dá a falsa impressão de que
+                                                                        // o valor entrou hoje. Ver caso Victor Gabriel, 2026-07-09.
+                                                                        const methodBadge: string | null = (!isCanceled && !isConvenio && !isLiminar && !isPrepaid)
                                                                             ? (splits?.length >= 2
                                                                                 ? splits.map(s => methodLabel(s.method)).join(' + ')
                                                                                 : pm && pm !== 'pending'
@@ -1749,10 +1865,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             : null;
                                                                         const isCartaoD30 = methodBadge === 'Cartão D+30';
 
-                                                                        // Rótulo de status (canto direito)
+                                                                        // Rótulo de status (canto direito) — eixo puramente operacional
+                                                                        // ("a sessão aconteceu?"). A situação do dinheiro (convênio aguardando
+                                                                        // repasse, pago, pendente etc.) é o paymentBadge, eixo separado.
                                                                         const statusLabel =
                                                                             isCanceled ? 'Cancelado' :
-                                                                            isCompleted ? (isConvenio ? 'Aguarda repasse' : 'Atendido') :
+                                                                            isCompleted ? 'Atendido' :
                                                                             // 'confirmed' = presença confirmada, NÃO é atendimento completado/pago.
                                                                             // Mostrar 'Atendido' aqui já causou confusão real (secretária achava
                                                                             // que só confirmar presença já lançava o pagamento). Ver isCompleted acima.
@@ -1762,9 +1880,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
 
                                                                         const statusLabelCls =
                                                                             isCanceled ? 'bg-rose-100 text-rose-700' :
-                                                                            isCompleted && isConvenio ? 'bg-sky-100 text-sky-700' :
                                                                             isCompleted ? 'bg-emerald-100 text-emerald-800' :
-                                                                            effectiveStatus === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                                                            // Azul (não verde) de propósito: "Confirmado" é operacional, não financeiro.
+                                                                            // Verde fica reservado pra Pago/Atendido, pra não parecer a mesma coisa.
+                                                                            effectiveStatus === 'confirmed' ? 'bg-blue-100 text-blue-700' :
                                                                             effectiveStatus === 'pre_agendado' ? 'bg-amber-100 text-amber-700' :
                                                                             'bg-gray-100 text-gray-600';
 
@@ -1772,7 +1891,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                             isCanceled ? 'border-l-red-400' :
                                                                             isFirstEval ? 'border-l-pink-500' :
                                                                             isCompleted ? 'border-l-emerald-500' :
-                                                                            effectiveStatus === 'confirmed' ? 'border-l-sky-400' :
+                                                                            effectiveStatus === 'confirmed' ? 'border-l-blue-400' :
                                                                             effectiveStatus === 'pre_agendado' ? 'border-l-amber-400' :
                                                                             'border-l-blue-400';
 
@@ -1810,9 +1929,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                     onClick={() => setSelectedApt(a)}
                                                                                     className={`flex items-start gap-3 px-4 py-2.5 border-l-[3px] border-b border-b-gray-50 cursor-pointer transition-colors hover:bg-gray-50/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isCompleted ? 'bg-emerald-100/70' : isFirstEval ? 'bg-pink-50/60' : ''}`}
                                                                                 >
-                                                                                    <div className="w-12 shrink-0 pt-0.5 text-right">
-                                                                                        {aptIdx === 0 && <span className="text-[9px] font-bold text-gray-300 tracking-widest block leading-none mb-0.5">{String(hour).padStart(2,'0')}H</span>}
-                                                                                        <span className={`text-sm font-bold font-mono leading-none ${isCanceled ? 'text-gray-300' : 'text-gray-700'}`}>{a.time || '--:--'}</span>
+                                                                                    <div className="w-14 shrink-0 pt-0.5 text-right">
+                                                                                        {aptIdx === 0 && <span className="text-[9px] font-bold text-gray-300 tracking-widest block leading-none mb-1">{String(hour).padStart(2,'0')}H</span>}
+                                                                                        <div className="flex items-center justify-end gap-1">
+                                                                                            {seqNumber != null && (
+                                                                                                <span className="text-[9px] font-bold text-gray-400 bg-gray-100 rounded-full w-4 h-4 inline-flex items-center justify-center shrink-0" title="Ordem de atendimento do dia">{seqNumber}</span>
+                                                                                            )}
+                                                                                            <span className={`text-sm font-bold font-mono leading-none ${isCanceled ? 'text-gray-300' : 'text-gray-700'}`}>{a.time || '--:--'}</span>
+                                                                                        </div>
                                                                                     </div>
                                                                                     <div className="flex-1 min-w-0">
                                                                                         <div className="flex items-center gap-2 mb-1.5">
@@ -1830,7 +1954,6 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                             {pkgProgress && <span className="text-gray-300 text-[10px] select-none">|</span>}
                                                                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeCls}`}>{typeLabel}</span>
                                                                                             {methodBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{methodBadge}</span></>}
-                                                                                            {paymentBadge && <><span className="text-gray-300 text-[10px] select-none">|</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${paymentCls}`}>{paymentBadge}</span></>}
                                                                                             {a.specialty && <><span className="text-gray-300 text-[10px] select-none">|</span><span className="text-[10px] text-gray-400">{a.specialty}</span></>}
                                                                                             {a.professionalName && (
                                                                                                 <>
@@ -1850,6 +1973,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                                                                         <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
                                                                                             {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
                                                                                         </span>
+                                                                                        {/* Financeiro (Pago/Pendente/Convênio) logo abaixo do valor — sempre
+                                                                                            visível, é um eixo independente do status operacional (Atendido)
+                                                                                            abaixo dele. Ver DOMAIN_INVARIANTS.md #25: pago não implica
+                                                                                            atendido, e vice-versa — os dois precisam aparecer sempre juntos
+                                                                                            pra não deixar dúvida sobre se o dinheiro entrou ou não. */}
+                                                                                        {paymentBadge && (
+                                                                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${paymentCls}`}>{paymentBadge}</span>
+                                                                                        )}
                                                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
                                                                                     </div>
                                                                                 </div>
@@ -2419,7 +2550,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 open={!!editPayment}
                 payment={editPayment}
                 onClose={() => setEditPayment(null)}
-                onSuccess={() => { setEditPayment(null); loadDayData(); }}
+                onSuccess={() => { setEditPayment(null); setGroupDetailItems(null); loadDayData(); }}
             />
         )}
         </div>

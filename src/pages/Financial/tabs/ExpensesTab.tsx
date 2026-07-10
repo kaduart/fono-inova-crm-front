@@ -35,6 +35,8 @@ import {
   BarChart3,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Info,
   X,
   Package,
@@ -82,6 +84,8 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
     doctorName: string;
     items: Array<{ sessionId: string; date: string; time: string | null; patientName: string; value: number; commissionValue: number; isPackage: boolean; packageSessionType: string | null }>;
   } | null>(null);
+  const [commissionSessionsPage, setCommissionSessionsPage] = useState(1);
+  const COMMISSION_SESSIONS_PAGE_SIZE = 5;
 
   const openCommissionSessions = async (expense: any) => {
     const doctorId = expense.relatedDoctor?._id || expense.relatedDoctor?.id;
@@ -92,6 +96,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
     setCommissionSessionsOpen(true);
     setCommissionSessionsLoading(true);
     setCommissionSessionsData(null);
+    setCommissionSessionsPage(1);
     try {
       const res = await API.get(`/v2/professionals/${doctorId}/commission-sessions`, {
         params: { startDate: start, endDate: end }
@@ -679,45 +684,85 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   </div>
                 );
               })()}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-500 border-b">
-                      <th className="px-2 py-2">Data</th>
-                      <th className="px-2 py-2">Hora</th>
-                      <th className="px-2 py-2">Paciente</th>
-                      <th className="px-2 py-2">Tipo</th>
-                      <th className="px-2 py-2 text-right">Valor atendido</th>
-                      <th className="px-2 py-2 text-right">Comissão</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {commissionSessionsData.items.map((item) => (
-                      <tr key={item.sessionId} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="px-2 py-2">{safeFormat(item.date, 'dd/MM/yyyy')}</td>
-                        <td className="px-2 py-2">{item.time || '—'}</td>
-                        <td className="px-2 py-2">{item.patientName}</td>
-                        <td className="px-2 py-2">
-                          {item.isPackage ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
-                              <Package size={12} />
-                              Pacote{item.packageSessionType ? ` · ${item.packageSessionType}` : ''}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">Avulsa</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-right font-medium">
-                          R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-2 py-2 text-right font-semibold text-amber-700">
-                          R$ {(item.commissionValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {(() => {
+                const items = commissionSessionsData.items;
+                const totalPages = Math.max(1, Math.ceil(items.length / COMMISSION_SESSIONS_PAGE_SIZE));
+                const currentPage = Math.min(commissionSessionsPage, totalPages);
+                const startIdx = (currentPage - 1) * COMMISSION_SESSIONS_PAGE_SIZE;
+                const pageItems = items.slice(startIdx, startIdx + COMMISSION_SESSIONS_PAGE_SIZE);
+
+                return (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-gray-500 border-b">
+                            <th className="px-2 py-2">#</th>
+                            <th className="px-2 py-2">Data</th>
+                            <th className="px-2 py-2">Hora</th>
+                            <th className="px-2 py-2">Paciente</th>
+                            <th className="px-2 py-2">Tipo</th>
+                            <th className="px-2 py-2 text-right">Valor atendido</th>
+                            <th className="px-2 py-2 text-right">Comissão</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pageItems.map((item, idx) => (
+                            <tr key={item.sessionId} className="border-b last:border-0 hover:bg-gray-50">
+                              <td className="px-2 py-2 text-gray-400">{startIdx + idx + 1}</td>
+                              <td className="px-2 py-2">{safeFormat(item.date, 'dd/MM/yyyy')}</td>
+                              <td className="px-2 py-2">{item.time || '—'}</td>
+                              <td className="px-2 py-2">{item.patientName}</td>
+                              <td className="px-2 py-2">
+                                {item.isPackage ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                                    <Package size={12} />
+                                    Pacote{item.packageSessionType ? ` · ${item.packageSessionType}` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">Avulsa</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-2 text-right font-medium">
+                                R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="px-2 py-2 text-right font-semibold text-amber-700">
+                                R$ {(item.commissionValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
+                        <span>
+                          Mostrando {startIdx + 1}–{Math.min(startIdx + COMMISSION_SESSIONS_PAGE_SIZE, items.length)} de {items.length}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <IconButton
+                            size="small"
+                            disabled={currentPage === 1}
+                            onClick={() => setCommissionSessionsPage(p => Math.max(1, p - 1))}
+                          >
+                            <ChevronLeft size={18} />
+                          </IconButton>
+                          <span className="font-medium text-gray-700">
+                            Página {currentPage} de {totalPages}
+                          </span>
+                          <IconButton
+                            size="small"
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCommissionSessionsPage(p => Math.min(totalPages, p + 1))}
+                          >
+                            <ChevronRight size={18} />
+                          </IconButton>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
         </DialogContent>
