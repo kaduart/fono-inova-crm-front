@@ -24,6 +24,7 @@ export interface TherapyConfig {
   slots: TherapySlot[];
   sessionValue: number;
   sessionDurationMinutes: number;
+  notes?: string | null;
 }
 
 export interface TherapeuticPlan {
@@ -62,11 +63,25 @@ export interface ContractIntegrity {
   summary: { expected: number; generated: number; completed: number; pending: number; missing: number; integrityPercent: number };
 }
 
+export interface ExhaustionProjection {
+  methodology: 'scheduled_plan' | 'historical_last_weeks';
+  treatmentStartDate: string | null;
+  averageSessionsPerWeek: number;
+  averageSessionValue: number;
+  weeklyConsumption: number;
+  remainingSessions: number;
+  remainingWeeks: number;
+  estimatedExhaustionDate: string;
+  confidence: 'high' | 'medium' | 'low';
+  sampleWeeks: number;
+}
+
 export interface CommittedBalance {
   creditBalance: number;
   usedCredit: number;
   committed: number;
   available: number;
+  projection: ExhaustionProjection | null;
 }
 
 const liminarContractService = {
@@ -151,6 +166,7 @@ const liminarContractService = {
       sessionValue?: number;
       sessionDurationMinutes?: number;
       slots?: Array<{ dayOfWeek: number; time: string }>;
+      notes?: string | null;
     }
   ): Promise<{ plan: TherapeuticPlan; appointmentsUpdated: number; appointmentsCanceled: number }> {
     const res = await API.patch(

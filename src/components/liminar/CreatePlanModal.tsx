@@ -8,6 +8,7 @@ import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 import { getSpecialtyLabel } from '../../constants/specialties';
+import { TherapeuticPlan } from '../../services/liminarContractService';
 
 const SPECIALTIES = [
   { value: 'fonoaudiologia', label: getSpecialtyLabel('fonoaudiologia') },
@@ -34,20 +35,37 @@ interface TherapyEntry {
   sessionValue: number;
   sessionDurationMinutes: number;
   slots: Array<{ dayOfWeek: number | ''; time: string }>;
+  notes: string;
 }
 
 function emptyEntry(): TherapyEntry {
-  return { specialty: '', doctor: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [{ dayOfWeek: '', time: '' }] };
+  return { specialty: '', doctor: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [{ dayOfWeek: '', time: '' }], notes: '' };
+}
+
+// "Nova versão" deve clonar o plano vigente, não nascer em branco — reconstruir
+// especialidades já existentes manualmente é operação de risco (perda silenciosa
+// de terapia esquecida). Ver memória de projeto: therapeuticplan_new_version_ux_flaw.
+function entriesFromPlan(plan?: TherapeuticPlan | null): TherapyEntry[] {
+  if (!plan?.therapies || Object.keys(plan.therapies).length === 0) return [emptyEntry()];
+  return Object.entries(plan.therapies).map(([specialty, config]) => ({
+    specialty,
+    doctor: (config.doctor as any)?._id ?? config.doctor ?? '',
+    sessionValue: config.sessionValue ?? 0,
+    sessionDurationMinutes: config.sessionDurationMinutes ?? 40,
+    slots: config.slots?.length ? config.slots.map((s) => ({ dayOfWeek: s.dayOfWeek, time: s.time })) : [{ dayOfWeek: '', time: '' }],
+    notes: config.notes ?? '',
+  }));
 }
 
 interface Props {
   contractId: string;
+  activePlan?: TherapeuticPlan | null;
   onClose: () => void;
   onCreated: () => void;
 }
 
-export default function CreatePlanModal({ contractId, onClose, onCreated }: Props) {
-  const [entries, setEntries] = useState<TherapyEntry[]>([emptyEntry()]);
+export default function CreatePlanModal({ contractId, activePlan, onClose, onCreated }: Props) {
+  const [entries, setEntries] = useState<TherapyEntry[]>(() => entriesFromPlan(activePlan));
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [doctors, setDoctors] = useState<Array<{ _id: string; fullName: string; specialty?: string }>>([]);
@@ -124,12 +142,13 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
         sessionValue: entry.sessionValue,
         sessionDurationMinutes: entry.sessionDurationMinutes,
         slots: entry.slots.map((s) => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
+        notes: entry.notes || null,
       };
     }
 
     try {
       await liminarContractService.createPlan(contractId, { therapies, notes: notes || undefined });
-      toast.success('Plano terapêutico criado!');
+      toast.success(activePlan ? 'Nova versão do plano criada!' : 'Plano terapêutico criado!');
       onCreated();
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? 'Erro ao criar plano');
@@ -147,7 +166,9 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">Criar Plano Terapêutico</h2>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              {activePlan ? `Nova versão do plano (v${activePlan.version + 1})` : 'Criar Plano Terapêutico'}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -159,6 +180,11 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50/30">
+            {activePlan && (
+              <p className="text-xs px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Esta versão foi criada a partir da versão anterior (v{activePlan.version}) — as especialidades já vêm preenchidas abaixo. Edite apenas o que deseja alterar.
+              </p>
+            )}
             {entries.map((entry, eIdx) => (
               <div
                 key={eIdx}
@@ -306,6 +332,19 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
                     <Plus className="w-3.5 h-3.5" /> Adicionar horário
                   </button>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
+                    <FileText size={12} /> Observações desta especialidade (opcional)
+                  </label>
+                  <textarea
+                    value={entry.notes}
+                    onChange={(e) => updateEntry(eIdx, 'notes', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400 transition-all"
+                    placeholder="Ex: orientação parental, atendida pela responsável..."
+                  />
+                </div>
               </div>
             ))}
 
@@ -321,7 +360,7 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
-                <FileText size={12} /> Observações (opcional)
+                <FileText size={12} /> Observações gerais do plano (opcional)
               </label>
               <textarea
                 value={notes}
@@ -357,7 +396,7 @@ export default function CreatePlanModal({ contractId, onClose, onCreated }: Prop
                   Salvando...
                 </span>
               ) : (
-                'Criar Plano'
+                activePlan ? 'Salvar nova versão' : 'Criar Plano'
               )}
             </button>
           </div>

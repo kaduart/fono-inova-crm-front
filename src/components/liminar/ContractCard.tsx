@@ -28,11 +28,14 @@ import { IDoctor, SelectedEvent } from '../../utils/types/types';
 import { getSpecialtyTheme } from '../../constants/specialtyThemes';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import CreatePlanModal from './CreatePlanModal';
-import PlanView from './PlanView';
 
 // Cor de "faltando/pendente de agenda" — neutra de propósito: não deve competir visualmente
 // com laranja/vermelho de risco real (saldo baixo, vencimento), que têm significado diferente.
 const NEUTRAL_MISSING_COLOR = { bar: '#94A3B8', text: '#475569', dot: '#94A3B8' };
+
+const DAY_LABELS: Record<number, string> = {
+  0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb',
+};
 
 const PALETTES = [
   { from: '#B45309', to: '#D97706', bar: 'linear-gradient(90deg,#D97706aa,#D97706)', icon: '#D97706', badge: '#FFF7ED', badgeText: '#92400E', badgeBorder: '#FDE68A' },
@@ -79,6 +82,8 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   const [generating, setGenerating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
+  const [projectionDetailsExpanded, setProjectionDetailsExpanded] = useState(false);
+  const [expandedTherapyCard, setExpandedTherapyCard] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [showRecharge, setShowRecharge] = useState(false);
@@ -106,7 +111,8 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
     sessionValue: number;
     sessionDurationMinutes: number;
     slots: Array<{ dayOfWeek: number | ''; time: string }>;
-  }>({ open: false, specialty: '', doctorId: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [] });
+    notes: string;
+  }>({ open: false, specialty: '', doctorId: '', sessionValue: 0, sessionDurationMinutes: 40, slots: [], notes: '' });
   const [modalDoctors, setModalDoctors] = useState<Array<{ _id: string; fullName: string; specialty?: string }>>([]);
   const [modalDoctorsLoading, setModalDoctorsLoading] = useState(false);
   const [savingTherapy, setSavingTherapy] = useState(false);
@@ -266,6 +272,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       sessionValue: config?.sessionValue ?? 0,
       sessionDurationMinutes: config?.sessionDurationMinutes ?? 40,
       slots: (config?.slots ?? [{ dayOfWeek: '', time: '' }]).map((s: any) => ({ ...s })),
+      notes: config?.notes ?? '',
     });
     if (modalDoctors.length === 0) {
       setModalDoctorsLoading(true);
@@ -289,6 +296,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           slots: editTherapyModal.slots
             .filter(s => s.dayOfWeek !== '' && s.time)
             .map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
+          notes: editTherapyModal.notes || null,
         }
       );
       const parts: string[] = [];
@@ -386,11 +394,88 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           <span>Comprom.: <b style={{ color: '#ED6C02' }}>R$ {fmt(committed?.committed ?? 0)}</b></span>
         </div>
 
-        <div className="w-full rounded-full overflow-hidden mb-1" style={{ height: 6, background: '#E9EEF2' }}>
+        <div className="relative w-full rounded-full overflow-hidden" style={{ height: 16, background: '#E9EEF2' }}>
           <div style={{ width: `${balancePct}%`, height: '100%', background: barColor, borderRadius: 9999, transition: 'width 0.5s' }} />
+          <span
+            className="absolute inset-0 flex items-center justify-center text-[10px] font-bold"
+            style={{ color: balancePct > 45 ? '#fff' : '#1A2C3E' }}
+          >
+            {balancePct.toFixed(0)}% disponível
+          </span>
         </div>
-        <div className="text-right text-xs" style={{ color: '#8A99B0' }}>{balancePct.toFixed(0)}% disponível</div>
+
       </div>
+
+      {/* ══ Camada 2b: Previsão — painel de decisão, separado do saldo atual ══ */}
+      {committed?.projection && (() => {
+        const proj = committed.projection;
+        const confidenceLabel = proj.confidence === 'high' ? 'alta' : proj.confidence === 'medium' ? 'média' : 'baixa';
+        const confidenceDot = proj.confidence === 'high' ? '#10B981' : proj.confidence === 'medium' ? '#F59E0B' : '#EF4444';
+        const confidenceColor = proj.confidence === 'high'
+          ? { bg: '#D1FAE5', text: '#065F46' }
+          : proj.confidence === 'medium'
+            ? { bg: '#FEF3C7', text: '#92400E' }
+            : { bg: '#FEE2E2', text: '#991B1B' };
+        const methodologyLabel = proj.methodology === 'scheduled_plan'
+          ? 'agenda confirmada'
+          : `histórico das últimas ${proj.sampleWeeks} semanas`;
+        const startLabel = proj.treatmentStartDate
+          ? new Date(proj.treatmentStartDate).toLocaleDateString('pt-BR')
+          : '—';
+        const endLabel = new Date(proj.estimatedExhaustionDate).toLocaleDateString('pt-BR');
+        const roundedRemaining = Math.round(proj.remainingSessions);
+
+        return (
+          <div className="px-5 py-4 border-t" style={{ borderColor: '#EDF2F7', background: '#FAFBFD' }}>
+            <span className="block text-xs font-semibold mb-2" style={{ color: '#5B6E8C' }}>Previsão de término</span>
+
+            <div className="flex items-end justify-between mb-3">
+              <span className="font-bold text-2xl" style={{ color: '#1A2C3E' }}>{endLabel}</span>
+              <span
+                className="text-xs px-2 py-1 rounded-full font-semibold flex items-center gap-1 flex-shrink-0"
+                style={{ background: confidenceColor.bg, color: confidenceColor.text }}
+              >
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: confidenceDot }} />
+                confiança {confidenceLabel}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <div>
+                <span className="block text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Ritmo atual</span>
+                <span className="text-sm font-semibold" style={{ color: '#1A2C3E' }}>{proj.averageSessionsPerWeek} sess./sem</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Consumo/sem</span>
+                <span className="text-sm font-semibold whitespace-nowrap" style={{ color: '#1A2C3E' }}>R$ {fmt(proj.weeklyConsumption)}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Restantes</span>
+                <span className="text-sm font-semibold" style={{ color: '#1A2C3E' }}>≈{roundedRemaining} sessões</span>
+              </div>
+            </div>
+
+            <div className="text-xs mb-1" style={{ color: '#A0AABF' }}>Base: {methodologyLabel}</div>
+
+            <button
+              onClick={() => setProjectionDetailsExpanded(v => !v)}
+              className="w-full flex items-center justify-center gap-1 mt-1 py-1 text-xs font-medium transition-colors hover:opacity-70"
+              style={{ color: '#8A99B0' }}
+            >
+              Detalhes da projeção
+              <ChevronDown
+                className="w-3 h-3 transition-transform duration-200"
+                style={{ transform: projectionDetailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              />
+            </button>
+            {projectionDetailsExpanded && (
+              <div className="text-xs text-center mt-1" style={{ color: '#8A99B0' }}>
+                Período analisado: {startLabel} até {endLabel}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Gatilho do accordion: dentro do card, na borda entre Summary e Breakdown ── */}
       <button
@@ -565,17 +650,34 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                         ) : (
                           <p className="text-xs italic" style={{ color: '#A0AABF' }}>Carregando integridade...</p>
                         )}
+
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setExpandedTherapyCard(prev => prev === specialty ? null : specialty); }}
+                          className="w-full flex items-center justify-center gap-1 pt-1 text-xs font-medium transition-colors hover:opacity-70"
+                          style={{ color: spTheme.text }}
+                        >
+                          Horários
+                          <ChevronDown
+                            className="w-3 h-3 transition-transform duration-200"
+                            style={{ transform: expandedTherapyCard === specialty ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                          />
+                        </button>
+                        {expandedTherapyCard === specialty && (
+                          <div className="flex flex-wrap gap-1.5 justify-center pt-1">
+                            {(config.slots ?? []).map((slot: any, i: number) => (
+                              <span
+                                key={i}
+                                className="text-xs px-2 py-1 rounded-full font-medium"
+                                style={{ background: 'rgba(255,255,255,0.7)', color: spTheme.text, border: `1px solid ${spTheme.border}` }}
+                              >
+                                {DAY_LABELS[slot.dayOfWeek]} {slot.time}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
-                </div>
-
-                <div className="mt-3 border-t pt-3" style={{ borderColor: '#EDF2F7' }}>
-                  <PlanView
-                    plan={plan}
-                    onSpecialtyClick={openSpecialtyModal}
-                    onEditDoctor={(specialty) => openEditTherapyModal(specialty, plan.therapies?.[specialty])}
-                  />
                 </div>
 
               {contract.status === 'active' && (
@@ -884,6 +986,17 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 </button>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Observações desta especialidade</label>
+                <textarea
+                  value={editTherapyModal.notes}
+                  onChange={(e) => setEditTherapyModal(p => ({ ...p, notes: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-400"
+                  placeholder="Ex: orientação parental, atendida pela responsável..."
+                />
+              </div>
+
               <p className="text-xs text-slate-400">Sessões já confirmadas/completadas não serão alteradas.</p>
             </div>
 
@@ -913,6 +1026,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       {showCreatePlan && (
         <CreatePlanModal
           contractId={contract._id}
+          activePlan={plan}
           onClose={() => setShowCreatePlan(false)}
           onCreated={() => { setShowCreatePlan(false); onRefresh(); }}
         />
