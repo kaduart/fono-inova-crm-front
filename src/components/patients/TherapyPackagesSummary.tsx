@@ -119,8 +119,8 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             await fetchBasicPackages();
         } catch (err: any) {
             console.error('Erro:', err);
-            const apiMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message;
-            toast.error(apiMessage || `Falha ao ${modalAction === 'edit' ? 'atualizar' : 'registrar'} sessão`);
+            // Não mostra toast aqui: TherapyPackageCard.handleSessionSubmit já
+            // trata o erro relançado (inclusive mensagens de conflito de agenda).
             throw err;
         }
     };
