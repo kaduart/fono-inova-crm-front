@@ -169,6 +169,7 @@ export const DoctorsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.log('[DoctorsContext] Logout detected, clearing doctors...');
       setDoctors([]);
       invalidateCache('doctors');
+      isInitialLoad.current = true; // permite recarregar no próximo authReady (novo login sem reload)
     };
 
     // Só carrega se tiver token

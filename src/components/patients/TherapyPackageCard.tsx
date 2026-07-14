@@ -1,4 +1,4 @@
-import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -8,6 +8,7 @@ import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
+import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import { extractScheduleConflictMessage } from '../../utils/errorUtils';
 
@@ -80,6 +81,7 @@ export default function TherapyPackageCard({
   const [isBatchCanceling, setIsBatchCanceling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
+  const [showSessionsCalendarModal, setShowSessionsCalendarModal] = useState(false);
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
@@ -253,7 +255,38 @@ export default function TherapyPackageCard({
     const ns = normalizeStatus(s.status);
     return ns === 'completed' || ns === 'canceled';
   }) || [];
-  
+
+  // 🔥 NOVO: Eventos pro PatientMiniCalendar (mesmo componente reaproveitado
+  // por liminar/ContractCard e convênio/PatientInsuranceTab). 'pending' vira
+  // 'scheduled' porque o calendário não distingue os dois visualmente.
+  //
+  // ⚠️ pack.sessions[].date NÃO é "YYYY-MM-DD" (diferente do Appointment usado
+  // por liminar/convênio) — vem como Date.toString() (ex: "Tue Jun 23 2026
+  // 15:20:00 GMT-0300 (...)"), e o horário embutido nele pode nem bater com
+  // `time` (é `time` que manda). Extrai a data com getters locais (não
+  // toISOString) — em UTC-3, sessões >=21h virariam o dia seguinte se
+  // convertidas pra UTC. Mesmo cuidado de buildLocalDateOnly em dateFormat.ts.
+  // pack.sessions[] não carrega doctorId por sessão nesse endpoint — todo
+  // pacote particular é de um terapeuta só, então usa o médico do pacote
+  // (searchFields.doctorName já vem denormalizado da view; professional é o fallback por id).
+  const packageDoctorName = pack.searchFields?.doctorName
+    || doctors?.find(d => d._id === pack.professional)?.fullName;
+  const sessionCalendarEvents = (pack.sessions || [])
+    .map(s => {
+      const ns = normalizeStatus(s.status);
+      const parsedDate = new Date(s.date);
+      if (isNaN(parsedDate.getTime())) return null;
+      const isoDate = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDate.getDate()).padStart(2, '0')}`;
+      return {
+        _id: s._id,
+        start: `${isoDate}T${s.time || '08:00'}`,
+        doctor: packageDoctorName ? { fullName: packageDoctorName } : undefined,
+        operationalStatus: ns === 'pending' ? 'scheduled' : ns,
+        __session: s,
+      };
+    })
+    .filter((e): e is NonNullable<typeof e> => e !== null);
+
   const toggleSessionSelection = (sessionId: string) => {
     setSelectedSessionIds(prev => {
       const newSet = new Set(prev);
@@ -969,7 +1002,7 @@ export default function TherapyPackageCard({
             )}
           </div>
           
-          {/* 🔥 NOVO: Checkbox Selecionar Todos (só aparece se tiver sessões agendadas) */}
+          {/* 🔥 NOVO: Checkbox Selecionar Todos (só aparece se tiver sessões agendadas, e só na Lista) */}
           {isExpanded && scheduledSessions.length > 0 && (
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <label className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
@@ -1019,27 +1052,37 @@ export default function TherapyPackageCard({
 
         {isExpanded && (
           <div className="px-6 pb-4 space-y-3">
-            {/* Tabs: Ativas / Histórico */}
-            <div className="flex gap-2 pt-1 border-b border-gray-100 pb-2">
+            {/* Tabs: Ativas / Histórico + botão que abre o calendário em modal */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-b border-gray-100 pb-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSessionTab('active'); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    sessionTab === 'active'
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Ativas ({activeSessions.length})
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSessionTab('history'); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    sessionTab === 'history'
+                      ? 'bg-gray-200 text-gray-700 border border-gray-300'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Histórico ({historySessions.length})
+                </button>
+              </div>
+
               <button
-                onClick={(e) => { e.stopPropagation(); setSessionTab('active'); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  sessionTab === 'active'
-                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                    : 'text-gray-500 hover:bg-gray-100'
-                }`}
+                onClick={(e) => { e.stopPropagation(); setShowSessionsCalendarModal(true); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors"
               >
-                Ativas ({activeSessions.length})
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setSessionTab('history'); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  sessionTab === 'history'
-                    ? 'bg-gray-200 text-gray-700 border border-gray-300'
-                    : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                Histórico ({historySessions.length})
+                <Calendar className="w-3.5 h-3.5" />
+                Calendário
               </button>
             </div>
 
@@ -1078,6 +1121,46 @@ export default function TherapyPackageCard({
           </div>
         )}
       </div>
+
+      {/* 🔥 NOVO: Modal de calendário das sessões (mesmo padrão do specialtyModal em ContractCard.tsx / liminar e do "Detalhes da Guia" em convênio) */}
+      {showSessionsCalendarModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-800">Sessões — {pack.sessionType?.replace(/_/g, ' ')}</h3>
+                <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Realizada</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Confirmada</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Agendada</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Cancelada</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSessionsCalendarModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto overflow-x-auto p-5">
+              {sessionCalendarEvents.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-10">Nenhuma sessão registrada neste pacote.</p>
+              ) : (
+                <div className="min-w-[640px]">
+                  <PatientMiniCalendar
+                    appointments={sessionCalendarEvents as any}
+                    onEventClick={(appt) => {
+                      setShowSessionsCalendarModal(false);
+                      openModalWithAction('edit', appt.__session);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

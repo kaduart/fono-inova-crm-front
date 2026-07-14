@@ -303,6 +303,7 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTotalPatients(0);
       setPatientOverview(null);
       invalidateCache('patients');
+      isInitialLoad.current = true; // permite recarregar no próximo authReady (novo login sem reload)
     };
 
     // Só carrega se tiver token válido (mesma verificação de api.ts)
