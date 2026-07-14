@@ -1790,7 +1790,12 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
               >
                 <MenuItem value=""><em>Manter atual</em></MenuItem>
                 {doctors
-                  .filter(d => !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase())
+                  .filter(d => {
+                    if (!guide?.specialty) return true;
+                    const target = guide.specialty.toLowerCase();
+                    const allowed = [d.specialty, ...(d.specialties || [])].map(s => (s || '').toLowerCase());
+                    return allowed.includes(target);
+                  })
                   .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
               </Select>
             </FormControl>
@@ -1988,7 +1993,9 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             <MenuItem value=""><em>Sem alteração</em></MenuItem>
             {doctors
               .filter(d => {
-                const matchesGuideSpecialty = !guide?.specialty || (d.specialty || '').toLowerCase() === (guide.specialty || '').toLowerCase();
+                const target = (guide?.specialty || '').toLowerCase();
+                const allowed = [d.specialty, ...(d.specialties || [])].map(s => (s || '').toLowerCase());
+                const matchesGuideSpecialty = !guide?.specialty || allowed.includes(target);
                 const isCurrentDoctor = d._id === editingAppt?.doctor?._id;
                 return matchesGuideSpecialty || isCurrentDoctor;
               })

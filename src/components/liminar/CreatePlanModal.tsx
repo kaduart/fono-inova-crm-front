@@ -68,7 +68,7 @@ export default function CreatePlanModal({ contractId, activePlan, onClose, onCre
   const [entries, setEntries] = useState<TherapyEntry[]>(() => entriesFromPlan(activePlan));
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
-  const [doctors, setDoctors] = useState<Array<{ _id: string; fullName: string; specialty?: string }>>([]);
+  const [doctors, setDoctors] = useState<Array<{ _id: string; fullName: string; specialty?: string; specialties?: string[] }>>([]);
 
   useEffect(() => {
     doctorService.getActiveDoctors().then((res: any) => {
@@ -167,7 +167,7 @@ export default function CreatePlanModal({ contractId, activePlan, onClose, onCre
               <FileText className="w-5 h-5 text-white" />
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
-              {activePlan ? `Nova versão do plano (v${activePlan.version + 1})` : 'Criar Plano Terapêutico'}
+              {activePlan ? `Nova versão do plano` : 'Criar Plano Terapêutico'}
             </h2>
           </div>
           <button
@@ -249,7 +249,12 @@ export default function CreatePlanModal({ contractId, activePlan, onClose, onCre
                         {entry.specialty ? 'Selecione o profissional' : 'Selecione a especialidade primeiro'}
                       </option>
                       {doctors
-                        .filter((d) => !entry.specialty || (d.specialty || '').toLowerCase() === entry.specialty.toLowerCase())
+                        .filter((d) => {
+                          if (!entry.specialty) return true;
+                          const target = entry.specialty.toLowerCase();
+                          const allowed = [d.specialty, ...(d.specialties || [])].map((s) => (s || '').toLowerCase());
+                          return allowed.includes(target);
+                        })
                         .map((d) => (
                           <option key={d._id} value={d._id}>{d.fullName}</option>
                         ))}

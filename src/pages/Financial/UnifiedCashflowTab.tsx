@@ -2321,7 +2321,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             const isConvenio = apt.billingType === 'convenio' || !!apt.insuranceProvider;
             const isLiminar = apt.billingType === 'liminar';
             const formatConvenioName = (name: string) => name ? name.replace(/-/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Convênio';
-            const aptDate = apt.date ? new Date(apt.date + 'T12:00:00').toLocaleDateString('pt-BR') : selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+            const aptDate = apt.date ? new Date(apt.date.slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR') : selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : '';
 
             const tx = (data?.transacoes || []).find((t: any) =>
                 t.hora === apt.time &&
@@ -2408,6 +2408,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     {apt.cancelReason
                                         ? <p className="text-sm text-red-800 whitespace-pre-line">{apt.cancelReason}</p>
                                         : <p className="text-sm text-red-400 italic">Nenhum motivo registrado.</p>}
+                                    {(apt.canceledBy?.fullName || apt.canceledAt) && (
+                                        <p className="text-xs text-red-500 mt-2">
+                                            {apt.canceledBy?.fullName ? `Cancelado por ${apt.canceledBy.fullName}` : 'Cancelado'}
+                                            {apt.canceledAt ? ` em ${new Date(apt.canceledAt).toLocaleDateString('pt-BR')} às ${new Date(apt.canceledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                        </p>
+                                    )}
+                                    {valor > 0 && (
+                                        <p className="text-xs text-red-500 mt-1">Valor que seria cobrado: <span className="font-semibold">{formatCurrency(valor)}</span></p>
+                                    )}
                                 </div>
                             )}
 
@@ -2535,10 +2544,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                             </span>
                                         </div>
                                     )}
-                                    {apt.professionalName && (
+                                    {(apt.doctor?.fullName || apt.professionalName) && (
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-gray-500">Profissional</span>
-                                            <span className="text-sm font-semibold text-gray-800">{apt.professionalName}</span>
+                                            <span className="text-sm font-semibold text-gray-800">{apt.doctor?.fullName || apt.professionalName}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center">
