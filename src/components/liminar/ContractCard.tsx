@@ -125,7 +125,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   const balancePct = contract.totalCredit > 0
     ? Math.max(0, Math.min(100, (available / contract.totalCredit) * 100))
     : 0;
-  const barColor = balancePct > 50 ? '#2E7A5E' : balancePct > 20 ? '#ED6C02' : '#C75146';
+  const barColor = palette.bar;
 
   const statusLabel = contract.status === 'active' ? 'Ativo'
     : contract.status === 'exhausted' ? 'Esgotado' : 'Cancelado';

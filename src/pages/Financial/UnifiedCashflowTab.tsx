@@ -444,14 +444,24 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                     >
                         <div className="flex items-center gap-3">
                             <span className="text-sm font-black text-emerald-700 uppercase tracking-widest">Resumo do Dia</span>
-                            {!dashboardOpen && data && (
-                                <span className="text-xs text-gray-500 ml-1">
-                                    <span className="font-semibold text-emerald-600">{formatCurrency(data.caixa.total)}</span>
-                                    <span className="text-gray-400"> recebido · </span>
-                                    <span className="font-semibold text-blue-600">{formatCurrency(data.producao.total)}</span>
-                                    <span className="text-gray-400"> produção</span>
-                                </span>
-                            )}
+                            {!dashboardOpen && data && (() => {
+                                const leadsCount = (analyticsCreatedData?.leads?.length || 0) + (analyticsCreatedData?.novos?.length || 0);
+                                return (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                                            💰 {formatCurrency(data.caixa.total)} recebido
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                                            📊 {formatCurrency(data.producao.total)} produção
+                                        </span>
+                                        {leadsCount > 0 && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
+                                                🆕 {leadsCount} paciente{leadsCount !== 1 ? 's' : ''} novo{leadsCount !== 1 ? 's' : ''}
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                         <ExpandMoreIcon
                             className={`text-emerald-600 transition-transform duration-200 ${dashboardOpen ? 'rotate-180' : ''}`}
@@ -2401,8 +2411,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                     <p className="text-sm text-amber-700 font-medium">⚠️ Atendimento concluído sem transação registrada no caixa do dia.</p>
                                 </div>
                             )}
+                            {/* Motivo do descarte (pré-agendamento descartado — conceito diferente de cancelamento) */}
+                            {isCanceled && apt.discardReason && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1.5">🗑️ Motivo do descarte</div>
+                                    <p className="text-sm text-amber-800 whitespace-pre-line">{apt.discardReason}</p>
+                                    {apt.discardedAt && (
+                                        <p className="text-xs text-amber-600 mt-2">
+                                            Descartado em {new Date(apt.discardedAt).toLocaleDateString('pt-BR')} às {new Date(apt.discardedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Motivo do cancelamento */}
-                            {isCanceled && (
+                            {isCanceled && !apt.discardReason && (
                                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                                     <div className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1.5">✗ Cancelamento</div>
                                     {apt.cancelReason
