@@ -156,8 +156,38 @@ export const faturarConvenioLote = (data: {
 }) => API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/faturar-lote', data);
 
 // Listar guias pendentes de faturamento (guide-based)
-export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; month?: string; page?: number; limit?: number }) =>
-    API.get<{ success: boolean; data: any[]; orphanSessions: any[]; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
+export interface OverdueBillingBucket {
+    competence: string; // YYYY-MM
+    sessionsCount: number;
+    totalValue: number;
+    guides: Array<{
+        guideId: string;
+        number: string;
+        insurance: string;
+        specialty?: string;
+        patient?: { _id: string; fullName?: string };
+        sessionsCount: number;
+        totalValue: number;
+        firstSessionDate: string;
+        lastSessionDate: string;
+    }>;
+    orphanSessions: Array<{
+        sessionId: string;
+        date: string;
+        patient?: { _id: string; fullName?: string };
+        specialty?: string | null;
+        sessionValue: number;
+    }>;
+}
+
+export interface OverdueBillingSummary {
+    totalValue: number;
+    totalSessions: number;
+    competenceCount: number;
+}
+
+export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; month?: string; page?: number; limit?: number; includeOverdue?: boolean }) =>
+    API.get<{ success: boolean; data: any[]; orphanSessions: any[]; overdue: OverdueBillingBucket[] | null; overdueSummary: OverdueBillingSummary | null; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
 
 // Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
