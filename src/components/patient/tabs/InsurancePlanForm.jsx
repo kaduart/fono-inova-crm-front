@@ -134,8 +134,16 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
   };
 
   const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
+  const [replanPreview, setReplanPreview] = useState(null); // null enquanto não carregou / não se aplica
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
-  const handleSubmit = () => {
+  const slotSignature = (arr) => (arr || [])
+    .map(s => Number(s.dayOfWeek))
+    .slice()
+    .sort((a, b) => a - b)
+    .join(',');
+
+  const handleSubmit = async () => {
     if (!guide?._id) {
       toast.error('Guia não identificada. Recarregue a página e tente novamente.');
       return;
@@ -152,7 +160,25 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
     const isReplace = Boolean(existingPlan);
 
     if (isReplace && (existingPlan.generatedAppointments?.length || 0) > 0) {
+      const frequencyChanged = slotSignature(existingPlan.slots) !== slotSignature(form.slots);
+      setReplanPreview(null);
       setConfirmReplaceOpen(true);
+
+      if (frequencyChanged) {
+        setLoadingPreview(true);
+        try {
+          const res = await API.post(`/v2/insurance-plans/${existingPlan._id}/replan-preview`, {
+            slots: form.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time }))
+          });
+          setReplanPreview(res.data?.data || null);
+        } catch {
+          // Preview é só informativo — se falhar, o modal cai no texto genérico e o
+          // usuário ainda consegue confirmar; a validação real acontece no PATCH.
+          setReplanPreview(null);
+        } finally {
+          setLoadingPreview(false);
+        }
+      }
       return;
     }
 
@@ -597,12 +623,37 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
               <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#2C3E50', mb: 0.5 }}>
                 Confirmar edição do plano ativo
               </Typography>
-              <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
-                Este plano já tem <strong>{existingPlan?.generatedAppointments?.length || 0} agendamento(s)</strong> gerado(s).
-                Ao salvar, só os agendamentos futuros existentes são ajustados (horário/profissional/valor) ou cancelados
-                se saírem da nova grade — <strong>nenhum agendamento novo é criado aqui</strong>. Sessões já realizadas não são alteradas.
-                Para gerar mais sessões, use o botão "Gerar" depois de salvar.
-              </Typography>
+
+              {loadingPreview && (
+                <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={14} /> Calculando impacto da mudança...
+                </Typography>
+              )}
+
+              {!loadingPreview && replanPreview?.frequencyChanged && (
+                <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
+                  A frequência mudou. Ao salvar:
+                  <br />• <strong>{replanPreview.appointmentsToCancel.count} sessão(ões) futura(s)</strong> do padrão antigo serão canceladas.
+                  <br />• <strong>{replanPreview.estimatedGenerated} nova(s) sessão(ões)</strong> serão geradas no novo padrão.
+                  <br />Sessões já realizadas <strong>não são alteradas</strong>.
+                  {replanPreview.eligible === false && (
+                    <>
+                      <br /><Box component="span" sx={{ color: '#C75146', fontWeight: 700 }}>
+                        ⚠ {replanPreview.eligibilityMessage || 'Guia pode não estar elegível para gerar novas sessões.'}
+                      </Box>
+                    </>
+                  )}
+                </Typography>
+              )}
+
+              {!loadingPreview && !replanPreview?.frequencyChanged && (
+                <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
+                  Este plano já tem <strong>{existingPlan?.generatedAppointments?.length || 0} agendamento(s)</strong> gerado(s).
+                  Ao salvar, só os agendamentos futuros existentes são ajustados (horário/profissional/valor) ou cancelados
+                  se saírem da nova grade — <strong>nenhum agendamento novo é criado aqui</strong>. Sessões já realizadas não são alteradas.
+                  Para gerar mais sessões, use o botão "Gerar" depois de salvar.
+                </Typography>
+              )}
             </Box>
           </Box>
         </DialogContent>
@@ -616,6 +667,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
           <Button
             onClick={performSave}
             variant="contained"
+            disabled={loadingPreview}
             sx={{
               textTransform: 'none', borderRadius: '40px', px: 2.5, fontWeight: 700,
               background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)'
