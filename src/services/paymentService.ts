@@ -444,6 +444,15 @@ export const markPaymentAsPaid = async (paymentId: string) => {
     return response.data;
 };
 
+// Registra um Payment 'pending' particular como débito (fiado): lança no PatientBalance
+// sem recriar o Payment — evita o bug de duplicidade ao refazer o complete (caso Isis 2026-07-17).
+export const registerPaymentAsDebit = async (paymentId: string) => {
+    const res = await API.patch<{ success: boolean; data: any; balance?: number }>(
+        `/v2/payments/${paymentId}/register-debit`
+    );
+    return res.data?.data || res.data;
+};
+
 export const deletePayment = (id: string) =>
     API.delete<void>(`/payments/${id}`);
 

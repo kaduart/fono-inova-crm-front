@@ -30,6 +30,7 @@ import doctorService from '../../services/doctorService';
 import liminarContractService, { ContractIntegrity } from '../../services/liminarContractService';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
 import { getSpecialtyTheme } from '../../constants/specialtyThemes';
+import InactivateEntityModal from '../common/InactivateEntityModal';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import CreatePlanModal from './CreatePlanModal';
 
@@ -95,6 +96,9 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   const [rechargeReason, setRechargeReason] = useState('');
   const [rechargingLoading, setRechargingLoading] = useState(false);
 
+  const [showInactivateModal, setShowInactivateModal] = useState(false);
+  const [isInactivating, setIsInactivating] = useState(false);
+
   const [specialtyModal, setSpecialtyModal] = useState<{ open: boolean; specialty: string; sessions: any[]; loading: boolean }>({
     open: false, specialty: '', sessions: [], loading: false,
   });
@@ -126,6 +130,20 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
     ? Math.max(0, Math.min(100, (available / contract.totalCredit) * 100))
     : 0;
   const barColor = palette.bar;
+
+  const handleInactivate = async () => {
+    setIsInactivating(true);
+    try {
+      const result = await liminarContractService.inactivate(contract._id);
+      toast.success(`Contrato inativado — ${result.sessionsCanceled ?? 0} sessão(ões) cancelada(s)`);
+      setShowInactivateModal(false);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err?.message || 'Erro ao inativar contrato');
+    } finally {
+      setIsInactivating(false);
+    }
+  };
 
   const statusLabel = contract.status === 'active' ? 'Ativo'
     : contract.status === 'exhausted' ? 'Esgotado' : 'Cancelado';
@@ -225,7 +243,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   async function openSpecialtyModal(specialty: string) {
     setSpecialtyModal({ open: true, specialty, sessions: [], loading: true });
     try {
-      const sessions = await liminarContractService.getSessions(contract._id, { specialty, status: 'scheduled' });
+      const sessions = await liminarContractService.getSessions(contract._id, { specialty });
       setSpecialtyModal((prev) => ({ ...prev, sessions, loading: false }));
     } catch {
       toast.error('Erro ao carregar sessões');
@@ -341,9 +359,21 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white" style={{ background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.3)' }}>
-              {statusLabel}
-            </span>
+            {contract.status === 'active' ? (
+              <button
+                type="button"
+                onClick={() => setShowInactivateModal(true)}
+                title="Clique para inativar este contrato"
+                className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.3)' }}
+              >
+                {statusLabel}
+              </button>
+            ) : (
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white" style={{ background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.3)' }}>
+                {statusLabel}
+              </span>
+            )}
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(v => !v)}
@@ -1077,8 +1107,12 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
       {/* ── Modal: Sessões por Especialidade ── */}
       {specialtyModal.open && (() => {
+        const isCanceled = (status: string) => status === 'canceled' || status === 'force_cancelled';
         const statusColor = (status: string) =>
-          status === 'completed' ? '#10B981' : status === 'confirmed' ? '#3B82F6' : '#F59E0B';
+          status === 'completed' ? '#10B981' :
+          status === 'confirmed' ? '#3B82F6' :
+          isCanceled(status) ? '#94A3B8' :
+          '#F59E0B';
         const events = specialtyModal.sessions.map((s: any) => ({
           id: s._id,
           start: `${s.date.slice(0, 10)}T${s.time}`,
@@ -1097,6 +1131,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} /> Realizada</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#3B82F6' }} /> Confirmada</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} /> Agendada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#94A3B8' }} /> Cancelada</span>
                   </div>
                 </div>
                 <button onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
@@ -1133,11 +1168,14 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     }}
                     eventContent={(arg) => {
                       const session = arg.event.extendedProps.session;
+                      const canceled = isCanceled(session?.operationalStatus);
                       return (
-                        <div className="px-1 py-0.5 text-xs leading-tight overflow-hidden">
-                          <div className="font-semibold">{arg.timeText}</div>
-                          {session?.doctor?.fullName && <div className="truncate opacity-90">{session.doctor.fullName}</div>}
-                          <div className="opacity-90">R$ {fmt(session?.sessionValue ?? 0)}</div>
+                        <div className={`px-1 py-0.5 text-xs leading-tight overflow-hidden ${canceled ? 'opacity-80' : ''}`}>
+                          <div className={`font-semibold ${canceled ? 'line-through' : ''}`}>{arg.timeText}</div>
+                          {session?.doctor?.fullName && (
+                            <div className={`truncate opacity-90 ${canceled ? 'line-through' : ''}`}>{session.doctor.fullName}</div>
+                          )}
+                          <div className="opacity-90">{canceled ? 'Cancelada' : `R$ ${fmt(session?.sessionValue ?? 0)}`}</div>
                         </div>
                       );
                     }}
@@ -1148,6 +1186,14 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           </div>
         );
       })()}
+
+      <InactivateEntityModal
+        open={showInactivateModal}
+        entityType="liminar"
+        loading={isInactivating}
+        onConfirm={handleInactivate}
+        onClose={() => setShowInactivateModal(false)}
+      />
     </div>
   );
 }

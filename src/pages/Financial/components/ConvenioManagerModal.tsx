@@ -7,29 +7,16 @@
 import {
     Box,
     Button,
-    Chip,
     Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
     IconButton,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
     Typography,
     Tooltip,
     Switch,
-    Paper,
-    Alert,
     CircularProgress,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem
+    Popover
 } from '@mui/material';
 import {
     Building2,
@@ -38,24 +25,19 @@ import {
     Trash2,
     RefreshCw,
     Check,
-    X,
-    AlertCircle
+    Info,
+    Inbox,
+    Mail,
+    Landmark
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import InputCurrency from '../../../components/ui/InputCurrency';
+import ConvenioFormModal from './ConvenioFormModal';
 import {
     getConvenios,
-    createConvenio,
-    updateConvenio,
     deactivateConvenio,
     activateConvenio,
-    validateConvenioCode,
-    Convenio,
-    CreateConvenioData,
-    BillingMode,
-    RenewalType,
-    MigrationStrategy
+    Convenio
 } from '../../../services/insuranceService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 
@@ -64,33 +46,41 @@ interface ConvenioManagerModalProps {
     onClose: () => void;
 }
 
+const Pill = ({ label, bg, color }: { label: string; bg: string; color: string }) => (
+    <Box
+        component="span"
+        sx={{
+            display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.35,
+            borderRadius: 10, fontSize: '0.7rem', fontWeight: 700,
+            bgcolor: bg, color, whiteSpace: 'nowrap', lineHeight: 1.2
+        }}
+    >
+        {label}
+    </Box>
+);
+
 const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
     const [convenios, setConvenios] = useState<Convenio[]>([]);
     const [loading, setLoading] = useState(false);
     const [showInactive, setShowInactive] = useState(false);
-    
-    // Estados para formulário
-    const [isEditing, setIsEditing] = useState(false);
-    const [editingCode, setEditingCode] = useState<string | null>(null);
-    const [formData, setFormData] = useState<CreateConvenioData>({
-        code: '',
-        name: '',
-        sessionValue: 0,
-        billingMode: 'per_month',
-        notes: '',
-        defaultSessions: null,
-        guidePolicy: {
-            renewalType: 'end_of_month',
-            renewalDay: 'last_day',
-            renewalDayOfMonth: null,
-            expirationWarningDays: 5,
-            autoSuggestRenewal: true,
-            defaultMigrationStrategy: 'eligible'
-        }
-    });
-    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-    const [validatingCode, setValidatingCode] = useState(false);
-    const [codeAvailable, setCodeAvailable] = useState<boolean | null>(null);
+
+    // Modal de formulário (criar/editar) — separado deste modal de listagem
+    const [formModalOpen, setFormModalOpen] = useState(false);
+    const [editingConvenio, setEditingConvenio] = useState<Convenio | null>(null);
+
+    // Popover de detalhes de envio (e-mail, prazo, dados fiscais) — leitura rápida sem abrir o form
+    const [detailsAnchor, setDetailsAnchor] = useState<HTMLElement | null>(null);
+    const [detailsConvenio, setDetailsConvenio] = useState<Convenio | null>(null);
+
+    const openDetails = (e: React.MouseEvent<HTMLElement>, convenio: Convenio) => {
+        setDetailsAnchor(e.currentTarget);
+        setDetailsConvenio(convenio);
+    };
+
+    const closeDetails = () => {
+        setDetailsAnchor(null);
+        setDetailsConvenio(null);
+    };
 
     useEffect(() => {
         if (open) {
@@ -110,101 +100,19 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
         }
     };
 
-    const validateForm = (): boolean => {
-        const errors: Record<string, string> = {};
-        
-        if (!formData.code || formData.code.length < 3) {
-            errors.code = 'Código deve ter pelo menos 3 caracteres';
-        }
-        if (!/^[a-z0-9-]+$/.test(formData.code)) {
-            errors.code = 'Apenas letras minúsculas, números e hífen';
-        }
-        if (!formData.name || formData.name.length < 3) {
-            errors.name = 'Nome deve ter pelo menos 3 caracteres';
-        }
-        if (formData.sessionValue <= 0) {
-            errors.sessionValue = 'Valor deve ser maior que zero';
-        }
-        
-        setFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    const checkCodeAvailability = async (code: string) => {
-        if (code.length < 3) return;
-        
-        setValidatingCode(true);
-        try {
-            const result = await validateConvenioCode(code);
-            setCodeAvailable(result.available);
-        } catch (error) {
-            setCodeAvailable(null);
-        } finally {
-            setValidatingCode(false);
-        }
-    };
-
-    const handleSubmit = async () => {
-        if (!validateForm()) return;
-        
-        // Se está criando novo, verifica se código está disponível
-        if (!isEditing && !codeAvailable) {
-            toast.error('Código já está em uso');
-            return;
-        }
-        
-        try {
-            setLoading(true);
-            
-            if (isEditing && editingCode) {
-                await updateConvenio(editingCode, {
-                    name: formData.name,
-                    sessionValue: formData.sessionValue,
-                    billingMode: formData.billingMode,
-                    notes: formData.notes,
-                    defaultSessions: formData.defaultSessions,
-                    guidePolicy: formData.guidePolicy
-                });
-                toast.success('Convênio atualizado!');
-            } else {
-                await createConvenio(formData);
-                toast.success('Convênio criado!');
-            }
-            
-            resetForm();
-            loadConvenios();
-        } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao salvar convênio'));
-        } finally {
-            setLoading(false);
-        }
+    const handleNewConvenio = () => {
+        setEditingConvenio(null);
+        setFormModalOpen(true);
     };
 
     const handleEdit = (convenio: Convenio) => {
-        setIsEditing(true);
-        setEditingCode(convenio.code);
-        setFormData({
-            code: convenio.code,
-            name: convenio.name,
-            sessionValue: convenio.sessionValue,
-            billingMode: convenio.billingMode || 'per_month',
-            notes: convenio.notes || '',
-            defaultSessions: convenio.defaultSessions ?? null,
-            guidePolicy: {
-                renewalType: 'end_of_month',
-                renewalDay: 'last_day',
-                renewalDayOfMonth: null,
-                expirationWarningDays: 5,
-                autoSuggestRenewal: true,
-                defaultMigrationStrategy: 'eligible',
-                ...convenio.guidePolicy
-            }
-        });
+        setEditingConvenio(convenio);
+        setFormModalOpen(true);
     };
 
     const handleDeactivate = async (code: string) => {
         if (!confirm('Deseja desativar este convênio?')) return;
-        
+
         try {
             setLoading(true);
             await deactivateConvenio(code);
@@ -230,29 +138,6 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
         }
     };
 
-    const resetForm = () => {
-        setIsEditing(false);
-        setEditingCode(null);
-        setFormData({
-            code: '',
-            name: '',
-            sessionValue: 0,
-            billingMode: 'per_month',
-            notes: '',
-            defaultSessions: null,
-            guidePolicy: {
-                renewalType: 'end_of_month',
-                renewalDay: 'last_day',
-                renewalDayOfMonth: null,
-                expirationWarningDays: 5,
-                autoSuggestRenewal: true,
-                defaultMigrationStrategy: 'eligible'
-            }
-        });
-        setFormErrors({});
-        setCodeAvailable(null);
-    };
-
     const formatCurrency = (value: number) => {
         return value.toLocaleString('pt-BR', {
             style: 'currency',
@@ -260,275 +145,70 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
         });
     };
 
+    const renewalTypeInfo = (convenio: Convenio): { label: string; bg: string; color: string } => {
+        switch (convenio.guidePolicy?.renewalType) {
+            case 'advance_authorization':
+                return { label: 'Pré-atendimento', bg: '#8B5CF61A', color: '#5B21B6' };
+            case 'until_consumed':
+                return { label: 'Até consumir', bg: '#3B82F61A', color: '#1D4ED8' };
+            case 'fixed_date':
+                return { label: 'Data fixa', bg: '#EF44441A', color: '#B91C1C' };
+            case 'authorization_validity':
+                return { label: 'Validade da autorização', bg: '#F59E0B1A', color: '#92400E' };
+            case 'end_of_month':
+            default:
+                return { label: 'Fim do mês', bg: '#9CA3AF1F', color: '#4B5563' };
+        }
+    };
+
+    const columns = [
+        { label: 'Código', flex: 1.1 },
+        { label: 'Nome', flex: 1.8 },
+        { label: 'Valor Sessão', flex: 0.9, align: 'right' as const },
+        { label: 'Faturamento', flex: 0.9, align: 'center' as const },
+        { label: 'Tipo de Guia', flex: 1.2, align: 'center' as const },
+        { label: 'Dia de Envio', flex: 0.8, align: 'center' as const },
+        { label: 'Status', flex: 0.7, align: 'center' as const },
+        { label: 'Pendentes', flex: 0.9, align: 'right' as const },
+        { label: 'Ações', flex: 0.9, align: 'right' as const }
+    ];
+
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-            <DialogTitle>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Building2 className="w-6 h-6 text-blue-500" />
-                    <Typography variant="h6" fontWeight="bold">
-                        Gerenciar Convênios
-                    </Typography>
+        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
+            <DialogTitle sx={{ px: 3, py: 2.25, borderBottom: '1px solid #F1F5F9' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{
+                        width: 42, height: 42, borderRadius: 2.5, bgcolor: '#EFF6FF',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
+                        <Building2 className="w-5 h-5 text-blue-600" />
+                    </Box>
+                    <Box>
+                        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
+                            Gerenciar Convênios
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: '#94A3B8', mt: 0.25 }}>
+                            Faturamento, tipo de guia e prazos de cada convênio
+                        </Typography>
+                    </Box>
                 </Box>
             </DialogTitle>
-            
-            <DialogContent dividers>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    
-                    {/* Formulário */}
-                    <Paper elevation={0} sx={{ p: 3, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                        <Typography variant="subtitle1" fontWeight="600" gutterBottom>
-                            {isEditing ? 'Editar Convênio' : 'Novo Convênio'}
-                        </Typography>
-                        
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 2 }}>
-                            <TextField
-                                label="Código *"
-                                value={formData.code}
-                                onChange={(e) => {
-                                    const code = e.target.value.toLowerCase().trim();
-                                    setFormData({ ...formData, code });
-                                    setFormErrors({ ...formErrors, code: '' });
-                                    if (!isEditing && code.length >= 3) {
-                                        checkCodeAvailability(code);
-                                    }
-                                }}
-                                disabled={isEditing}
-                                error={!!formErrors.code}
-                                helperText={
-                                    formErrors.code || 
-                                    (validatingCode ? 'Verificando...' :
-                                     codeAvailable === true ? '✓ Código disponível' :
-                                     codeAvailable === false ? '✗ Código já existe' : 
-                                     'Ex: unimed-anapolis, bradesco-saude')
-                                }
-                                placeholder="unimed-anapolis"
-                                size="small"
-                                InputProps={{
-                                    endAdornment: validatingCode && <CircularProgress size={16} />
-                                }}
-                            />
-                            
-                            <TextField
-                                label="Nome *"
-                                value={formData.name}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, name: e.target.value });
-                                    setFormErrors({ ...formErrors, name: '' });
-                                }}
-                                error={!!formErrors.name}
-                                helperText={formErrors.name || 'Nome completo do convênio'}
-                                placeholder="Unimed Anápolis"
-                                size="small"
-                            />
-                            
-                            <Box>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Valor da Sessão *
-                                </Typography>
-                                <InputCurrency
-                                    name="sessionValue"
-                                    value={formData.sessionValue}
-                                    onChange={(e) => {
-                                        setFormData({ ...formData, sessionValue: Number(e.target.value) });
-                                        setFormErrors({ ...formErrors, sessionValue: '' });
-                                    }}
-                                    className={`w-full px-3 py-2 border rounded-lg ${formErrors.sessionValue ? 'border-red-500' : 'border-gray-300'}`}
-                                />
-                                {formErrors.sessionValue && (
-                                    <Typography variant="caption" color="error">
-                                        {formErrors.sessionValue}
-                                    </Typography>
-                                )}
-                            </Box>
-                            
-                            <TextField
-                                label="Observações"
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                placeholder="Informações adicionais"
-                                size="small"
-                                multiline
-                                rows={1}
-                            />
-                        </Box>
 
-                        {/* Modo de faturamento */}
-                        <Box sx={{ mt: 2 }}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
-                                Modo de Faturamento
-                            </Typography>
-                            <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                {([
-                                    { value: 'per_month', label: 'Por Sessão / Mês', desc: 'Fatura as sessões realizadas no mês', color: '#3B82F6' },
-                                    { value: 'per_guide', label: 'Por Guia Completa', desc: 'Fatura o valor total da guia quando ela fecha', color: '#10B981' }
-                                ] as { value: BillingMode; label: string; desc: string; color: string }[]).map(opt => {
-                                    const selected = formData.billingMode === opt.value;
-                                    return (
-                                        <Box
-                                            key={opt.value}
-                                            onClick={() => setFormData({ ...formData, billingMode: opt.value })}
-                                            sx={{
-                                                flex: 1, p: 1.5, borderRadius: 2, cursor: 'pointer',
-                                                border: `2px solid ${selected ? opt.color : '#E5E7EB'}`,
-                                                bgcolor: selected ? `${opt.color}10` : '#FAFAFA',
-                                                transition: 'all 0.15s'
-                                            }}
-                                        >
-                                            <Typography fontSize="0.82rem" fontWeight={700} color={selected ? opt.color : '#374151'}>
-                                                {opt.label}
-                                            </Typography>
-                                            <Typography fontSize="0.72rem" color="text.secondary">{opt.desc}</Typography>
-                                        </Box>
-                                    );
-                                })}
-                            </Box>
-                        </Box>
-
-                        {/* Política de Guia */}
-                        <Box sx={{ mt: 3 }}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
-                                Política de Guia
-                            </Typography>
-                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 1 }}>
-                                <FormControl size="small" fullWidth>
-                                    <InputLabel id="renewal-type-label">Tipo de renovação</InputLabel>
-                                    <Select<RenewalType>
-                                        labelId="renewal-type-label"
-                                        value={formData.guidePolicy?.renewalType || 'end_of_month'}
-                                        label="Tipo de renovação"
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            guidePolicy: { ...formData.guidePolicy, renewalType: e.target.value as RenewalType }
-                                        })}
-                                    >
-                                        <MenuItem value="end_of_month">Fim do mês</MenuItem>
-                                        <MenuItem value="until_consumed">Até consumir sessões</MenuItem>
-                                        <MenuItem value="fixed_date">Data fixa</MenuItem>
-                                        <MenuItem value="authorization_validity">Validade da autorização</MenuItem>
-                                    </Select>
-                                </FormControl>
-
-                                {formData.guidePolicy?.renewalType === 'end_of_month' && (
-                                    <FormControl size="small" fullWidth>
-                                        <InputLabel id="renewal-day-label">Dia de renovação</InputLabel>
-                                        <Select
-                                            labelId="renewal-day-label"
-                                            value={formData.guidePolicy?.renewalDay || 'last_day'}
-                                            label="Dia de renovação"
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                guidePolicy: { ...formData.guidePolicy, renewalDay: e.target.value as 'last_day' | 'fixed_day' }
-                                            })}
-                                        >
-                                            <MenuItem value="last_day">Último dia do mês</MenuItem>
-                                            <MenuItem value="fixed_day">Dia fixo</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                )}
-
-                                {formData.guidePolicy?.renewalDay === 'fixed_day' && (
-                                    <TextField
-                                        label="Dia do mês"
-                                        type="number"
-                                        size="small"
-                                        value={formData.guidePolicy?.renewalDayOfMonth || ''}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            guidePolicy: { ...formData.guidePolicy, renewalDayOfMonth: e.target.value ? Number(e.target.value) : null }
-                                        })}
-                                        inputProps={{ min: 1, max: 31 }}
-                                    />
-                                )}
-
-                                <TextField
-                                    label="Dias de aviso antes do vencimento"
-                                    type="number"
-                                    size="small"
-                                    value={formData.guidePolicy?.expirationWarningDays ?? 5}
-                                    onChange={(e) => setFormData({
-                                        ...formData,
-                                        guidePolicy: { ...formData.guidePolicy, expirationWarningDays: Number(e.target.value) }
-                                    })}
-                                    inputProps={{ min: 0 }}
-                                />
-
-                                <TextField
-                                    label="Sessões padrão"
-                                    type="number"
-                                    size="small"
-                                    value={formData.defaultSessions ?? ''}
-                                    onChange={(e) => setFormData({
-                                        ...formData,
-                                        defaultSessions: e.target.value ? Number(e.target.value) : null
-                                    })}
-                                    inputProps={{ min: 1 }}
-                                    helperText="Sugestão ao criar nova guia"
-                                />
-
-                                <FormControl size="small" fullWidth>
-                                    <InputLabel id="migration-strategy-label">Migração padrão</InputLabel>
-                                    <Select<MigrationStrategy>
-                                        labelId="migration-strategy-label"
-                                        value={formData.guidePolicy?.defaultMigrationStrategy || 'eligible'}
-                                        label="Migração padrão"
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            guidePolicy: { ...formData.guidePolicy, defaultMigrationStrategy: e.target.value as MigrationStrategy }
-                                        })}
-                                    >
-                                        <MenuItem value="eligible">Apenas elegíveis</MenuItem>
-                                        <MenuItem value="manual">Seleção manual</MenuItem>
-                                        <MenuItem value="none">Nenhuma</MenuItem>
-                                    </Select>
-                                </FormControl>
-
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Sugerir renovação automaticamente
-                                    </Typography>
-                                    <Switch
-                                        checked={formData.guidePolicy?.autoSuggestRenewal ?? true}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            guidePolicy: { ...formData.guidePolicy, autoSuggestRenewal: e.target.checked }
-                                        })}
-                                        size="small"
-                                    />
-                                </Box>
-                            </Box>
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                            <Button
-                                variant="contained"
-                                onClick={handleSubmit}
-                                disabled={loading || (!isEditing && codeAvailable === false)}
-                                startIcon={isEditing ? <Check size={18} /> : <Plus size={18} />}
-                            >
-                                {isEditing ? 'Atualizar' : 'Criar Convênio'}
-                            </Button>
-                            
-                            {isEditing && (
-                                <Button
-                                    variant="outlined"
-                                    onClick={resetForm}
-                                    startIcon={<X size={18} />}
-                                >
-                                    Cancelar
-                                </Button>
-                            )}
-                        </Box>
-                    </Paper>
+            <DialogContent sx={{ p: 3, bgcolor: '#FAFBFC' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
 
                     {/* Filtros */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" fontWeight="600">
-                            Convênios Cadastrados ({convenios.length})
-                        </Typography>
-                        
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="body2" color="text.secondary">
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: '#1F2937' }}>
+                                Convênios Cadastrados
+                            </Typography>
+                            <Pill label={String(convenios.length)} bg="#9CA3AF1F" color="#4B5563" />
+                        </Box>
+
+                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                <Typography sx={{ fontSize: '0.78rem', color: '#6B7280' }}>
                                     Mostrar inativos
                                 </Typography>
                                 <Switch
@@ -537,172 +217,304 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                                     size="small"
                                 />
                             </Box>
-                            
+
                             <Button
                                 variant="outlined"
                                 size="small"
                                 onClick={loadConvenios}
-                                startIcon={<RefreshCw size={16} />}
+                                startIcon={<RefreshCw size={15} />}
                                 disabled={loading}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, borderColor: '#E2E8F0', color: '#475569' }}
                             >
                                 Atualizar
+                            </Button>
+
+                            <Button
+                                variant="contained"
+                                size="small"
+                                onClick={handleNewConvenio}
+                                startIcon={<Plus size={15} />}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+                            >
+                                Novo Convênio
                             </Button>
                         </Box>
                     </Box>
 
                     {/* Tabela */}
-                    <TableContainer component={Paper} variant="outlined">
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                                    <TableCell>Código</TableCell>
-                                    <TableCell>Nome</TableCell>
-                                    <TableCell align="right">Valor Sessão</TableCell>
-                                    <TableCell align="center">Faturamento</TableCell>
-                                    <TableCell align="center">Status</TableCell>
-                                    <TableCell align="right">Pendentes</TableCell>
-                                    <TableCell align="right">Ações</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {loading && convenios.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                            <CircularProgress size={24} />
-                                        </TableCell>
-                                    </TableRow>
-                                ) : convenios.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">
-                                                Nenhum convênio encontrado
+                    <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #E2E8F0', bgcolor: '#fff' }}>
+                        {/* Header */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', px: 2.5, py: 1.1, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
+                            {columns.map((col) => (
+                                <Typography
+                                    key={col.label}
+                                    sx={{
+                                        flex: col.flex, textAlign: col.align || 'left',
+                                        fontSize: '0.66rem', fontWeight: 800, color: '#94A3B8',
+                                        textTransform: 'uppercase', letterSpacing: '0.06em'
+                                    }}
+                                >
+                                    {col.label}
+                                </Typography>
+                            ))}
+                        </Box>
+
+                        {/* Corpo */}
+                        {loading && convenios.length === 0 ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                                <CircularProgress size={24} />
+                            </Box>
+                        ) : convenios.length === 0 ? (
+                            <Box sx={{ textAlign: 'center', py: 6, color: '#94A3B8' }}>
+                                <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                                <Typography sx={{ fontSize: '0.85rem' }}>Nenhum convênio encontrado</Typography>
+                            </Box>
+                        ) : (
+                            convenios.map((convenio, idx) => {
+                                const billing = convenio.billingMode === 'per_guide'
+                                    ? { label: 'Por Guia', bg: '#10B9811A', color: '#047857' }
+                                    : { label: 'Mensal', bg: '#3B82F61A', color: '#1D4ED8' };
+                                const typeInfo = renewalTypeInfo(convenio);
+                                const sendDay = convenio.guidePolicy?.renewalType === 'advance_authorization'
+                                    ? convenio.guidePolicy?.priorAuthRequestDay
+                                    : convenio.guidePolicy?.billingSubmissionDay;
+
+                                return (
+                                    <Box
+                                        key={convenio._id}
+                                        sx={{
+                                            display: 'flex', alignItems: 'center', px: 2.5, py: 1.5,
+                                            borderBottom: idx < convenios.length - 1 ? '1px solid #F8FAFC' : 'none',
+                                            borderLeft: `3px solid ${convenio.active ? '#10B981' : 'transparent'}`,
+                                            opacity: convenio.active ? 1 : 0.55,
+                                            bgcolor: !convenio.active ? '#FAFBFC' : 'transparent',
+                                            transition: 'background-color 0.15s',
+                                            '&:hover': { bgcolor: convenio.active ? '#FAFBFC' : '#F8FAFC' }
+                                        }}
+                                    >
+                                        <Typography sx={{ flex: 1.1, fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>
+                                            {convenio.code}
+                                        </Typography>
+
+                                        <Box sx={{ flex: 1.8 }}>
+                                            <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#1F2937' }}>
+                                                {convenio.name}
                                             </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    convenios.map((convenio) => (
-                                        <TableRow 
-                                            key={convenio._id}
-                                            sx={{ 
-                                                opacity: convenio.active ? 1 : 0.6,
-                                                bgcolor: !convenio.active ? '#f8fafc' : 'inherit'
-                                            }}
-                                        >
-                                            <TableCell>
-                                                <Typography fontFamily="monospace" fontSize="0.875rem">
-                                                    {convenio.code}
+                                            {convenio.notes && (
+                                                <Typography sx={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                                                    {convenio.notes}
                                                 </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography fontWeight={500}>
-                                                    {convenio.name}
-                                                </Typography>
-                                                {convenio.notes && (
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {convenio.notes}
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography fontWeight="600" color="primary">
-                                                    {formatCurrency(convenio.sessionValue)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Chip
+                                            )}
+                                        </Box>
+
+                                        <Typography sx={{ flex: 0.9, textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color: '#3B82F6' }}>
+                                            {formatCurrency(convenio.sessionValue)}
+                                        </Typography>
+
+                                        <Box sx={{ flex: 0.9, textAlign: 'center' }}>
+                                            <Pill label={billing.label} bg={billing.bg} color={billing.color} />
+                                        </Box>
+
+                                        <Box sx={{ flex: 1.2, textAlign: 'center' }}>
+                                            <Pill label={typeInfo.label} bg={typeInfo.bg} color={typeInfo.color} />
+                                        </Box>
+
+                                        <Box sx={{ flex: 0.8, textAlign: 'center' }}>
+                                            {sendDay ? (
+                                                <Pill label={`Dia ${sendDay}`} bg="#F59E0B1A" color="#92400E" />
+                                            ) : (
+                                                <Typography sx={{ fontSize: '0.78rem', color: '#CBD5E1' }}>—</Typography>
+                                            )}
+                                        </Box>
+
+                                        <Box sx={{ flex: 0.7, textAlign: 'center' }}>
+                                            <Pill
+                                                label={convenio.active ? 'Ativo' : 'Inativo'}
+                                                bg={convenio.active ? '#10B9811A' : '#9CA3AF1F'}
+                                                color={convenio.active ? '#047857' : '#4B5563'}
+                                            />
+                                        </Box>
+
+                                        <Box sx={{ flex: 0.9, textAlign: 'right' }}>
+                                            {convenio.stats?.pendingSessions ? (
+                                                <Tooltip title={`Estimado: ${formatCurrency(convenio.stats.estimatedRevenue || 0)}`}>
+                                                    <Box component="span">
+                                                        <Pill label={`${convenio.stats.pendingSessions} sessões`} bg="#F59E0B1A" color="#92400E" />
+                                                    </Box>
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography sx={{ fontSize: '0.78rem', color: '#CBD5E1' }}>—</Typography>
+                                            )}
+                                        </Box>
+
+                                        <Box sx={{ flex: 0.9, display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                                            <Tooltip title="Como e pra quem enviar">
+                                                <IconButton
                                                     size="small"
-                                                    label={convenio.billingMode === 'per_guide' ? 'Por Guia' : 'Mensal'}
-                                                    sx={{
-                                                        fontWeight: 600, fontSize: '0.7rem',
-                                                        bgcolor: convenio.billingMode === 'per_guide' ? '#D1FAE5' : '#DBEAFE',
-                                                        color:   convenio.billingMode === 'per_guide' ? '#065F46' : '#1E40AF',
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Chip
-                                                    size="small"
-                                                    label={convenio.active ? 'Ativo' : 'Inativo'}
-                                                    color={convenio.active ? 'success' : 'default'}
-                                                    sx={{ fontWeight: 500 }}
-                                                />
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                {convenio.stats?.pendingSessions ? (
-                                                    <Tooltip title={`Estimado: ${formatCurrency(convenio.stats.estimatedRevenue || 0)}`}>
-                                                        <Chip
+                                                    onClick={(e) => openDetails(e, convenio)}
+                                                    sx={{ color: '#8B5CF6', '&:hover': { bgcolor: '#8B5CF61A' } }}
+                                                >
+                                                    <Info size={15} />
+                                                </IconButton>
+                                            </Tooltip>
+                                            {convenio.active ? (
+                                                <>
+                                                    <Tooltip title="Editar">
+                                                        <IconButton
                                                             size="small"
-                                                            label={`${convenio.stats.pendingSessions} sessões`}
-                                                            color="warning"
-                                                            variant="outlined"
-                                                        />
+                                                            onClick={() => handleEdit(convenio)}
+                                                            sx={{ color: '#3B82F6', '&:hover': { bgcolor: '#3B82F61A' } }}
+                                                        >
+                                                            <Edit2 size={15} />
+                                                        </IconButton>
                                                     </Tooltip>
-                                                ) : (
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        -
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                                                    {convenio.active ? (
-                                                        <>
-                                                            <Tooltip title="Editar">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleEdit(convenio)}
-                                                                    color="primary"
-                                                                >
-                                                                    <Edit2 size={16} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Desativar">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleDeactivate(convenio.code)}
-                                                                    color="error"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </>
-                                                    ) : (
-                                                        <Tooltip title="Reativar">
-                                                            <Button
-                                                                size="small"
-                                                                variant="outlined"
-                                                                onClick={() => handleActivate(convenio.code)}
-                                                                startIcon={<Check size={14} />}
-                                                            >
-                                                                Ativar
-                                                            </Button>
-                                                        </Tooltip>
-                                                    )}
-                                                </Box>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                    
+                                                    <Tooltip title="Desativar">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleDeactivate(convenio.code)}
+                                                            sx={{ color: '#EF4444', '&:hover': { bgcolor: '#EF44441A' } }}
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </>
+                                            ) : (
+                                                <Tooltip title="Reativar">
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        onClick={() => handleActivate(convenio.code)}
+                                                        startIcon={<Check size={14} />}
+                                                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                                                    >
+                                                        Ativar
+                                                    </Button>
+                                                </Tooltip>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                );
+                            })
+                        )}
+                    </Box>
+
                     {/* Info */}
-                    <Alert severity="info" icon={<AlertCircle size={20} />}>
-                        <Typography variant="body2">
-                            <strong>Dica:</strong> O código do convênio é usado internamente pelo sistema 
-                            (ex: <code>unimed-anapolis</code>). Use apenas letras minúsculas, números e hífen. 
+                    <Box sx={{
+                        display: 'flex', gap: 1.25, alignItems: 'flex-start',
+                        px: 2, py: 1.5, borderRadius: 2.5, bgcolor: '#EFF6FF', border: '1px solid #DBEAFE'
+                    }}>
+                        <Info size={17} color="#3B82F6" style={{ marginTop: 2, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: '0.8rem', color: '#1E40AF', lineHeight: 1.5 }}>
+                            <strong>Dica:</strong> o código do convênio é usado internamente pelo sistema
+                            (ex: <code>unimed-anapolis</code>). Use apenas letras minúsculas, números e hífen.
                             O valor da sessão será aplicado automaticamente ao criar lotes de faturamento.
                         </Typography>
-                    </Alert>
+                    </Box>
                 </Box>
             </DialogContent>
-            
-            <DialogActions sx={{ p: 2 }}>
-                <Button onClick={onClose} variant="outlined">
+
+            <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9' }}>
+                <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}>
                     Fechar
                 </Button>
             </DialogActions>
+
+            <ConvenioFormModal
+                open={formModalOpen}
+                onClose={() => setFormModalOpen(false)}
+                onSaved={loadConvenios}
+                editingConvenio={editingConvenio}
+            />
+
+            <Popover
+                open={!!detailsAnchor}
+                anchorEl={detailsAnchor}
+                onClose={closeDetails}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ sx: { borderRadius: 2.5, border: '1px solid #E2E8F0', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' } }}
+            >
+                {detailsConvenio && (() => {
+                    const gp = detailsConvenio.guidePolicy;
+                    const isAdvance = gp?.renewalType === 'advance_authorization';
+                    const email = isAdvance ? gp?.priorAuthEmail : gp?.billingEmail;
+                    const emailLabel = isAdvance ? 'E-mail de autorização prévia' : 'E-mail de faturamento';
+                    const sendDay = isAdvance ? gp?.priorAuthRequestDay : gp?.billingSubmissionDay;
+                    const hasFiscal = detailsConvenio.legalName || detailsConvenio.taxId;
+
+                    return (
+                        <Box sx={{ p: 2.25, width: 320 }}>
+                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, color: '#111827' }}>
+                                {detailsConvenio.name}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.72rem', color: '#94A3B8', mb: 1.5 }}>
+                                Como e pra quem enviar
+                            </Typography>
+
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                                    <Mail size={15} color="#64748B" style={{ marginTop: 2, flexShrink: 0 }} />
+                                    <Box>
+                                        <Typography sx={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                                            {emailLabel}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '0.82rem', color: email ? '#1F2937' : '#CBD5E1', fontWeight: 600 }}>
+                                            {email || 'Não informado'}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                                    <Info size={15} color="#64748B" style={{ marginTop: 2, flexShrink: 0 }} />
+                                    <Box>
+                                        <Typography sx={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                                            Prazo
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '0.82rem', color: '#1F2937' }}>
+                                            {isAdvance
+                                                ? (sendDay ? `Solicitar até dia ${sendDay} do mês anterior ao atendimento` : 'Não informado')
+                                                : [
+                                                    sendDay ? `Dia ${sendDay} do mês` : null,
+                                                    gp?.billingDeadlineDays != null ? `${gp.billingDeadlineDays} dias corridos após o atendimento` : null
+                                                ].filter(Boolean).join(' · ') || 'Não informado'
+                                            }
+                                        </Typography>
+                                    </Box>
+                                </Box>
+
+                                {hasFiscal && (
+                                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                                        <Landmark size={15} color="#64748B" style={{ marginTop: 2, flexShrink: 0 }} />
+                                        <Box>
+                                            <Typography sx={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                                                Dados da NF
+                                            </Typography>
+                                            {detailsConvenio.legalName && (
+                                                <Typography sx={{ fontSize: '0.82rem', color: '#1F2937' }}>
+                                                    {detailsConvenio.legalName}
+                                                </Typography>
+                                            )}
+                                            {detailsConvenio.taxId && (
+                                                <Typography sx={{ fontSize: '0.78rem', color: '#64748B', fontFamily: 'monospace' }}>
+                                                    {detailsConvenio.taxId}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                )}
+                            </Box>
+
+                            <Button
+                                size="small"
+                                onClick={() => { const c = detailsConvenio; closeDetails(); handleEdit(c); }}
+                                sx={{ mt: 2, borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 0 }}
+                            >
+                                Editar essas informações →
+                            </Button>
+                        </Box>
+                    );
+                })()}
+            </Popover>
         </Dialog>
     );
 };

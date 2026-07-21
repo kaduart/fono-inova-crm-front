@@ -27,7 +27,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const [editing, setEditing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
-    const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
     const [isAccordionOpen, setIsAccordionOpen] = useState(true);
 
     const realPatientId = patient?.patientId || patient?._id;
@@ -367,8 +366,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                                             onUseSession={handleUseSession}
                                             onRegisterPayment={handleRegisterPayment}
                                             onCardClick={handleViewPackage}
-                                            isExpanded={expandedPackageId === pkg._id}
-                                            onToggleExpand={(expanded) => setExpandedPackageId(expanded ? pkg._id : null)}
                                             onRefresh={fetchBasicPackages}
                                         />
                                     ))}

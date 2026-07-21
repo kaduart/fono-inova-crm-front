@@ -42,6 +42,7 @@ export interface GuidePresentation {
   statusLabel: string;
   statusBg: string;
   statusColor: string;
+  statusSeverity: GuideStatusSeverity;
   remaining: number;
   usedSessions: number;
   totalSessions: number;
@@ -156,45 +157,47 @@ function isGuideExpiringSoon(
   return alertCodes.has('EXPIRING_SOON') || (hasDateExpiration(guide) && daysUntilExpiration !== null && daysUntilExpiration <= warningDays);
 }
 
+export type GuideStatusSeverity = 'success' | 'warning' | 'critical' | 'neutral';
+
 function resolveStatus(
   guide: InsuranceGuide,
   lifecycle: GuideLifecycleResult | undefined,
   daysUntilExpiration: number | null,
   expiringSoon: boolean
-): { label: string; bg: string; color: string } {
+): { label: string; bg: string; color: string; severity: GuideStatusSeverity } {
   const remaining = guide.remaining ?? Math.max(0, guide.totalSessions - (guide.usedSessions || 0));
 
   // Status fixos do backend
   if (guide.status === 'cancelled') {
-    return { label: 'Cancelada', bg: 'rgba(255,255,255,0.15)', color: '#FFFFFF' };
+    return { label: 'Cancelada', bg: 'rgba(255,255,255,0.15)', color: '#FFFFFF', severity: 'neutral' };
   }
 
   if (guide.status === 'superseded') {
-    return { label: 'Substituída', bg: 'rgba(255,255,255,0.15)', color: '#FFFFFF' };
+    return { label: 'Substituída', bg: 'rgba(255,255,255,0.15)', color: '#FFFFFF', severity: 'neutral' };
   }
 
   // Alertas de domínio têm precedência para vencimento/esgotamento
   const alertCodes = new Set(lifecycle?.alerts?.map(a => a.code) || []);
 
   if (alertCodes.has('EXPIRED') || guide.status === 'expired' || (hasDateExpiration(guide) && daysUntilExpiration !== null && daysUntilExpiration < 0)) {
-    return { label: 'Vencida', bg: 'rgba(255,255,255,0.15)', color: '#FFFFFF' };
+    return { label: 'Vencida', bg: 'rgba(255,255,255,0.15)', color: '#FFFFFF', severity: 'critical' };
   }
 
   if (alertCodes.has('NO_SESSIONS') || remaining === 0 || guide.status === 'exhausted') {
-    return { label: 'Esgotada', bg: 'rgba(239,68,68,0.35)', color: '#FFFFFF' };
+    return { label: 'Esgotada', bg: 'rgba(239,68,68,0.35)', color: '#FFFFFF', severity: 'critical' };
   }
 
   // Vencimento tem precedência sobre saldo baixo: sessão não usada a tempo é sessão perdida,
   // mesmo que ainda existam sessões restantes no saldo
   if (expiringSoon) {
-    return { label: 'Vence em breve', bg: 'rgba(249,115,22,0.35)', color: '#FFFFFF' };
+    return { label: 'Vence em breve', bg: 'rgba(249,115,22,0.35)', color: '#FFFFFF', severity: 'warning' };
   }
 
   if (remaining <= 2) {
-    return { label: 'Poucas sessões', bg: 'rgba(249,115,22,0.35)', color: '#FFFFFF' };
+    return { label: 'Poucas sessões', bg: 'rgba(249,115,22,0.35)', color: '#FFFFFF', severity: 'warning' };
   }
 
-  return { label: 'Disponível', bg: 'rgba(255,255,255,0.25)', color: '#FFFFFF' };
+  return { label: 'Disponível', bg: 'rgba(255,255,255,0.25)', color: '#FFFFFF', severity: 'success' };
 }
 
 export function buildGuidePresentation(guide: InsuranceGuide): GuidePresentation {
@@ -221,6 +224,7 @@ export function buildGuidePresentation(guide: InsuranceGuide): GuidePresentation
     statusLabel: status.label,
     statusBg: status.bg,
     statusColor: status.color,
+    statusSeverity: status.severity,
     remaining,
     usedSessions,
     totalSessions,

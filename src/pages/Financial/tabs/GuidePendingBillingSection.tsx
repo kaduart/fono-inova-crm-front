@@ -235,7 +235,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                     {[
                         { label: 'guias', value: guides.length },
-                        { label: 'sessões no mês', value: sessions, blue: true },
+                        { label: isPerGuide ? 'sessões pendentes' : 'sessões no mês', value: sessions, blue: true },
                         { label: 'a faturar', value: formatCurrency(total), green: true },
                     ].map(stat => (
                         <Box key={stat.label} sx={{
@@ -340,7 +340,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                                         {guide.billingMode === 'per_guide' ? (
                                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, mt: 0.25 }}>
                                                 <Typography fontSize="0.7rem" color="#065F46" fontWeight={600}>
-                                                    {guide.sessionsThisMonth ?? guide.pendingSessions} sess. no mês
+                                                    {guide.sessionsThisMonth ?? guide.pendingSessions} sess. pendentes
                                                 </Typography>
                                                 <Typography fontSize="0.7rem" color="#64748B">
                                                     {guide.totalSessions} autorizadas
@@ -759,7 +759,7 @@ const GuidePendingBillingSection = ({
                                             <BillingModeBadge mode={providerMode} />
                                         </Box>
                                         <Typography fontSize="0.76rem" color="#94A3B8">
-                                            {patientCount} paciente{patientCount !== 1 ? 's' : ''} · {allGuides.length} guia{allGuides.length !== 1 ? 's' : ''} · {providerSess} sessõ{providerSess !== 1 ? 'es' : 'ão'}{isPerGuide ? ' no mês' : ''}
+                                            {patientCount} paciente{patientCount !== 1 ? 's' : ''} · {allGuides.length} guia{allGuides.length !== 1 ? 's' : ''} · {providerSess} sessõ{providerSess !== 1 ? 'es' : 'ão'}{isPerGuide ? ' pendentes' : ' no mês'}
                                         </Typography>
                                     </Box>
                                 </Box>

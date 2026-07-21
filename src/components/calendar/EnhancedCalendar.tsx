@@ -273,6 +273,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // 🆕 Modal de dia (mobile + click desktop) — acessível sem hover
     const [dayModalOpen, setDayModalOpen] = useState(false);
     const [dayModalData, setDayModalData] = useState<{ dateStr: string; dayAppts: IAppointment[] } | null>(null);
+    const [dayModalFilter, setDayModalFilter] = useState('');
     const clearHoverTimeout = () => {
         if (hoverTimeoutRef.current) {
             clearTimeout(hoverTimeoutRef.current);
@@ -766,17 +767,28 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     }), [handleDatesSet]);
 
     // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
+    const OPERATIONAL_SOFT: Record<string, { bg: string; text: string; dot: string }> = {
+        scheduled: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+        confirmed: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+        in_progress: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
+        completed: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-600' },
+        canceled: { bg: 'bg-gray-100', text: 'text-gray-500', dot: 'bg-gray-400' },
+        absent: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
+        pre_agendado: { bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
+    };
+
     const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact', onConfirm, onComplete }: {
         appointment: AppointmentDTO;
         timeText?: string;
         onClick?: () => void;
-        variant?: 'compact' | 'expanded';
+        variant?: 'compact' | 'expanded' | 'premium';
         onConfirm?: (id: string) => void;
         onComplete?: (id: string) => void;
     }) => {
         const apptId = appointment.id;
 
         const isExpanded = variant === 'expanded';
+        const isPremium = variant === 'premium';
         const paymentStatus = getRealPaymentStatus(appointment);
         const operationalStatus = appointment.operationalStatus || 'scheduled';
         const paymentConfig = getPaymentStatusConfig(paymentStatus);
@@ -902,6 +914,94 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             if (isConvenio) return 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
             return 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)';
         };
+
+        // 🌟 Variante "premium" — mesma paleta por tipo (liminar/pacote/convênio/particular)
+        // do card clássico, com layout mais respirado. Reaproveita 100% dos dados/regras
+        // já calculados acima; só muda a apresentação.
+        if (isPremium) {
+            const soft = OPERATIONAL_SOFT[operationalStatus] || OPERATIONAL_SOFT.scheduled;
+            const isDimmed = ['canceled', 'absent'].includes(operationalStatus);
+            return (
+                <Paper
+                    elevation={2}
+                    onClick={onClick}
+                    className={`w-full rounded-2xl transition-all duration-200 hover:shadow-lg cursor-pointer p-4 ${isDimmed ? 'opacity-70' : ''} ${isPackageSessionPending ? 'animate-pulse' : ''}`}
+                    style={{
+                        background: getCardBackground(),
+                        borderLeft: `4px solid ${operationalConfig.color}`,
+                        boxShadow: isPackageSessionPending ? '0 0 15px rgba(249, 115, 22, 0.6)' : undefined,
+                    }}
+                >
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/90 ${soft.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${soft.dot}`} />
+                            {operationalBadge.label}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 bg-white/90 px-2 py-1 rounded-lg">
+                            {fmtTime(timeText || appointment.time || '')}
+                        </span>
+                    </div>
+
+                    <p className="text-base font-bold text-gray-900 leading-snug truncate">{patientName}</p>
+                    <p className="text-xs text-gray-700 mt-0.5 truncate">
+                        👩‍⚕️ {doctorName}{specialtyLabel ? ` · ${specialtyLabel}` : ''}
+                    </p>
+
+                    {hasPackage && (
+                        <p className="text-xs text-gray-700 mt-2 flex items-center gap-1 bg-white/60 rounded-lg px-2 py-1">
+                            <span>{isLiminar ? '⚖️' : '📦'}</span>
+                            <span>{isLiminar ? 'Liminar' : 'Pacote'}{totalSessions ? ` · ${sessionsDone ?? 0}/${totalSessions} sessões` : ''}</span>
+                        </p>
+                    )}
+                    {isConvenio && (
+                        <p className="text-xs text-gray-700 mt-2 flex items-center gap-1 bg-white/60 rounded-lg px-2 py-1">
+                            <span>🏥</span>
+                            <span>{insuranceProviderName || 'Convênio'}</span>
+                        </p>
+                    )}
+                    {!hasPackage && !isConvenio && reason && (
+                        <p className="text-xs text-gray-700 italic mt-2 truncate bg-white/50 rounded-lg px-2 py-1">📝 {reason}</p>
+                    )}
+
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/40">
+                        <span className="text-[11px] text-gray-700 font-medium">{serviceLabel}</span>
+                        <div className="flex items-center gap-1.5">
+                            {patientHasDebt && (
+                                <span className="text-[10px] font-bold text-red-700 bg-white/70 px-1.5 py-0.5 rounded-full" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
+                                    ⚠️ R$ {patientBalance.toFixed(0)}
+                                </span>
+                            )}
+                            <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1`}>
+                                <span>{paymentBadge.icon}</span><span>{paymentBadge.label}</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    {(operationalStatus === 'scheduled' || operationalStatus === 'confirmed') && (onConfirm || onComplete) && (
+                        <div className="flex gap-2 mt-3">
+                            {operationalStatus === 'scheduled' && onConfirm && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onConfirm(apptId); }}
+                                    className="flex-1 bg-white/90 hover:bg-white text-blue-700 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                                >
+                                    Confirmar
+                                </button>
+                            )}
+                            {operationalStatus === 'confirmed' && onComplete && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onComplete(apptId); }}
+                                    className="flex-1 bg-white/90 hover:bg-white text-green-700 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                                >
+                                    Realizar
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </Paper>
+            );
+        }
 
         return (
             <Paper
@@ -1733,6 +1833,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 onClick={() => {
                                     if (dayCount > 0) {
                                         setDayModalData({ dateStr, dayAppts });
+                                        setDayModalFilter('');
                                         setDayModalOpen(true);
                                     }
                                 }}
@@ -1950,34 +2051,136 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         if (e.target === e.currentTarget) setDayModalOpen(false);
                     }}
                 >
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-auto flex flex-col">
-                        <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                            <h3 className="text-base font-bold text-gray-800">
-                                📅 {new Date(dayModalData.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                            </h3>
-                            <button
-                                onClick={() => setDayModalOpen(false)}
-                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                                aria-label="Fechar"
-                            >
-                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
-                        </div>
-                        <div className="p-4 space-y-3">
-                            {[...dayModalData.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
-                                <AppointmentEventCard
-                                    key={appt._id || appt.id}
-                                    appointment={appt}
-                                    timeText={appt.time}
-                                    variant="expanded"
-                                    onClick={() => {
-                                        setDayModalOpen(false);
-                                        openAppointmentDetail(appt);
-                                    }}
-                                    onConfirm={handleQuickConfirm}
-                                    onComplete={handleQuickComplete}
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-auto flex flex-col">
+                        <div className="sticky top-0 bg-white z-10 px-5 pt-4 pb-4 border-b border-gray-100">
+                            {(() => {
+                                const dateObj = new Date(dayModalData.dateStr + 'T12:00:00');
+                                const weekdayLong = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+                                const weekdayShort = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                                const monthYear = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+                                const statusCounts = dayModalData.dayAppts.reduce((acc, a) => {
+                                    const st = a.operationalStatus || 'scheduled';
+                                    acc[st] = (acc[st] || 0) + 1;
+                                    return acc;
+                                }, {} as Record<string, number>);
+                                const scheduledCount = (statusCounts.scheduled || 0) + (statusCounts.pre_agendado || 0);
+                                const confirmedCount = statusCounts.confirmed || 0;
+                                const completedCount = statusCounts.completed || 0;
+                                const canceledCount = (statusCounts.canceled || 0) + (statusCounts.absent || 0);
+                                const statPills = [
+                                    { label: 'agendado', count: scheduledCount, dot: 'bg-blue-500' },
+                                    { label: 'confirmado', count: confirmedCount, dot: 'bg-emerald-500' },
+                                    { label: 'concluído', count: completedCount, dot: 'bg-green-600' },
+                                    { label: 'cancelado', count: canceledCount, dot: 'bg-gray-400' },
+                                ].filter(p => p.count > 0);
+
+                                return (
+                                    <>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shrink-0">
+                                                    <span className="text-[10px] font-semibold uppercase leading-none opacity-90">{weekdayShort}</span>
+                                                    <span className="text-lg font-bold leading-none mt-0.5">{dateObj.getDate()}</span>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="text-base font-bold text-gray-800 capitalize truncate">{weekdayLong}</h3>
+                                                    <p className="text-xs text-gray-500 capitalize truncate">{monthYear}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setDayModalOpen(false)}
+                                                className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
+                                                aria-label="Fechar"
+                                            >
+                                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        </div>
+                                        {statPills.length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-gray-500">
+                                                {statPills.map(p => (
+                                                    <span key={p.label} className="flex items-center gap-1.5">
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+                                                        {p.count} {p.label}{p.count > 1 ? 's' : ''}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                            <div className="relative mt-3">
+                                <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+                                <input
+                                    type="text"
+                                    value={dayModalFilter}
+                                    onChange={(e) => setDayModalFilter(e.target.value)}
+                                    placeholder="Buscar paciente pelo nome..."
+                                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                 />
-                            ))}
+                            </div>
+                        </div>
+                        <div className="p-5 space-y-5">
+                            {(() => {
+                                const query = dayModalFilter.trim().toLowerCase();
+                                const filtered = query
+                                    ? dayModalData.dayAppts.filter((appt) => {
+                                        const name = (appt.patient?.name || appt.patient?.fullName || '').toLowerCase();
+                                        return name.includes(query);
+                                    })
+                                    : dayModalData.dayAppts;
+
+                                if (filtered.length === 0) {
+                                    return (
+                                        <p className="text-sm text-gray-400 text-center py-6">
+                                            Nenhum agendamento encontrado para "{dayModalFilter}".
+                                        </p>
+                                    );
+                                }
+
+                                const getPeriod = (time?: string) => {
+                                    const hour = parseInt((time || '00:00').split(':')[0], 10);
+                                    if (hour < 12) return 'Manhã';
+                                    if (hour < 18) return 'Tarde';
+                                    return 'Noite';
+                                };
+                                const PERIOD_ICON: Record<string, string> = { 'Manhã': '☀️', 'Tarde': '🌤️', 'Noite': '🌙' };
+
+                                const sorted = [...filtered].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                                const groups: { period: string; items: typeof sorted }[] = [];
+                                for (const appt of sorted) {
+                                    const period = getPeriod(appt.time);
+                                    const lastGroup = groups[groups.length - 1];
+                                    if (lastGroup && lastGroup.period === period) {
+                                        lastGroup.items.push(appt);
+                                    } else {
+                                        groups.push({ period, items: [appt] });
+                                    }
+                                }
+
+                                return groups.map((group, idx) => (
+                                    <div key={`${group.period}-${idx}`} className="space-y-3">
+                                        <h4 className="text-xs font-bold uppercase tracking-wide text-gray-400 flex items-center gap-1.5">
+                                            <span>{PERIOD_ICON[group.period]}</span>
+                                            {group.period}
+                                        </h4>
+                                        {group.items.map((appt) => (
+                                            <AppointmentEventCard
+                                                key={appt._id || appt.id}
+                                                appointment={appt}
+                                                timeText={appt.time}
+                                                variant="premium"
+                                                onClick={() => {
+                                                    setDayModalOpen(false);
+                                                    openAppointmentDetail(appt);
+                                                }}
+                                                onConfirm={handleQuickConfirm}
+                                                onComplete={handleQuickComplete}
+                                            />
+                                        ))}
+                                    </div>
+                                ));
+                            })()}
                         </div>
                     </div>
                 </div>,

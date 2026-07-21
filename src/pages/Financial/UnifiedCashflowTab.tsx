@@ -29,10 +29,11 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Receipt } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
+import { EmitFiscalInvoiceModal } from '../../components/fiscal/EmitFiscalInvoiceModal';
 import AppointmentPackageProgress from '../../components/appointments/AppointmentPackageProgress';
 
 interface DayData {
@@ -153,6 +154,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     const [loadingAppointments, setLoadingAppointments] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any | null>(null);
     const [editPayment, setEditPayment]   = useState<any | null>(null);
+    const [emitFiscalPayment, setEmitFiscalPayment] = useState<any | null>(null);
     const [groupDetailItems, setGroupDetailItems] = useState<any[] | null>(null);
 
     const navigate = useNavigate();
@@ -1281,6 +1283,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                               className="p-1 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
                                           >
                                               <Pencil size={12} />
+                                          </button>
+                                          <button
+                                              onClick={(e) => { e.stopPropagation(); setEmitFiscalPayment(t); }}
+                                              title="Emitir NFSe"
+                                              className="p-1 rounded text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                          >
+                                              <Receipt size={12} />
                                           </button>
                                           <button
                                               onClick={(e) => { e.stopPropagation(); handleDeletePayment(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
@@ -2619,6 +2628,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                 payment={editPayment}
                 onClose={() => setEditPayment(null)}
                 onSuccess={() => { setEditPayment(null); setGroupDetailItems(null); loadDayData(); }}
+            />
+        )}
+        {emitFiscalPayment && (
+            <EmitFiscalInvoiceModal
+                open={!!emitFiscalPayment}
+                payment={{
+                    id: emitFiscalPayment.id,
+                    paciente: emitFiscalPayment.paciente,
+                    valor: emitFiscalPayment.valor,
+                    metodo: emitFiscalPayment.metodo,
+                    data: emitFiscalPayment.data
+                }}
+                onClose={() => setEmitFiscalPayment(null)}
+                onSuccess={() => { setEmitFiscalPayment(null); }}
             />
         )}
         </div>

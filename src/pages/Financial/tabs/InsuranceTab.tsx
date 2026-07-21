@@ -57,7 +57,10 @@ import {
     getPendingBillingGuides
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
+import { Shield } from 'lucide-react';
+import { AutorizacoesTab } from './AutorizacoesTab';
 import { useConvenios } from '../../../hooks/useConvenios';
+import BillingCommunicationWizard from '../components/BillingCommunicationWizard';
 
 const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
     pending_billing: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Aguardando Faturamento' },
@@ -147,6 +150,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // Estado para modal de gerenciamento de convênios
     const [convenioManagerOpen, setConvenioManagerOpen] = useState(false);
 
+    // Estado para wizard de envio de documentos de faturamento em massa
+    const [billingWizardOpen, setBillingWizardOpen] = useState(false);
+    const [billingWizardLoading, setBillingWizardLoading] = useState(false);
+    const [wizardSelectedGuides, setWizardSelectedGuides] = useState<PendingGuide[]>([]);
+
     const getMonthLabel = () => {
         if (!selectedMonthYear) return '';
         const [year, month] = selectedMonthYear.split('-');
@@ -201,21 +209,24 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         loadDoctors();
     }, []);
 
+    // 🚨 FIX (2026-07-20): eram 2 efeitos separados (um por [selectedMonthYear], outro
+    // por [subTab]) — ambos disparam no mount, então toda montagem/troca de mês fazia
+    // pending-billing ser chamado 2x (loadAllCounts sempre busca; loadReceivables busca
+    // de novo se subTab===0). loadAllCounts já popula pendingGuides/orphanSessions —
+    // loadReceivables só precisa rodar por conta própria para as abas Faturados/Recebidos.
     useEffect(() => {
-        // Ao trocar o mês, carrega os counts de TODAS as abas de uma vez
         loadAllCounts(selectedMonthYear);
-        loadReceivables(selectedMonthYear);
-    }, [selectedMonthYear]);
-
-    useEffect(() => {
-        // Ao trocar de aba, carrega apenas o conteúdo específico
-        loadReceivables(selectedMonthYear);
-    }, [subTab]);
+        if (subTab !== 0) {
+            loadReceivables(selectedMonthYear);
+        }
+    }, [selectedMonthYear, subTab]);
 
     useEffect(() => {
         const handleRefresh = () => {
             loadAllCounts(selectedMonthYear);
-            loadReceivables(selectedMonthYear);
+            if (subTab !== 0) {
+                loadReceivables(selectedMonthYear);
+            }
         };
         window.addEventListener('cash:refresh', handleRefresh);
         return () => window.removeEventListener('cash:refresh', handleRefresh);
@@ -225,7 +236,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const loadAllCounts = async (month?: string) => {
         try {
             const [pendingResponse, allResponse] = await Promise.all([
-                getPendingBillingGuides({ month, limit: 100 }),
+                // A Faturar não é escopado por mês: pendência de convênio não tem "mês", só data de quando foi feita.
+                // Sem o param `month`, o backend não filtra por período e traz TODAS as sessões pendentes de cada guia.
+                getPendingBillingGuides({ limit: 100 }),
                 getInsuranceReceivables({ month })
             ]);
             setPendingGuides(pendingResponse.data.data || []);
@@ -237,11 +250,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const loadReceivables = async (month?: string) => {
-        // Aba A Faturar usa guias pendentes (guide-based)
+        // Aba A Faturar usa guias pendentes (guide-based) — sempre todas, sem filtro de mês (ver loadAllCounts)
         if (subTab === 0) {
             setLoadingGuides(true);
             try {
-                const response = await getPendingBillingGuides({ month, limit: 100 });
+                const response = await getPendingBillingGuides({ limit: 100 });
                 setPendingGuides(response.data.data || []);
                 setOrphanSessions(response.data.orphanSessions || []);
             } catch (error) {
@@ -523,6 +536,67 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setFaturarLoteModalOpen(true);
     };
 
+    const handleOpenBillingWizard = () => {
+        if (selectedGuides.size === 0) {
+            toast.warn('Selecione pelo menos uma guia');
+            return;
+        }
+
+        setBillingWizardLoading(true);
+        try {
+            const selected = pendingGuides.filter(g => selectedGuides.has(g.guideId));
+            if (selected.length === 0) {
+                toast.error('Guias selecionadas não encontradas');
+                return;
+            }
+
+            const uniqueInsurances = new Set(selected.map(g => g.insurance));
+            if (uniqueInsurances.size > 1) {
+                toast.error('Selecione apenas guias do mesmo convênio para enviar documentos em lote');
+                return;
+            }
+
+            setWizardSelectedGuides(selected);
+            setBillingWizardOpen(true);
+        } catch (error) {
+            toast.error(extractErrorMessage(error, 'Erro ao preparar envio de documentos'));
+        } finally {
+            setBillingWizardLoading(false);
+        }
+    };
+
+    const handleBillingWizardClose = () => {
+        setBillingWizardOpen(false);
+        setWizardSelectedGuides([]);
+    };
+
+    const handleBillingWizardAllSent = () => {
+        setBillingWizardOpen(false);
+        setWizardSelectedGuides([]);
+        // Após envio com sucesso, abre modal de faturamento em lote
+        setFaturarLoteData({
+            dataFaturamento: new Date().toISOString().split('T')[0],
+            notaFiscal: ''
+        });
+        setFaturarLoteModalOpen(true);
+    };
+
+    const handleBillingSent = () => {
+        // Mantido para compatibilidade caso o DocumentSendDrawer seja reutilizado
+        setBillingWizardOpen(false);
+        setWizardSelectedGuides([]);
+        setFaturarLoteData({
+            dataFaturamento: new Date().toISOString().split('T')[0],
+            notaFiscal: ''
+        });
+        setFaturarLoteModalOpen(true);
+    };
+
+    const handleOpenBillingDrawer = async () => {
+        // LEGADO: agora usamos o wizard em massa
+        handleOpenBillingWizard();
+    };
+
     const handleFaturarLote = async () => {
         setFaturarLoteLoading(true);
         try {
@@ -675,8 +749,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </div>
             </div>
 
-            {/* Filtro de Mês — oculto no Histórico (tem seu próprio seletor de ano) */}
-            {subTab !== 3 && (
+            {/* Filtro de Mês — oculto no Histórico e Autorizações (têm seus próprios seletores) */}
+            {subTab !== 3 && subTab !== 4 && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1 text-gray-500">
                         <Calendar size={16} />
@@ -810,6 +884,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { label: 'Faturados', count: countByStatus('billed'),     icon: <Send size={15} />, amber: false },
                             { label: 'Recebidos', count: countByStatus('received'),   icon: <CheckCircle size={15} />, amber: false },
                             { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
+                            { label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
                         ].map((tab, i) => (
                             <button key={i} onClick={() => setSubTab(i)}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -884,6 +959,18 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             variant="contained"
                                             size="small"
                                             startIcon={<Send size={16} />}
+                                            onClick={handleOpenBillingWizard}
+                                            disabled={billingWizardLoading}
+                                            sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2 }}
+                                        >
+                                            {billingWizardLoading ? 'Abrindo...' : 'Enviar Documentos'}
+                                        </Button>
+                                    )}
+                                    {subTab === 0 && (
+                                        <Button
+                                            variant="contained"
+                                            size="small"
+                                            startIcon={<Send size={16} />}
                                             onClick={handleOpenFaturarLoteModal}
                                             sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' }, borderRadius: 2 }}
                                         >
@@ -908,7 +995,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 3 ? (
+                    {subTab === 4 ? (
+                        <AutorizacoesTab month={month} year={year} />
+                    ) : subTab === 3 ? (
                         <InsuranceHistorySection activeYear={year} activeMonth={month} />
                     ) : subTab === 0 ? (
                         <GuidePendingBillingSection
@@ -1303,6 +1392,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 />
             )}
             
+            <BillingCommunicationWizard
+                open={billingWizardOpen}
+                selectedGuides={wizardSelectedGuides}
+                onClose={handleBillingWizardClose}
+                onAllSent={handleBillingWizardAllSent}
+            />
+
             {/* Modal: Gerenciamento de Convênios */}
             <ConvenioManagerModal
                 open={convenioManagerOpen}

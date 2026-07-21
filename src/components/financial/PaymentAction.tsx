@@ -1,10 +1,11 @@
-import { Check, CircleCheck, CircleX, DollarSign, Edit, MoreVertical, X } from 'lucide-react';
+import { Check, CircleCheck, CircleX, DollarSign, Edit, HandCoins, MoreVertical, X } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 
 interface PaymentActionIconsProps {
     payment: FinancialRecord;
     onMarkAsPaid: (payment: FinancialRecord) => void;
+    onMarkAsDebit?: (payment: FinancialRecord) => void;
     onCancelPayment: (id: string) => void;
     onEditAmount: (id: string) => void;
     onEditAppointment?: (id: string) => void;
@@ -16,6 +17,7 @@ interface PaymentActionIconsProps {
 export const PaymentActionIcons = ({
     payment,
     onMarkAsPaid,
+    onMarkAsDebit,
     onCancelPayment,
     onEditAmount,
     onEditAppointment,
@@ -115,6 +117,22 @@ export const PaymentActionIcons = ({
                                 <span className="text-xs ml-auto">📦 Pacote</span>
                             )}
                         </div>
+                    )}
+
+                    {/* ✅ BOTÃO MARCAR COMO DÉBITO — converte pending/paid particular em fiado (PatientBalance).
+                        Cobre os dois casos: secretária esqueceu de marcar débito no complete (payment
+                        ficou 'paid') e payment já pendente que precisa virar débito formal. */}
+                    {onMarkAsDebit && (payment.status === 'pending' || payment.status === 'paid') && (payment.billingType || 'particular') === 'particular' && (
+                        <button
+                            onClick={() => {
+                                onMarkAsDebit(payment);
+                                setOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-amber-50 text-amber-700 transition-colors"
+                            title="Registra este pagamento como débito (fiado) no saldo do paciente"
+                        >
+                            <HandCoins size={16} /> Marcar como Débito
+                        </button>
                     )}
 
                     {/* ✅ BOTÃO EDITAR */}

@@ -123,6 +123,9 @@ const ERROR_MESSAGES: Record<string, string> = {
     NOT_FOUND:                      'Agendamento não encontrado. Ele pode ter sido removido.',
     // Convênio
     NO_ACTIVE_GUIDE:                'Guia de convênio vencida ou esgotada. Cadastre uma nova guia antes de concluir o atendimento.',
+    GUIDE_EXPIRED:                  'Guia de convênio expirada. Cadastre uma nova guia antes de concluir o atendimento.',
+    GUIDE_EXHAUSTED:                'Guia de convênio esgotada: não há mais sessões disponíveis nesta guia.',
+    GUIDE_NOT_ACTIVE:               'Guia de convênio não está ativa (cancelada/suspensa). Verifique o cadastro da guia.',
     // Genérico
     CONFLICT_STATE:                 'Operação inválida para o estado atual do agendamento.',
     BUSINESS_RULE_VIOLATION:        'Esta ação não é permitida pelas regras do sistema.',
@@ -505,7 +508,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             if (event && e.detail?.appointmentId === event.id) {
                 console.log('🔄 [Modal] Buscando dados atualizados do appointment...');
                 try {
-                    const response = await API.get(`/api/v2/appointments/${event.id}`);
+                    const response = await API.get(`/v2/appointments/${event.id}`);
                     if (response.data?.success && response.data?.data) {
                         const updatedData = response.data.data;
                         console.log('✅ [Modal] Dados atualizados recebidos:', updatedData);

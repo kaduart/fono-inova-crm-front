@@ -2,22 +2,15 @@
 
 import { Suspense, lazy, useEffect, startTransition } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Grid, Paper, Skeleton, Tab, Tabs, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
-import {
-    Calendar,
-    DollarSign,
-    BarChart3,
-    Receipt,
-    CreditCard,
-    LayoutDashboard,
-    User,
-} from 'lucide-react';
+import { Box, Paper, Skeleton, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
+import { LayoutDashboard, DollarSign, Receipt, CreditCard, BarChart3, User, Calendar, FileText, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
-import { CashflowPageSkeleton } from './components/CashflowPageSkeleton';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
 import ProfessionalResultsPage from '../ProfessionalResults/ProfessionalResultsPage';
+import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
+import { FiscalConfiguration } from '../../components/fiscal/FiscalConfiguration';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -345,6 +338,7 @@ interface FinancialDashboardProps {
     doctors: IDoctor[];
     initialPayments: FinancialRecord[];
     onMarkAsPaid: (payment: FinancialRecord) => void;
+    onMarkAsDebit?: (payment: FinancialRecord) => void;
     registerAppointmentAndPaymentFuture: (payment: FinancialRecord) => void;
     onCancelPayment: (paymentId: string) => void;
 }
@@ -356,9 +350,11 @@ const allTabs = [
     { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
     { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
     { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
+    { id: 'nfse', label: 'NFSe', icon: <FileText size={18} /> },
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
     { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
+    { id: 'configuracao-fiscal', label: 'Config. Fiscal', icon: <Settings size={18} /> },
 ];
 
 const FinancialDashboard = ({
@@ -366,6 +362,7 @@ const FinancialDashboard = ({
     doctors,
     initialPayments,
     onMarkAsPaid,
+    onMarkAsDebit,
     registerAppointmentAndPaymentFuture,
     onCancelPayment
 }: FinancialDashboardProps) => {
@@ -505,6 +502,7 @@ const FinancialDashboard = ({
                             patients={patients}
                             doctors={doctors}
                             onMarkAsPaid={onMarkAsPaid}
+                            onMarkAsDebit={onMarkAsDebit}
                             registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
                             onCancelPayment={onCancelPayment}
                             enabled={true}
@@ -525,6 +523,8 @@ const FinancialDashboard = ({
                         <ExpensesTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
+            case 'nfse':
+                return <FiscalInvoiceHistory />;
             case 'dashboard':
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
@@ -543,6 +543,8 @@ const FinancialDashboard = ({
                         <PlanningTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
+            case 'configuracao-fiscal':
+                return <FiscalConfiguration />;
             default:
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>

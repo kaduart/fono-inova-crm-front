@@ -502,6 +502,7 @@ export const PatientsSummaryCard = ({
 interface PaymentPageProps {
     doctors?: IDoctor[];
     onMarkAsPaid?: (payment: FinancialRecord) => void;
+    onMarkAsDebit?: (payment: FinancialRecord) => void;
     registerAppointmentAndPayemntFuture?: (payment: FinancialRecord) => void;
     onCancelPayment?: (paymentId: string) => void;
     enabled?: boolean;
@@ -509,7 +510,7 @@ interface PaymentPageProps {
     year?: number;
 }
 
-const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true, month, year }: PaymentPageProps) => {
+const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true, month, year }: PaymentPageProps) => {
     // 🚀 SOURCE OF TRUTH: Context API (padrão do projeto)
     const {
         payments: allPaymentsRaw = [],
@@ -1047,6 +1048,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onCancelPayment: onCancelPaymentPr
                                                 <PaymentActionIcons
                                                     payment={payment}
                                                     onMarkAsPaid={() => onMarkAsPaid(payment)}
+                                                    onMarkAsDebit={onMarkAsDebit ? () => onMarkAsDebit(payment) : undefined}
                                                     registerAppointmentAndPayemntFuture={() => registerAppointmentAndPayemntFuture(payment)}
                                                     onCancelPayment={handleCancelPayment}
                                                     onEditAmount={handleEditAmount}

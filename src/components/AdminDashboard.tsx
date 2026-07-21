@@ -88,6 +88,7 @@ const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 const AmandaMetricsDashboard = lazyWithRetry(() => import('./admin/AmandaMetricsDashboard'));
 const SystemUnifiedDashboard = lazyWithRetry(() => import('./admin/SystemUnifiedDashboard'));
 const WhatsAppConnectionCard = lazyWithRetry(() => import('./admin/WhatsAppConnectionCard'));
+const WhatsAppQueueControl = lazyWithRetry(() => import('./admin/WhatsAppQueueControl'));
 const ManageDoctors = lazyWithRetry(() => import('./ManageDoctors/ManageDoctors'));
 const ManagePatients = lazyWithRetry(() => import('./ManagePatients/ManagePatients'));
 const DoctorFormModal = lazyWithRetry(() => import('./ManageDoctors/DoctorFormModal'));
@@ -303,7 +304,7 @@ export default function AdminDashboard() {
     } = useAppointmentsContext();
 
 
-    const { markAsPaid } = usePayment();
+    const { markAsPaid, markAsDebit } = usePayment();
 
     // 🗓️ Buscar appointments quando o range de datas mudar (só se já carregou a aba)
     useEffect(() => {
@@ -693,7 +694,7 @@ export default function AdminDashboard() {
                     }
                     // Fecha o modal PRIMEIRO — evita que fique aberto ao receber eventos
                     setCloseModalSignal(prev => prev + 1);
-                    toast.success('✅ Agendamento atualizado (admin)!');
+                    toast.success('Agendamento atualizado (admin)!');
                     // Depois do modal fechado, atualiza o calendário e o financeiro
                     await fetchAppointments({ ...calendarDateRange, force: true });
                     window.dispatchEvent(new CustomEvent('appointments:refresh', {
@@ -908,6 +909,37 @@ export default function AdminDashboard() {
         }
     }, [markAsPaid, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
+    const handleMarkAsDebit = useCallback(async (payment: FinancialRecord) => {
+        try {
+            // 🚨 GARANTIA: sem payment real vinculado não há o que converter em débito
+            if ((payment as any).__isAppointmentRecord && !(payment as any).__hasPayment) {
+                toast.info('💳 Este agendamento não possui pagamento para registrar como débito.');
+                return;
+            }
+
+            // ⚠️ SEMPRE confirma antes de registrar débito (não é alert nativo, segue o
+            // padrão confirmToast do app) — muda o saldo do paciente e, se já estava PAGO,
+            // também reverte o valor que estava contado como recebido no caixa.
+            const confirmMsg = payment.status === 'paid'
+                ? 'Este pagamento está marcado como PAGO. Tem certeza que deseja alterá-lo para PENDENTE e registrar como débito (fiado) no saldo do paciente? O valor sai do caixa recebido.'
+                : 'Tem certeza que deseja registrar este pagamento como débito (fiado) no saldo do paciente?';
+            const confirmed = await confirmToast(confirmMsg, {
+                title: 'Marcar como débito',
+                confirmText: 'Registrar débito',
+                confirmColor: 'teal'
+            });
+            if (!confirmed) return;
+
+            const targetId = (payment as any).__realPaymentId || payment._id;
+            await markAsDebit(targetId);
+            toast.success('Pagamento registrado como débito!');
+            await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
+        } catch (error: any) {
+            console.error('Erro ao registrar débito:', error);
+            toast.error(extractErrorMessage(error, 'Erro ao registrar débito'));
+        }
+    }, [markAsDebit, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
+
     const handleCancelPayment = useCallback(async (paymentId: string) => {
         try {
             // 🚨 GARANTIA: se não tem payment real, não há o que cancelar
@@ -1046,9 +1078,10 @@ export default function AdminDashboard() {
         doctors: safeDoctorsOverview,
         initialPayments: allPayments,
         onMarkAsPaid: handleMarkAsPaid,
+        onMarkAsDebit: handleMarkAsDebit,
         registerAppointmentAndPayemntFuture: handleRegisterAppointmentAndPayemntFuture,
         onCancelPayment: handleCancelPayment,
-    }), [patients, safeDoctorsOverview, allPayments, handleMarkAsPaid, handleRegisterAppointmentAndPayemntFuture, 
+    }), [patients, safeDoctorsOverview, allPayments, handleMarkAsPaid, handleMarkAsDebit, handleRegisterAppointmentAndPayemntFuture,
         handleCancelPayment]);
 
     const analyticsProps = useMemo(() => ({
@@ -1186,7 +1219,10 @@ export default function AdminDashboard() {
                 return (
                     <TabErrorBoundary tabName="WhatsApp">
                         <Suspense fallback={<TabSpinner />}>
-                            <WhatsAppConnectionCard />
+                            <div className="space-y-4">
+                                <WhatsAppQueueControl />
+                                <WhatsAppConnectionCard />
+                            </div>
                         </Suspense>
                     </TabErrorBoundary>
                 );

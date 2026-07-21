@@ -1,4 +1,4 @@
-import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronRight, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -11,6 +11,7 @@ import { SessionModal } from './SessionModal';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import { extractScheduleConflictMessage } from '../../utils/errorUtils';
+import InactivateEntityModal from '../common/InactivateEntityModal';
 
 /**
  * ⚠️ LEGADO — condições `pack.type === 'liminar'` e `pack.type === 'convenio'`
@@ -34,8 +35,6 @@ type Props = {
   doctors: IDoctors[];
   onUseSession: (id: string, session: ISession, modalAction: string) => void;
   onCardClick?: (pack: ITherapyPackage) => void;
-  isExpanded?: boolean; // 🔥 Controlado externamente
-  onToggleExpand?: (expanded: boolean) => void; // 🔥 Callback para toggle
   onRefresh?: () => void; // 🔥 NOVO: Para recarregar após cancelamento em lote
 };
 
@@ -47,8 +46,6 @@ export default function TherapyPackageCard({
   doctors,
   onUseSession,
   onCardClick = () => { },
-  isExpanded: externalExpanded,
-  onToggleExpand,
   onRefresh,
 }: Props) {
   if (!pack) return null;
@@ -74,14 +71,14 @@ export default function TherapyPackageCard({
   };
   const [selectedSession, setSelectedSession] = useState<ISession>(initialSessionState);
   const [loading, setLoading] = useState(false);
-  const [internalExpanded, setInternalExpanded] = useState(false);
-  
+
   // 🔥 NOVO: Seleção de sessões para cancelamento em lote
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [isBatchCanceling, setIsBatchCanceling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
   const [showSessionsCalendarModal, setShowSessionsCalendarModal] = useState(false);
+  const [sessionsModalView, setSessionsModalView] = useState<'mes' | 'lista'>('mes');
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
@@ -138,15 +135,6 @@ export default function TherapyPackageCard({
     console.warn('[TherapyPackageCard] ⚠️ Endpoint /financial/summary indisponível — dados financeiros não carregados');
   }
 
-  // 🔥 Usa prop externa se fornecida, senão usa estado local
-  const isExpanded = externalExpanded !== undefined ? externalExpanded : internalExpanded;
-  const setIsExpanded = (value: boolean) => {
-    if (externalExpanded !== undefined && onToggleExpand) {
-      onToggleExpand(value);
-    } else {
-      setInternalExpanded(value);
-    }
-  };
 
   const openModalWithAction = async (action: 'edit' | 'use', session?: ISession) => {
     setModalAction(action);
@@ -979,185 +967,184 @@ export default function TherapyPackageCard({
         )}
       </div>
 
-      {/* Seção de Sessões - Acordeão Elegante */}
+      {/* Resumo de Sessões — abre o modal (Mês/Lista). "X futuras agendadas" não repete aqui: já aparece
+          junto do Progresso Clínico acima. Se houver pendência de cancelamento, abre direto na Lista. */}
       <div className="border-t border-gray-200">
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setIsExpanded(!isExpanded);
+            setSessionsModalView('mes');
+            setShowSessionsCalendarModal(true);
           }}
-          className="w-full px-6 py-4 flex items-center justify-between hover:bg-emerald-50 transition-colors group"
+          className="w-full px-6 py-3 flex items-center justify-between gap-2 hover:bg-emerald-50 transition-colors group"
         >
-          <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-emerald-600" />
-            <span className="font-medium text-gray-700">Sessões do Pacote</span>
-            <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium">
+          <div className="flex items-center gap-2 min-w-0">
+            <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="font-medium text-gray-700 text-sm whitespace-nowrap">Sessões</span>
+            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium shrink-0">
               {pack?.sessions?.length || 0}
             </span>
-            
-            {scheduledSessions.length > 0 && (
-              <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
-                {scheduledSessions.length} futuras agendadas
-              </span>
-            )}
           </div>
-          
-          {/* 🔥 NOVO: Checkbox Selecionar Todos (só aparece se tiver sessões agendadas, e só na Lista) */}
-          {isExpanded && scheduledSessions.length > 0 && (
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <label className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={selectedSessionIds.size === scheduledSessions.length && scheduledSessions.length > 0}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    selectAllScheduledSessions();
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                />
-                <span className="text-xs font-medium text-gray-700">
-                  {selectedSessionIds.size > 0 
-                    ? `${selectedSessionIds.size} selec.` 
-                    : 'Selec. todos'}
-                </span>
-              </label>
-              
-              {/* 🔥 NOVO: Botão Cancelar em Lote */}
-              {selectedSessionIds.size > 0 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBatchCancelSessions();
-                  }}
-                  disabled={isBatchCanceling}
-                  className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isBatchCanceling ? (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                  ) : (
-                    <Trash2 className="w-3 h-3" />
-                  )}
-                  Cancelar {selectedSessionIds.size}
-                </button>
-              )}
-            </div>
-          )}
-          
-          <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''
-            }`}>
-            <ChevronDown className="w-5 h-5 text-emerald-500" />
-          </div>
+          <span className="flex items-center gap-0.5 text-xs font-semibold text-emerald-700 group-hover:underline shrink-0 whitespace-nowrap">
+            Ver sessões
+            <ChevronRight className="w-3.5 h-3.5" />
+          </span>
         </button>
-
-        {isExpanded && (
-          <div className="px-6 pb-4 space-y-3">
-            {/* Tabs: Ativas / Histórico + botão que abre o calendário em modal */}
-            <div className="flex items-center justify-between gap-2 pt-1 border-b border-gray-100 pb-2">
-              <div className="flex gap-2">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setSessionTab('active'); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    sessionTab === 'active'
-                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  Ativas ({activeSessions.length})
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setSessionTab('history'); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    sessionTab === 'history'
-                      ? 'bg-gray-200 text-gray-700 border border-gray-300'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  Histórico ({historySessions.length})
-                </button>
-              </div>
-
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowSessionsCalendarModal(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                Calendário
-              </button>
-            </div>
-
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {(sessionTab === 'active' ? activeSessions : historySessions)
-                .slice()
-                .sort((a, b) => {
-                  const dateA = new Date(a.date).getTime();
-                  const dateB = new Date(b.date).getTime();
-                  if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0;
-                  if (Number.isNaN(dateA)) return 1;
-                  if (Number.isNaN(dateB)) return -1;
-                  if (dateA !== dateB) return dateA - dateB;
-                  const timeA = a.time || '';
-                  const timeB = b.time || '';
-                  return timeA.localeCompare(timeB);
-                })
-                .map((session, sessionNumber) => (
-                  <SessionListItem
-                    key={session._id}
-                    session={session}
-                    sessionNumber={sessionNumber + 1}
-                    onEdit={(session) => { openModalWithAction('edit', session); }}
-                    onUse={(session) => { openModalWithAction('use', session); }}
-                    isSelected={selectedSessionIds.has(session._id)}
-                    onToggleSelect={() => toggleSessionSelection(session._id)}
-                    canSelect={session.status === 'scheduled' || session.status === 'unpaid'}
-                  />
-                ))}
-              {(sessionTab === 'active' ? activeSessions : historySessions).length === 0 && (
-                <p className="text-center text-sm text-gray-400 py-4">
-                  {sessionTab === 'active' ? 'Nenhuma sessão ativa.' : 'Nenhuma sessão no histórico.'}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 🔥 NOVO: Modal de calendário das sessões (mesmo padrão do specialtyModal em ContractCard.tsx / liminar e do "Detalhes da Guia" em convênio) */}
+      {/* 🔥 Modal de sessões — toggle Mês (visualização) / Lista (seleção em lote + cancelamento) */}
       {showSessionsCalendarModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <div>
-                <h3 className="font-bold text-gray-800">Sessões — {pack.sessionType?.replace(/_/g, ' ')}</h3>
-                <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Realizada</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Confirmada</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Agendada</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Cancelada</span>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 gap-3">
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-800 truncate">Sessões — {pack.sessionType?.replace(/_/g, ' ')}</h3>
+                {sessionsModalView === 'mes' && (
+                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-1 flex-wrap">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Realizada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Confirmada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Agendada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Cancelada</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setSessionsModalView('mes')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      sessionsModalView === 'mes' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Mês
+                  </button>
+                  <button
+                    onClick={() => setSessionsModalView('lista')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      sessionsModalView === 'lista' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Lista
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowSessionsCalendarModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {sessionsModalView === 'mes' ? (
+              <div className="flex-1 overflow-y-auto overflow-x-auto p-5">
+                {sessionCalendarEvents.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-10">Nenhuma sessão registrada neste pacote.</p>
+                ) : (
+                  <div className="min-w-[640px]">
+                    <PatientMiniCalendar
+                      appointments={sessionCalendarEvents as any}
+                      onEventClick={(appt) => {
+                        setShowSessionsCalendarModal(false);
+                        openModalWithAction('edit', appt.__session);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-gray-100">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSessionTab('active')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        sessionTab === 'active'
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          : 'text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >
+                      Ativas ({activeSessions.length})
+                    </button>
+                    <button
+                      onClick={() => setSessionTab('history')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        sessionTab === 'history'
+                          ? 'bg-gray-200 text-gray-700 border border-gray-300'
+                          : 'text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >
+                      Histórico ({historySessions.length})
+                    </button>
+                  </div>
+
+                  {/* Seleção em lote — mesma função de antes, agora vive só aqui na Lista */}
+                  {scheduledSessions.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedSessionIds.size === scheduledSessions.length && scheduledSessions.length > 0}
+                          onChange={selectAllScheduledSessions}
+                          className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                        />
+                        <span className="text-xs font-medium text-gray-700">
+                          {selectedSessionIds.size > 0 ? `${selectedSessionIds.size} selec.` : 'Selec. todos'}
+                        </span>
+                      </label>
+
+                      {selectedSessionIds.size > 0 && (
+                        <button
+                          onClick={handleBatchCancelSessions}
+                          disabled={isBatchCanceling}
+                          className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isBatchCanceling ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                          ) : (
+                            <Trash2 className="w-3 h-3" />
+                          )}
+                          Cancelar {selectedSessionIds.size}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {(sessionTab === 'active' ? activeSessions : historySessions)
+                    .slice()
+                    .sort((a, b) => {
+                      const dateA = new Date(a.date).getTime();
+                      const dateB = new Date(b.date).getTime();
+                      if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0;
+                      if (Number.isNaN(dateA)) return 1;
+                      if (Number.isNaN(dateB)) return -1;
+                      if (dateA !== dateB) return dateA - dateB;
+                      const timeA = a.time || '';
+                      const timeB = b.time || '';
+                      return timeA.localeCompare(timeB);
+                    })
+                    .map((session, sessionNumber) => (
+                      <SessionListItem
+                        key={session._id}
+                        session={session}
+                        sessionNumber={sessionNumber + 1}
+                        onEdit={(session) => { openModalWithAction('edit', session); }}
+                        onUse={(session) => { openModalWithAction('use', session); }}
+                        isSelected={selectedSessionIds.has(session._id)}
+                        onToggleSelect={() => toggleSessionSelection(session._id)}
+                        canSelect={session.status === 'scheduled' || session.status === 'unpaid'}
+                      />
+                    ))}
+                  {(sessionTab === 'active' ? activeSessions : historySessions).length === 0 && (
+                    <p className="text-center text-sm text-gray-400 py-4">
+                      {sessionTab === 'active' ? 'Nenhuma sessão ativa.' : 'Nenhuma sessão no histórico.'}
+                    </p>
+                  )}
                 </div>
               </div>
-              <button
-                onClick={() => setShowSessionsCalendarModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto overflow-x-auto p-5">
-              {sessionCalendarEvents.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-10">Nenhuma sessão registrada neste pacote.</p>
-              ) : (
-                <div className="min-w-[640px]">
-                  <PatientMiniCalendar
-                    appointments={sessionCalendarEvents as any}
-                    onEventClick={(appt) => {
-                      setShowSessionsCalendarModal(false);
-                      openModalWithAction('edit', appt.__session);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1242,45 +1229,13 @@ export default function TherapyPackageCard({
         />
       )}
 
-      {/* Modal de confirmação de inativação */}
-      {showInactivateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowInactivateModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <Trash2 className="h-5 w-5 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Inativar pacote</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-2">
-              Esta ação irá <strong>cancelar todas as sessões e agendamentos pendentes</strong> deste pacote e liberar a agenda.
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              Sessões já realizadas e pagamentos concluídos serão <strong>mantidos</strong> e não impactarão o financeiro.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowInactivateModal(false)}
-                disabled={isInactivating}
-                className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleInactivate}
-                disabled={isInactivating}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {isInactivating ? (
-                  <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Inativando...</>
-                ) : (
-                  'Sim, inativar'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <InactivateEntityModal
+        open={showInactivateModal}
+        entityType="package"
+        loading={isInactivating}
+        onConfirm={handleInactivate}
+        onClose={() => setShowInactivateModal(false)}
+      />
     </div>
   );
 }

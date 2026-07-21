@@ -12,6 +12,7 @@ import {
   getPaymentSummary,
   getPaymentTotals,
   markPaymentAsPaid,
+  registerPaymentAsDebit,
   Summary
 } from '../services/paymentService';
 import { PaymentTotals } from '../utils/types/types';
@@ -249,6 +250,29 @@ const usePayment = () => {
     }
   }, [payment]);
 
+  // Registrar payment pendente particular como débito (fiado) — sem recriar o payment
+  const markAsDebit = useCallback(async (id: string): Promise<FinancialRecord> => {
+    setLoading(true);
+    try {
+      const updated = await registerPaymentAsDebit(id);
+      cache.promise = null;
+      setPayments(prev => prev.map(p => (p._id === id ? updated : p)));
+      if (payment && payment._id === id) setPayment(updated);
+      setError(null);
+
+      invalidateCache('dashboard');
+      invalidateCache('patients');
+
+      return updated;
+    } catch (err) {
+      setError('Erro ao registrar débito');
+      console.error(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [payment]);
+
 
   // Deletar pagamento
   const removePayment = useCallback(async (id: string) => {
@@ -349,6 +373,7 @@ const usePayment = () => {
     fetchPayment,
     addPayment,
     markAsPaid,
+    markAsDebit,
     removePayment,
     fetchSummary,
     fetchPaymentTotals,

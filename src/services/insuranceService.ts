@@ -7,7 +7,7 @@ import api from './api';
 
 export type BillingMode = 'per_month' | 'per_guide';
 
-export type RenewalType = 'end_of_month' | 'until_consumed' | 'fixed_date' | 'authorization_validity';
+export type RenewalType = 'end_of_month' | 'until_consumed' | 'fixed_date' | 'authorization_validity' | 'advance_authorization';
 export type RenewalDay = 'last_day' | 'fixed_day';
 export type MigrationStrategy = 'eligible' | 'manual' | 'none';
 
@@ -18,6 +18,16 @@ export interface GuidePolicy {
     expirationWarningDays?: number;
     autoSuggestRenewal?: boolean;
     defaultMigrationStrategy?: MigrationStrategy;
+    /** Dia do mês limite para envio da fatura/guia ao convênio (ex: 29) */
+    billingSubmissionDay?: number | null;
+    /** Para renewalType 'advance_authorization': dia do mês anterior para enviar a solicitação (ex: 20) */
+    priorAuthRequestDay?: number | null;
+    /** Para renewalType 'advance_authorization': e-mail de destino da solicitação de autorização prévia */
+    priorAuthEmail?: string;
+    /** E-mail de destino do faturamento (NF + lista de presença) — genérico, qualquer tipo de convênio */
+    billingEmail?: string;
+    /** Prazo pra emitir a NF em dias corridos a partir do atendimento (ex: 30) — quando não é dia fixo do mês */
+    billingDeadlineDays?: number | null;
 }
 
 export interface Convenio {
@@ -30,6 +40,10 @@ export interface Convenio {
     notes?: string;
     guidePolicy?: GuidePolicy;
     defaultSessions?: number | null;
+    /** Razão social — destinatário da NF */
+    legalName?: string;
+    /** CNPJ — destinatário da NF */
+    taxId?: string;
     createdAt: string;
     updatedAt: string;
     stats?: {
@@ -47,6 +61,8 @@ export interface CreateConvenioData {
     notes?: string;
     guidePolicy?: GuidePolicy;
     defaultSessions?: number | null;
+    legalName?: string;
+    taxId?: string;
 }
 
 export interface UpdateConvenioData {
@@ -57,6 +73,8 @@ export interface UpdateConvenioData {
     active?: boolean;
     guidePolicy?: GuidePolicy;
     defaultSessions?: number | null;
+    legalName?: string;
+    taxId?: string;
 }
 
 export interface InsuranceBatch {

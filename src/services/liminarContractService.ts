@@ -110,6 +110,16 @@ const liminarContractService = {
     return res.data.contract;
   },
 
+  async inactivate(contractId: string): Promise<{
+    contractId: string;
+    sessionsCanceled: number;
+    appointmentsCanceled: number;
+    paymentsCanceled: number;
+  }> {
+    const res = await API.post(`/v2/liminar-contracts/${contractId}/inactivate`);
+    return res.data;
+  },
+
   async getActivePlan(contractId: string): Promise<TherapeuticPlan | null> {
     try {
       const res = await API.get(`/v2/liminar-contracts/${contractId}/plans/active`);
