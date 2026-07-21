@@ -44,6 +44,8 @@ import { extractErrorMessage } from '../../../utils/errorUtils';
 interface ConvenioManagerModalProps {
     open: boolean;
     onClose: () => void;
+    /** Renderiza só o conteúdo (sem Dialog/DialogTitle/DialogActions), pra uso embutido numa aba */
+    embedded?: boolean;
 }
 
 const Pill = ({ label, bg, color }: { label: string; bg: string; color: string }) => (
@@ -59,7 +61,7 @@ const Pill = ({ label, bg, color }: { label: string; bg: string; color: string }
     </Box>
 );
 
-const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
+const ConvenioManagerModal = ({ open, onClose, embedded = false }: ConvenioManagerModalProps) => {
     const [convenios, setConvenios] = useState<Convenio[]>([]);
     const [loading, setLoading] = useState(false);
     const [showInactive, setShowInactive] = useState(false);
@@ -173,28 +175,8 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
         { label: 'Ações', flex: 0.9, align: 'right' as const }
     ];
 
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
-            <DialogTitle sx={{ px: 3, py: 2.25, borderBottom: '1px solid #F1F5F9' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{
-                        width: 42, height: 42, borderRadius: 2.5, bgcolor: '#EFF6FF',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                    }}>
-                        <Building2 className="w-5 h-5 text-blue-600" />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
-                            Gerenciar Convênios
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.78rem', color: '#94A3B8', mt: 0.25 }}>
-                            Faturamento, tipo de guia e prazos de cada convênio
-                        </Typography>
-                    </Box>
-                </Box>
-            </DialogTitle>
-
-            <DialogContent sx={{ p: 3, bgcolor: '#FAFBFC' }}>
+    const content = (
+        <>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
 
                     {/* Filtros */}
@@ -411,14 +393,11 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                         </Typography>
                     </Box>
                 </Box>
-            </DialogContent>
+        </>
+    );
 
-            <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9' }}>
-                <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}>
-                    Fechar
-                </Button>
-            </DialogActions>
-
+    const extras = (
+        <>
             <ConvenioFormModal
                 open={formModalOpen}
                 onClose={() => setFormModalOpen(false)}
@@ -515,6 +494,50 @@ const ConvenioManagerModal = ({ open, onClose }: ConvenioManagerModalProps) => {
                     );
                 })()}
             </Popover>
+        </>
+    );
+
+    if (embedded) {
+        return (
+            <>
+                <Box sx={{ bgcolor: '#FAFBFC' }}>{content}</Box>
+                {extras}
+            </>
+        );
+    }
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
+            <DialogTitle sx={{ px: 3, py: 2.25, borderBottom: '1px solid #F1F5F9' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{
+                        width: 42, height: 42, borderRadius: 2.5, bgcolor: '#EFF6FF',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
+                        <Building2 className="w-5 h-5 text-blue-600" />
+                    </Box>
+                    <Box>
+                        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
+                            Gerenciar Convênios
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: '#94A3B8', mt: 0.25 }}>
+                            Faturamento, tipo de guia e prazos de cada convênio
+                        </Typography>
+                    </Box>
+                </Box>
+            </DialogTitle>
+
+            <DialogContent sx={{ p: 3, bgcolor: '#FAFBFC' }}>
+                {content}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9' }}>
+                <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}>
+                    Fechar
+                </Button>
+            </DialogActions>
+
+            {extras}
         </Dialog>
     );
 };

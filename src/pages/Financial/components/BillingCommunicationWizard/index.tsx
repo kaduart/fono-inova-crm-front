@@ -30,6 +30,7 @@ import {
     getCommunicationJobStatus,
     uploadPatientDocument
 } from '../../../../services/communicationService';
+import { getConvenio } from '../../../../services/insuranceService';
 import { extractErrorMessage } from '../../../../utils/errorUtils';
 
 interface BillingCommunicationWizardProps {
@@ -117,12 +118,14 @@ export function BillingCommunicationWizard({
     const [sentCount, setSentCount] = useState(0);
     const [failedCount, setFailedCount] = useState(0);
     const [uploadingSlot, setUploadingSlot] = useState<{ patientKey: string; type: string } | null>(null);
+    const [convenioEmails, setConvenioEmails] = useState<{ label: string; email: string }[]>([]);
 
     useEffect(() => {
         if (!open || selectedGuides.length === 0) return;
         const grouped = groupGuidesByPatient(selectedGuides);
         setGroups(grouped);
         setTo('');
+        setConvenioEmails([]);
 
         // Tenta montar assunto e corpo padrão com base na primeira guia/paciente
         const firstGuide = selectedGuides[0];
@@ -142,10 +145,32 @@ export function BillingCommunicationWizard({
 
         setSentCount(0);
         setFailedCount(0);
+
+        // Todas as guias selecionadas pertencem ao mesmo convênio (InsuranceTab bloqueia
+        // seleção mista), então buscamos os e-mails cadastrados no perfil desse convênio
+        // pra sugerir como destinatário em vez de exigir digitação manual.
+        getConvenio(insurance)
+            .then(convenio => {
+                const emails: { label: string; email: string }[] = [];
+                const billingEmail = convenio.guidePolicy?.billingEmail?.trim();
+                const priorAuthEmail = convenio.guidePolicy?.priorAuthEmail?.trim();
+                if (billingEmail) emails.push({ label: 'Faturamento', email: billingEmail });
+                if (priorAuthEmail && priorAuthEmail !== billingEmail) {
+                    emails.push({ label: 'Autorização prévia', email: priorAuthEmail });
+                }
+                setConvenioEmails(emails);
+                if (billingEmail) setTo(billingEmail);
+            })
+            .catch(() => {
+                // Sem e-mail cadastrado no convênio: mantém o campo manual, sem bloquear o fluxo
+            });
     }, [open, selectedGuides]);
 
     useEffect(() => {
-        if (!open) setGroups([]);
+        if (!open) {
+            setGroups([]);
+            setConvenioEmails([]);
+        }
     }, [open]);
 
     const allSent = useMemo(() => groups.every(g => g.sendStatus === 'sent' || g.sendStatus === 'failed'), [groups]);
@@ -290,6 +315,20 @@ export function BillingCommunicationWizard({
         if (allSuccessful) onAllSent();
     };
 
+    // Ponto único de saída do wizard (X, backdrop/Esc, botão Cancelar/Fechar).
+    // Se os e-mails já saíram com sucesso, sair "sem querer" não pode pular o
+    // próximo passo (abrir o lote de faturamento) — foi exatamente isso que
+    // aconteceu no teste do dia 18/07 (guia 16007195: comunicação marcada como
+    // "sent", mas nenhum lote criado porque o fechamento pelo X ignorava onAllSent).
+    const handleDialogClose = () => {
+        if (allSent && allSuccessful) {
+            onClose();
+            onAllSent();
+        } else {
+            onClose();
+        }
+    };
+
     // Fecha sozinho quando todos os e-mails saíram com sucesso — sem falha, não faz
     // sentido exigir um segundo clique em "Concluir e Faturar" pra confirmar algo que
     // já está confirmado. Com falha, mantém manual (usuário decide "continuar com
@@ -307,7 +346,7 @@ export function BillingCommunicationWizard({
     if (!open) return null;
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={open} onClose={handleDialogClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ pb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -328,7 +367,7 @@ export function BillingCommunicationWizard({
                             </Typography>
                         </Box>
                     </Box>
-                    <IconButton onClick={onClose} disabled={overallSending} size="small">
+                    <IconButton onClick={handleDialogClose} disabled={overallSending} size="small">
                         <X size={18} />
                     </IconButton>
                 </Box>
@@ -342,27 +381,49 @@ export function BillingCommunicationWizard({
                 }}>
                     <Mail size={16} style={{ color: '#4F46E5', marginTop: 2, flexShrink: 0 }} />
                     <Typography variant="body2" sx={{ color: '#3730A3' }}>
-                        Cada paciente receberá um e-mail individual com os documentos anexados.
+                        O convênio receberá um e-mail individual para cada paciente selecionado, com os documentos anexados.
                     </Typography>
                 </Box>
 
                 <Stack spacing={2} sx={{ mb: 3 }}>
-                    <TextField
-                        fullWidth
-                        label="Destinatário *"
-                        value={to}
-                        onChange={(e) => setTo(e.target.value)}
-                        size="small"
-                        placeholder="email@convenio.com.br"
-                        disabled={overallSending}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <Mail size={16} style={{ color: '#9CA3AF' }} />
-                                </InputAdornment>
-                            )
-                        }}
-                    />
+                    <Box>
+                        <TextField
+                            fullWidth
+                            label="Destinatário (convênio) *"
+                            value={to}
+                            onChange={(e) => setTo(e.target.value)}
+                            size="small"
+                            placeholder="email@convenio.com.br"
+                            disabled={overallSending}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Mail size={16} style={{ color: '#9CA3AF' }} />
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+                        {convenioEmails.length > 0 && (
+                            <Stack direction="row" spacing={0.75} flexWrap="wrap" sx={{ mt: 0.75, rowGap: 0.75 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', mr: 0.25 }}>
+                                    Cadastrados:
+                                </Typography>
+                                {convenioEmails.map(({ label, email }) => (
+                                    <Chip
+                                        key={email}
+                                        size="small"
+                                        clickable
+                                        variant={to.trim() === email ? 'filled' : 'outlined'}
+                                        color={to.trim() === email ? 'primary' : 'default'}
+                                        label={`${label}: ${email}`}
+                                        onClick={() => setTo(email)}
+                                        disabled={overallSending}
+                                        sx={{ fontWeight: 600 }}
+                                    />
+                                ))}
+                            </Stack>
+                        )}
+                    </Box>
                     <TextField
                         fullWidth
                         label="Assunto"
@@ -534,8 +595,8 @@ export function BillingCommunicationWizard({
             </DialogContent>
 
             <DialogActions sx={{ p: 2.5, gap: 1, borderTop: '1px solid #F1F5F9' }}>
-                <Button onClick={onClose} disabled={overallSending} variant="outlined" sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}>
-                    Cancelar
+                <Button onClick={handleDialogClose} disabled={overallSending} variant="outlined" sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}>
+                    {allSent ? 'Fechar' : 'Cancelar'}
                 </Button>
                 {allSent ? (
                     <Button

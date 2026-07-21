@@ -36,8 +36,7 @@ import { getSpecialtyLabel } from '../../../constants/specialties';
 import { autoLinkOrphanSessions, createGuideFromOrphan, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
 import { updateGuide } from '../../../services/insuranceGuideApi';
 import { useConvenios } from '../../../hooks/useConvenios';
-import { buildGuidePresentation } from '../../../services/guidePresentationService';
-import type { InsuranceGuide } from '../../../services/insuranceGuideApi';
+import type { Convenio } from '../../../services/insuranceService';
 import { toast } from 'react-toastify';
 
 export interface PendingGuideSession {
@@ -64,6 +63,14 @@ export interface PendingGuide {
     pendingValue: number;
     firstSessionDate?: string | Date | null;
     lastSessionDate?: string | Date | null;
+    /** Data do último envio de documentação (guia + lista de presença) ao convênio via wizard — não é faturamento */
+    documentationSentAt?: string | Date | null;
+    /** Quantas sessões desta guia já entraram em algum InsuranceBatch (faturadas antes) — o que aparece pendente aqui é só a sobra */
+    alreadyBilledSessions?: number;
+    /** Data de criação do lote mais recente que já pegou sessão desta guia */
+    lastBatchSentAt?: string | Date | null;
+    /** Status atual da guia no InsuranceGuide (active/expired/cancelled/exhausted/...) */
+    guideStatus?: string;
     sessions?: PendingGuideSession[];
 }
 
@@ -112,22 +119,6 @@ const formatProviderName = (slug: string) => {
         .replace('Brasilia', 'Brasília');
 };
 
-function toInsuranceGuide(pending: PendingGuide): InsuranceGuide {
-    return {
-        _id: pending.guideId,
-        number: pending.number,
-        patientId: '',
-        specialty: pending.specialty || '',
-        insurance: pending.insurance,
-        totalSessions: pending.totalSessions || 0,
-        usedSessions: pending.usedSessions || 0,
-        expiresAt: '',
-        status: 'active',
-        createdAt: '',
-        updatedAt: ''
-    };
-}
-
 function daysSince(date: string | Date | null | undefined): number {
     if (!date) return 0;
     const d = new Date(date);
@@ -164,6 +155,26 @@ function BillingModeBadge({ mode }: { mode?: 'per_month' | 'per_guide' }) {
     );
 }
 
+/**
+ * Estado único e explícito da guia em relação ao faturamento — substitui a barra
+ * "13/15" (progresso de sessões autorizadas, sem relação com faturamento) que
+ * confundia "sessão realizada" com "sessão faturada". Prioridade: cancelada >
+ * parcialmente faturada > documentação enviada > nunca faturada.
+ */
+function getGuideBillingState(guide: PendingGuide): { emoji: string; label: string; bg: string; color: string; border: string } {
+    if (guide.guideStatus === 'cancelled') {
+        return { emoji: '🔴', label: 'Guia cancelada · requer correção', bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' };
+    }
+    if ((guide.alreadyBilledSessions || 0) > 0) {
+        const dateLabel = guide.lastBatchSentAt ? ` · lote enviado em ${formatDate(guide.lastBatchSentAt)}` : '';
+        return { emoji: '🟡', label: `Parcialmente faturada${dateLabel}`, bg: '#FEFCE8', color: '#854D0E', border: '#FDE68A' };
+    }
+    if (guide.documentationSentAt) {
+        return { emoji: '📤', label: `Documentação enviada · ${formatDate(guide.documentationSentAt)}`, bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+    }
+    return { emoji: '🟠', label: 'Aguardando primeiro faturamento', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
+}
+
 // ── Drawer de detalhes do paciente ───────────────────────────────────────────
 
 interface PatientDrawerProps {
@@ -172,12 +183,38 @@ interface PatientDrawerProps {
     provider: string;
     guides: PendingGuide[];
     selectedGuides: Set<string>;
+    convenios: Convenio[];
     onToggleGuide: (guideId: string) => void;
     onEditGuide: (guide: PendingGuide) => void;
     onClose: () => void;
 }
 
-function PatientDrawer({ open, patientName, provider, guides, selectedGuides, onToggleGuide, onEditGuide, onClose }: PatientDrawerProps) {
+/**
+ * Explica POR QUE uma guia ainda não tem lote, com base na regra de faturamento
+ * do próprio convênio (guidePolicy) — não é atraso nem bug, cada convênio tem um
+ * ciclo diferente (Anápolis fatura ao encerrar a guia, Campinas/Bradesco fecham
+ * em data do mês, Fesp funciona por autorização prévia). Achado 2026-07-21: a
+ * tela tratava "sem billingBatchId" como um estado só, escondendo que isso é
+ * esperado dependendo do convênio e da data.
+ */
+function getBillingCycleReason(convenio: Convenio | undefined): string | null {
+    const gp = convenio?.guidePolicy;
+    if (!gp) return null;
+    switch (gp.renewalType) {
+        case 'until_consumed':
+            return 'Fatura ao encerrar a guia';
+        case 'end_of_month':
+            return gp.billingSubmissionDay ? `Fecha faturamento dia ${gp.billingSubmissionDay}` : 'Fecha faturamento no fim do mês';
+        case 'advance_authorization':
+            return gp.priorAuthRequestDay ? `Autorização prévia até dia ${gp.priorAuthRequestDay} do mês anterior` : null;
+        case 'fixed_date':
+            return gp.renewalDayOfMonth ? `Fecha faturamento dia ${gp.renewalDayOfMonth} (fixo)` : null;
+        default:
+            return null;
+    }
+}
+
+function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onClose }: PatientDrawerProps) {
     const total    = guides.reduce((s, g) => s + (g.pendingValue || 0), 0);
     const sessions = guides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
     const allSelected  = guides.every(g => selectedGuides.has(g.guideId));
@@ -277,14 +314,19 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
             </Box>
 
             {/* ── Lista de guias ─────────────────────────────────────── */}
-            <Box sx={{ overflowY: 'auto', flex: 1, px: 2, py: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ overflowY: 'auto', flex: 1, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
                 {guides.map((guide) => {
                     const isSelected  = selectedGuides.has(guide.guideId);
                     const isExpanded  = expandedGuides.has(guide.guideId);
                     const hasSessions = (guide.sessions || []).length > 0;
-                    const presentation = buildGuidePresentation(toInsuranceGuide(guide));
-                    const pct = presentation.progressPct;
-                    const isComplete = presentation.isExhausted;
+                    const billingState = getGuideBillingState(guide);
+                    const convenio = convenios.find(c => c.code === guide.insurance);
+                    const cycleReason = guide.guideStatus !== 'cancelled' ? getBillingCycleReason(convenio) : null;
+                    const mostRecentSessionId = hasSessions
+                        ? guide.sessions!.reduce((latest, s) =>
+                            !latest || new Date(s.date).getTime() > new Date(latest.date).getTime() ? s : latest
+                        , guide.sessions![0]).sessionId
+                        : null;
 
                     return (
                         <Card key={guide.guideId} elevation={0} sx={{
@@ -296,12 +338,12 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                             boxShadow: isSelected ? '0 0 0 3px rgba(59,130,246,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
                             '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
                         }}>
-                            {/* Linha de cor lateral */}
-                            <Box sx={{ height: 4, bgcolor: isComplete ? '#059669' : guide.billingMode === 'per_guide' ? '#10B981' : presentation.theme.to }} />
+                            {/* Linha de cor lateral — reflete o estado de faturamento da guia */}
+                            <Box sx={{ height: 4, bgcolor: billingState.color }} />
 
-                            <Box sx={{ p: 2 }}>
+                            <Box sx={{ p: 1.75 }}>
                                 {/* Row 1: checkbox + número + badge + valor */}
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.25 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                                         <Checkbox
                                             checked={isSelected}
@@ -332,49 +374,39 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
                                         </Box>
                                     </Box>
 
-                                    {/* Valor + sessões */}
+                                    {/* Valor + sessões a faturar */}
                                     <Box sx={{ textAlign: 'right' }}>
                                         <Typography fontWeight="800" fontSize="1.0rem" color="#0F172A">
                                             {formatCurrency(guide.pendingValue)}
                                         </Typography>
-                                        {guide.billingMode === 'per_guide' ? (
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, mt: 0.25 }}>
-                                                <Typography fontSize="0.7rem" color="#065F46" fontWeight={600}>
-                                                    {guide.sessionsThisMonth ?? guide.pendingSessions} sess. pendentes
-                                                </Typography>
-                                                <Typography fontSize="0.7rem" color="#64748B">
-                                                    {guide.totalSessions} autorizadas
-                                                </Typography>
-                                            </Box>
-                                        ) : (
-                                            <Typography fontSize="0.72rem" color="#92400E" fontWeight={600} mt={0.25}>
-                                                {guide.pendingSessions} sess. no mês
-                                            </Typography>
-                                        )}
+                                        <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
+                                            {guide.pendingSessions} sessõe{guide.pendingSessions !== 1 ? 's' : ''} para faturar
+                                        </Typography>
                                     </Box>
                                 </Box>
 
-                                {/* Row 2: progresso pill */}
-                                {guide.totalSessions != null && guide.usedSessions != null && (
+                                {/* Row 2: estado único de faturamento (substitui a barra de progresso de sessões,
+                                    que confundia "sessão realizada" com "sessão faturada") + motivo do ciclo do
+                                    convênio (guia sem lote pode ser normal dependendo da regra — ver guidePolicy) */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mb: 1.25 }}>
                                     <Box sx={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 1,
-                                        px: 1.5, py: 0.6, mb: 1.5,
-                                        bgcolor: isComplete ? '#F0FDF4' : '#F0F9FF',
-                                        border: `1px solid ${isComplete ? '#BBF7D0' : '#BAE6FD'}`,
+                                        display: 'inline-flex', alignItems: 'center', gap: 0.6,
+                                        px: 1.25, py: 0.5,
+                                        bgcolor: billingState.bg,
+                                        border: `1px solid ${billingState.border}`,
                                         borderRadius: 20,
                                     }}>
-                                        <Box sx={{ width: 56, height: 5, borderRadius: 3, bgcolor: isComplete ? '#BBF7D0' : '#BAE6FD', overflow: 'hidden', flexShrink: 0 }}>
-                                            <Box sx={{
-                                                width: `${pct}%`, height: '100%', borderRadius: 3,
-                                                bgcolor: isComplete ? '#16A34A' : '#0EA5E9',
-                                                transition: 'width 0.4s ease'
-                                            }} />
-                                        </Box>
-                                        <Typography fontSize="0.72rem" fontWeight={600} color={isComplete ? '#15803D' : '#0369A1'}>
-                                            {guide.usedSessions}/{guide.totalSessions}{isComplete ? ' ✓' : ''}
+                                        <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>{billingState.emoji}</span>
+                                        <Typography fontSize="0.72rem" fontWeight={600} color={billingState.color}>
+                                            {billingState.label}
                                         </Typography>
                                     </Box>
-                                )}
+                                    {cycleReason && (
+                                        <Typography fontSize="0.7rem" color="#94A3B8" fontStyle="italic">
+                                            {cycleReason}
+                                        </Typography>
+                                    )}
+                                </Box>
 
                                 {/* Row 3: período + expandir */}
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 0.25 }}>
@@ -404,25 +436,43 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, on
 
                                 {/* Sessões individuais */}
                                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                                    <Box sx={{ mt: 1.5, borderTop: '1px solid #F1F5F9', pt: 1.5 }}>
-                                        {guide.sessions!.map((s, sidx) => (
-                                            <Box key={s.sessionId || sidx} sx={{
-                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                py: 0.6,
-                                                borderBottom: sidx < guide.sessions!.length - 1 ? '1px dashed #F1F5F9' : 'none'
-                                            }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#CBD5E1', flexShrink: 0 }} />
-                                                    <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}</Typography>
-                                                    {s.doctorName && (
-                                                        <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
-                                                    )}
+                                    <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
+                                        {guide.sessions!.map((s, sidx) => {
+                                            const isMostRecent = hasSessions && s.sessionId === mostRecentSessionId;
+                                            return (
+                                                <Box key={s.sessionId || sidx} sx={{
+                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                    py: 0.4, px: isMostRecent ? 0.75 : 0,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: isMostRecent ? '#F0FDF4' : 'transparent',
+                                                    borderBottom: !isMostRecent && sidx < guide.sessions!.length - 1 ? '1px dashed #F1F5F9' : 'none'
+                                                }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Box sx={{
+                                                            width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            bgcolor: isMostRecent ? '#059669' : '#E2E8F0',
+                                                            color: isMostRecent ? '#fff' : '#64748B',
+                                                            fontSize: '0.62rem', fontWeight: 700
+                                                        }}>
+                                                            {sidx + 1}
+                                                        </Box>
+                                                        <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}</Typography>
+                                                        {s.doctorName && (
+                                                            <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
+                                                        )}
+                                                        {isMostRecent && (
+                                                            <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                                mais recente
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                    <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">
+                                                        {formatCurrency(s.value)}
+                                                    </Typography>
                                                 </Box>
-                                                <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">
-                                                    {formatCurrency(s.value)}
-                                                </Typography>
-                                            </Box>
-                                        ))}
+                                            );
+                                        })}
                                     </Box>
                                 </Collapse>
                             </Box>
@@ -1004,6 +1054,7 @@ const GuidePendingBillingSection = ({
                     provider={drawerPatient.provider}
                     guides={drawerPatient.guides}
                     selectedGuides={selectedGuides}
+                    convenios={convenios}
                     onToggleGuide={onToggleGuide}
                     onEditGuide={openEditGuide}
                     onClose={() => setDrawerPatient(null)}

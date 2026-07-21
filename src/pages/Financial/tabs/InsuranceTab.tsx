@@ -139,6 +139,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         dataFaturamento: new Date().toISOString().split('T')[0],
         notaFiscal: ''
     });
+    // true quando este modal abriu logo após o wizard de documentação (não como ação avulsa) —
+    // muda o texto pra deixar claro que "documentos enviados" ainda não é "faturado"
+    const [faturarLoteFromWizard, setFaturarLoteFromWizard] = useState(false);
 
     // Estados para modal de recebimento em lote
     const [receberLoteModalOpen, setReceberLoteModalOpen] = useState(false);
@@ -511,7 +514,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedPayments(newSelected);
     };
 
-    const totalSelectable = subTab === 0
+    const totalSelectable = subTab === 5
+        ? 0 // Convênios Cadastrados: cadastro, sem conceito de seleção em lote
+        : subTab === 0
         ? pendingGuides.length
         : receivables.reduce((sum, group) =>
             sum + (group.patients || []).reduce((pSum: number, patient: any) =>
@@ -533,6 +538,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             dataFaturamento: new Date().toISOString().split('T')[0],
             notaFiscal: ''
         });
+        setFaturarLoteFromWizard(false);
         setFaturarLoteModalOpen(true);
     };
 
@@ -573,11 +579,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const handleBillingWizardAllSent = () => {
         setBillingWizardOpen(false);
         setWizardSelectedGuides([]);
-        // Após envio com sucesso, abre modal de faturamento em lote
+        // Após envio com sucesso, abre modal de faturamento em lote — decisão explícita
+        // obrigatória (ver handleDialogClose no wizard): documentação enviada não é
+        // faturado, então perguntamos aqui se o lote deve ser criado agora.
         setFaturarLoteData({
             dataFaturamento: new Date().toISOString().split('T')[0],
             notaFiscal: ''
         });
+        setFaturarLoteFromWizard(true);
         setFaturarLoteModalOpen(true);
     };
 
@@ -589,6 +598,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             dataFaturamento: new Date().toISOString().split('T')[0],
             notaFiscal: ''
         });
+        setFaturarLoteFromWizard(true);
         setFaturarLoteModalOpen(true);
     };
 
@@ -749,8 +759,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </div>
             </div>
 
-            {/* Filtro de Mês — oculto no Histórico e Autorizações (têm seus próprios seletores) */}
-            {subTab !== 3 && subTab !== 4 && (
+            {/* Filtro de Mês — oculto no Histórico, Autorizações e Convênios Cadastrados (não são escopados por mês) */}
+            {subTab !== 3 && subTab !== 4 && subTab !== 5 && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1 text-gray-500">
                         <Calendar size={16} />
@@ -885,6 +895,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { label: 'Recebidos', count: countByStatus('received'),   icon: <CheckCircle size={15} />, amber: false },
                             { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
                             { label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
+                            { label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
                         ].map((tab, i) => (
                             <button key={i} onClick={() => setSubTab(i)}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -995,7 +1006,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 4 ? (
+                    {subTab === 5 ? (
+                        <ConvenioManagerModal open onClose={() => {}} embedded />
+                    ) : subTab === 4 ? (
                         <AutorizacoesTab month={month} year={year} />
                     ) : subTab === 3 ? (
                         <InsuranceHistorySection activeYear={year} activeMonth={month} />
@@ -1157,11 +1170,20 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         <Avatar sx={{ bgcolor: '#F59E0B', width: 32, height: 32 }}>
                             <Send className="w-4 h-4 text-white" />
                         </Avatar>
-                        <Typography variant="h6">{subTab === 0 ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados'}</Typography>
+                        <Typography variant="h6">
+                            {faturarLoteFromWizard ? 'Criar lote de faturamento agora?' : (subTab === 0 ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados')}
+                        </Typography>
                     </Box>
                 </DialogTitle>
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+                        {faturarLoteFromWizard && (
+                            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#EFF6FF', border: '1px solid #DBEAFE' }}>
+                                <Typography variant="body2" sx={{ color: '#1E40AF' }}>
+                                    Os documentos já foram enviados por e-mail ao convênio — isso ainda <strong>não</strong> fatura as guias. Elas continuam em "A Faturar" até o lote ser criado. Você pode criar agora ou deixar para depois (a guia ficará marcada como "Documentação enviada").
+                                </Typography>
+                            </Box>
+                        )}
                         <Typography variant="body2" color="text.secondary">
                             {subTab === 0
                                 ? `${selectedGuides.size} guia(s) serão faturadas. Todas as sessões pendentes de cada guia serão incluídas, independentemente do mês.`
@@ -1189,7 +1211,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setFaturarLoteModalOpen(false)} disabled={faturarLoteLoading}>
-                        Cancelar
+                        {faturarLoteFromWizard ? 'Deixar para depois' : 'Cancelar'}
                     </Button>
                     <Button
                         variant="contained"
@@ -1198,7 +1220,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
                         sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
                     >
-                        {faturarLoteLoading ? 'Faturando...' : 'Confirmar Faturamento'}
+                        {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar Faturamento')}
                     </Button>
                 </DialogActions>
             </Dialog>
