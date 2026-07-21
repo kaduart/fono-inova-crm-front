@@ -48,7 +48,8 @@ import {
   DollarSign,
   RefreshCw,
   XOctagon,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
@@ -66,6 +67,7 @@ import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
 import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
+import InactivateEntityModal from '../../common/InactivateEntityModal';
 
 // ----------------------------------------------------------------------
 // Componente principal
@@ -192,6 +194,11 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     if (!selectedGuide) return;
     setShowInactivateModal(true);
     handleCloseMenu();
+  };
+
+  const handleInactivateFromCard = (presentation) => {
+    setSelectedGuide(presentation.rawGuide);
+    setShowInactivateModal(true);
   };
 
   const confirmInactivate = async () => {
@@ -540,6 +547,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
+        onInactivate={handleInactivateFromCard}
       />
 
       <GuideSection
@@ -550,6 +558,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
+        onInactivate={handleInactivateFromCard}
       />
 
       <GuideSection
@@ -560,6 +569,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
+        onInactivate={handleInactivateFromCard}
       />
 
       <GuideSection
@@ -570,6 +580,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
+        onInactivate={handleInactivateFromCard}
       />
 
       <GuideSection
@@ -580,6 +591,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onOpenMenu={handleOpenMenu}
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
+        onInactivate={handleInactivateFromCard}
       />
 
       {/* Menu de ações */}
@@ -615,7 +627,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
           disabled={selectedPresentation?.isCancelled}
           sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#C75146' }}
         >
-          <Trash2 size={14} /> Cancelar
+          <Trash2 size={14} /> Inativar guia
         </MenuItem>
       </Menu>
 
@@ -646,76 +658,19 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 
 
 
-      {/* Modal de confirmação de inativação — mesmo padrão do pacote */}
-      <Dialog
+      {/* Modal de confirmação de inativação — compartilhado com Package/Liminar */}
+      <InactivateEntityModal
         open={showInactivateModal}
+        entityType="guide"
+        loading={isInactivating}
+        onConfirm={confirmInactivate}
         onClose={() => {
           if (!isInactivating) {
             setShowInactivateModal(false);
             setSelectedGuide(null);
           }
         }}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
-      >
-        <DialogTitle sx={{ px: 2.5, pt: 2.5, pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{
-              width: 36, height: 36, borderRadius: '12px', bgcolor: '#FDECEA',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Trash2 size={18} color="#C75146" />
-            </Box>
-            <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1A2C3E' }}>
-              Inativar guia
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ px: 2.5, py: 1 }}>
-          <Typography sx={{ fontSize: '0.875rem', color: '#5B6E8C', mb: 1 }}>
-            Esta ação irá <strong>cancelar todas as sessões e agendamentos pendentes</strong> desta guia e liberar a agenda.
-          </Typography>
-          <Typography sx={{ fontSize: '0.875rem', color: '#8A99B0' }}>
-            Sessões já realizadas e pagamentos concluídos serão <strong>mantidos</strong> e não impactarão o financeiro.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 2.5, pb: 2.5, gap: 1 }}>
-          <Button
-            onClick={() => setShowInactivateModal(false)}
-            disabled={isInactivating}
-            sx={{
-              flex: 1,
-              textTransform: 'none',
-              borderRadius: '12px',
-              fontWeight: 600,
-              color: '#5B6E8C',
-              borderColor: '#DDE4EE',
-              '&:hover': { bgcolor: '#F1F5F9' }
-            }}
-            variant="outlined"
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={confirmInactivate}
-            disabled={isInactivating}
-            variant="contained"
-            disableElevation
-            sx={{
-              flex: 1,
-              textTransform: 'none',
-              borderRadius: '12px',
-              fontWeight: 700,
-              bgcolor: '#C75146',
-              color: '#fff',
-              '&:hover': { bgcolor: '#A9443A' }
-            }}
-          >
-            {isInactivating ? 'Inativando...' : 'Inativar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
     </Box>
   );
 };
@@ -723,7 +678,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // ----------------------------------------------------------------------
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
-const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails }) => {
+const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate }) => {
   if (count === 0) return null;
 
   return (
@@ -761,6 +716,7 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
               onOpenMenu={onOpenMenu}
               onCreatePlan={onCreatePlan}
               onOpenDetails={onOpenDetails}
+              onInactivate={onInactivate}
             />
           ))}
         </Box>
@@ -775,7 +731,17 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
 
 const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
 
-const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) => {
+// Badge de status sólido (não translúcido) — precisa ser legível em cima de QUALQUER
+// gradiente de especialidade. Um tom translúcido (ex: laranja 35%) sobre um card já
+// laranja praticamente some; um pill branco sólido + ponto colorido não depende da cor de fundo.
+const STATUS_SEVERITY_STYLE = {
+  success:  { bg: 'rgba(255,255,255,0.95)', color: '#15803D', dot: '#22C55E' },
+  warning:  { bg: 'rgba(255,255,255,0.95)', color: '#C2410C', dot: '#F97316' },
+  critical: { bg: 'rgba(255,255,255,0.95)', color: '#B91C1C', dot: '#EF4444' },
+  neutral:  { bg: 'rgba(255,255,255,0.9)',  color: '#4B5563', dot: '#9CA3AF' },
+};
+
+const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate }) => {
   const guide = presentation.rawGuide;
   const {
     remaining,
@@ -783,12 +749,15 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
     totalSessions,
     progressPct,
     isUsable,
+    isCancelled,
     statusLabel,
-    statusBg,
+    statusSeverity,
     expiryLabel,
     expiryColor,
     theme
   } = presentation;
+
+  const severityStyle = STATUS_SEVERITY_STYLE[statusSeverity] || STATUS_SEVERITY_STYLE.neutral;
 
   const [generating, setGenerating] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -797,17 +766,36 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
   const handleGenerateSessions = async (planId) => {
     setGenerating(true);
     try {
-      const res = await API.post(`/v2/insurance-plans/${planId}/generate-sessions`);
-      const count = res.data?.data?.appointmentsGenerated || 0;
-      if (count > 0) {
-        toast.success(`${count} sessão(ões) gerada(s) com sucesso`);
-        queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
-      } else {
+      const res = await API.post(`/v2/insurance-plans/${planId}/generate-sessions`, {}, { timeout: 60000 });
+      const { appointmentsGenerated, appointmentsCanceled, replanned, remaining } = res.data?.data || {};
+
+      if (replanned && appointmentsCanceled > 0 && appointmentsGenerated > 0) {
+        toast.success(
+          `🔄 ${appointmentsCanceled} antigas → ${appointmentsGenerated} novas`,
+          { duration: 5000 }
+        );
+      } else if (appointmentsGenerated > 0) {
+        toast.success(`${appointmentsGenerated} sessão(ões) gerada(s)`);
+      } else if (remaining === 0) {
         toast('Todos os agendamentos futuros já existem', { icon: 'ℹ️' });
+      } else {
+        toast('Nenhuma sessão nova foi gerada', { icon: 'ℹ️' });
       }
+
+      queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Erro ao gerar sessões';
-      toast.error(msg);
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message;
+
+      if (status === 429) {
+        toast('Já existe uma geração em andamento. Aguarde alguns segundos.', { icon: '⏳' });
+      } else if (status >= 500) {
+        toast.error(serverMsg || 'Erro no servidor. Aguarde um instante e tente novamente.');
+      } else if (!err?.response) {
+        toast.error('A requisição demorou demais ou foi interrompida. Recarregue a página e tente novamente.');
+      } else {
+        toast.error(serverMsg || 'Erro ao gerar sessões');
+      }
     } finally {
       setGenerating(false);
     }
@@ -815,6 +803,11 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
 
   // Query compartilhada — mesma key usada pelo GuideDetailsModal, sem fetch duplicado
   const { data: plan = null, isLoading: planLoading, isError: planError, refetch: refetchPlan } = useInsurancePlan(guide._id, isUsable);
+
+  // O bloco "Plano ativo" abaixo já mostra o profissional do plano — só repete aqui em cima
+  // se a guia tiver um profissional diferente do plano (ou não houver plano ainda).
+  const planDoctorName = plan?.doctor?.fullName || plan?.doctor?.name || null;
+  const showGuideDoctor = Boolean(guide.doctor?.fullName) && guide.doctor.fullName !== planDoctorName;
 
   return (
     <motion.div
@@ -833,35 +826,65 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
           className="px-5 pt-4 pb-5 relative"
           style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)` }}
         >
-          <IconButton
-            size="small"
-            onClick={(e) => onOpenMenu(e, presentation)}
-            sx={{ position: 'absolute', top: 8, right: 8, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
-          >
-            <MoreVertical size={16} />
-          </IconButton>
-          {onOpenDetails && (
+          {/* O (i) mora no card "Plano ativo" abaixo, junto do lápis — só fica aqui em cima
+              quando não há plano ainda (senão não haveria onde colocá-lo) */}
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-0.5 bg-white/10 rounded-full p-0.5">
+            {!plan && onOpenDetails && (
+              <IconButton
+                size="small"
+                onClick={() => onOpenDetails(presentation)}
+                title="Detalhes da guia"
+                sx={{ color: 'rgba(255,255,255,0.75)', p: 0.5, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.2)' } }}
+              >
+                <Info size={15} />
+              </IconButton>
+            )}
             <IconButton
               size="small"
-              onClick={() => onOpenDetails(presentation)}
-              title="Detalhes da guia"
-              sx={{ position: 'absolute', top: 8, right: 36, color: 'rgba(255,255,255,0.65)', p: 0.4, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', borderRadius: '8px' } }}
+              onClick={(e) => onOpenMenu(e, presentation)}
+              sx={{ color: 'rgba(255,255,255,0.75)', p: 0.5, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.2)' } }}
             >
-              <Info size={15} />
+              <MoreVertical size={16} />
             </IconButton>
-          )}
+          </div>
 
           <div className="text-white/70 text-xs font-mono mb-1">#{presentation.number}</div>
-          <div className="text-white font-bold text-[1.15rem] leading-tight pr-6">{presentation.specialtyLabel}</div>
-          <div className="text-white/80 text-sm mt-1">{presentation.insuranceLabel}{guide.expiresAt && ` • Vence ${format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}`}</div>
+          <div className={`text-white font-bold text-[1.15rem] leading-tight ${!plan ? 'pr-16' : 'pr-8'}`}>{presentation.specialtyLabel}</div>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {presentation.insuranceLabel && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/95 text-gray-700">
+                {presentation.insuranceLabel}
+              </span>
+            )}
+            {guide.expiresAt && (
+              <span className="text-white/90 text-sm">
+                Vence <strong>{format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}</strong>
+              </span>
+            )}
+          </div>
 
+          {/* Badge de status sólido — legível em qualquer cor de fundo, ponto colorido reforça a severidade */}
           <div className="mt-3">
-            <span
-              className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white uppercase tracking-wide"
-              style={{ backgroundColor: statusBg, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
-            >
-              {statusLabel}
-            </span>
+            {!isCancelled && onInactivate ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onInactivate(presentation); }}
+                title="Clique para inativar esta guia"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide cursor-pointer hover:opacity-85 transition-opacity shadow-sm"
+                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
+                {statusLabel}
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm"
+                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
+                {statusLabel}
+              </span>
+            )}
           </div>
         </div>
 
@@ -918,46 +941,56 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
         {detailsExpanded && (
         <>
         {/* ── Financial details ── */}
-        <div className="px-5 py-4 flex-1 flex flex-col gap-2">
-          {guide.sessionValue > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Valor/sessão</span>
-              <span className="text-sm font-bold text-gray-900">
-                {Number(guide.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </span>
-            </div>
-          )}
-          {guide.evaluationAmount > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Valor avaliação</span>
-              <div className="flex items-center gap-2">
-                {guide.generateEvaluationBilling === false && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">sem cobrança no sistema</span>
-                )}
-                <span className="text-sm font-bold text-gray-900">
-                  {Number(guide.evaluationAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </span>
-              </div>
-            </div>
-          )}
-          {guide.totalValue > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Total autorizado</span>
-              <span className="text-sm font-bold" style={{ color: theme.text }}>
-                {Number(guide.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </span>
-            </div>
-          )}
-          {guide.doctor?.fullName && (
-            <div className="flex justify-between items-center gap-2">
-              <span className="text-sm text-gray-500 shrink-0">Profissional da guia</span>
-              <span className="text-sm font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
-            </div>
-          )}
-
-          {expiryLabel && (
-            <div className="mt-auto pt-2" style={{ color: expiryColor }}>
-              <span className="text-sm font-medium">{expiryLabel}</span>
+        <div className="px-5 py-4 flex-1 flex flex-col gap-3">
+          {(guide.sessionValue > 0 || guide.evaluationAmount > 0 || guide.totalValue > 0 || showGuideDoctor) && (
+            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
+              {guide.sessionValue > 0 && (
+                <div className="flex justify-between items-center px-3.5 py-2.5">
+                  <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                    <DollarSign size={13} className="opacity-50" />
+                    Valor/sessão
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {Number(guide.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+              )}
+              {guide.evaluationAmount > 0 && (
+                <div className="flex justify-between items-center px-3.5 py-2.5 border-t" style={{ borderColor: theme.border }}>
+                  <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                    <FileText size={13} className="opacity-50" />
+                    Valor avaliação
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {guide.generateEvaluationBilling === false && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/70 text-gray-500">sem cobrança no sistema</span>
+                    )}
+                    <span className="text-sm font-bold text-gray-900">
+                      {Number(guide.evaluationAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {guide.totalValue > 0 && (
+                <div className="flex justify-between items-center px-3.5 py-2.5 border-t" style={{ borderColor: theme.border }}>
+                  <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                    <DollarSign size={13} className="opacity-50" />
+                    Total autorizado
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: theme.text }}>
+                    {Number(guide.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+              )}
+              {showGuideDoctor && (
+                <div className="flex justify-between items-center gap-2 px-3.5 py-2.5 border-t" style={{ borderColor: theme.border }}>
+                  <span className="flex items-center gap-1.5 text-sm text-gray-500 shrink-0">
+                    <UserCheck size={13} className="opacity-50" />
+                    Profissional da guia
+                  </span>
+                  <span className="text-sm font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -987,25 +1020,33 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
         {plan && (
           <div className="mx-5 mb-4 px-4 py-3.5 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
             <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Calendar size={12} style={{ color: theme.text }} />
                 <span className="text-xs font-bold uppercase tracking-wide" style={{ color: theme.text }}>
                   Plano ativo
                 </span>
-                {plan.status && (
-                  <span className="text-[0.65rem] px-1.5 py-0.5 rounded-full bg-white/70 font-medium" style={{ color: theme.text }}>
-                    {plan.status}
-                  </span>
-                )}
+                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Ativo" />
               </div>
-              <button
-                onClick={() => onCreatePlan(presentation, plan)}
-                title="Editar plano"
-                className="opacity-70 hover:opacity-100 transition-opacity"
-                style={{ color: theme.text }}
-              >
-                <Edit2 size={13} />
-              </button>
+              <div className="flex items-center gap-2">
+                {onOpenDetails && (
+                  <button
+                    onClick={() => onOpenDetails(presentation)}
+                    title="Detalhes da guia"
+                    className="opacity-70 hover:opacity-100 transition-opacity"
+                    style={{ color: theme.text }}
+                  >
+                    <Info size={13} />
+                  </button>
+                )}
+                <button
+                  onClick={() => onCreatePlan(presentation, plan)}
+                  title="Editar plano"
+                  className="opacity-70 hover:opacity-100 transition-opacity"
+                  style={{ color: theme.text }}
+                >
+                  <Edit2 size={13} />
+                </button>
+              </div>
             </div>
 
             {(plan.doctor?.fullName || plan.doctor?.name) && (
@@ -1025,13 +1066,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
             )}
 
             {plan.slots?.length > 0 && (
-              <div className="flex items-start justify-between text-sm mb-1.5">
-                <span className="text-gray-500 shrink-0">Horários</span>
-                <span className="font-semibold text-gray-800 text-right leading-relaxed">
-                  {plan.slots
-                    .map(s => `${DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek} ${s.time}`)
-                    .join(' · ')}
-                </span>
+              <div className="flex items-start justify-between text-sm mb-1.5 gap-2">
+                <span className="text-gray-500 shrink-0 mt-0.5">Horários</span>
+                <div className="flex flex-col items-end gap-1">
+                  {[...plan.slots]
+                    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.time.localeCompare(b.time))
+                    .map((s, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold"
+                      style={{ backgroundColor: '#FFFFFF', color: theme.text, border: `1px solid ${theme.border}` }}
+                    >
+                      {DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek}
+                      <span className="w-1 h-1 rounded-full opacity-40" style={{ backgroundColor: theme.text }} />
+                      {s.time}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1069,6 +1120,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails }) =>
         )}
 
         </>
+        )}
+
+        {plan?.needsSessionRegeneration && (
+          <div
+            className="mx-5 mb-3 px-3.5 py-3 rounded-xl border flex items-start gap-2.5"
+            style={{ backgroundColor: '#FDECEA', borderColor: '#F5C6C0' }}
+          >
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#F9D5D0' }}>
+              <AlertTriangle size={14} style={{ color: '#C75146' }} />
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0 pt-0.5">
+              <span className="text-xs font-bold" style={{ color: '#C75146' }}>Plano alterado</span>
+              <span className="text-xs leading-relaxed" style={{ color: '#B85C52' }}>
+                Clique em <strong className="font-semibold" style={{ color: '#C75146' }}>&quot;Gerar sessões&quot;</strong> para sincronizar.
+              </span>
+            </div>
+          </div>
         )}
 
         {/* ── Action buttons ── */}
@@ -1395,25 +1463,28 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
   const apptStatus = (a) => a.operationalStatus || a.status || '';
 
+  // Oculta appointments cancelados por replanejamento do plano (evita poluir o
+  // calendário com agendamentos antigos que foram substituídos ao gerar novamente).
+  const REPLAN_CANCEL_REASONS = ['plan_frequency_changed', 'plan_slot_removed', 'plan_canceled', 'plan_reset'];
+
   // Oculta appointments cancelados que foram substituídos por um reagendamento
   const supersededIds = new Set(
     appointments.filter(a => a.rescheduledFrom).map(a => a.rescheduledFrom?.toString())
   );
-  const visibleAppointments = appointments.filter(a => !supersededIds.has(a._id?.toString()));
+  const visibleAppointments = appointments.filter(a => {
+    if (supersededIds.has(a._id?.toString())) return false;
+    const isReplanCanceled = apptStatus(a) === 'canceled' && REPLAN_CANCEL_REASONS.includes(a.cancelReason);
+    return !isReplanCanceled;
+  });
 
   // Abre o calendário no mês do primeiro agendamento da guia (ou data de emissão/hoje como fallback)
   const calendarInitialDate = useMemo(() => {
-    if (visibleAppointments.length > 0) {
-      const sorted = [...visibleAppointments].sort((a, b) =>
-        `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`)
-      );
-      return sorted[0].date.substring(0, 10);
-    }
-    if (guide?.issuedAt) {
-      return new Date(guide.issuedAt).toISOString().substring(0, 10);
-    }
+    // Sempre abre no mês atual — antes pegava a data do primeiro agendamento
+    // ordenado cronologicamente (podia ser uma sessão já concluída de meses
+    // atrás, ex: quando a guia foi criada), fazendo o calendário abrir em
+    // maio em vez de julho mesmo com sessões futuras no mês corrente.
     return new Date().toISOString().substring(0, 10);
-  }, [visibleAppointments, guide]);
+  }, []);
 
   if (!guide) return null;
 

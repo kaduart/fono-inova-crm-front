@@ -14,7 +14,7 @@ import {
   IconButton,
   Paper
 } from '@mui/material';
-import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays, AlertTriangle } from 'lucide-react';
+import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays, AlertTriangle, GripVertical } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import API from '../../../services/api';
 import { toast } from 'react-hot-toast';
@@ -133,15 +133,55 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
     }));
   };
 
+  // Ordem do array = prioridade de geração no backend (generateInsurancePlanSessions
+  // preenche o orçamento de sessões restantes na ordem de plan.slots, semana a semana).
+  // Arrastar as linhas deixa essa prioridade explícita e sob controle do usuário.
+  const [draggedIdx, setDraggedIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  const moveSlot = (fromIdx, toIdx) => {
+    setForm(prev => {
+      const newSlots = [...prev.slots];
+      const [moved] = newSlots.splice(fromIdx, 1);
+      newSlots.splice(toIdx, 0, moved);
+      return { ...prev, slots: newSlots };
+    });
+  };
+
+  const handleDragStart = (idx) => (e) => {
+    setDraggedIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (idx) => (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (idx !== dragOverIdx) setDragOverIdx(idx);
+  };
+
+  const handleDrop = (idx) => (e) => {
+    e.preventDefault();
+    if (draggedIdx !== null && draggedIdx !== idx) {
+      moveSlot(draggedIdx, idx);
+    }
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
   const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
   const [replanPreview, setReplanPreview] = useState(null); // null enquanto não carregou / não se aplica
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const slotSignature = (arr) => (arr || [])
-    .map(s => Number(s.dayOfWeek))
+    .map(s => `${Number(s.dayOfWeek)}-${s.time}`)
     .slice()
-    .sort((a, b) => a - b)
-    .join(',');
+    .sort()
+    .join('|');
 
   const handleSubmit = async () => {
     if (!guide?._id) {
@@ -160,11 +200,11 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
     const isReplace = Boolean(existingPlan);
 
     if (isReplace && (existingPlan.generatedAppointments?.length || 0) > 0) {
-      const frequencyChanged = slotSignature(existingPlan.slots) !== slotSignature(form.slots);
+      const slotsChanged = slotSignature(existingPlan.slots) !== slotSignature(form.slots);
       setReplanPreview(null);
       setConfirmReplaceOpen(true);
 
-      if (frequencyChanged) {
+      if (slotsChanged) {
         setLoadingPreview(true);
         try {
           const res = await API.post(`/v2/insurance-plans/${existingPlan._id}/replan-preview`, {
@@ -199,7 +239,8 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
           doctorId: form.doctorId,
           sessionValue: Number(form.sessionValue) || 0,
           slots: form.slots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), time: s.time })),
-          notes: form.notes
+          notes: form.notes,
+          startDate: form.startDate
         };
         response = await API.patch(`/v2/insurance-plans/${existingPlan._id}`, payload);
         const updated = response?.data?.data?.appointmentsUpdated || 0;
@@ -310,31 +351,24 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
       </DialogTitle>
 
       <DialogContent sx={{ px: 3, py: 3.5, bgcolor: '#ffffff' }}>
-        <Alert
-          severity="info"
-          icon={<Clock size={16} />}
-          sx={{
-            mb: 3,
-            borderRadius: '20px',
-            bgcolor: '#EFF9F6',
-            color: '#1C6E4A',
-            border: '1px solid #C6E6DA',
-            '& .MuiAlert-message': { fontSize: '0.8125rem', fontWeight: 500 },
-            '& .MuiAlert-icon': { color: '#2E7A5E' }
-          }}
-        >
-          {mode === 'replace' ? (
-            <>
-              As alterações serão aplicadas às <strong>sessões futuras</strong> deste plano.
-              Sessões já realizadas ou confirmadas não serão modificadas.
-            </>
-          ) : (
-            <>
-              O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
-              e criar os pagamentos como <strong>pendentes</strong> do convênio.
-            </>
-          )}
-        </Alert>
+        {mode === 'create' && (
+          <Alert
+            severity="info"
+            icon={<Clock size={16} />}
+            sx={{
+              mb: 3,
+              borderRadius: '20px',
+              bgcolor: '#EFF9F6',
+              color: '#1C6E4A',
+              border: '1px solid #C6E6DA',
+              '& .MuiAlert-message': { fontSize: '0.8125rem', fontWeight: 500 },
+              '& .MuiAlert-icon': { color: '#2E7A5E' }
+            }}
+          >
+            O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
+            e criar os pagamentos como <strong>pendentes</strong> do convênio.
+          </Alert>
+        )}
 
         {loadingPlan && (
           <Alert
@@ -376,9 +410,9 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* Row 1: Profissional (70%) + Data início (30%) */}
+          {/* Row 1: Profissional + Data início */}
           <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Box sx={{ flex: 7 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <TextField
                 select
                 label="Profissional responsável *"
@@ -412,7 +446,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                 )}
               </TextField>
             </Box>
-            <Box sx={{ flex: 3 }}>
+            <Box sx={{ width: '38%', minWidth: 150 }}>
               <TextField
                 label="Início *"
                 type="date"
@@ -420,11 +454,9 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                 onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
                 fullWidth
                 size="small"
-                disabled={mode === 'replace'}
-                helperText={mode === 'replace' ? 'Não editável em plano ativo' : ''}
+                helperText={mode === 'replace' ? 'Sessões antes desta data não são geradas' : ''}
                 InputLabelProps={{ shrink: true }}
                 InputProps={{
-                  startAdornment: <Calendar size={14} style={{ marginRight: 6, color: '#7890A7' }} />,
                   sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
                 }}
                 sx={{
@@ -486,14 +518,24 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
 
           {/* Slots - Dias e horários */}
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: '#2C3E50', mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: '#2C3E50', mb: 0.3, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Clock size={14} /> Dias e horários da semana *
             </Typography>
+            {form.slots.length > 1 && (
+              <Typography variant="caption" sx={{ color: '#7E8B9E', mb: 1.2, display: 'block' }}>
+                Arraste para definir a ordem de prioridade na geração das sessões
+              </Typography>
+            )}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {form.slots.map((slot, idx) => (
                 <Paper
                   key={idx}
                   elevation={0}
+                  draggable={form.slots.length > 1}
+                  onDragStart={handleDragStart(idx)}
+                  onDragOver={handleDragOver(idx)}
+                  onDrop={handleDrop(idx)}
+                  onDragEnd={handleDragEnd}
                   sx={{
                     p: 1.2,
                     display: 'flex',
@@ -501,11 +543,26 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                     alignItems: 'center',
                     bgcolor: '#F9FBFD',
                     borderRadius: '18px',
-                    border: '1px solid #EDF2F7',
+                    border: '1px solid',
+                    borderColor: dragOverIdx === idx && draggedIdx !== idx ? '#2E7A5E' : '#EDF2F7',
+                    opacity: draggedIdx === idx ? 0.4 : 1,
                     transition: '0.2s',
                     '&:hover': { borderColor: '#Cbd5E1', bgcolor: '#FFFFFF' }
                   }}
                 >
+                  {form.slots.length > 1 && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#AEB9C7',
+                        cursor: 'grab',
+                        '&:active': { cursor: 'grabbing' }
+                      }}
+                    >
+                      <GripVertical size={16} />
+                    </Box>
+                  )}
                   <TextField
                     select
                     size="small"
@@ -630,28 +687,18 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                 </Typography>
               )}
 
-              {!loadingPreview && replanPreview?.frequencyChanged && (
-                <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
-                  A frequência mudou. Ao salvar:
-                  <br />• <strong>{replanPreview.appointmentsToCancel.count} sessão(ões) futura(s)</strong> do padrão antigo serão canceladas.
-                  <br />• <strong>{replanPreview.estimatedGenerated} nova(s) sessão(ões)</strong> serão geradas no novo padrão.
-                  <br />Sessões já realizadas <strong>não são alteradas</strong>.
-                  {replanPreview.eligible === false && (
-                    <>
-                      <br /><Box component="span" sx={{ color: '#C75146', fontWeight: 700 }}>
-                        ⚠ {replanPreview.eligibilityMessage || 'Guia pode não estar elegível para gerar novas sessões.'}
-                      </Box>
-                    </>
-                  )}
-                </Typography>
-              )}
-
-              {!loadingPreview && !replanPreview?.frequencyChanged && (
+              {!loadingPreview && (
                 <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
                   Este plano já tem <strong>{existingPlan?.generatedAppointments?.length || 0} agendamento(s)</strong> gerado(s).
-                  Ao salvar, só os agendamentos futuros existentes são ajustados (horário/profissional/valor) ou cancelados
-                  se saírem da nova grade — <strong>nenhum agendamento novo é criado aqui</strong>. Sessões já realizadas não são alteradas.
-                  Para gerar mais sessões, use o botão "Gerar" depois de salvar.
+                  As alterações serão aplicadas apenas às <strong>sessões futuras</strong> (a partir de hoje). Sessões já realizadas não serão alteradas.
+                  {replanPreview?.slotsChanged && (
+                    <> A frequência/horário mudou: sincronize a agenda pelo botão <strong>"Gerar sessões"</strong> no card.</>
+                  )}
+                  {replanPreview?.eligible === false && (
+                    <Box component="span" sx={{ display: 'block', color: '#C75146', fontWeight: 700, mt: 0.5 }}>
+                      ⚠ {replanPreview.eligibilityMessage || 'Guia pode não estar elegível para gerar novas sessões.'}
+                    </Box>
+                  )}
                 </Typography>
               )}
             </Box>
