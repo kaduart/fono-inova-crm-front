@@ -226,7 +226,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     };
 
     const openManager = () => {
-        setExpandedPackageId(null);
         setIsAccordionOpen(false);
         setShowManager(true);
     };
@@ -258,7 +257,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     </div>
                     <div className="bg-white rounded-xl p-4 border border-emerald-200 min-w-[120px] text-center">
                         <div className="flex items-center gap-3">
-                            <button onClick={() => { setExpandedPackageId(null); setIsAccordionOpen(true); setShowFormModal(true); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2"><Plus className="w-4 h-4" />Novo Pacote</button>
+                            <button onClick={() => { setIsAccordionOpen(true); setShowFormModal(true); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2"><Plus className="w-4 h-4" />Novo Pacote</button>
                             <button onClick={openManager} className="px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors text-sm font-medium flex items-center gap-2"><Package className="w-4 h-4" />Gerenciar</button>
                         </div>
                     </div>
@@ -384,7 +383,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum pacote encontrado</h3>
                     <p className="text-gray-600 mb-6 max-w-md mx-auto">{patient.fullName} não possui pacotes de terapia no momento.</p>
-                    <button onClick={() => { setExpandedPackageId(null); setShowFormModal(true); }} className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"><Plus className="w-5 h-5" />Criar Primeiro Pacote</button>
+                    <button onClick={() => setShowFormModal(true)} className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"><Plus className="w-5 h-5" />Criar Primeiro Pacote</button>
                 </div>
             )}
 
@@ -401,10 +400,9 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     <div className="p-6">
                         <TherapyPackageManager
                             onClose={closeManager}
-                            onSave={(newPackageId?: string) => {
+                            onSave={() => {
                                 fetchBasicPackages();
                                 closeManager();
-                                if (newPackageId) setExpandedPackageId(newPackageId);
                             }}
                             packages={packages}
                             totalPages={1}
@@ -428,12 +426,11 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     patient={patient}
                     doctors={doctors}
                     onClose={() => setShowFormModal(false)}
-                    onSubmit={(newPackageId?: string) => {
+                    onSubmit={() => {
                         fetchBasicPackages();
                         fetchAppointments();
                         setShowFormModal(false);
                         setIsAccordionOpen(true);
-                        if (newPackageId) setExpandedPackageId(newPackageId);
                     }}
                 />
             )}
