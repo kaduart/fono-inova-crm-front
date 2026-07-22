@@ -110,6 +110,8 @@ export interface ITherapyPackage {
     totalSessions: number;
     sessions: ISession[];
     sessionsDone: number;
+    sessionsCanceled?: number;
+    sessionsRemaining?: number;
     sessionValue: number;
     payments: IPayment[];
     status: 'active' | 'completed' | 'pending';

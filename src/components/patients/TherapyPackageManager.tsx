@@ -1,6 +1,7 @@
-import { Package as PackageIcon, Plus, Filter, Search, Users, Calendar, DollarSign, RefreshCw } from 'lucide-react';
+import { Package as PackageIcon, Plus, Filter, Search, Users, Calendar, DollarSign, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
 import { packageService } from '../../services/packageService';
 // 🚫 LEGADO BLOQUEADO: packagesService removido. Use packageService (V2)
 import { IDoctor, IPatient, ITherapyPackage } from '../../utils/types/types';
@@ -29,19 +30,26 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
     });
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja excluir este pacote?')) return;
-        setLoading(true);
+    const handleDeleteClick = (id: string) => {
+        setDeleteTargetId(id);
+    };
 
+    const handleConfirmDelete = async () => {
+        if (!deleteTargetId) return;
+        setDeleting(true);
         try {
-            await packageService.deletePackage(id);
+            await packageService.deletePackage(deleteTargetId);
+            toast.success('Pacote excluído com sucesso!');
             onRefresh();
-        } catch (err) {
+            setDeleteTargetId(null);
+        } catch (err: any) {
             console.error('Erro ao excluir:', err);
-            alert('Erro ao excluir pacote.');
+            toast.error(err?.response?.data?.message || err?.message || 'Erro ao excluir pacote.');
         } finally {
-            setLoading(false);
+            setDeleting(false);
         }
     };
 
@@ -129,7 +137,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                         <TherapyPackageTable
                             packages={packages}
                             onEdit={handleEdit}
-                            onDelete={handleDelete}
+                            onDelete={handleDeleteClick}
                             currentPage={filters.page}
                             totalPages={totalPages}
                             onPageChange={(newPage) => setFilters(prev => ({ ...prev, page: newPage }))}
@@ -158,6 +166,25 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                         </div>
                     )}
                 </div>
+
+                {/* Modal de confirmação de exclusão */}
+                {deleteTargetId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !deleting && setDeleteTargetId(null)}>
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                                </div>
+                                <h4 className="text-lg font-bold text-gray-900">Excluir pacote</h4>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-5">Tem certeza que deseja excluir este pacote? Essa ação não pode ser desfeita.</p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setDeleteTargetId(null)} disabled={deleting} className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50">Cancelar</button>
+                                <button onClick={handleConfirmDelete} disabled={deleting} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50">{deleting ? 'Excluindo...' : 'Sim, excluir'}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Modal */}
                 {modalOpen && (

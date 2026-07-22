@@ -136,32 +136,58 @@ export default function TherapyPackageCard({
   }
 
 
-  const openModalWithAction = async (action: 'edit' | 'use', session?: ISession) => {
+  const openModalWithAction = (action: 'edit' | 'use', session?: ISession) => {
     setModalAction(action);
-    if (session) {
-      // 🔄 Busca pacote detalhado para ter dados atualizados (paymentMethod, etc.)
+    if (!session) {
+      setSelectedSession(initialSessionState);
+      setIsModalOpen(true);
+      return;
+    }
+
+    const context = {
+      doctorId: pack.doctorId || (pack as any).doctor?._id?.toString?.() || (pack as any).doctor?.toString?.() || '',
+      patientId: pack.patientId || (pack as any).patient?._id?.toString?.() || (pack as any).patient?.toString?.() || '',
+      packageId: pack.packageId || pack._id || '',
+      sessionValue: typeof pack.sessionValue === 'number' ? pack.sessionValue : 0,
+      sessionType: pack.sessionType || (pack as any).specialty || '',
+    };
+
+    // 🚀 Abre o modal imediatamente com os dados locais (já temos tudo que a
+    // sessão precisa pra renderizar). O enriquecimento com paymentMethod/
+    // paymentAmount atualizados do backend roda em background — antes isso
+    // era aguardado de forma bloqueante (2 fetches sequenciais, 15s de
+    // timeout cada) e travava a abertura do modal por até ~30s.
+    const localDto = mapSessionResponseDTO(session, context);
+    const localNormalized = sessionDTOToISession(localDto);
+    if (session?.appointmentId) {
+      localNormalized.appointmentId = session.appointmentId;
+    }
+    setSelectedSession(localNormalized);
+    setIsModalOpen(true);
+
+    const targetSessionId = session.sessionId || session._id;
+    const targetAppointmentId = localNormalized.appointmentId;
+
+    (async () => {
       let rawSession = session;
-      if (pack?._id) {
-        try {
-          const detail = await packageService.getPackage(pack.packageId || pack._id);
-          const pkg = detail?.package || detail;
-          if (pkg?.sessions?.length) {
-            const found = pkg.sessions.find(
-              (s: any) => s.sessionId?.toString?.() === session.sessionId || s._id?.toString?.() === session._id
-            );
-            if (found) rawSession = found;
-          }
-        } catch (e) {
-          console.warn('Falha ao buscar detalhe do pacote, usando dados locais', e);
+
+      const [detailResult, apptResult] = await Promise.allSettled([
+        pack?._id ? packageService.getPackage(pack.packageId || pack._id) : Promise.resolve(null),
+        targetAppointmentId ? appointmentService.getById(targetAppointmentId) : Promise.resolve(null),
+      ]);
+
+      if (detailResult.status === 'fulfilled' && detailResult.value) {
+        const pkg = (detailResult.value as any)?.package || detailResult.value;
+        if (pkg?.sessions?.length) {
+          const found = pkg.sessions.find(
+            (s: any) => s.sessionId?.toString?.() === session.sessionId || s._id?.toString?.() === session._id
+          );
+          if (found) rawSession = found;
         }
+      } else if (detailResult.status === 'rejected') {
+        console.warn('Falha ao buscar detalhe do pacote, usando dados locais', detailResult.reason);
       }
-      const context = {
-        doctorId: pack.doctorId || (pack as any).doctor?._id?.toString?.() || (pack as any).doctor?.toString?.() || '',
-        patientId: pack.patientId || (pack as any).patient?._id?.toString?.() || (pack as any).patient?.toString?.() || '',
-        packageId: pack.packageId || pack._id || '',
-        sessionValue: typeof pack.sessionValue === 'number' ? pack.sessionValue : 0,
-        sessionType: pack.sessionType || (pack as any).specialty || '',
-      };
+
       const dto = mapSessionResponseDTO(rawSession, context);
       const normalized = sessionDTOToISession(dto);
       // Preserva appointmentId do dado bruto (não mapeado pelo DTO)
@@ -169,31 +195,32 @@ export default function TherapyPackageCard({
         normalized.appointmentId = rawSession.appointmentId;
       }
 
-      // 🛡️ Fallback: busca agendamento real para garantir paymentMethod atualizado
-      // (a PackagesView pode estar stale ou sem o campo até rebuild)
-      if (normalized.appointmentId) {
-        try {
-          const apptRes = await appointmentService.getById(normalized.appointmentId);
-          const appt = apptRes?.data?.data || apptRes?.data || apptRes;
-          const apptPaymentMethod = appt?.paymentMethod || appt?.payment?.method;
-          if (apptPaymentMethod && !normalized.paymentMethod) {
-            normalized.paymentMethod = apptPaymentMethod;
-          }
-          // Também garante paymentAmount real se o appointment tiver
-          if (appt?.paymentAmount && (!normalized.paymentAmount || normalized.paymentAmount === 0)) {
-            normalized.paymentAmount = appt.paymentAmount;
-          }
-        } catch (apptErr) {
-          console.warn('[DEBUG] Falha ao buscar appointment fallback:', apptErr);
+      if (apptResult.status === 'fulfilled' && apptResult.value) {
+        const apptRes = apptResult.value as any;
+        const appt = apptRes?.data?.data || apptRes?.data || apptRes;
+        const apptPaymentMethod = appt?.paymentMethod || appt?.payment?.method;
+        if (apptPaymentMethod && !normalized.paymentMethod) {
+          normalized.paymentMethod = apptPaymentMethod;
         }
+        // Também garante paymentAmount real se o appointment tiver
+        if (appt?.paymentAmount && (!normalized.paymentAmount || normalized.paymentAmount === 0)) {
+          normalized.paymentAmount = appt.paymentAmount;
+        }
+      } else if (apptResult.status === 'rejected') {
+        console.warn('[DEBUG] Falha ao buscar appointment fallback:', apptResult.reason);
       }
 
       console.log('[DEBUG] openModalWithAction DTO - raw:', rawSession, 'context:', context, 'normalized:', normalized);
-      setSelectedSession(normalized);
-    } else {
-      setSelectedSession(initialSessionState);
-    }
-    setIsModalOpen(true);
+
+      // Só aplica o enriquecimento se o usuário ainda estiver na mesma sessão
+      // (evita sobrescrever se ele já fechou o modal ou trocou de sessão)
+      setSelectedSession(prev => {
+        if (!prev) return prev;
+        const prevId = prev.sessionId || prev._id;
+        if (prevId !== targetSessionId) return prev;
+        return normalized;
+      });
+    })();
   };
 
   const handleSessionSubmit = async () => {
@@ -574,8 +601,14 @@ export default function TherapyPackageCard({
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse-slow"></div>
             </div>
           </div>
-          {scheduledSessions.length > 0 && (
-            <p className="text-xs text-gray-500">{scheduledSessions.length} futuras agendadas</p>
+          {(scheduledSessions.length > 0 || (pack.sessionsCanceled ?? 0) > 0) && (
+            <p className="text-xs text-gray-500">
+              {scheduledSessions.length > 0 && `${scheduledSessions.length} futuras agendadas`}
+              {scheduledSessions.length > 0 && (pack.sessionsCanceled ?? 0) > 0 && ' · '}
+              {(pack.sessionsCanceled ?? 0) > 0 && (
+                <span className="text-red-500">{pack.sessionsCanceled} cancelada{pack.sessionsCanceled === 1 ? '' : 's'}</span>
+              )}
+            </p>
           )}
         </div>
       </div>
