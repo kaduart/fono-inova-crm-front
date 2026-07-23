@@ -7,7 +7,6 @@ import appointmentService from '../../services/appointmentService';
 import { IDoctors, IPatient, ITherapyPackage } from '../../utils/types/types';
 import TherapyPackageCard from './TherapyPackageCard';
 import TherapyPackageDetails from './TherapyPackageDetails';
-import TherapyPackageDetailsModal from './TherapyPackageDetailsModal';
 import TherapyPackageFormModal from './TherapyPackageFormModal';
 import TherapyPackageManager from './TherapyPackageManager';
 import { extractErrorMessage } from '../../utils/errorUtils';
@@ -22,11 +21,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const [packages, setPackages] = useState<ITherapyPackage[]>([]);
     const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
     const [showFormModal, setShowFormModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [showManager, setShowManager] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState<ITherapyPackage | null>(null);
-    const [editing, setEditing] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
     const [isAccordionOpen, setIsAccordionOpen] = useState(true);
 
     const realPatientId = patient?.patientId || patient?._id;
@@ -113,8 +111,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             }
             toast.success(modalAction === 'edit' ? "Sessão atualizada!" : "Sessão registrada!");
             setSelectedPackage(null);
-            setViewMode('view');
-            setEditing(false);
             await fetchBasicPackages();
         } catch (err: any) {
             console.error('Erro:', err);
@@ -124,26 +120,41 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         }
     };
 
-    const handleAddSession = async (sessionData: any) => {
+    const handleUseSessionInDetails = async (packId: string, sessionData: UseSessionParams & { appointmentId?: string }, modalAction: string) => {
         try {
-            if (!selectedPackage) throw new Error('Nenhum pacote selecionado');
-            const response = await packageService.addSession(selectedPackage?.packageId || selectedPackage._id, sessionData);
-            if (response?.success) {
-                toast.success("Nova sessão adicionada ao pacote!");
-                setSelectedPackage(null);
-                await fetchBasicPackages();
-            } else {
-                throw new Error(response?.message || 'Erro ao adicionar sessão');
+            if (modalAction === 'use' && sessionData.paymentAmount && sessionData.paymentAmount > 0) {
+                validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
             }
+            const payload = {
+                patientId: sessionData.patientId,
+                doctorId: sessionData.doctorId,
+                date: sessionData.date,
+                time: sessionData.time,
+                status: sessionData.status,
+                notes: sessionData.notes,
+                package: sessionData.package,
+                sessionType: sessionData.sessionType,
+                serviceType: sessionData.serviceType,
+                specialty: sessionData.sessionType,
+                sessionId: sessionData._id,
+                appointmentId: sessionData.appointmentId,
+                confirmedAbsence: sessionData.confirmedAbsence,
+                payment: { amount: Number(sessionData.paymentAmount) || 0, method: sessionData.paymentMethod || '' },
+            };
+            await packageService.updateSession(packId, payload);
+            const isCompleting = modalAction === 'use' && sessionData.status === 'completed';
+            if (isCompleting && sessionData.appointmentId) {
+                try {
+                    await appointmentService.update(sessionData.appointmentId, { operationalStatus: 'completed', clinicalStatus: 'completed' } as any);
+                } catch (e) {
+                    console.warn('[handleUseSessionInDetails] Falha ao atualizar status do appointment:', e);
+                }
+            }
+            toast.success(modalAction === 'edit' ? "Sessão atualizada!" : "Sessão registrada!");
+            await fetchBasicPackages();
         } catch (err: any) {
-            console.error('Erro ao adicionar sessão:', err);
-            if (err.response?.status === 409) {
-                toast.error('Conflito: Já existe uma sessão agendada neste horário');
-            } else if (err.response?.data?.message) {
-                toast.error(err.response.data.message);
-            } else {
-                toast.error(err.message || 'Falha ao adicionar sessão');
-            }
+            console.error('Erro:', err);
+            throw err;
         }
     };
 
@@ -161,21 +172,13 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         );
     };
 
-    const handleUpdatePackage = (updated: ITherapyPackage) => {
-        setSelectedPackage(updated);
-        fetchBasicPackages();
-    };
-
     const handleCloseDetails = () => {
         setSelectedPackage(null);
-        setEditing(false);
-        setViewMode('view');
+        setShowEditModal(false);
     };
 
     const handleViewPackage = (pkg: ITherapyPackage) => {
         setSelectedPackage(pkg);
-        setViewMode('view');
-        setEditing(false);
     };
 
     const activePackages = packages.filter(pkg => pkg.status === 'active');
@@ -217,12 +220,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     };
 
     const handleEditPackage = () => {
-        setViewMode('edit');
-        setEditing(true);
-    };
-
-    const handleOpenAddSession = () => {
-        setViewMode('add-session');
+        setShowEditModal(true);
     };
 
     const openManager = () => {
@@ -416,8 +414,8 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             )}
 
             {/* Modais */}
-            {selectedPackage && viewMode === 'view' && (
-                <TherapyPackageDetails pack={selectedPackage} onClose={handleCloseDetails} onEdit={handleEditPackage} onAddSession={handleAddSession} patient={patient} doctors={doctors} />
+            {selectedPackage && (
+                <TherapyPackageDetails pack={selectedPackage} onClose={handleCloseDetails} onEdit={handleEditPackage} onUseSession={handleUseSessionInDetails} onRefresh={fetchBasicPackages} patient={patient} doctors={doctors} />
             )}
 
             {showFormModal && (
@@ -435,8 +433,22 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 />
             )}
 
-            {selectedPackage && viewMode === 'edit' && (
-                <TherapyPackageDetailsModal pack={selectedPackage} onClose={handleCloseDetails} onUpdate={(updated) => { handleUpdatePackage(updated); handleCloseDetails(); }} />
+            {showEditModal && selectedPackage && (
+                <TherapyPackageFormModal
+                    initialData={selectedPackage}
+                    patient={patient}
+                    doctors={doctors}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setSelectedPackage(null);
+                    }}
+                    onSubmit={() => {
+                        fetchBasicPackages();
+                        fetchAppointments();
+                        setShowEditModal(false);
+                        setSelectedPackage(null);
+                    }}
+                />
             )}
         </div>
     );

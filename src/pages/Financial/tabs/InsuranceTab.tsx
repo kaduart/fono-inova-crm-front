@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import { Patient360Modal } from '../components/Patient360Modal';
 import {
+    AlertCircle,
     Building2,
     Calendar,
     Check,
@@ -54,7 +55,8 @@ import {
     receiveInsuranceSession,
     faturarConvenioLote,
     receberConvenioLote,
-    getPendingBillingGuides
+    getPendingBillingGuides,
+    encerrarGuia
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 import { Shield } from 'lucide-react';
@@ -142,6 +144,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // true quando este modal abriu logo após o wizard de documentação (não como ação avulsa) —
     // muda o texto pra deixar claro que "documentos enviados" ainda não é "faturado"
     const [faturarLoteFromWizard, setFaturarLoteFromWizard] = useState(false);
+
+    // Estado para modal de finalização de guias após faturamento
+    const [postFaturamentoCloseModal, setPostFaturamentoCloseModal] = useState<{ open: boolean; guides: Array<{ guideId: string; number: string; sessionsCount: number }> }>({ open: false, guides: [] });
+    const [postFaturamentoCloseLoading, setPostFaturamentoCloseLoading] = useState(false);
+    const [selectedCloseGuides, setSelectedCloseGuides] = useState<Set<string>>(new Set());
 
     // Estados para modal de recebimento em lote
     const [receberLoteModalOpen, setReceberLoteModalOpen] = useState(false);
@@ -623,6 +630,27 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 const data = result.data.data;
                 if (isGuideMode) {
                     toast.success(`${data.sessionsFaturadas} atendimentos faturados a partir de ${data.guidesFaturadas} guia(s)!`);
+                    const totalCanceled = data.totalAppointmentsCanceledOnClosure || 0;
+                    if (totalCanceled > 0) {
+                        const closedGuidesCount = (data.guideClosures || []).filter((c: any) => !c.skipped && c.canceled > 0).length;
+                        toast.info(`${totalCanceled} agendamento(s) pendente(s) foram cancelados automaticamente em ${closedGuidesCount} guia(s) mensal(is) encerrada(s) pelo faturamento.`);
+                    }
+                    const failedClosures = (data.guideClosures || []).filter((c: any) => c.error);
+                    if (failedClosures.length > 0) {
+                        toast.warn(`${failedClosures.length} guia(s) tiveram falha ao tentar encerrar agendamentos pendentes — verifique manualmente.`);
+                    }
+
+                    // Oferece finalização manual explícita das guias faturadas (nunca automático)
+                    const guides = (data.guides || []).filter((g: any) => g.guideId);
+                    if (guides.length > 0) {
+                        setFaturarLoteModalOpen(false);
+                        setPostFaturamentoCloseModal({ open: true, guides });
+                        setSelectedCloseGuides(new Set(guides.map((g: any) => g.guideId)));
+                        clearAllSelection();
+                        clearGuideSelection();
+                        loadReceivables(selectedMonthYear);
+                        return;
+                    }
                 } else {
                     const { faturados, ignorados } = data;
                     toast.success(`${faturados} atendimentos faturados!`);
@@ -642,6 +670,38 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         } finally {
             setFaturarLoteLoading(false);
         }
+    };
+
+    const handleFinalizarGuiasAposFaturamento = async () => {
+        if (selectedCloseGuides.size === 0) return;
+        setPostFaturamentoCloseLoading(true);
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+        for (const guideId of Array.from(selectedCloseGuides)) {
+            try {
+                const result = await encerrarGuia({ guideId });
+                if (result.data.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                    errors.push(result.data.error || `Erro na guia ${guideId}`);
+                }
+            } catch (error: any) {
+                errorCount++;
+                errors.push(extractErrorMessage(error, `Erro ao finalizar guia ${guideId}`));
+            }
+        }
+        if (successCount > 0) {
+            toast.success(`${successCount} guia(s) finalizada(s) com sucesso.`);
+        }
+        if (errorCount > 0) {
+            toast.error(`Falha ao finalizar ${errorCount} guia(s): ${errors.slice(0, 3).join('; ')}`);
+        }
+        setPostFaturamentoCloseModal({ open: false, guides: [] });
+        setSelectedCloseGuides(new Set());
+        loadReceivables(selectedMonthYear);
+        setPostFaturamentoCloseLoading(false);
     };
 
     const handleOpenReceberLoteModal = () => {
@@ -1171,7 +1231,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             <Send className="w-4 h-4 text-white" />
                         </Avatar>
                         <Typography variant="h6">
-                            {faturarLoteFromWizard ? 'Criar lote de faturamento agora?' : (subTab === 0 ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados')}
+                            {faturarLoteFromWizard ? 'Documentos enviados com sucesso. Deseja faturar esta(s) guia(s) agora?' : (subTab === 0 ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados')}
                         </Typography>
                     </Box>
                 </DialogTitle>
@@ -1189,6 +1249,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 ? `${selectedGuides.size} guia(s) serão faturadas. Todas as sessões pendentes de cada guia serão incluídas, independentemente do mês.`
                                 : `${selectedPayments.size} atendimento(s) serão faturados`}
                         </Typography>
+
+                        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                            <AlertCircle size={16} style={{ color: '#B45309', marginTop: 2, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ color: '#92400E' }}>
+                                Faturar uma guia <strong>não encerra automaticamente a guia</strong>. Ela continua ativa e poderá receber novos faturamentos enquanto houver sessões concluídas pendentes.
+                                Para impedir novos agendamentos/faturamentos, use <strong>Finalizar guia</strong> no drawer da guia.
+                            </Typography>
+                        </Box>
 
                         <TextField
                             fullWidth
@@ -1221,6 +1289,98 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
                     >
                         {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar Faturamento')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Modal: Finalizar guias após faturamento */}
+            <Dialog
+                open={postFaturamentoCloseModal.open}
+                onClose={() => !postFaturamentoCloseLoading && setPostFaturamentoCloseModal({ open: false, guides: [] })}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Avatar sx={{ bgcolor: '#7C3AED', width: 32, height: 32 }}>
+                            <Shield className="w-4 h-4 text-white" />
+                        </Avatar>
+                        <Typography variant="h6">Faturamento realizado com sucesso</Typography>
+                    </Box>
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            O lote foi criado e as sessões concluídas foram faturadas. A(s) guia(s) abaixo continua(m) ativa(s) e poderá(ão) receber novos faturamentos enquanto houver sessões concluídas pendentes.
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#FEF3C7', border: '1px solid #F59E0B' }}>
+                            <AlertCircle size={16} style={{ color: '#92400E', marginTop: 2, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ color: '#92400E' }}>
+                                <strong>Deseja finalizar o ciclo agora?</strong> Finalizar a guia irá cancelar os agendamentos futuros pendentes e impedir novos faturamentos desta guia. Esta ação não pode ser desfeita.
+                            </Typography>
+                        </Box>
+
+                        <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                Guias faturadas ({postFaturamentoCloseModal.guides.length})
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {postFaturamentoCloseModal.guides.map((g) => (
+                                    <Box
+                                        key={g.guideId}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1.5,
+                                            p: 1.5,
+                                            borderRadius: 2,
+                                            border: '1px solid',
+                                            borderColor: selectedCloseGuides.has(g.guideId) ? '#7C3AED' : 'grey.200',
+                                            bgcolor: selectedCloseGuides.has(g.guideId) ? '#F5F3FF' : 'background.paper'
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            id={`close-guide-${g.guideId}`}
+                                            checked={selectedCloseGuides.has(g.guideId)}
+                                            onChange={() => {
+                                                const next = new Set(selectedCloseGuides);
+                                                if (next.has(g.guideId)) {
+                                                    next.delete(g.guideId);
+                                                } else {
+                                                    next.add(g.guideId);
+                                                }
+                                                setSelectedCloseGuides(next);
+                                            }}
+                                            style={{ width: 18, height: 18, accentColor: '#7C3AED' }}
+                                        />
+                                        <label htmlFor={`close-guide-${g.guideId}`} style={{ flex: 1, cursor: 'pointer', margin: 0 }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                Guia {g.number}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {g.sessionsCount} sessão(ões) faturada(s)
+                                            </Typography>
+                                        </label>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setPostFaturamentoCloseModal({ open: false, guides: [] })} disabled={postFaturamentoCloseLoading}>
+                        Continuar depois
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleFinalizarGuiasAposFaturamento}
+                        disabled={postFaturamentoCloseLoading || selectedCloseGuides.size === 0}
+                        startIcon={postFaturamentoCloseLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
+                        sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' } }}
+                    >
+                        {postFaturamentoCloseLoading ? 'Finalizando...' : `Finalizar ${selectedCloseGuides.size} guia(s)`}
                     </Button>
                 </DialogActions>
             </Dialog>

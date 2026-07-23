@@ -112,6 +112,17 @@ interface FinancialDashboardTabProps {
   year: number;
 }
 
+// Ícone ⓘ com popover explicando o que o indicador representa, fonte e o que não inclui.
+// Evita colisão de nome com o Tooltip do recharts (já importado nesta tela para os gráficos).
+const InfoTooltip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span className="relative inline-flex group ml-1 align-middle">
+    <span className="cursor-help text-gray-400 hover:text-gray-600 text-[11px] leading-none select-none">ⓘ</span>
+    <span className="pointer-events-none absolute z-20 hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 rounded-lg bg-gray-900 text-white text-[10px] leading-snug p-2.5 shadow-lg text-left normal-case font-normal">
+      {children}
+    </span>
+  </span>
+);
+
 const DASHBOARD_TAB_PARAM = 'dashboardTab';
 
 const getDashboardTabs = () => [
@@ -997,7 +1008,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const producaoTotal    = revenue?.total ?? 0;
     const pctCaixaMeta     = metas.camadas?.caixa?.percentual ?? (metaValor > 0 ? (caixaTotal / metaValor) * 100 : 0);
     // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
-    const pendentesTotal   = resumo?.pendentes?.allParticularTotal ?? ((data?.particularPendente || 0) + (data?.pacotePendente || 0));
+    // Dívida de competência anterior: fonte direta (Payment, sessão completed, data < mês), não residual.
+    const previousCompetenceDebtTotal = resumo?.pendentes?.previousCompetenceDebt?.total ?? 0;
 
     const isVerde   = metas.statusMeta === 'verde';
     const isAmVerde = metas.statusMeta === 'amarelo-verde';
@@ -1129,17 +1141,23 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Breakdown Financeiro</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
-              { label: 'Caixa recebido',  value: caixaTotal,  color: '#10B981', sub: (totalRetroativos > 0 || totalAntecipacoes > 0) ? `inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação` : null].filter(Boolean).join(' + ')}` : 'dinheiro real recebido' },
-              { label: 'Produção clínica', value: producaoTotal, color: '#2563EB', sub: 'serviços entregues' },
+              { label: 'Caixa recebido',  value: caixaTotal,  color: '#10B981', sub: (totalRetroativos > 0 || totalAntecipacoes > 0) ? `inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação` : null].filter(Boolean).join(' + ')}` : 'dinheiro real recebido',
+                info: <>Dinheiro que efetivamente entrou no caixa neste mês.<br/><br/><strong>Fonte:</strong> pagamentos recebidos (Payment pago).<br/><br/><strong>Não inclui:</strong> valores a receber, produção ainda não paga.</> },
+              { label: 'Produção clínica', value: producaoTotal, color: '#2563EB', sub: 'serviços entregues',
+                info: <>Sessões realizadas nesta competência, independente de já terem sido pagas.<br/><br/><strong>Fonte:</strong> sessões concluídas (Session completed) com data dentro do mês.<br/><br/><strong>Não inclui:</strong> sessões futuras ou de outros meses.</> },
               { label: 'A receber',        value: totalAReceberProducao, color: '#D97706',
-                sub: convenioAReceber > 0 ? `conv. ${formatCurrency(convenioAReceber)}${totalAReceberProducao - convenioAReceber > 0 ? ` · part. ${formatCurrency(totalAReceberProducao - convenioAReceber)}` : ''}` : 'pendente de recebimento' },
+                sub: convenioAReceber > 0 ? `conv. ${formatCurrency(convenioAReceber)}${totalAReceberProducao - convenioAReceber > 0 ? ` · part. ${formatCurrency(totalAReceberProducao - convenioAReceber)}` : ''}` : 'pendente de recebimento',
+                info: <>Produção deste mês que ainda não virou caixa (convênio aguardando repasse + particular/pacote pendente).<br/><br/><strong>Fonte:</strong> sessões concluídas do mês sem pagamento recebido.<br/><br/><strong>Não inclui:</strong> dívida de meses anteriores (card à parte).</> },
               { label: 'Falta para meta', value: Math.max(0, metaValor - resultadoEcon), color: '#DC2626',
-                sub: `${metas?.gap?.diasRestantes ?? 0} dias restantes` },
+                sub: `${metas?.gap?.diasRestantes ?? 0} dias restantes`,
+                info: <>Quanto falta para atingir a meta do mês.<br/><br/><strong>Fonte:</strong> meta configurada menos resultado reconhecido (Caixa + A receber).<br/><br/><strong>Não inclui:</strong> projeção de fechamento (ver aba Projeção &amp; Cenários).</> },
             ] as const).map((kpi) => (
-              <div key={kpi.label} className="rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm">
-                <div style={{ height: 3, backgroundColor: kpi.color }} />
+              <div key={kpi.label} className="rounded-xl bg-white border border-gray-100 shadow-sm">
+                {/* rounded-t-xl na própria barra (em vez de overflow-hidden no card) — overflow-hidden
+                    cortava o popover do InfoTooltip, que precisa renderizar fora da caixa do card */}
+                <div className="rounded-t-xl" style={{ height: 3, backgroundColor: kpi.color }} />
                 <div className="p-3">
-                  <p className="text-[10px] text-gray-500 font-semibold mb-1">{kpi.label}</p>
+                  <p className="text-[10px] text-gray-500 font-semibold mb-1">{kpi.label}<InfoTooltip>{kpi.info}</InfoTooltip></p>
                   <p className="text-lg font-black leading-tight" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
                   <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{kpi.sub}</p>
                 </div>
@@ -1158,7 +1176,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
           {/* CARD 1: Composição da Receita */}
           <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Produção por Tipo</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Produção por Tipo<InfoTooltip><>Valor produzido (sessões realizadas) no mês, separado por tipo de cobrança.<br/><br/><strong>Fonte:</strong> sessões concluídas do mês, agrupadas por convênio/particular/pacote/liminar.<br/><br/><strong>Não inclui:</strong> se já foi pago ou não — isso é produção, não caixa.</></InfoTooltip></p>
             <p className="text-[10px] text-gray-400 mb-3">Serviços executados por tipo (não é caixa recebido)</p>
             <div className="space-y-3">
               {Object.entries(metas.porTipo || {})
@@ -1204,9 +1222,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             <p className="text-[10px] text-gray-400 mb-3">Quanto do produzido já virou dinheiro</p>
             <div className="space-y-3">
               {([
-                { label: 'Recebido da produção',       value: totalRecebimentoProducao,            color: '#10B981', icon: '💵' },
-                { label: 'Convênio (aguarda repasse)',  value: convenioAReceber,                    color: '#8B5CF6', icon: '🧾' },
-                { label: 'Particular/Pacote pendente', value: particularPendente + pacotePendente, color: '#F59E0B', icon: '⏳' },
+                { label: 'Recebido da produção',       value: totalRecebimentoProducao,            color: '#10B981', icon: '💵',
+                  info: <>Percentual da produção do mês que já foi efetivamente recebido em caixa.<br/><br/><strong>Fonte:</strong> pagamentos pagos vinculados a sessões do mês.<br/><br/><strong>Não inclui:</strong> recebimentos de meses anteriores.</> },
+                { label: 'Convênio (aguarda repasse)',  value: convenioAReceber,                    color: '#8B5CF6', icon: '🧾',
+                  info: <>Sessões de convênio realizadas neste mês que ainda aguardam repasse da operadora.<br/><br/><strong>Fonte:</strong> sessões concluídas de convênio no mês.<br/><br/><strong>Não inclui:</strong> particular, liminar, sessões não realizadas.</> },
+                { label: 'Particular/Pacote pendente', value: particularPendente + pacotePendente, color: '#F59E0B', icon: '⏳',
+                  info: <>Sessões particulares/pacote realizadas neste mês que ainda não têm pagamento recebido.<br/><br/><strong>Fonte:</strong> sessões concluídas do mês sem pagamento pago.<br/><br/><strong>Não inclui:</strong> convênio, liminar, dívida de meses anteriores.</> },
               ] as const).map((item) => {
                 const pct = producaoTotal > 0 ? Math.round((item.value / producaoTotal) * 100) : 0;
                 return (
@@ -1215,6 +1236,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: item.color }} />
                         <span className="text-xs text-gray-600">{item.label}</span>
+                        <InfoTooltip>{item.info}</InfoTooltip>
                       </div>
                       <span className="text-xs font-black" style={{ color: item.color }}>{pct}%</span>
                     </div>
@@ -1338,19 +1360,22 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         {/* ── DÍVIDAS DE MESES ANTERIORES ── */}
         {(() => {
           const mesMesAtual = (data?.particularPendente || 0) + (data?.pacotePendente || 0);
-          const debitosMesAnterior = Math.max(0, pendentesTotal - mesMesAtual);
-          if (debitosMesAnterior <= 0) return null;
+          if (previousCompetenceDebtTotal <= 0) return null;
+          const totalEmAberto = mesMesAtual + previousCompetenceDebtTotal;
           return (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
               <div className="flex items-start gap-3">
                 <span className="text-xl">⚠️</span>
                 <div className="flex-1">
-                  <p className="text-xs font-black text-rose-800 uppercase tracking-wide mb-1">Dívidas de Meses Anteriores</p>
+                  <p className="text-xs font-black text-rose-800 uppercase tracking-wide mb-1">Dívidas de Meses Anteriores<InfoTooltip><>Pagamentos pendentes de competências anteriores ao mês selecionado.<br/><br/><strong>Fonte:</strong> pagamentos pendentes vinculados a sessões já realizadas, com data anterior ao mês.<br/><br/><strong>Não inclui:</strong> sessões futuras/não realizadas, convênio, liminar.</></InfoTooltip></p>
                   <p className="text-xs text-rose-700">
                     Além dos <strong>{formatCurrency(mesMesAtual)}</strong> pendentes deste mês, há
-                    {' '}<strong>{formatCurrency(debitosMesAnterior)}</strong> em débitos de sessões de meses anteriores ainda não quitados.
+                    {' '}<strong>{formatCurrency(previousCompetenceDebtTotal)}</strong> em débitos de sessões de meses anteriores ainda não quitados.
                   </p>
-                  <p className="text-[11px] text-rose-600 mt-1 font-semibold">Total acumulado em aberto: {formatCurrency(pendentesTotal)}</p>
+                  <p className="text-[11px] text-rose-600 mt-1 font-semibold">Total acumulado em aberto: {formatCurrency(totalEmAberto)}</p>
+                  <p className="text-[10px] text-rose-500 mt-1">
+                    Considera apenas sessões já realizadas com pagamento pendente. Não inclui agendamentos futuros, convênio ou liminar.
+                  </p>
                 </div>
               </div>
             </div>

@@ -30,10 +30,10 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Calendar, ChevronDown, ChevronUp, Send, X, Link2, Plus, Wand2, Pencil } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Lock, Pencil, Send, X, Link2, Plus, Wand2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { getSpecialtyLabel } from '../../../constants/specialties';
-import { autoLinkOrphanSessions, createGuideFromOrphan, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
+import { autoLinkOrphanSessions, createGuideFromOrphan, encerrarGuia, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
 import { updateGuide } from '../../../services/insuranceGuideApi';
 import { useConvenios } from '../../../hooks/useConvenios';
 import type { Convenio } from '../../../services/insuranceService';
@@ -186,6 +186,7 @@ interface PatientDrawerProps {
     convenios: Convenio[];
     onToggleGuide: (guideId: string) => void;
     onEditGuide: (guide: PendingGuide) => void;
+    onCloseGuide: (guide: PendingGuide) => void;
     onClose: () => void;
 }
 
@@ -214,7 +215,7 @@ function getBillingCycleReason(convenio: Convenio | undefined): string | null {
     }
 }
 
-function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onClose }: PatientDrawerProps) {
+function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose }: PatientDrawerProps) {
     const total    = guides.reduce((s, g) => s + (g.pendingValue || 0), 0);
     const sessions = guides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
     const allSelected  = guides.every(g => selectedGuides.has(g.guideId));
@@ -365,6 +366,16 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                                 >
                                                     <Pencil size={13} />
                                                 </IconButton>
+                                                {guide.billingMode === 'per_month' && guide.guideStatus !== 'cancelled' && (
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => { e.stopPropagation(); onCloseGuide(guide); }}
+                                                        sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#B45309', bgcolor: '#FEF3C7' } }}
+                                                        title="Finalizar guia (cancela agendamentos pendentes)"
+                                                    >
+                                                        <Lock size={13} />
+                                                    </IconButton>
+                                                )}
                                             </Box>
                                             <Chip
                                                 size="small"
@@ -506,6 +517,8 @@ const GuidePendingBillingSection = ({
     const [editGuideModal, setEditGuideModal]                   = useState<PendingGuide | null>(null);
     const [editForm, setEditForm]                               = useState({ insurance: '', totalSessions: 1, sessionValue: 0 });
     const [savingGuide, setSavingGuide]                         = useState(false);
+    const [closeGuideModal, setCloseGuideModal]               = useState<PendingGuide | null>(null);
+    const [closingGuide, setClosingGuide]                     = useState(false);
     const { convenios, isLoading: loadingConvenios }            = useConvenios({ includeInactive: false });
 
     const toggleProvider      = (p: string) => setExpandedProviders(prev => ({ ...prev, [p]: !prev[p] }));
@@ -618,6 +631,21 @@ const GuidePendingBillingSection = ({
             onRefresh?.();
         } catch (err: any) {
             toast.error(err?.response?.data?.error || 'Erro ao vincular à guia');
+        }
+    };
+
+    const handleCloseGuide = async () => {
+        if (!closeGuideModal) return;
+        setClosingGuide(true);
+        try {
+            const res = await encerrarGuia({ guideId: closeGuideModal.guideId });
+            toast.success(res.data.message || 'Guia finalizada com sucesso');
+            setCloseGuideModal(null);
+            onRefresh?.();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao finalizar guia');
+        } finally {
+            setClosingGuide(false);
         }
     };
 
@@ -1057,6 +1085,7 @@ const GuidePendingBillingSection = ({
                     convenios={convenios}
                     onToggleGuide={onToggleGuide}
                     onEditGuide={openEditGuide}
+                    onCloseGuide={(guide) => setCloseGuideModal(guide)}
                     onClose={() => setDrawerPatient(null)}
                 />
             )}
@@ -1288,6 +1317,43 @@ const GuidePendingBillingSection = ({
                         sx={{ bgcolor: '#D97706' }}
                     >
                         {linking ? 'Vinculando...' : `Confirmar vínculo (${previewModal?.linked.length || 0})`}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            {/* Modal: Confirmar finalização da guia */}
+            <Dialog open={!!closeGuideModal} onClose={() => setCloseGuideModal(null)} maxWidth="sm" fullWidth>
+                <DialogTitle>Finalizar guia {closeGuideModal?.number}</DialogTitle>
+                <DialogContent dividers>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            Finaliza o ciclo desta guia. Ao finalizar a guia <strong>{closeGuideModal?.number}</strong>, todos os
+                            agendamentos pendentes vinculados a ela serão cancelados automaticamente — incluindo
+                            sessões futuras agendadas.
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Eles não poderão ser realizados nem faturados posteriormente nesta guia.
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Paciente: <strong>{closeGuideModal?.patient?.fullName || '—'}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Agendamentos pendentes: <strong>{closeGuideModal?.pendingSessions || 0}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="error" sx={{ bgcolor: '#FEF2F2', p: 1.5, borderRadius: 1 }}>
+                            ⚠️ Essa ação não pode ser desfeita. Só finalize a guia quando tiver certeza de que nenhuma
+                            sessão futura dela será realizada.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setCloseGuideModal(null)} disabled={closingGuide}>Cancelar</Button>
+                    <Button
+                        onClick={handleCloseGuide}
+                        variant="contained"
+                        disabled={closingGuide}
+                        sx={{ bgcolor: '#B45309' }}
+                    >
+                        {closingGuide ? 'Finalizando...' : 'Finalizar guia'}
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -1,50 +1,280 @@
 import {
+    AlertTriangle,
+    ArrowRight,
+    Calendar,
+    CalendarDays,
     CheckCircle,
+    ChevronRight,
     Clock,
     DollarSign,
+    Edit2,
     Edit3,
     Leaf,
+    MoreVertical,
     Plus,
+    TrendingUp,
+    User,
     Users,
-    X
+    X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { IDoctors, IPatient } from '../../utils/types/types';
-import { AddSessionForm } from './AddSessionForm';
+import { IDoctors, IPatient, ISession } from '../../utils/types/types';
+import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
+import { PatientMiniCalendar } from './PatientMiniCalendar';
+import { SessionModal } from './SessionModal';
 import packageService from '../../services/packageService';
 
 type Props = {
     pack: any;
     onClose: () => void;
     onEdit: () => void;
-    onAddSession: (session: any) => void;
+    onUseSession?: (packId: string, session: any, action: string) => void;
+    onRefresh?: () => void;
     patient: IPatient;
     doctors: IDoctors[];
 };
 
-export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSession, patient, doctors }: Props) {
-    const [showAddSessionForm, setShowAddSessionForm] = useState(false);
+const STATUS_STYLES: Record<string, { label: string; text: string; bg: string; border: string; dot: string }> = {
+    completed: { label: 'Realizada', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+    paid: { label: 'Realizada', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+    scheduled: { label: 'Agendada', text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', dot: 'bg-blue-500' },
+    confirmed: { label: 'Confirmada', text: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200', dot: 'bg-indigo-500' },
+    pre_agendado: { label: 'Pré-agendada', text: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200', dot: 'bg-slate-500' },
+    pending: { label: 'Pendente', text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', dot: 'bg-amber-500' },
+    unpaid: { label: 'Não paga', text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', dot: 'bg-amber-500' },
+    canceled: { label: 'Cancelada', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
+    cancelled: { label: 'Cancelada', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
+    missed: { label: 'Faltou', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
+};
+
+const normalizeStatus = (status: string): string => {
+    if (!status) return 'pending';
+    if (status === 'cancelled') return 'canceled';
+    if (status === 'pre_agendado') return 'pre_agendado';
+    return status;
+};
+
+const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('pt-BR');
+};
+
+const initialSessionState: ISession = {
+    _id: '',
+    date: '',
+    time: '',
+    doctorId: '',
+    patientId: '',
+    package: '',
+    sessionType: 'fonoaudiologia',
+    status: 'pending',
+    paymentAmount: 0,
+    paymentMethod: '',
+    notes: '',
+    isPaid: true,
+    confirmedAbsence: false,
+};
+
+export default function TherapyPackageDetails({
+    pack,
+    onClose,
+    onEdit,
+    onUseSession,
+    onRefresh,
+    patient,
+    doctors,
+}: Props) {
+    const [menuOpen, setMenuOpen] = useState(false);
 
     // Bulk change
     const [bulkOpen, setBulkOpen] = useState(false);
+    const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
     const [bulkDoctorId, setBulkDoctorId] = useState('');
     const [bulkTime, setBulkTime] = useState('');
     const [bulkDayOfWeek, setBulkDayOfWeek] = useState('');
     const [bulkSaving, setBulkSaving] = useState(false);
 
-    const openBulk = async () => {
-        // Tenta pré-preencher com o primeiro agendamento pendente
+    const shiftToWeekday = (dateStr: string, targetDow: number) => {
+        const current = new Date(dateStr);
+        const currentDay = current.getDay();
+        let diff = targetDow - currentDay;
+        if (diff <= 0) diff += 7;
+        const newDate = new Date(current);
+        newDate.setDate(newDate.getDate() + diff);
+        return newDate;
+    };
+
+    const closeBulkDialog = () => {
+        setBulkOpen(false);
+        setBulkPreviewOpen(false);
+        setBulkDoctorId('');
+        setBulkTime('');
+        setBulkDayOfWeek('');
+    };
+
+    // Session view
+    const [sessionView, setSessionView] = useState<'list' | 'calendar'>('list');
+    const [modalAction, setModalAction] = useState<'edit' | 'use' | null>(null);
+    const [selectedSession, setSelectedSession] = useState<ISession>(initialSessionState);
+    const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+    const [sessionLoading, setSessionLoading] = useState(false);
+
+    const sessions = useMemo(() => pack.sessions || [], [pack.sessions]);
+
+    const bulkAffectedSessions = useMemo(() => {
+        return sessions
+            .filter((s: any) => {
+                const ns = normalizeStatus(s.status);
+                return ['pre_agendado', 'scheduled', 'pending', 'unpaid'].includes(ns);
+            })
+            .sort((a: any, b: any) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
+    }, [sessions]);
+
+    const bulkSelectedDoctor = doctors.find(d => d._id === bulkDoctorId);
+    const bulkDayOfWeekLabel: Record<number, string> = {
+        0: 'Domingo', 1: 'Segunda-feira', 2: 'Terça-feira', 3: 'Quarta-feira',
+        4: 'Quinta-feira', 5: 'Sexta-feira', 6: 'Sábado',
+    };
+
+    const counts = useMemo(() => {
+        const done = Number(pack.sessionsDone ?? 0);
+        const canceled = Number(pack.sessionsCanceled ?? 0);
+        const scheduled = sessions.filter((s: any) => {
+            const ns = normalizeStatus(s.status);
+            return ['scheduled', 'confirmed', 'pre_agendado', 'pending', 'unpaid'].includes(ns);
+        }).length;
+        return {
+            total: Number(pack.totalSessions ?? 0),
+            done,
+            scheduled,
+            canceled,
+            remaining: Math.max((pack.totalSessions ?? 0) - done - scheduled - canceled, 0),
+        };
+    }, [pack.totalSessions, pack.sessionsDone, pack.sessionsCanceled, sessions]);
+
+    const totalValue = Number(pack.totalValue ?? 0);
+    const totalPaid = Number(pack.totalPaid ?? 0);
+    const balance = Number(pack.balance ?? 0);
+    const pendingValue = Math.max(totalValue - totalPaid, 0);
+    const hasCredit = balance < 0;
+
+    const financialState = useMemo(() => {
+        if (pack.financialStatus === 'paid_with_credit' || (totalPaid >= totalValue && totalValue > 0)) {
+            return { key: 'paid', label: 'Quitado', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle };
+        }
+        if (totalPaid === 0 && totalValue > 0) {
+            return { key: 'reserved', label: 'Aguardando pagamento', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', icon: Clock };
+        }
+        if (totalPaid > 0 && totalPaid < totalValue) {
+            return { key: 'partial', label: 'Pago parcial', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', icon: DollarSign };
+        }
+        return { key: 'unknown', label: '—', color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', icon: TrendingUp };
+    }, [pack.financialStatus, totalPaid, totalValue]);
+
+    const FinancialIcon = financialState.icon;
+
+    const progressPct = counts.total > 0 ? Math.round(((counts.done + counts.canceled) / counts.total) * 100) : 0;
+    const donePct = counts.total > 0 ? (counts.done / counts.total) * 100 : 0;
+    const scheduledPct = counts.total > 0 ? (counts.scheduled / counts.total) * 100 : 0;
+    const canceledPct = counts.total > 0 ? (counts.canceled / counts.total) * 100 : 0;
+
+    const packageId = pack.packageId || pack._id;
+
+    const openSessionModal = (action: 'edit' | 'use', session?: ISession) => {
+        setModalAction(action);
+        if (!session) {
+            setSelectedSession(initialSessionState);
+            setIsSessionModalOpen(true);
+            return;
+        }
+
+        const context = {
+            doctorId: pack.doctorId || pack.doctor?._id?.toString?.() || pack.doctor?.toString?.() || '',
+            patientId: pack.patientId || pack.patient?._id?.toString?.() || pack.patient?.toString?.() || '',
+            packageId,
+            sessionValue: typeof pack.sessionValue === 'number' ? pack.sessionValue : 0,
+            sessionType: pack.sessionType || pack.specialty || '',
+        };
+
+        const dto = mapSessionResponseDTO(session, context);
+        const normalized = sessionDTOToISession(dto);
+        if (session.appointmentId) {
+            normalized.appointmentId = session.appointmentId;
+        }
+        setSelectedSession(normalized);
+        setIsSessionModalOpen(true);
+    };
+
+    const handleSessionSubmit = async () => {
+        const payload = {
+            ...selectedSession,
+            package: packageId,
+            sessionType: pack.sessionType,
+            serviceType: 'package_session',
+        };
+
+        setSessionLoading(true);
         try {
-            const pkgId = pack.packageId || pack._id;
-            // Usa sessões já carregadas no pack, senão busca
-            let sessions: any[] = pack.sessions || [];
-            if (sessions.length === 0) {
-                sessions = await packageService.getPackageSessions(pkgId);
+            if (onUseSession) {
+                await onUseSession(packageId, payload, modalAction || 'edit');
             }
-            const first = sessions.find((s: any) =>
-                ['pre_agendado', 'scheduled'].includes(s.operationalStatus || s.status)
-            );
+            toast.success(modalAction === 'edit' ? 'Sessão atualizada!' : 'Sessão registrada!');
+            setIsSessionModalOpen(false);
+            setSelectedSession(initialSessionState);
+            onRefresh?.();
+        } catch (err: any) {
+            console.error('Erro:', err);
+            const apiMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+            toast.error(apiMessage || 'Erro ao salvar sessão');
+        } finally {
+            setSessionLoading(false);
+        }
+    };
+
+    const sortedSessions = useMemo(() => {
+        return [...sessions].sort((a: any, b: any) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0;
+            if (Number.isNaN(dateA)) return 1;
+            if (Number.isNaN(dateB)) return -1;
+            if (dateA !== dateB) return dateA - dateB;
+            return (a.time || '').localeCompare(b.time || '');
+        });
+    }, [sessions]);
+
+    const calendarEvents = useMemo(() => {
+        return sortedSessions
+            .map((s: any) => {
+                const ns = normalizeStatus(s.status);
+                const parsedDate = new Date(s.date);
+                if (isNaN(parsedDate.getTime())) return null;
+                const isoDate = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDate.getDate()).padStart(2, '0')}`;
+                return {
+                    _id: s._id,
+                    start: `${isoDate}T${s.time || '08:00'}`,
+                    operationalStatus: ns === 'pending' ? 'scheduled' : ns,
+                    doctor: s.doctor || { fullName: s.professionalName || '—' },
+                    patient: patient,
+                    __session: s,
+                };
+            })
+            .filter(Boolean);
+    }, [sortedSessions, patient]);
+
+    const openBulk = async () => {
+        try {
+            let loadedSessions: any[] = sessions;
+            if (loadedSessions.length === 0) {
+                loadedSessions = await packageService.getPackageSessions(packageId);
+            }
+            const first = loadedSessions.find((s: any) => {
+                const ns = normalizeStatus(s.status);
+                return ['pre_agendado', 'scheduled', 'pending', 'unpaid'].includes(ns);
+            });
             if (first) {
                 setBulkDoctorId(first.doctor?._id || first.doctorId || '');
                 setBulkTime(first.time || '');
@@ -59,21 +289,18 @@ export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSess
         if (!bulkDoctorId && !bulkTime && !bulkDayOfWeek) return;
         setBulkSaving(true);
         try {
-            const pkgId = pack.packageId || pack._id;
             const patch: { doctorId?: string; time?: string; dayOfWeek?: number } = {};
             if (bulkDoctorId) patch.doctorId = bulkDoctorId;
             if (bulkTime) patch.time = bulkTime;
             if (bulkDayOfWeek !== '') patch.dayOfWeek = parseInt(bulkDayOfWeek);
-            const result = await packageService.bulkUpdateAppointments(pkgId, patch);
+            const result = await packageService.bulkUpdateAppointments(packageId, patch);
             const parts: string[] = [];
             if (bulkDoctorId) parts.push('terapeuta');
             if (bulkTime) parts.push('horário');
             if (bulkDayOfWeek !== '') parts.push('dia da semana');
             toast.success(`${parts.join(', ')} atualizado(s) em ${result.updated} sessão(ões) pendente(s)`);
-            setBulkOpen(false);
-            setBulkDoctorId('');
-            setBulkTime('');
-            setBulkDayOfWeek('');
+            closeBulkDialog();
+            onRefresh?.();
         } catch {
             toast.error('Erro ao atualizar sessões pendentes');
         } finally {
@@ -81,176 +308,280 @@ export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSess
         }
     };
 
-    const getStatusConfig = (payments: any[]) => {
-        const hasPayments = payments.length > 0;
-        return {
-            text: hasPayments ? 'Pago' : 'Pendente',
-            color: hasPayments ? 'text-emerald-600' : 'text-amber-600',
-            bg: hasPayments ? 'bg-emerald-50' : 'bg-amber-50',
-            border: hasPayments ? 'border-emerald-200' : 'border-amber-200',
-            icon: hasPayments ? CheckCircle : Clock
-        };
-    };
-
-    const statusConfig = getStatusConfig(pack.payments || []);
-    const completedSessions = pack.sessionsDone;
-    const progressPercentage = Math.round((completedSessions / pack.totalSessions) * 100);
-
-    // Se estiver mostrando o formulário, renderiza o AddSessionForm
-    if (showAddSessionForm) {
-        return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                <AddSessionForm
-                    patient={patient}
-                    doctors={doctors}
-                    onSubmit={(sessionData) => {
-                        onAddSession(sessionData);
-                        setShowAddSessionForm(false);
-                    }}
-                    onClose={() => setShowAddSessionForm(false)}
-                />
-            </div>
-        );
-    }
-
-    // Renderiza os detalhes do pacote
     return (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto transform transition-all">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-8 py-6 text-white">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto transform transition-all border border-gray-200">
+                {/* Header estilo Liminar */}
+                <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-5 text-white relative">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
                                 <Leaf className="w-7 h-7" />
                             </div>
-                            <div>
-                                <h2 className="text-xl font-semibold">Detalhes do Pacote</h2>
-                                <p className="text-emerald-100 text-base opacity-90 mt-0.5">
-                                    {pack.sessionType} • {pack.totalSessions} sessões
+                            <div className="min-w-0">
+                                <h2 className="text-xl font-bold truncate">Detalhes do Pacote</h2>
+                                <p className="text-emerald-100 text-sm opacity-90 mt-0.5">
+                                    {(pack.sessionType || 'Terapia').replace(/_/g, ' ')} • {counts.total} sessões
                                 </p>
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${financialState.bg} ${financialState.border} border ${financialState.color}`}>
+                                        <FinancialIcon className="w-3 h-3" />
+                                        {financialState.label}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                            <div className="relative">
+                                <button
+                                    onClick={() => setMenuOpen(v => !v)}
+                                    className="p-2 rounded-lg hover:bg-white/15 transition-colors text-white/80 hover:text-white"
+                                >
+                                    <MoreVertical className="w-5 h-5" />
+                                </button>
+                                {menuOpen && (
+                                    <div
+                                        className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl py-1 min-w-[140px] z-10 border border-gray-100"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        <button
+                                            onClick={onEdit}
+                                            className="flex items-center gap-2 w-full text-left text-xs font-medium px-4 py-2 hover:bg-slate-50 text-gray-700"
+                                        >
+                                            <Edit2 className="w-3.5 h-3.5" /> Editar pacote
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-white/15 rounded-lg transition-colors text-white/80 hover:text-white"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="p-8 space-y-6">
-                    {/* Status Card */}
-                    <div className={`flex items-center justify-between p-5 rounded-xl border ${statusConfig.bg} ${statusConfig.border}`}>
-                        <div className="flex items-center gap-3">
-                            <statusConfig.icon className={`w-6 h-6 ${statusConfig.color}`} />
-                            <span className="font-medium text-gray-700 text-base">Status do Pagamento</span>
-                        </div>
-                        <span className={`font-semibold text-base ${statusConfig.color}`}>
-                            {statusConfig.text}
-                        </span>
-                    </div>
-
-                    {/* Metrics Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 text-center transition-colors hover:bg-gray-100">
-                            <div className="text-3xl font-bold text-gray-900 mb-2">
-                                {pack.totalSessions}
-                            </div>
-                            <div className="text-sm text-gray-600 flex items-center justify-center gap-1.5">
-                                <Clock className="w-4 h-4" />
-                                Total de Sessões
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 text-center transition-colors hover:bg-gray-100">
-                            <div className="text-3xl font-bold text-green-600 mb-2">
-                                {completedSessions}
-                            </div>
-                            <div className="text-sm text-gray-600 flex items-center justify-center gap-1.5">
-                                <CheckCircle className="w-4 h-4" />
-                                Sessões Realizadas
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Progress */}
-                    <div className="space-y-3">
-                        <div className="flex justify-between text-base">
-                            <span className="text-gray-600 font-medium">Progresso</span>
-                            <span className="font-semibold text-gray-700">
-                                {completedSessions}/{pack.totalSessions} ({progressPercentage}%)
-                            </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div className="p-6 space-y-6">
+                    {/* Resumo em cards estilo Convênio */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Total', value: counts.total, color: 'text-gray-900', bg: 'bg-gray-50', border: 'border-gray-100' },
+                            { label: 'Realizadas', value: counts.done, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                            { label: 'Agendadas', value: counts.scheduled, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+                            ...(counts.canceled > 0 ? [{ label: 'Canceladas', value: counts.canceled, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' }] : []),
+                        ].map(item => (
                             <div
-                                className="bg-gradient-to-r from-emerald-500 to-green-500 h-3 rounded-full transition-all duration-500"
-                                style={{ width: `${progressPercentage}%` }}
-                            />
+                                key={item.label}
+                                className={`${item.bg} ${item.border} border p-4 rounded-xl text-center transition-colors hover:opacity-90`}
+                            >
+                                <div className={`text-2xl font-bold ${item.color} mb-1`}>{item.value}</div>
+                                <div className="text-xs font-medium text-gray-500">{item.label}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Progresso empilhado estilo Liminar */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-semibold text-gray-700">Progresso</span>
+                            <span className="text-sm font-bold text-gray-700">{counts.done}/{counts.total} ({progressPct}%)</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden flex">
+                            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${donePct}%` }} />
+                            <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${scheduledPct}%` }} />
+                            <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${canceledPct}%` }} />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span className="text-gray-600"><b>{counts.done}</b> realizadas</span>
+                            </span>
+                            {counts.scheduled > 0 && (
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                    <span className="text-gray-600"><b>{counts.scheduled}</b> agendadas</span>
+                                </span>
+                            )}
+                            {counts.canceled > 0 && (
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                                    <span className="text-gray-600"><b>{counts.canceled}</b> canceladas</span>
+                                </span>
+                            )}
+                            {counts.remaining > 0 && (
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-gray-300" />
+                                    <span className="text-gray-600"><b>{counts.remaining}</b> restantes</span>
+                                </span>
+                            )}
                         </div>
                     </div>
 
-                    {/* Payment Information */}
-                    {pack.payments && pack.payments.length > 0 && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
-                            <div className="flex items-center gap-2 mb-4">
-                                <DollarSign className="w-5 h-5 text-emerald-600" />
-                                <span className="font-semibold text-emerald-700 text-base">
-                                    Pagamentos Realizados
-                                </span>
+                    {/* Summary financeiro em cards estilo Liminar */}
+                    {totalValue > 0 && (
+                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <DollarSign className="w-4 h-4 text-emerald-600" />
+                                <span className="text-sm font-bold text-emerald-800">Resumo Financeiro</span>
                             </div>
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-white/70 rounded-xl p-3 text-center border border-emerald-100">
+                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Contratado</span>
+                                    <span className="text-sm font-bold text-gray-900">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+                                    </span>
+                                </div>
+                                <div className="bg-white/70 rounded-xl p-3 text-center border border-emerald-100">
+                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Pago</span>
+                                    <span className="text-sm font-bold text-emerald-600">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}
+                                    </span>
+                                </div>
+                                <div className="bg-white/70 rounded-xl p-3 text-center border border-emerald-100">
+                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">{hasCredit ? 'Crédito' : 'Pendente'}</span>
+                                    <span className={`text-sm font-bold ${hasCredit ? 'text-blue-600' : pendingValue > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(hasCredit ? balance : pendingValue))}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Lista de pagamentos */}
+                    {pack.payments && pack.payments.length > 0 && (
+                        <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-emerald-600" />
+                                Pagamentos registrados
+                            </h4>
+                            <div className="space-y-2">
                                 {pack.payments.map((payment: any, index: number) => (
-                                    <div key={payment._id || index} className="flex justify-between items-center text-base">
-                                        <span className="text-emerald-600">
+                                    <div
+                                        key={payment._id || index}
+                                        className="flex justify-between items-center px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-100 text-sm"
+                                    >
+                                        <span className="text-gray-500">
                                             {new Date(payment.paymentDate || payment.date).toLocaleDateString('pt-BR')}
                                         </span>
-                                        <span className="font-semibold text-emerald-700">
-                                            {new Intl.NumberFormat('pt-BR', {
-                                                style: 'currency',
-                                                currency: 'BRL'
-                                            }).format(payment.amount || 0)}
+                                        <span className="font-semibold text-gray-900">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount || 0)}
                                         </span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
+
+                    {/* Lista / Calendário de sessões */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-emerald-600" />
+                                Sessões
+                            </h4>
+                            <div className="inline-flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
+                                {[
+                                    { key: 'list', label: 'Lista' },
+                                    { key: 'calendar', label: 'Calendário' },
+                                ].map(({ key, label }) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setSessionView(key as any)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                            sessionView === key
+                                                ? 'bg-white text-emerald-700 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {sessions.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-gray-100">
+                                <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">Nenhuma sessão registrada neste pacote.</p>
+                            </div>
+                        ) : sessionView === 'list' ? (
+                            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                                {sortedSessions.map((session: any, idx: number) => {
+                                    const ns = normalizeStatus(session.status);
+                                    const cfg = STATUS_STYLES[ns] || STATUS_STYLES.pending;
+                                    const doctorName = session.doctor?.fullName || session.professionalName || doctors.find(d => d._id === session.doctorId)?.fullName || '—';
+                                    return (
+                                        <button
+                                            key={session._id || session.sessionId || idx}
+                                            onClick={() => openSessionModal('edit', session)}
+                                            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-100 transition-colors text-left"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                                        {formatDate(session.date)}{session.time ? ` às ${session.time}` : ''}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">{doctorName}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} ${cfg.border} border`}>
+                                                    {cfg.label}
+                                                </span>
+                                                <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="min-h-[320px]">
+                                <PatientMiniCalendar
+                                    appointments={calendarEvents as any}
+                                    onEventClick={(appt: any) => openSessionModal('edit', appt.__session)}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Footer */}
-                <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Footer estilo Liminar / Convênio */}
+                <div className="bg-gray-50 px-6 py-5 border-t border-gray-200">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                         <button
                             onClick={openBulk}
-                            className="px-4 py-3 text-emerald-700 bg-white border border-emerald-300 rounded-xl hover:bg-emerald-50 transition-colors font-medium text-base flex items-center justify-center gap-2 whitespace-nowrap"
+                            className="px-4 py-2.5 text-emerald-700 bg-white border border-emerald-300 rounded-full hover:bg-emerald-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
                         >
-                            <Users className="w-5 h-5 shrink-0" />
+                            <Users className="w-4 h-4 shrink-0" />
                             Alterar sessões pendentes
                         </button>
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium text-base flex items-center justify-center whitespace-nowrap"
-                        >
-                            Fechar
-                        </button>
-                        <button
-                            onClick={() => setShowAddSessionForm(true)}
-                            className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors font-medium text-base flex items-center justify-center gap-2 whitespace-nowrap"
-                        >
-                            <Plus className="w-5 h-5 shrink-0" />
-                            Nova Sessão
-                        </button>
-                        <button
-                            onClick={onEdit}
-                            className="px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors font-medium text-base flex items-center justify-center gap-2 whitespace-nowrap"
-                        >
-                            <Edit3 className="w-5 h-5 shrink-0" />
-                            Editar
-                        </button>
+                        <div className="flex items-center gap-2 flex-col sm:flex-row">
+                            <button
+                                onClick={onClose}
+                                className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors font-medium text-sm"
+                            >
+                                Fechar
+                            </button>
+                            <button
+                                onClick={() => openSessionModal('use')}
+                                className="px-5 py-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors font-medium text-sm flex items-center justify-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Nova Sessão
+                            </button>
+                            <button
+                                onClick={onEdit}
+                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full hover:from-emerald-600 hover:to-green-700 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-md"
+                            >
+                                <Edit2 className="w-4 h-4" />
+                                Editar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -258,98 +589,286 @@ export default function TherapyPackageDetails({ pack, onClose, onEdit, onAddSess
 
         {/* Dialog: Alterar sessões pendentes */}
         {bulkOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-                <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-4 text-white flex items-center justify-between">
-                        <div>
-                            <p className="font-semibold text-sm">Alterar sessões pendentes</p>
-                            <p className="text-xs opacity-75 mt-0.5">Aplica para todos os pré-agendados e agendados</p>
+                    <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-5 text-white flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
+                                <Edit3 className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="font-bold text-base truncate">
+                                    {bulkPreviewOpen ? 'Revisar alterações' : 'Alterar sessões pendentes'}
+                                </h3>
+                                <p className="text-xs text-emerald-100 opacity-90 mt-0.5 truncate">
+                                    {bulkPreviewOpen
+                                        ? 'Confira o impacto antes de confirmar'
+                                        : 'Apenas sessões futuras serão alteradas'}
+                                </p>
+                            </div>
                         </div>
-                        <button onClick={() => setBulkOpen(false)} disabled={bulkSaving}
-                            className="p-1 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors">
+                        <button
+                            onClick={closeBulkDialog}
+                            disabled={bulkSaving}
+                            className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors shrink-0"
+                        >
                             <X className="w-4 h-4" />
                         </button>
                     </div>
 
+                    {/* Step indicator */}
+                    <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-center gap-2 text-xs">
+                        <span className={`flex items-center gap-1.5 font-medium ${!bulkPreviewOpen ? 'text-emerald-700' : 'text-emerald-600'}`}>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${!bulkPreviewOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-200 text-emerald-700'}`}>1</span>
+                            Escolher alterações
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5 text-emerald-300" />
+                        <span className={`flex items-center gap-1.5 font-medium ${bulkPreviewOpen ? 'text-emerald-700' : 'text-gray-400'}`}>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${bulkPreviewOpen ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
+                            Revisar impacto
+                        </span>
+                    </div>
+
+                    {/* Summary cards */}
+                    <div className="px-6 py-4 grid grid-cols-3 gap-3 bg-white">
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+                            <p className="text-xl font-bold text-emerald-700">{bulkAffectedSessions.length}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold mt-0.5">Sessões afetadas</p>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
+                            <p className="text-sm font-semibold text-gray-700 truncate">
+                                {bulkAffectedSessions.length > 0
+                                    ? `${formatDate(bulkAffectedSessions[0].date)} – ${formatDate(bulkAffectedSessions[bulkAffectedSessions.length - 1].date)}`
+                                    : '—'}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mt-0.5">Período</p>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
+                            <p className="text-sm font-semibold text-gray-700 truncate">
+                                {bulkAffectedSessions.length > 0
+                                    ? (bulkAffectedSessions[0].doctor?.fullName
+                                        || bulkAffectedSessions[0].professionalName
+                                        || doctors.find(d => d._id === bulkAffectedSessions[0].doctorId)?.fullName
+                                        || '—')
+                                    : '—'}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mt-0.5">Profissional atual</p>
+                        </div>
+                    </div>
+
                     {/* Body */}
-                    <div className="p-5 space-y-4">
-                        {/* Profissional */}
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Profissional <span className="text-gray-400">(opcional)</span>
-                            </label>
-                            <select
-                                value={bulkDoctorId}
-                                onChange={e => setBulkDoctorId(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            >
-                                <option value="">Manter atual</option>
-                                {doctors
-                                    .filter(d => !pack.sessionType || (d.specialty || '').toLowerCase() === (pack.sessionType || '').toLowerCase())
-                                    .map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)
-                                }
-                            </select>
-                        </div>
+                    <div className="px-6 py-2 overflow-y-auto">
+                        {!bulkPreviewOpen ? (
+                            <div className="space-y-4">
+                                {/* Profissional */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                        Profissional <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <select
+                                            value={bulkDoctorId}
+                                            onChange={e => setBulkDoctorId(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white appearance-none"
+                                        >
+                                            <option value="">Manter atual</option>
+                                            {doctors
+                                                .filter(d => {
+                                                    const target = (pack.sessionType || '').toLowerCase();
+                                                    const allowed = [d.specialty, ...((d as any).specialties || [])].map((s: any) => (s || '').toLowerCase());
+                                                    return !target || allowed.includes(target);
+                                                })
+                                                .map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
 
-                        {/* Dia da semana */}
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Dia da semana <span className="text-gray-400">(opcional)</span>
-                            </label>
-                            <select
-                                value={bulkDayOfWeek}
-                                onChange={e => setBulkDayOfWeek(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            >
-                                <option value="">Manter dia atual</option>
-                                <option value="1">Segunda-feira</option>
-                                <option value="2">Terça-feira</option>
-                                <option value="3">Quarta-feira</option>
-                                <option value="4">Quinta-feira</option>
-                                <option value="5">Sexta-feira</option>
-                                <option value="6">Sábado</option>
-                                <option value="0">Domingo</option>
-                            </select>
-                        </div>
+                                {/* Dia da semana */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                        Dia da semana <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <div className="relative">
+                                        <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <select
+                                            value={bulkDayOfWeek}
+                                            onChange={e => setBulkDayOfWeek(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white appearance-none"
+                                        >
+                                            <option value="">Manter dia atual</option>
+                                            <option value="1">Segunda-feira</option>
+                                            <option value="2">Terça-feira</option>
+                                            <option value="3">Quarta-feira</option>
+                                            <option value="4">Quinta-feira</option>
+                                            <option value="5">Sexta-feira</option>
+                                            <option value="6">Sábado</option>
+                                            <option value="0">Domingo</option>
+                                        </select>
+                                    </div>
+                                    {bulkDayOfWeek !== '' && (
+                                        <p className="text-xs text-gray-500 mt-1.5 flex items-start gap-1.5">
+                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                            Cada sessão será movida para a próxima ocorrência desse dia após sua data atual.
+                                        </p>
+                                    )}
+                                </div>
 
-                        {/* Horário */}
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Horário <span className="text-gray-400">(opcional)</span>
-                            </label>
-                            <input
-                                type="time"
-                                value={bulkTime}
-                                onChange={e => setBulkTime(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                        </div>
+                                {/* Horário */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                        Horário <span className="text-gray-400 font-normal">(opcional)</span>
+                                    </label>
+                                    <div className="relative">
+                                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="time"
+                                            value={bulkTime}
+                                            onChange={e => setBulkTime(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                    </div>
+                                </div>
 
-                        <p className="text-xs text-gray-400">
-                            Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
-                        </p>
+                                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-700 leading-relaxed">
+                                        Sessões <strong>realizadas</strong> ou <strong>confirmadas</strong> não serão alteradas. Preencha pelo menos um campo para prosseguir.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {/* Applied changes summary */}
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 space-y-2">
+                                    <p className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
+                                        <Edit3 className="w-4 h-4" />
+                                        Alterações escolhidas
+                                    </p>
+                                    {bulkDoctorId && (
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600">Profissional</span>
+                                            <span className="font-medium text-gray-800">{bulkSelectedDoctor?.fullName || '—'}</span>
+                                        </div>
+                                    )}
+                                    {bulkTime && (
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600">Horário</span>
+                                            <span className="font-medium text-gray-800">{bulkTime}</span>
+                                        </div>
+                                    )}
+                                    {bulkDayOfWeek !== '' && (
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600">Dia da semana</span>
+                                            <span className="font-medium text-gray-800">{bulkDayOfWeekLabel[parseInt(bulkDayOfWeek)]}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Affected list */}
+                                <div>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                        Impacto linha a linha
+                                    </p>
+                                    <div className="max-h-[260px] overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100">
+                                        {bulkAffectedSessions.map((session: any, idx: number) => {
+                                            const currentDate = (session.date || '').substring(0, 10);
+                                            const newDate = bulkDayOfWeek !== ''
+                                                ? shiftToWeekday(currentDate, parseInt(bulkDayOfWeek))
+                                                : null;
+                                            const currentDoctor = session.doctor?.fullName || session.professionalName || doctors.find(d => d._id === session.doctorId)?.fullName || '—';
+                                            const newDoctor = bulkDoctorId ? bulkSelectedDoctor?.fullName : currentDoctor;
+                                            return (
+                                                <div
+                                                    key={session._id || session.sessionId || idx}
+                                                    className="px-3 py-2.5 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs text-gray-500">
+                                                            {formatDate(currentDate)} às {session.time || '—'}
+                                                        </p>
+                                                        <div className="flex items-center gap-1.5 text-sm text-gray-800 mt-0.5">
+                                                            <span className="truncate">{currentDoctor}</span>
+                                                            <ArrowRight className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                                            <span className="font-medium truncate">
+                                                                {newDate ? formatDate(newDate.toISOString()) : (bulkTime || currentDate)}
+                                                                {bulkTime && !newDate ? ` às ${bulkTime}` : ''}
+                                                                {newDate && bulkTime ? ` às ${bulkTime}` : ''}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Footer */}
-                    <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
-                        <button
-                            onClick={() => { setBulkOpen(false); setBulkDoctorId(''); setBulkTime(''); setBulkDayOfWeek(''); }}
-                            disabled={bulkSaving}
-                            className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={saveBulk}
-                            disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkSaving}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
-                        >
-                            {bulkSaving ? 'Salvando...' : 'Aplicar a todas'}
-                        </button>
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+                        {!bulkPreviewOpen ? (
+                            <>
+                                <button
+                                    onClick={closeBulkDialog}
+                                    disabled={bulkSaving}
+                                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors font-medium text-sm"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={() => setBulkPreviewOpen(true)}
+                                    disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedSessions.length === 0}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full hover:from-emerald-600 hover:to-green-700 transition-all font-medium text-sm shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    Revisar alterações
+                                    <span className="bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full text-xs">
+                                        {bulkAffectedSessions.length}
+                                    </span>
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => setBulkPreviewOpen(false)}
+                                    disabled={bulkSaving}
+                                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors font-medium text-sm"
+                                >
+                                    Voltar
+                                </button>
+                                <button
+                                    onClick={saveBulk}
+                                    disabled={bulkSaving}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full hover:from-emerald-600 hover:to-green-700 transition-all font-medium text-sm shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    {bulkSaving ? 'Salvando...' : 'Confirmar alteração'}
+                                    {!bulkSaving && <CheckCircle className="w-4 h-4" />}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* Modal de edição de sessão */}
+        {isSessionModalOpen && modalAction && (
+            <SessionModal
+                key={selectedSession._id || 'new'}
+                action={modalAction}
+                onClose={() => {
+                    setIsSessionModalOpen(false);
+                    setSelectedSession(initialSessionState);
+                }}
+                doctors={doctors}
+                onSessionDataChange={(data) => setSelectedSession(data)}
+                onSubmit={handleSessionSubmit}
+                loading={sessionLoading}
+                sessionData={selectedSession}
+            />
         )}
       </>
     );

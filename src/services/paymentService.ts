@@ -148,12 +148,28 @@ export const getInsurancePayments = (filters?: { provider?: string; status?: str
     );
 
 // Faturar em lote (V2) - guide-based ou legacy payment-based
+export interface GuideBillingClosure {
+    guideId: string;
+    skipped: boolean;
+    reason?: string; // 'not_per_month' | 'guide_not_found' quando skipped=true
+    canceled?: number;
+    canceledIds?: string[];
+    errors?: Array<{ id: string; error: string }>;
+    error?: string; // presente se o fechamento falhou (best-effort, faturamento já foi enviado)
+}
+
 export const faturarConvenioLote = (data: {
     paymentIds?: string[];
     guideIds?: string[];
     dataFaturamento?: string;
     notaFiscal?: string;
-}) => API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/faturar-lote', data);
+}) => API.post<{
+    success: boolean;
+    // data.guideClosures / data.totalAppointmentsCanceledOnClosure: fechamento
+    // automático de guias per_month faturadas nesse lote (ver GuideBillingClosure)
+    data: any;
+    error?: string;
+}>('/v2/financial/convenio/faturar-lote', data);
 
 // Listar guias pendentes de faturamento (guide-based)
 export interface OverdueBillingBucket {
@@ -192,6 +208,10 @@ export const getPendingBillingGuides = (params?: { insurance?: string; patientId
 // Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
     API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/receber-lote', data);
+
+// Encerrar período de guia per_month manualmente (cancela agendamentos pendentes)
+export const encerrarGuia = (data: { guideId: string }) =>
+    API.post<{ success: boolean; message: string; data: any; error?: string }>('/v2/financial/convenio/encerrar-guia', data);
 
 // Histórico mês a mês de convênios
 export const getInsuranceHistory = (params?: { provider?: string; year?: number }) =>

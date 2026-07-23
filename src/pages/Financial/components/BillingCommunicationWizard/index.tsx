@@ -385,6 +385,18 @@ export function BillingCommunicationWizard({
                     </Typography>
                 </Box>
 
+                <Box sx={{
+                    display: 'flex', alignItems: 'flex-start', gap: 1.25,
+                    bgcolor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 2,
+                    p: 1.5, mb: 2.5
+                }}>
+                    <AlertCircle size={16} style={{ color: '#B45309', marginTop: 2, flexShrink: 0 }} />
+                    <Typography variant="body2" sx={{ color: '#92400E' }}>
+                        <strong>Importante:</strong> enviar documentos <strong>não realiza o faturamento</strong> e <strong>não encerra a guia</strong>.
+                        Após o envio, será possível criar o lote de faturamento ou finalizar a guia separadamente.
+                    </Typography>
+                </Box>
+
                 <Stack spacing={2} sx={{ mb: 3 }}>
                     <Box>
                         <TextField

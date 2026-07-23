@@ -1,5 +1,4 @@
 import {
-    Building2,
     Calculator,
     Calendar,
     Clock,
@@ -76,6 +75,7 @@ type FormState = typeof initialFormState;
 type FormErrors = Partial<Record<keyof FormState | "payments" | "slots" | "selectedGuide" | "dailySessionTimes", string>>;
 
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
+    const isEditing = !!initialData;
     const [errors, setErrors] = useState<FormErrors>({});
     const [formData, setFormData] = useState(initialFormState);
     const selectedAppointmentIdRef = useRef<string>(''); // ref para garantir valor no submit
@@ -135,16 +135,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     };
 
     function validateAll() {
-        const combined = { ...formData, calculationMode };
         const baseErrors: any = {};
 
-        // Regras comuns (ambos os tipos)
+        // Regras comuns (ambos os modos)
         if (!formData.doctorId) baseErrors.doctorId = "Profissional é obrigatório";
         if (!formData.sessionType) baseErrors.sessionType = "Tipo de sessão é obrigatório";
-        if (!formData.date) baseErrors.date = "Data é obrigatória";
-        if (!formData.time) baseErrors.time = "Hora é obrigatória";
-
-        // Regras de pagamento
         if (!formData.paymentType) baseErrors.paymentType = "Tipo de pagamento é obrigatório";
 
         const sessionValue = Number(formData.sessionValue);
@@ -157,6 +152,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
             if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
         }
+
+        if (isEditing) {
+            // Modo edição: só valida total de sessões
+            const total = Number(formData.totalSessions);
+            if (!total || total < 1 || total > 100) {
+                baseErrors.totalSessions = "Total de sessões deve estar entre 1 e 100";
+            }
+            setErrors(baseErrors);
+            return Object.keys(baseErrors).length === 0;
+        }
+
+        // Regras exclusivas de criação
+        if (!formData.date) baseErrors.date = "Data é obrigatória";
+        if (!formData.time) baseErrors.time = "Hora é obrigatória";
 
         // Validação de sessões por semana
         const sessionsPerWeek = Number(formData.sessionsPerWeek);
@@ -226,6 +235,54 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             fetchAppointmentsByPatient(realPatientId);
         }
     }, [patient]);
+
+    // Popular formulário quando estiver editando um pacote existente
+    useEffect(() => {
+        if (!initialData) return;
+
+        const doctorId = initialData.doctorId
+            || (initialData as any).doctor?._id?.toString?.()
+            || (initialData as any).doctor?.toString?.()
+            || '';
+
+        const firstSession = initialData.sessions?.[0];
+        const sessionDate = firstSession?.date
+            ? (firstSession.date as string).substring(0, 10)
+            : '';
+        const sessionTime = firstSession?.time || '';
+
+        const model = (initialData as any).model || initialData.paymentType || 'prepaid';
+        const paymentType = model === 'per_session' ? 'per-session' : 'full';
+
+        // Determina modo de cálculo: se totalSessions está preenchido, assume modo 'sessions'
+        const hasDuration = Boolean((initialData as any).durationMonths);
+        setCalculationMode(hasDuration ? 'duration' : 'sessions');
+
+        setFormData(prev => ({
+            ...prev,
+            doctorId,
+            sessionType: initialData.sessionType || '',
+            date: sessionDate,
+            time: sessionTime,
+            totalSessions: initialData.totalSessions || 1,
+            sessionValue: initialData.sessionValue || 0,
+            paymentType,
+            durationMonths: (initialData as any).durationMonths || 0,
+            sessionsPerWeek: (initialData as any).sessionsPerWeek || 0,
+        }));
+
+        if (Array.isArray(initialData.payments) && initialData.payments.length > 0) {
+            setPayments(
+                initialData.payments.map((p: any, i: number) => ({
+                    id: p._id || i,
+                    amount: Number(p.amount) || 0,
+                    date: p.paymentDate || p.date ? (p.paymentDate || p.date).substring(0, 10) : '',
+                    method: p.method || p.paymentMethod || '',
+                    description: p.description || p.notes || '',
+                }))
+            );
+        }
+    }, [initialData]);
 
     // Auto-carrega débitos ao selecionar especialidade; limpa seleção e sessionValue anterior
     useEffect(() => {
@@ -540,63 +597,82 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             // ============================================================
             // 🧩 Cálculo do total de sessões
             // ============================================================
-            const totalSessions =
-                calculationMode === "sessions"
+            const totalSessions = isEditing
+                ? formData.totalSessions
+                : (calculationMode === "sessions"
                     ? formData.totalSessions
-                    : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+                    : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0));
 
             // ============================================================
-            // 📅 Gera as datas reais
+            // 📅 Gera as datas reais (apenas na criação)
             // ============================================================
             let schedule: { date: string; time: string }[] = [];
 
-            const generatedSlots = generateSessionDates({
-                startDate: formData.date,
-                startTime: formData.time,
-                totalSessions,
-                sessionsPerWeek: formData.sessionsPerWeek,
-                selectedSlots,
-                sameDaySessions,
-                dailySessionTimes
-            });
-            const unique = Array.from(
-                new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
-            ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-            schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
-            console.log("📅 Slots gerados localmente:", schedule);
+            if (!isEditing) {
+                const generatedSlots = generateSessionDates({
+                    startDate: formData.date,
+                    startTime: formData.time,
+                    totalSessions,
+                    sessionsPerWeek: formData.sessionsPerWeek,
+                    selectedSlots,
+                    sameDaySessions,
+                    dailySessionTimes
+                });
+                const unique = Array.from(
+                    new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
+                ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+                schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
+                console.log("📅 Slots gerados localmente:", schedule);
+            }
 
-            const packageData = {
-                patientId: realPatientId,
-                doctorId: formData.doctorId,
-                sessionType: formData.sessionType,
-                specialty: formData.sessionType,
-                sessionValue: formData.sessionValue || 0,
-                paymentType: formData.paymentType,
-                sessionsPerWeek: +formData.sessionsPerWeek,
-                durationMonths:
-                    calculationMode === "duration"
-                        ? formData.durationMonths
-                        : Math.ceil(
-                            formData.totalSessions / (formData.sessionsPerWeek || 1) / 4
-                        ),
-                totalSessions:
-                    calculationMode === "sessions"
-                        ? formData.totalSessions
-                        : totalSessions,
-                date: formData.date,
-                time: formData.time,
-                calculationMode,
-                schedule, // ✅ V2: envia schedule em vez de selectedSlots
-                // 🔥 Só envia pagamentos se NÃO for per-session
-                payments: formData.paymentType === 'per-session'
-                    ? []
-                    : payments.map((p) => ({
-                        amount: Number(p.amount),
-                        method: p.method,
-                        date: p.date,
-                        description: p.description,
-                    })),
-            };
+            const packageData = isEditing
+                ? {
+                    patientId: realPatientId,
+                    doctorId: formData.doctorId,
+                    sessionType: formData.sessionType,
+                    specialty: formData.sessionType,
+                    sessionValue: formData.sessionValue || 0,
+                    paymentType: formData.paymentType,
+                    totalSessions: formData.totalSessions,
+                    // 🔥 Só envia pagamentos se NÃO for per-session
+                    payments: formData.paymentType === 'per-session'
+                        ? []
+                        : payments.map((p) => ({
+                            amount: Number(p.amount),
+                            method: p.method,
+                            date: p.date,
+                            description: p.description,
+                        })),
+                }
+                : {
+                    patientId: realPatientId,
+                    doctorId: formData.doctorId,
+                    sessionType: formData.sessionType,
+                    specialty: formData.sessionType,
+                    sessionValue: formData.sessionValue || 0,
+                    paymentType: formData.paymentType,
+                    sessionsPerWeek: +formData.sessionsPerWeek,
+                    durationMonths:
+                        calculationMode === "duration"
+                            ? formData.durationMonths
+                            : Math.ceil(
+                                formData.totalSessions / (formData.sessionsPerWeek || 1) / 4
+                            ),
+                    totalSessions,
+                    date: formData.date,
+                    time: formData.time,
+                    calculationMode,
+                    schedule, // ✅ V2: envia schedule em vez de selectedSlots
+                    // 🔥 Só envia pagamentos se NÃO for per-session
+                    payments: formData.paymentType === 'per-session'
+                        ? []
+                        : payments.map((p) => ({
+                            amount: Number(p.amount),
+                            method: p.method,
+                            date: p.date,
+                            description: p.description,
+                        })),
+                };
 
             // Validar patientId
             if (!realPatientId) {
@@ -608,20 +684,29 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             console.log("📤 Enviando pacote:", packageData);
 
             // Fluxo particular (therapy/package)
-            const numPreConsumed = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
+            const numPreConsumed = isEditing ? 0 : v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
             const totalContratual = packageData.totalSessions + numPreConsumed;
             const sv = Number(formData.sessionValue) || 0;
-            const therapyData = {
-                ...packageData,
-                type: 'package',
-                model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
-                patientId: realPatientId,
-                sessionType: formData.sessionType as any,
-                appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
-                totalSessions: totalContratual,
-                totalValue: totalContratual * sv,
-                preConsumedCount: numPreConsumed
-            };
+            const therapyData = isEditing
+                ? {
+                    ...packageData,
+                    type: 'package',
+                    model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+                    patientId: realPatientId,
+                    sessionType: formData.sessionType as any,
+                    totalValue: formData.totalSessions * sv,
+                }
+                : {
+                    ...packageData,
+                    type: 'package',
+                    model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+                    patientId: realPatientId,
+                    sessionType: formData.sessionType as any,
+                    appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
+                    totalSessions: totalContratual,
+                    totalValue: totalContratual * sv,
+                    preConsumedCount: numPreConsumed
+                };
             const realPackageId = initialData?.packageId || initialData?._id;
             if (realPackageId) {
                 await packageService.updatePackage(realPackageId, therapyData);
@@ -663,6 +748,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     const validate = () => {
         const newErrors: any = {};
+
+        if (isEditing) {
+            if (formData.totalSessions < 1 || formData.totalSessions > 100) {
+                newErrors.totalSessions = 'Número de sessões inválido';
+            }
+            setErrors(newErrors);
+            return Object.keys(newErrors).length === 0;
+        }
 
         if (calculationMode === 'duration') {
             if (formData.durationMonths < 1 || formData.durationMonths > 12) {
@@ -767,11 +860,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         formData.paymentType &&
         formData.sessionValue > 0 &&
         (formData.paymentType === 'per-session' || hasValidPayments) &&
-        formData.date &&
-        formData.time &&
-        (calculationMode === 'sessions'
-            ? formData.totalSessions > 0
-            : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+        formData.totalSessions > 0 &&
+        (isEditing || (
+            formData.date &&
+            formData.time &&
+            (calculationMode === 'sessions'
+                ? true
+                : (formData.durationMonths > 0 && formData.sessionsPerWeek > 0))
+        ))
     );
     console.log('appointments', appointments);
 
@@ -833,8 +929,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <div className="xl:col-span-2 space-y-6">
-                            {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando */}
-                            {(v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
+                            {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando (criação apenas) */}
+                            {!isEditing && (v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
                                 <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -932,8 +1028,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             )}
 
-                            {/* Agendamento Existente — oculto quando há débitos selecionados */}
-                            {selectedDebtIds.size === 0 && <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
+                            {/* Agendamento Existente — oculto quando há débitos selecionados ou em edição */}
+                            {!isEditing && selectedDebtIds.size === 0 && <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
                                 <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-blue-600" />
                                     Agendamento Existente (Opcional)
@@ -992,23 +1088,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     Configuração do Pacote
                                 </h3>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="form-label">
-                                            Modo de Cálculo
-                                        </label>
-                                        <Select
-                                            value={calculationMode}
-                                            onChange={(e) => setCalculationMode(e.target.value)}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                        >
-                                            <option value="sessions">Por número de sessões</option>
-                                            <option value="duration">Por duração (meses/semanas)</option>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                {calculationMode === 'sessions' ? (
+                                {isEditing ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="form-label">
@@ -1016,6 +1096,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             </label>
                                             <input
                                                 name="totalSessions"
+                                                type="number"
                                                 min="1"
                                                 max="100"
                                                 value={formData.totalSessions}
@@ -1026,50 +1107,87 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 <span className="text-red-500 text-sm">{errors.totalSessions}</span>
                                             )}
                                         </div>
-
-                                        <div>
-                                            <label className="form-label">
-                                                Sessões por Semana *
-                                            </label>
-                                            <Select
-                                                name="sessionsPerWeek"
-                                                value={formData.sessionsPerWeek}
-                                                onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                            >
-                                                <option value="">Selecione a frequência</option>
-                                                {FREQUENCY_OPTIONS.map(opt => (
-                                                    <option key={opt} value={opt}>
-                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                            {errors.sessionsPerWeek && (
-                                                <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
-                                            )}
-                                            <p className="text-xs text-emerald-600 mt-2 font-medium">
-                                                Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
-                                            </p>
-                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="form-label">
-                                                Duração do Pacote *
-                                            </label>
-                                            <Select
-                                                name="durationMonths"
-                                                value={formData.durationMonths}
-                                                onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                            >
-                                                <option value="">Escolha duração do pacote</option>
-                                                {DURATION_OPTIONS.map(opt => (
-                                                    <option key={opt} value={opt}>
-                                                        {opt} {opt > 1 ? 'meses' : 'mês'}
-                                                    </option>
-                                                ))}
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="form-label">
+                                                    Modo de Cálculo
+                                                </label>
+                                                <Select
+                                                    value={calculationMode}
+                                                    onChange={(e) => setCalculationMode(e.target.value)}
+                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                >
+                                                    <option value="sessions">Por número de sessões</option>
+                                                    <option value="duration">Por duração (meses/semanas)</option>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        {calculationMode === 'sessions' ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="form-label">
+                                                        Número de Sessões *
+                                                    </label>
+                                                    <input
+                                                        name="totalSessions"
+                                                        min="1"
+                                                        max="100"
+                                                        value={formData.totalSessions}
+                                                        onChange={handleChange}
+                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                    />
+                                                    {errors.totalSessions && (
+                                                        <span className="text-red-500 text-sm">{errors.totalSessions}</span>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="form-label">
+                                                        Sessões por Semana *
+                                                    </label>
+                                                    <Select
+                                                        name="sessionsPerWeek"
+                                                        value={formData.sessionsPerWeek}
+                                                        onChange={handleChange}
+                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    >
+                                                        <option value="">Selecione a frequência</option>
+                                                        {FREQUENCY_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                                            </option>
+                                                        ))}
+                                                    </Select>
+                                                    {errors.sessionsPerWeek && (
+                                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                                    )}
+                                                    <p className="text-xs text-emerald-600 mt-2 font-medium">
+                                                        Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="form-label">
+                                                        Duração do Pacote *
+                                                    </label>
+                                                    <Select
+                                                        name="durationMonths"
+                                                        value={formData.durationMonths}
+                                                        onChange={handleChange}
+                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    >
+                                                        <option value="">Escolha duração do pacote</option>
+                                                        {DURATION_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt} {opt > 1 ? 'meses' : 'mês'}
+                                                            </option>
+                                                        ))}
                                             </Select>
                                             {errors.durationMonths && (
                                                 <span className="text-red-500 text-sm">{errors.durationMonths}</span>
@@ -1099,14 +1217,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </>
+                        )}
+                    </div>
 
-                            {/* Data e Hora da Primeira Sessão */}
-                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border border-purple-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <Clock className="w-5 h-5 text-purple-600" />
-                                    Primeira Sessão
-                                </h3>
+                    {/* Data e Hora da Primeira Sessão — apenas na criação */}
+                    {!isEditing && (
+                        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border border-purple-100">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                <Clock className="w-5 h-5 text-purple-600" />
+                                Primeira Sessão
+                            </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="form-label">Data *</label>
@@ -1319,6 +1440,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
 
                             </div>
+                    )}
 
                             <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
 
