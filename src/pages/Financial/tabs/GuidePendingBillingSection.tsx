@@ -65,12 +65,16 @@ export interface PendingGuide {
     lastSessionDate?: string | Date | null;
     /** Data do último envio de documentação (guia + lista de presença) ao convênio via wizard — não é faturamento */
     documentationSentAt?: string | Date | null;
+    /** Número da Nota Fiscal informada no envio de documentação (se houver) */
+    invoiceNumber?: string | null;
     /** Quantas sessões desta guia já entraram em algum InsuranceBatch (faturadas antes) — o que aparece pendente aqui é só a sobra */
     alreadyBilledSessions?: number;
     /** Data de criação do lote mais recente que já pegou sessão desta guia */
     lastBatchSentAt?: string | Date | null;
     /** Status atual da guia no InsuranceGuide (active/expired/cancelled/exhausted/...) */
     guideStatus?: string;
+    /** Status derivado de faturamento (pending | documentation_sent | billed | received | closed) */
+    billingState?: 'pending' | 'documentation_sent' | 'billed' | 'received' | 'closed';
     sessions?: PendingGuideSession[];
 }
 
@@ -156,23 +160,34 @@ function BillingModeBadge({ mode }: { mode?: 'per_month' | 'per_guide' }) {
 }
 
 /**
- * Estado único e explícito da guia em relação ao faturamento — substitui a barra
- * "13/15" (progresso de sessões autorizadas, sem relação com faturamento) que
- * confundia "sessão realizada" com "sessão faturada". Prioridade: cancelada >
- * parcialmente faturada > documentação enviada > nunca faturada.
+ * Estado derivado do faturamento da guia, calculado no backend a partir de
+ * InsuranceCommunication, InsuranceBatch, Payment.insurance.status e
+ * InsuranceGuide.closedAt. Sem campo mutável `billingStatus` na guia.
  */
 function getGuideBillingState(guide: PendingGuide): { emoji: string; label: string; bg: string; color: string; border: string } {
+    const state = guide.billingState || 'pending';
+
     if (guide.guideStatus === 'cancelled') {
         return { emoji: '🔴', label: 'Guia cancelada · requer correção', bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' };
     }
-    if ((guide.alreadyBilledSessions || 0) > 0) {
-        const dateLabel = guide.lastBatchSentAt ? ` · lote enviado em ${formatDate(guide.lastBatchSentAt)}` : '';
-        return { emoji: '🟡', label: `Parcialmente faturada${dateLabel}`, bg: '#FEFCE8', color: '#854D0E', border: '#FDE68A' };
+
+    switch (state) {
+        case 'closed':
+            return { emoji: '🔒', label: 'Guia finalizada', bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' };
+        case 'received':
+            return { emoji: '💰', label: 'Recebida do convênio', bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+        case 'billed': {
+            const dateLabel = guide.lastBatchSentAt ? ` · lote enviado em ${formatDate(guide.lastBatchSentAt)}` : '';
+            return { emoji: '🟡', label: `Faturada${dateLabel}`, bg: '#FEFCE8', color: '#854D0E', border: '#FDE68A' };
+        }
+        case 'documentation_sent': {
+            const nfLabel = guide.invoiceNumber ? `NF ${guide.invoiceNumber}` : 'NF não informada';
+            return { emoji: '📤', label: `Documentação enviada · ${nfLabel} · ${formatDate(guide.documentationSentAt)}`, bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+        }
+        case 'pending':
+        default:
+            return { emoji: '🟠', label: 'Aguardando primeiro faturamento', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
     }
-    if (guide.documentationSentAt) {
-        return { emoji: '📤', label: `Documentação enviada · ${formatDate(guide.documentationSentAt)}`, bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
-    }
-    return { emoji: '🟠', label: 'Aguardando primeiro faturamento', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
 }
 
 // ── Drawer de detalhes do paciente ───────────────────────────────────────────

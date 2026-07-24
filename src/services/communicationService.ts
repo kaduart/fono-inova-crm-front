@@ -38,6 +38,8 @@ export interface CommunicationRequest {
     notes?: string;
     packageStatus?: 'draft' | 'sent' | 'resent' | 'failed';
     lastEmailStatus?: 'success' | 'error' | null;
+    invoiceNumber?: string | null;
+    invoiceDate?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -138,6 +140,8 @@ export const createCommunication = (data: {
     specialty?: string;
     requestedSessions?: number;
     notes?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
 }) => api.post<{ success: boolean; data: CommunicationRequest }>('/v2/communications', {
     ...data,
     purpose: data.purpose || 'authorization'

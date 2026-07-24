@@ -31,6 +31,7 @@ import {
     Check,
     CheckCircle,
     Clock,
+    Mail,
     Plus,
     Send,
     ChevronDown,
@@ -38,7 +39,7 @@ import {
     TrendingDown,
     History
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
@@ -176,12 +177,21 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // Frontend não deve refiltrar por paymentDate
     const paymentMatchesMonth = () => true;
 
+    const { pendingStateGuides, waitingBillingGuides } = useMemo(() => {
+        const pending = pendingGuides.filter(g => g.billingState === 'pending' || !g.billingState);
+        const waiting = pendingGuides.filter(g => g.billingState === 'documentation_sent');
+        return { pendingStateGuides: pending, waitingBillingGuides: waiting };
+    }, [pendingGuides]);
+
     const getMonthSummary = () => {
         // Aba "A Faturar" usa modelo guide-based (guias + sessões sem guia)
-        const guidePendingTotal = pendingGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingValue || 0), 0);
+        const guidePendingTotal = pendingStateGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingValue || 0), 0);
+        const waitingTotal = waitingBillingGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingValue || 0), 0);
         const orphanTotal = orphanSessions.reduce((s: number, os) => s + (os.sessionValue || 0), 0);
         const totalAFaturar = guidePendingTotal + orphanTotal;
-        const pendingCount = pendingGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingSessions || 0), 0) + orphanSessions.length;
+        const pendingCount = pendingStateGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingSessions || 0), 0) + orphanSessions.length;
+        const waitingCount = waitingBillingGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingSessions || 0), 0);
+        const closedCount = pendingGuides.filter(g => g.billingState === 'closed').length;
 
         // Outros status vêm do legado (será substituído por endpoint guide-based futuramente)
         const allPayments = allReceivables.flatMap(g =>
@@ -199,11 +209,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
         return {
             totalAFaturar,
+            totalWaiting: waitingTotal,
             totalFaturado: billedPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
             totalRecebido: receivedPayments.reduce((s: number, p: any) => s + (p.grossAmount || 0), 0),
             pendingCount,
+            waitingCount,
             billedCount: billedPayments.length,
             receivedCount: receivedPayments.length,
+            closedCount,
             totalProviders: activeProviders
         };
     };
@@ -226,7 +239,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // loadReceivables só precisa rodar por conta própria para as abas Faturados/Recebidos.
     useEffect(() => {
         loadAllCounts(selectedMonthYear);
-        if (subTab !== 0) {
+        if (subTab !== 0 && subTab !== 1) {
             loadReceivables(selectedMonthYear);
         }
     }, [selectedMonthYear, subTab]);
@@ -234,7 +247,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     useEffect(() => {
         const handleRefresh = () => {
             loadAllCounts(selectedMonthYear);
-            if (subTab !== 0) {
+            if (subTab !== 0 && subTab !== 1) {
                 loadReceivables(selectedMonthYear);
             }
         };
@@ -260,8 +273,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const loadReceivables = async (month?: string) => {
-        // Aba A Faturar usa guias pendentes (guide-based) — sempre todas, sem filtro de mês (ver loadAllCounts)
-        if (subTab === 0) {
+        // Abas guide-based (A Faturar e Aguardando Faturamento) usam pendingGuides,
+        // já carregadas por loadAllCounts. Apenas garantimos o loading state.
+        if (subTab === 0 || subTab === 1) {
             setLoadingGuides(true);
             try {
                 const response = await getPendingBillingGuides({ limit: 100 });
@@ -287,7 +301,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             }
 
             // Buscar dados filtrados pela aba ativa para a lista
-            const statusFilter = subTab === 1 ? 'billed' : 'received';
+            const statusFilter = subTab === 2 ? 'billed' : 'received';
             const response = await getInsuranceReceivables({ month, status: statusFilter });
             const data = response.data.data || [];
 
@@ -358,7 +372,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const clearGuideSelection = () => setSelectedGuides(new Set());
 
     const selectAllGuides = () => {
-        setSelectedGuides(new Set(pendingGuides.map(g => g.guideId)));
+        const source = subTab === 0 ? pendingStateGuides : waitingBillingGuides;
+        setSelectedGuides(new Set(source.map(g => g.guideId)));
     };
 
     // Hook para pacientes
@@ -484,11 +499,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const selectAllFromPatient = (patient: any) => {
         const newSelected = new Set(selectedPayments);
         patient.payments.forEach((p: any) => {
-            if (subTab === 0 && p.status === 'pending_billing') {
+            if (subTab === 2 && p.status === 'pending_billing') {
                 newSelected.add(p.paymentId);
-            } else if (subTab === 1 && p.status === 'billed') {
+            } else if (subTab === 3 && p.status === 'billed') {
                 newSelected.add(p.paymentId);
-            } else if (subTab === 2 && ['received', 'partial', 'glosa'].includes(p.status)) {
+            } else if (subTab === 4 && ['received', 'partial', 'glosa'].includes(p.status)) {
                 newSelected.add(p.paymentId);
             }
         });
@@ -512,30 +527,33 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         receivables.forEach(group => {
             (group.patients || []).forEach((patient: any) => {
                 (patient.payments || []).forEach((p: any) => {
-                    if (subTab === 0 && p.status === 'pending_billing') newSelected.add(p.paymentId);
-                    else if (subTab === 1 && p.status === 'billed') newSelected.add(p.paymentId);
-                    else if (subTab === 2 && ['received', 'partial', 'glosa'].includes(p.status)) newSelected.add(p.paymentId);
+                    if (subTab === 2 && p.status === 'pending_billing') newSelected.add(p.paymentId);
+                    else if (subTab === 3 && p.status === 'billed') newSelected.add(p.paymentId);
+                    else if (subTab === 4 && ['received', 'partial', 'glosa'].includes(p.status)) newSelected.add(p.paymentId);
                 });
             });
         });
         setSelectedPayments(newSelected);
     };
 
-    const totalSelectable = subTab === 5
-        ? 0 // Convênios Cadastrados: cadastro, sem conceito de seleção em lote
+    const totalSelectable = subTab === 5 || subTab === 6
+        ? 0 // Histórico, Autorizações e Convênios Cadastrados: sem seleção em lote
         : subTab === 0
-        ? pendingGuides.length
+        ? pendingStateGuides.length
+        : subTab === 1
+        ? waitingBillingGuides.length
         : receivables.reduce((sum, group) =>
             sum + (group.patients || []).reduce((pSum: number, patient: any) =>
                 pSum + (patient.payments || []).filter((p: any) =>
-                    subTab === 1 ? p.status === 'billed'
+                    subTab === 2 ? p.status === 'billed'
                     : ['received', 'partial', 'glosa'].includes(p.status)
                 ).length, 0
             ), 0
         );
 
+    const isGuideMode = subTab === 0 || subTab === 1;
+
     const handleOpenFaturarLoteModal = () => {
-        const isGuideMode = subTab === 0;
         const hasSelection = isGuideMode ? selectedGuides.size > 0 : selectedPayments.size > 0;
         if (!hasSelection) {
             toast.warn(isGuideMode ? 'Selecione pelo menos uma guia' : 'Selecione pelo menos um atendimento');
@@ -586,27 +604,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const handleBillingWizardAllSent = () => {
         setBillingWizardOpen(false);
         setWizardSelectedGuides([]);
-        // Após envio com sucesso, abre modal de faturamento em lote — decisão explícita
-        // obrigatória (ver handleDialogClose no wizard): documentação enviada não é
-        // faturado, então perguntamos aqui se o lote deve ser criado agora.
-        setFaturarLoteData({
-            dataFaturamento: new Date().toISOString().split('T')[0],
-            notaFiscal: ''
-        });
-        setFaturarLoteFromWizard(true);
-        setFaturarLoteModalOpen(true);
-    };
-
-    const handleBillingSent = () => {
-        // Mantido para compatibilidade caso o DocumentSendDrawer seja reutilizado
-        setBillingWizardOpen(false);
-        setWizardSelectedGuides([]);
-        setFaturarLoteData({
-            dataFaturamento: new Date().toISOString().split('T')[0],
-            notaFiscal: ''
-        });
-        setFaturarLoteFromWizard(true);
-        setFaturarLoteModalOpen(true);
+        // Após envio dos documentos, a guia fica marcada como "Documentação enviada"
+        // e a secretária pode faturar quando quiser pela aba "Aguardando faturamento".
+        // Não abrimos mais o modal de faturamento automaticamente para evitar popup
+        // persistente a cada reload e para respeitar o fluxo por estados visíveis.
+        loadPendingGuides();
+        toast.success('Documentação enviada. As guias aparecem em "Aguardando faturamento".');
     };
 
     const handleOpenBillingDrawer = async () => {
@@ -617,7 +620,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const handleFaturarLote = async () => {
         setFaturarLoteLoading(true);
         try {
-            const isGuideMode = subTab === 0;
             const result = await faturarConvenioLote({
                 ...(isGuideMode
                     ? { guideIds: Array.from(selectedGuides) }
@@ -820,7 +822,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             </div>
 
             {/* Filtro de Mês — oculto no Histórico, Autorizações e Convênios Cadastrados (não são escopados por mês) */}
-            {subTab !== 3 && subTab !== 4 && subTab !== 5 && (
+            {subTab !== 4 && subTab !== 5 && subTab !== 6 && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1 text-gray-500">
                         <Calendar size={16} />
@@ -858,9 +860,19 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 <span className="text-sm text-amber-600">
                                     {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a faturar
                                 </span>
+                                {ms.totalWaiting > 0 && (
+                                    <span className="text-sm text-blue-600">
+                                        {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} aguardando faturamento
+                                    </span>
+                                )}
                                 {ms.totalRecebido > 0 && (
                                     <span className="text-sm text-emerald-600 font-semibold">
                                         {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebido
+                                    </span>
+                                )}
+                                {ms.closedCount > 0 && (
+                                    <span className="text-sm text-gray-600">
+                                        {ms.closedCount} guia{ms.closedCount !== 1 ? 's' : ''} finalizada{ms.closedCount !== 1 ? 's' : ''}
                                     </span>
                                 )}
                             </div>
@@ -905,8 +917,23 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                                             {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
-                                        <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingGuides.length} guia{pendingGuides.length !== 1 ? 's' : ''}</p>
+                                        <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingStateGuides.length} guia{pendingStateGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">não enviado ao convênio</p>
+                                    </div>
+                                </div>
+
+                                {/* Aguardando Faturamento */}
+                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                    <div style={{ height: 3, backgroundColor: '#1D4ED8' }} />
+                                    <div className="p-4 bg-white">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Aguardando Faturamento</span>
+                                        </div>
+                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                                            {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </div>
+                                        <p className="text-sm text-gray-500">{ms.waitingCount} sessões · {waitingBillingGuides.length} guia{waitingBillingGuides.length !== 1 ? 's' : ''}</p>
+                                        <p className="text-xs text-gray-400 mt-1">documentação já enviada</p>
                                     </div>
                                 </div>
 
@@ -950,7 +977,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <div className="px-3 pt-3 pb-3 border-b border-gray-100">
                     <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
                         {[
-                            { label: 'A Faturar', count: pendingGuides.length,        icon: <Clock size={15} />, amber: true },
+                            { label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
+                            { label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
                             { label: 'Faturados', count: countByStatus('billed'),     icon: <Send size={15} />, amber: false },
                             { label: 'Recebidos', count: countByStatus('received'),   icon: <CheckCircle size={15} />, amber: false },
                             { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
@@ -965,7 +993,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 }`}>
                                 {tab.icon}
                                 <span>{tab.label}</span>
-                                {i < 3 && tab.count > 0 && (
+                                {i < 4 && tab.count > 0 && (
                                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                                         tab.amber
                                             ? (subTab === i ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
@@ -979,15 +1007,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
                 {/* Barra de Ações em Lote — sempre visível quando há itens na aba */}
                 {totalSelectable > 0 && (
-                    <Paper elevation={(subTab === 0 ? selectedGuides.size : selectedPayments.size) > 0 ? 2 : 0} sx={{
+                    <Paper elevation={(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 ? 2 : 0} sx={{
                         p: 1.5, mx: 2, mt: 1.5,
-                        bgcolor: (subTab === 0 ? selectedGuides.size : selectedPayments.size) > 0 ? '#F0F9FF' : '#F9FAFB',
-                        border: `1px solid ${(subTab === 0 ? selectedGuides.size : selectedPayments.size) > 0 ? '#3B82F6' : '#E5E7EB'}`,
+                        bgcolor: (isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 ? '#F0F9FF' : '#F9FAFB',
+                        border: `1px solid ${(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 ? '#3B82F6' : '#E5E7EB'}`,
                         borderRadius: 2
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                {subTab === 0 ? (
+                                {isGuideMode ? (
                                     <Button
                                         size="small"
                                         variant={selectedGuides.size === totalSelectable ? 'contained' : 'outlined'}
@@ -1012,18 +1040,18 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             : `Selecionar Todos (${totalSelectable})`}
                                     </Button>
                                 )}
-                                {(subTab === 0 ? selectedGuides.size : selectedPayments.size) > 0 && (
+                                {(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 && (
                                     <>
                                         <Typography variant="body2" fontWeight={600} color="#3B82F6">
-                                            {subTab === 0 ? selectedGuides.size : selectedPayments.size} selecionado(s)
+                                            {isGuideMode ? selectedGuides.size : selectedPayments.size} selecionado(s)
                                         </Typography>
-                                        <Button size="small" variant="text" onClick={subTab === 0 ? clearGuideSelection : clearAllSelection} sx={{ fontSize: '0.75rem' }}>
+                                        <Button size="small" variant="text" onClick={isGuideMode ? clearGuideSelection : clearAllSelection} sx={{ fontSize: '0.75rem' }}>
                                             Limpar
                                         </Button>
                                     </>
                                 )}
                             </Box>
-                            {(subTab === 0 ? selectedGuides.size : selectedPayments.size) > 0 && (
+                            {(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 && (
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     {subTab === 0 && (
                                         <Button
@@ -1037,7 +1065,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             {billingWizardLoading ? 'Abrindo...' : 'Enviar Documentos'}
                                         </Button>
                                     )}
-                                    {subTab === 0 && (
+                                    {(subTab === 0 || subTab === 1) && (
                                         <Button
                                             variant="contained"
                                             size="small"
@@ -1048,7 +1076,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             Faturar Guias Selecionadas
                                         </Button>
                                     )}
-                                    {subTab === 1 && (
+                                    {subTab === 3 && (
                                         <Button
                                             variant="contained"
                                             size="small"
@@ -1066,17 +1094,17 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 5 ? (
+                    {subTab === 6 ? (
                         <ConvenioManagerModal open onClose={() => {}} embedded />
-                    ) : subTab === 4 ? (
+                    ) : subTab === 5 ? (
                         <AutorizacoesTab month={month} year={year} />
-                    ) : subTab === 3 ? (
+                    ) : subTab === 4 ? (
                         <InsuranceHistorySection activeYear={year} activeMonth={month} />
-                    ) : subTab === 0 ? (
+                    ) : subTab === 0 || subTab === 1 ? (
                         <GuidePendingBillingSection
-                            guides={pendingGuides}
+                            guides={subTab === 0 ? pendingStateGuides : waitingBillingGuides}
                             selectedGuides={selectedGuides}
-                            orphanSessions={orphanSessions}
+                            orphanSessions={subTab === 0 ? orphanSessions : []}
                             loading={loadingGuides}
                             onToggleGuide={toggleGuideSelection}
                             onRefresh={() => loadReceivables(selectedMonthYear)}
@@ -1121,9 +1149,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 const groupTotal = group.totalPending || 0;
                                 const isExpanded = expandedGroups[group._id] !== false;
 
-                                const tabAccent = subTab === 1 ? '#3B82F6' : '#10B981';
+                                const tabAccent = subTab === 3 ? '#3B82F6' : '#10B981';
                                 // Para aba Recebidos: extrai datas de entrada no caixa
-                                const allPaidDates = subTab === 2
+                                const allPaidDates = subTab === 4
                                     ? patientsToShow.flatMap((p: any) =>
                                         (p.payments || []).filter((pay: any) => pay.paidAt).map((pay: any) => pay.paidAt as string)
                                       ).sort()
@@ -1231,7 +1259,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             <Send className="w-4 h-4 text-white" />
                         </Avatar>
                         <Typography variant="h6">
-                            {faturarLoteFromWizard ? 'Documentos enviados com sucesso. Deseja faturar esta(s) guia(s) agora?' : (subTab === 0 ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados')}
+                            {faturarLoteFromWizard ? 'Documentos enviados com sucesso. Deseja faturar esta(s) guia(s) agora?' : (isGuideMode ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados')}
                         </Typography>
                     </Box>
                 </DialogTitle>
@@ -1245,7 +1273,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             </Box>
                         )}
                         <Typography variant="body2" color="text.secondary">
-                            {subTab === 0
+                            {isGuideMode
                                 ? `${selectedGuides.size} guia(s) serão faturadas. Todas as sessões pendentes de cada guia serão incluídas, independentemente do mês.`
                                 : `${selectedPayments.size} atendimento(s) serão faturados`}
                         </Typography>
@@ -1268,28 +1296,67 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             required
                         />
 
-                        <TextField
-                            fullWidth
-                            label="Nota Fiscal (opcional)"
-                            placeholder="Número da NF"
-                            value={faturarLoteData.notaFiscal}
-                            onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
-                        />
+                        {isGuideMode ? (
+                            <Box>
+                                {(() => {
+                                    const selectedGuideList = Array.from(selectedGuides)
+                                        .map(id => pendingGuides.find(g => g.guideId === id))
+                                        .filter(Boolean);
+                                    const firstGuideWithInvoice = selectedGuideList.find(g => g?.invoiceNumber);
+                                    if (firstGuideWithInvoice?.invoiceNumber) {
+                                        return (
+                                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                                                <Typography variant="body2" sx={{ color: '#166534' }}>
+                                                    <strong>Nota Fiscal:</strong> {firstGuideWithInvoice.invoiceNumber}
+                                                </Typography>
+                                            </Box>
+                                        );
+                                    }
+                                    return (
+                                        <TextField
+                                            fullWidth
+                                            label="Nota Fiscal *"
+                                            placeholder="Informe o número da NF para criar o lote"
+                                            value={faturarLoteData.notaFiscal}
+                                            onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
+                                            required
+                                        />
+                                    );
+                                })()}
+                            </Box>
+                        ) : (
+                            <TextField
+                                fullWidth
+                                label="Nota Fiscal (opcional)"
+                                placeholder="Número da NF"
+                                value={faturarLoteData.notaFiscal}
+                                onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
+                            />
+                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setFaturarLoteModalOpen(false)} disabled={faturarLoteLoading}>
                         {faturarLoteFromWizard ? 'Deixar para depois' : 'Cancelar'}
                     </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleFaturarLote}
-                        disabled={faturarLoteLoading}
-                        startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
-                        sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
-                    >
-                        {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar Faturamento')}
-                    </Button>
+                    {(() => {
+                        const selectedGuideList = isGuideMode
+                            ? Array.from(selectedGuides).map(id => pendingGuides.find(g => g.guideId === id)).filter(Boolean)
+                            : [];
+                        const hasInvoiceFromCommunication = selectedGuideList.some(g => g?.invoiceNumber);
+                        const canSubmit = !isGuideMode || hasInvoiceFromCommunication || faturarLoteData.notaFiscal.trim().length > 0;
+                        return (
+                            <Button
+                                variant="contained"
+                                onClick={handleFaturarLote}
+                                disabled={faturarLoteLoading || !canSubmit}
+                                startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
+                                sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
+                            >
+                                {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar Faturamento')}
+                            </Button>
+                        );
+                    })()}
                 </DialogActions>
             </Dialog>
 
@@ -1311,13 +1378,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            O lote foi criado e as sessões concluídas foram faturadas. A(s) guia(s) abaixo continua(m) ativa(s) e poderá(ão) receber novos faturamentos enquanto houver sessões concluídas pendentes.
+                            O lote foi criado e as sessões concluídas foram faturadas. Se não houver mais atendimentos previstos nesta guia, você pode finalizá-la agora.
                         </Typography>
 
                         <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#FEF3C7', border: '1px solid #F59E0B' }}>
                             <AlertCircle size={16} style={{ color: '#92400E', marginTop: 2, flexShrink: 0 }} />
                             <Typography variant="body2" sx={{ color: '#92400E' }}>
-                                <strong>Deseja finalizar o ciclo agora?</strong> Finalizar a guia irá cancelar os agendamentos futuros pendentes e impedir novos faturamentos desta guia. Esta ação não pode ser desfeita.
+                                Ao finalizar, os agendamentos futuros pendentes serão cancelados e a guia será encerrada. Esta ação não pode ser desfeita.
                             </Typography>
                         </Box>
 

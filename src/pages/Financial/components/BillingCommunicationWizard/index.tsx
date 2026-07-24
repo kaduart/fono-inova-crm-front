@@ -114,6 +114,8 @@ export function BillingCommunicationWizard({
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('Documentação para Faturamento');
     const [message, setMessage] = useState('');
+    const [invoiceNumber, setInvoiceNumber] = useState('');
+    const [invoiceDate, setInvoiceDate] = useState('');
     const [overallSending, setOverallSending] = useState(false);
     const [sentCount, setSentCount] = useState(0);
     const [failedCount, setFailedCount] = useState(0);
@@ -126,6 +128,8 @@ export function BillingCommunicationWizard({
         setGroups(grouped);
         setTo('');
         setConvenioEmails([]);
+        setInvoiceNumber('');
+        setInvoiceDate('');
 
         // Tenta montar assunto e corpo padrão com base na primeira guia/paciente
         const firstGuide = selectedGuides[0];
@@ -230,6 +234,14 @@ export function BillingCommunicationWizard({
             toast.warn('Anexe pelo menos um documento');
             return;
         }
+        if (!invoiceNumber.trim()) {
+            toast.warn('Informe o número da Nota Fiscal');
+            return;
+        }
+        if (!invoiceDate.trim()) {
+            toast.warn('Informe a data da Nota Fiscal');
+            return;
+        }
 
         setOverallSending(true);
         setSentCount(0);
@@ -247,7 +259,9 @@ export function BillingCommunicationWizard({
                     insuranceProvider: group.insuranceProvider,
                     guideId: group.guideIds[0],
                     purpose: 'billing',
-                    notes: `Envio de faturamento para ${group.patientName}`
+                    notes: `Envio de faturamento para ${group.patientName}`,
+                    invoiceNumber: invoiceNumber || undefined,
+                    invoiceDate: invoiceDate || undefined
                 });
 
                 const communicationId = createRes.data.data._id;
@@ -454,6 +468,34 @@ export function BillingCommunicationWizard({
                         size="small"
                         disabled={overallSending}
                     />
+                    <TextField
+                        fullWidth
+                        label="Nota Fiscal *"
+                        value={invoiceNumber}
+                        onChange={(e) => setInvoiceNumber(e.target.value)}
+                        size="small"
+                        disabled={overallSending}
+                        placeholder="Ex: 000456"
+                        required
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <FileText size={16} style={{ color: '#9CA3AF' }} />
+                                </InputAdornment>
+                            )
+                        }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Data da Nota Fiscal *"
+                        type="date"
+                        value={invoiceDate}
+                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        size="small"
+                        disabled={overallSending}
+                        InputLabelProps={{ shrink: true }}
+                        required
+                    />
                 </Stack>
 
                 <Divider sx={{ mb: 2.5 }}>
@@ -622,7 +664,7 @@ export function BillingCommunicationWizard({
                 ) : (
                     <Button
                         onClick={handleSendAll}
-                        disabled={!to.trim() || overallSending || !hasAnyDoc}
+                        disabled={!to.trim() || overallSending || !hasAnyDoc || !invoiceNumber.trim() || !invoiceDate.trim()}
                         variant="contained"
                         startIcon={overallSending ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
                         sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
