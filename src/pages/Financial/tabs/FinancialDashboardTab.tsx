@@ -155,6 +155,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const [pendingInsurance, setPendingInsurance] = useState<InsuranceReceivableGroup[]>([]);
   const [loadingInsurance, setLoadingInsurance] = useState(false);
 
+  // 🆕 Recebíveis históricos de convênio (cards da seção Recebíveis)
+  const [pendingInsuranceHistorical, setPendingInsuranceHistorical] = useState<InsuranceReceivableGroup[]>([]);
+  const [billedInsuranceHistorical, setBilledInsuranceHistorical] = useState<InsuranceReceivableGroup[]>([]);
+  const [loadingInsuranceHistorical, setLoadingInsuranceHistorical] = useState(false);
+
+  // 🆕 D: Indicador administrativo de revisão manual (audit de payments de convênio)
+  const [manualReviewCount, setManualReviewCount] = useState<number | null>(null);
+  const [loadingManualReview, setLoadingManualReview] = useState(false);
+
   // 🆕 C: Novos agendamentos do mês (comparação com mês anterior)
   const { fetch: fetchAppointmentsByType } = useAppointmentsByType();
   const [agendamentosMes, setAgendamentosMes] = useState<{ total: number; leads: number; novos: number; retornos: number } | null>(null);
@@ -174,6 +183,34 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       setLoadingInsurance(false);
     }
   }, [month, year]);
+
+  const fetchInsuranceHistorical = useCallback(async () => {
+    setLoadingInsuranceHistorical(true);
+    try {
+      const [pendingRes, billedRes] = await Promise.all([
+        getInsuranceReceivables({ status: 'pending_billing' }),
+        getInsuranceReceivables({ status: 'billed' })
+      ]);
+      setPendingInsuranceHistorical(pendingRes.data?.data || []);
+      setBilledInsuranceHistorical(billedRes.data?.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar recebíveis históricos de convênio:', err);
+    } finally {
+      setLoadingInsuranceHistorical(false);
+    }
+  }, []);
+
+  const fetchManualReviewCount = useCallback(async () => {
+    setLoadingManualReview(true);
+    try {
+      const res = await api.get('/api/v2/financial/dashboard/audits/convenio-payments-review-count');
+      setManualReviewCount(res.data?.data?.revisaoManual ?? null);
+    } catch (err) {
+      console.error('Erro ao buscar contador de revisão manual:', err);
+    } finally {
+      setLoadingManualReview(false);
+    }
+  }, []);
 
   const handleBillInsurance = async (sessionId?: string) => {
     if (!sessionId) {
@@ -360,12 +397,14 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
   useEffect(() => {
     const key = `${month}-${year}`;
-    // Tab 0 (Decisão Executiva) tem seção de convênios pendentes
+    // Tab 0 (Decisão Executiva) tem seção de recebíveis
     if (activeTab === 0 && insuranceLoaded.current !== key) {
       insuranceLoaded.current = key;
       fetchPendingInsurance();
+      fetchInsuranceHistorical();
+      fetchManualReviewCount();
     }
-  }, [activeTab, month, year, fetchPendingInsurance]);
+  }, [activeTab, month, year, fetchPendingInsurance, fetchInsuranceHistorical, fetchManualReviewCount]);
 
   // Sincroniza aba ativa caso o query param mude (reload / navegação)
   useEffect(() => {
@@ -1008,8 +1047,6 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const producaoTotal    = revenue?.total ?? 0;
     const pctCaixaMeta     = metas.camadas?.caixa?.percentual ?? (metaValor > 0 ? (caixaTotal / metaValor) * 100 : 0);
     // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
-    // Dívida de competência anterior: fonte direta (Payment, sessão completed, data < mês), não residual.
-    const previousCompetenceDebtTotal = resumo?.pendentes?.previousCompetenceDebt?.total ?? 0;
 
     const isVerde   = metas.statusMeta === 'verde';
     const isAmVerde = metas.statusMeta === 'amarelo-verde';
@@ -1357,30 +1394,10 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           );
         })()}
 
-        {/* ── DÍVIDAS DE MESES ANTERIORES ── */}
-        {(() => {
-          const mesMesAtual = (data?.particularPendente || 0) + (data?.pacotePendente || 0);
-          if (previousCompetenceDebtTotal <= 0) return null;
-          const totalEmAberto = mesMesAtual + previousCompetenceDebtTotal;
-          return (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-              <div className="flex items-start gap-3">
-                <span className="text-xl">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-xs font-black text-rose-800 uppercase tracking-wide mb-1">Dívidas de Meses Anteriores<InfoTooltip><>Pagamentos pendentes de competências anteriores ao mês selecionado.<br/><br/><strong>Fonte:</strong> pagamentos pendentes vinculados a sessões já realizadas, com data anterior ao mês.<br/><br/><strong>Não inclui:</strong> sessões futuras/não realizadas, convênio, liminar.</></InfoTooltip></p>
-                  <p className="text-xs text-rose-700">
-                    Além dos <strong>{formatCurrency(mesMesAtual)}</strong> pendentes deste mês, há
-                    {' '}<strong>{formatCurrency(previousCompetenceDebtTotal)}</strong> em débitos de sessões de meses anteriores ainda não quitados.
-                  </p>
-                  <p className="text-[11px] text-rose-600 mt-1 font-semibold">Total acumulado em aberto: {formatCurrency(totalEmAberto)}</p>
-                  <p className="text-[10px] text-rose-500 mt-1">
-                    Considera apenas sessões já realizadas com pagamento pendente. Não inclui agendamentos futuros, convênio ou liminar.
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {/* Dívidas de meses anteriores: removido daqui (2026-07-23) — Metas é uma
+            aba filtrada por mês, mostrar débito histórico ali conflitava com a
+            leitura de progresso do mês selecionado. Vive em Decisão Executiva
+            (bloco "Sessões sem Recebimento", que já cobre o mesmo dado + histórico). */}
       </div>
     );
   };
@@ -1398,8 +1415,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const convenioAmount  = convenioAReceber || 0;
     const particularPend  = (data as any)?.particularPendente || 0;
     const pacotePend      = (data as any)?.pacotePendente || 0;
-    const totalNaoReceb   = particularPend + pacotePend + convenioAmount;
-    const pctNaoReceb     = totalProducao > 0 ? Math.round((totalNaoReceb / totalProducao) * 100) : 0;
+
+    // 🆕 Recebíveis: fontes oficiais (nunca soma manual no frontend)
+    const particularEmAberto = debitosTotalValue || 0;
+    const convenioNaoFaturado = pendingInsuranceHistorical.reduce((sum, g) => sum + (g.totalPending || 0), 0);
+    const convenioFaturado = billedInsuranceHistorical.reduce((sum, g) => sum + (g.totalPending || 0), 0);
+    const totalRecebiveis = particularEmAberto + convenioNaoFaturado + convenioFaturado;
 
     const margemPct = indicadores?.margemPercentual ?? 0; // ← vem da API
     // status vem pronto da API (indicadores.statusMargem) — frontend só mapeia enum→texto/cor, não decide o corte.
@@ -1603,55 +1624,85 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           </div>
         </div>
 
-        {/* ── 2. SESSÕES SEM RECEBIMENTO ── */}
+        {/* ── 2. RECEBÍVEIS ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Sessões sem Recebimento</p>
-          <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-            {/* Header escuro */}
-            <div className="px-5 py-4" style={{ backgroundColor: '#450a0a' }}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-rose-300 mb-1">Total não recebido este mês</p>
-                  <div className="text-4xl font-black text-white">{formatCurrency(totalNaoReceb)}</div>
-                  <p className="text-xs text-rose-300 mt-1">
-                    {pctNaoReceb}% da produção em aberto — acompanhe o recebimento
-                  </p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Recebíveis</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. Particular em aberto */}
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/60 px-4 py-3 flex flex-col justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <DollarSign size={14} className="text-blue-600" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Particular em aberto</p>
                 </div>
-                <div className="text-right shrink-0 ml-4">
-                  <div className="text-2xl font-black text-white">{pctNaoReceb}%</div>
-                  <p className="text-[10px] text-rose-300">da produção</p>
-                  <p className="text-[10px] text-rose-400 mt-1">
-                    Histórico: {loadingDebitosTotal ? '…' : formatCurrency(debitosTotalValue)}
-                  </p>
-                </div>
+                <span className="text-xl font-black text-gray-800">{loadingDebitosTotal ? '…' : formatCurrency(particularEmAberto)}</span>
+                <p className="text-[10px] text-blue-600/70 mt-1">Débitos pendentes de pacientes</p>
               </div>
+              <button onClick={() => openDebitosModal('total')}
+                className="shrink-0 py-1.5 px-3 rounded-lg text-[11px] font-bold bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 transition-colors w-fit">
+                Ver débitos ↗
+              </button>
             </div>
-            {/* Body */}
-            <div className="p-4 bg-white">
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {([
-                  { label: 'Particular', value: particularPend, color: '#3B82F6' },
-                  { label: 'Pacote',     value: pacotePend,     color: '#8B5CF6' },
-                  { label: 'Convênio',   value: convenioAmount, color: '#7C3AED' },
-                ] as const).map((item) => (
-                  <div key={item.label} className="rounded-xl border border-gray-200 p-3">
-                    <p className="text-[10px] text-gray-500 font-semibold mb-0.5">{item.label}</p>
-                    <p className="text-lg font-black" style={{ color: item.color }}>{formatCurrency(item.value)}</p>
-                  </div>
-                ))}
+
+            {/* 2. Convênio não faturado */}
+            <div className="rounded-2xl border border-purple-200 bg-purple-50/60 px-4 py-3 flex flex-col justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Briefcase size={14} className="text-purple-600" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-purple-700">Convênio não faturado</p>
+                </div>
+                <span className="text-xl font-black text-gray-800">{loadingInsuranceHistorical ? '…' : formatCurrency(convenioNaoFaturado)}</span>
+                <p className="text-[10px] text-purple-600/70 mt-1">Sessões concluídas aguardando faturamento</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => openDebitosModal('mes')}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors">
-                  Ver débitos do mês ↗
-                </button>
-                <button onClick={() => openDebitosModal('total')}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors">
-                  Histórico {loadingDebitosTotal ? '…' : formatCurrency(debitosTotalValue)} ↗
-                </button>
+              <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set('financialTab', 'convenios'); return n; })}
+                className="shrink-0 py-1.5 px-3 rounded-lg text-[11px] font-bold bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 transition-colors w-fit">
+                Ver convênios ↗
+              </button>
+            </div>
+
+            {/* 3. Convênio faturado */}
+            <div className="rounded-2xl border border-cyan-200 bg-cyan-50/60 px-4 py-3 flex flex-col justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Send size={14} className="text-cyan-600" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-700">Convênio faturado</p>
+                </div>
+                <span className="text-xl font-black text-gray-800">{loadingInsuranceHistorical ? '…' : formatCurrency(convenioFaturado)}</span>
+                <p className="text-[10px] text-cyan-600/70 mt-1">Lotes enviados aguardando pagamento</p>
+              </div>
+              <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set('financialTab', 'convenios'); return n; })}
+                className="shrink-0 py-1.5 px-3 rounded-lg text-[11px] font-bold bg-white text-cyan-700 border border-cyan-200 hover:bg-cyan-50 transition-colors w-fit">
+                Ver convênios ↗
+              </button>
+            </div>
+
+            {/* 4. Total de recebíveis */}
+            <div className="rounded-2xl border border-gray-300 bg-gray-100 px-4 py-3 flex flex-col justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp size={14} className="text-gray-600" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-600">Total de recebíveis</p>
+                </div>
+                <span className="text-xl font-black text-gray-800">
+                  {loadingDebitosTotal || loadingInsuranceHistorical ? '…' : formatCurrency(totalRecebiveis)}
+                </span>
+                <p className="text-[10px] text-gray-500 mt-1">Soma das fontes oficiais</p>
               </div>
             </div>
           </div>
+
+          {/* Indicador administrativo: casos em revisão manual */}
+          {manualReviewCount !== null && manualReviewCount > 0 && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className="text-amber-600" />
+                <span className="text-xs text-amber-800">
+                  <strong>{manualReviewCount}</strong> Payment(s) de convênio em revisão manual
+                </span>
+              </div>
+              <span className="text-[10px] text-amber-600">Visível apenas para administradores</span>
+            </div>
+          )}
         </div>
 
         {/* ── 3. CENTRAL DE ATENÇÃO — lista de riscos ── */}
@@ -2212,8 +2263,44 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       const isMes = debitosModalType === 'mes';
       const isLoading = isMes ? loadingDebitosMes : loadingDebitosTotal;
       const rows = isMes ? debitosMesData : debitosTotalData;
-      const totalVal = isMes ? (resumo?.pendentes?.vencidos?.total || 0) : debitosTotalValue;
       const title = isMes ? `Débito do Mês — ${String(month).padStart(2,'0')}/${year}` : 'Débito Total (histórico)';
+
+      // 🆕 V2 FINANCIAL ENGINE: quando disponível, o CORPO do modal renderiza este
+      // agrupamento por paciente em vez de `rows` (ver abaixo). Total/contagem do
+      // rodapé precisam vir da MESMA fonte que está sendo exibida — antes vinham de
+      // `resumo.pendentes.vencidos` (particular+convênio "vencido"), uma fonte
+      // diferente de `byPatient` (só particular), o que fazia o rodapé não bater
+      // com as linhas realmente visíveis na tela (achado 2026-07-23).
+      const v2PatientGroups = isMes ? resumo?.pendentes?.v2_financial?.byPatient : null;
+      const hasV2Groups = !!(v2PatientGroups && Object.keys(v2PatientGroups).length > 0);
+      const v2GroupsList: any[] = hasV2Groups
+        ? Object.values(v2PatientGroups as Record<string, any>).map((g: any) => ({ ...g, tipo: 'particular' as const }))
+        : [];
+
+      // Convênio é dívida real também (o usuário apontou: banner soma Particular+Convênio,
+      // mas o modal só mostrava Particular — confuso). Junta na MESMA lista, agrupado por
+      // paciente também, com uma tag pra deixar claro qual é qual sem precisar de 2 ações.
+      const convenioItemsList: any[] = isMes ? (resumo?.pendentes?.convenio?.items || []) : [];
+      const convenioGroupsMap: Record<string, any> = {};
+      for (const it of convenioItemsList) {
+        const key = it.paciente || 'Desconhecido';
+        if (!convenioGroupsMap[key]) {
+          convenioGroupsMap[key] = { patient: { fullName: key }, patientId: `convenio-${key}`, total: 0, count: 0, items: [], tipo: 'convenio' as const };
+        }
+        convenioGroupsMap[key].total += it.valor || 0;
+        convenioGroupsMap[key].count += 1;
+        convenioGroupsMap[key].items.push({ _id: it.sessionId, amount: it.valor, provider: it.convenio, status: it.status, data: it.data, time: it.hora });
+      }
+      const convenioGroupsList: any[] = Object.values(convenioGroupsMap);
+
+      const mergedGroupsList = [...v2GroupsList, ...convenioGroupsList];
+      const usingV2Groups = mergedGroupsList.length > 0;
+      const totalVal = usingV2Groups
+        ? mergedGroupsList.reduce((s, g) => s + (g.total || 0), 0)
+        : (isMes ? (resumo?.pendentes?.vencidos?.total || 0) : debitosTotalValue);
+      const displayedCount = usingV2Groups
+        ? mergedGroupsList.reduce((s, g) => s + (g.items?.length ?? g.count ?? 0), 0)
+        : rows.length;
 
       const statusLabel: Record<string, string> = {
         pending: 'Pendente', pending_balance: 'Saldo pendente',
@@ -2239,26 +2326,25 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             <div className="overflow-auto flex-1">
               {isLoading ? (
                 <div className="p-8 text-center text-gray-500">Carregando...</div>
-              ) : rows.length === 0 ? (
+              ) : !usingV2Groups && rows.length === 0 ? (
                 <div className="p-8 text-center text-emerald-600 font-medium">✅ Nenhum débito encontrado</div>
               ) : (() => {
-                // 🆕 V2 FINANCIAL ENGINE: quando disponível, usa agrupamento por paciente do backend
-                const v2PatientGroups = isMes ? resumo?.pendentes?.v2_financial?.byPatient : null;
-                
-                if (v2PatientGroups && Object.keys(v2PatientGroups).length > 0) {
-                  const sortedV2Groups = Object.values(v2PatientGroups).sort((a: any, b: any) => b.total - a.total);
+                if (usingV2Groups) {
+                  const sortedGroups = mergedGroupsList.slice().sort((a: any, b: any) => b.total - a.total);
                   return (
                     <div className="divide-y divide-gray-100">
-                      {sortedV2Groups.map((group: any) => {
+                      {sortedGroups.map((group: any) => {
                         const paciente = group.patient?.fullName || 'Desconhecido';
-                        const isOpen = openPatientGroups.has(paciente);
+                        const groupKey = `${group.tipo}-${group.patientId || paciente}`;
+                        const isOpen = openPatientGroups.has(groupKey);
                         const toggle = () => setOpenPatientGroups(prev => {
                           const next = new Set(prev);
-                          isOpen ? next.delete(paciente) : next.add(paciente);
+                          isOpen ? next.delete(groupKey) : next.add(groupKey);
                           return next;
                         });
+                        const isConvenio = group.tipo === 'convenio';
                         return (
-                          <div key={group.patientId || paciente}>
+                          <div key={groupKey}>
                             <button
                               onClick={toggle}
                               className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
@@ -2266,6 +2352,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                               <div className="flex items-center gap-2">
                                 <span className={`text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
                                 <span className="font-semibold text-gray-800">{paciente}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isConvenio ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {isConvenio ? 'Convênio' : 'Particular'}
+                                </span>
                                 <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{group.count} sessão(ões)</span>
                               </div>
                               <span className="font-bold text-rose-600">{formatCurrency(group.total)}</span>
@@ -2275,7 +2364,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                                 <thead className="text-xs text-gray-400 uppercase">
                                   <tr>
                                     <th className="px-8 py-1 text-left font-medium">Data</th>
-                                    <th className="px-4 py-1 text-left font-medium">Especialidade</th>
+                                    <th className="px-4 py-1 text-left font-medium">{isConvenio ? 'Convênio' : 'Especialidade'}</th>
                                     <th className="px-4 py-1 text-left font-medium">Status</th>
                                     <th className="px-4 py-1 text-right font-medium">Valor</th>
                                   </tr>
@@ -2287,7 +2376,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                                       'Psicologia': 'bg-violet-100 text-violet-700',
                                       'Terapia Ocupacional': 'bg-orange-100 text-orange-700',
                                     };
-                                    const sc = specColor[item.specialty] || 'bg-gray-100 text-gray-600';
+                                    const label = isConvenio ? (item.provider || '—') : (item.specialty || '—');
+                                    const sc = isConvenio ? 'bg-violet-100 text-violet-700' : (specColor[item.specialty] || 'bg-gray-100 text-gray-600');
                                     return (
                                       <tr key={item._id || i}>
                                         <td className="px-8 py-2 text-gray-500 w-28">
@@ -2295,7 +2385,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                                         </td>
                                         <td className="px-4 py-2">
                                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc}`}>
-                                            {item.specialty || '—'}
+                                            {label}
                                           </span>
                                         </td>
                                         <td className="px-4 py-2">
@@ -2384,9 +2474,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               })()}
             </div>
 
-            {/* Footer */}
+            {/* Footer — sempre reflete a MESMA fonte de dados exibida no corpo acima */}
             <div className="p-4 border-t flex justify-between items-center">
-              <span className="text-sm text-gray-500">{rows.length} sessão(ões)</span>
+              <span className="text-sm text-gray-500">{displayedCount} sessão(ões)</span>
               <span className="font-bold text-gray-900">Total: {formatCurrency(totalVal)}</span>
             </div>
           </div>

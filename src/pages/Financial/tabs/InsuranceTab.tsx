@@ -22,6 +22,8 @@ import {
     Collapse,
     CircularProgress,
     Skeleton,
+    IconButton,
+    InputAdornment,
 } from '@mui/material';
 import { Patient360Modal } from '../components/Patient360Modal';
 import {
@@ -37,7 +39,10 @@ import {
     ChevronDown,
     TrendingUp,
     TrendingDown,
-    History
+    History,
+    X,
+    FileText,
+    Receipt,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -1252,113 +1257,203 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             </div>
 
             {/* Modal: Faturar em Lote */}
-            <Dialog open={faturarLoteModalOpen} onClose={() => !faturarLoteLoading && setFaturarLoteModalOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ bgcolor: '#F59E0B', width: 32, height: 32 }}>
-                            <Send className="w-4 h-4 text-white" />
-                        </Avatar>
-                        <Typography variant="h6">
-                            {faturarLoteFromWizard ? 'Documentos enviados com sucesso. Deseja faturar esta(s) guia(s) agora?' : (isGuideMode ? 'Faturar Guias Selecionadas' : 'Faturar Atendimentos Selecionados')}
-                        </Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-                        {faturarLoteFromWizard && (
-                            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#EFF6FF', border: '1px solid #DBEAFE' }}>
-                                <Typography variant="body2" sx={{ color: '#1E40AF' }}>
-                                    Os documentos já foram enviados por e-mail ao convênio — isso ainda <strong>não</strong> fatura as guias. Elas continuam em "A Faturar" até o lote ser criado. Você pode criar agora ou deixar para depois (a guia ficará marcada como "Documentação enviada").
+            {(() => {
+                const headerAccent = faturarLoteFromWizard ? '#10B981' : '#F59E0B';
+                const HeaderIcon = faturarLoteFromWizard ? CheckCircle : Send;
+                const modalTitle = faturarLoteFromWizard
+                    ? 'Documentos enviados com sucesso'
+                    : (isGuideMode ? 'Faturar guias selecionadas' : 'Faturar atendimentos selecionados');
+                const modalSubtitle = faturarLoteFromWizard ? 'Deseja faturar esta(s) guia(s) agora?' : null;
+                const closeModal = () => !faturarLoteLoading && setFaturarLoteModalOpen(false);
+                return (
+                    <Dialog
+                        open={faturarLoteModalOpen}
+                        onClose={closeModal}
+                        maxWidth="sm"
+                        fullWidth
+                        PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+                    >
+                        <Box sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 1.5,
+                            px: 3,
+                            py: 2.5,
+                            background: faturarLoteFromWizard
+                                ? 'linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%)'
+                                : 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                            borderBottom: '1px solid',
+                            borderColor: faturarLoteFromWizard ? '#A7F3D0' : '#FDE68A',
+                        }}>
+                            <Avatar sx={{
+                                bgcolor: headerAccent,
+                                width: 40,
+                                height: 40,
+                                boxShadow: `0 4px 12px ${headerAccent}4D`,
+                            }}>
+                                <HeaderIcon className="w-5 h-5 text-white" />
+                            </Avatar>
+                            <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
+                                <Typography variant="subtitle1" fontWeight={800} sx={{ lineHeight: 1.3, color: '#0F172A' }}>
+                                    {modalTitle}
                                 </Typography>
+                                {modalSubtitle && (
+                                    <Typography variant="body2" sx={{ color: '#475569', mt: 0.25 }}>
+                                        {modalSubtitle}
+                                    </Typography>
+                                )}
                             </Box>
-                        )}
-                        <Typography variant="body2" color="text.secondary">
-                            {isGuideMode
-                                ? `${selectedGuides.size} guia(s) serão faturadas. Todas as sessões pendentes de cada guia serão incluídas, independentemente do mês.`
-                                : `${selectedPayments.size} atendimento(s) serão faturados`}
-                        </Typography>
-
-                        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                            <AlertCircle size={16} style={{ color: '#B45309', marginTop: 2, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ color: '#92400E' }}>
-                                Faturar uma guia <strong>não encerra automaticamente a guia</strong>. Ela continua ativa e poderá receber novos faturamentos enquanto houver sessões concluídas pendentes.
-                                Para impedir novos agendamentos/faturamentos, use <strong>Finalizar guia</strong> no drawer da guia.
-                            </Typography>
+                            <IconButton size="small" onClick={closeModal} disabled={faturarLoteLoading} sx={{ mt: -0.5, mr: -0.5 }}>
+                                <X size={18} />
+                            </IconButton>
                         </Box>
+                        <DialogContent sx={{ px: 3, py: 3 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+                                {faturarLoteFromWizard && (
+                                    <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2.5, bgcolor: '#EFF6FF', border: '1px solid #DBEAFE' }}>
+                                        <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <Mail size={14} color="#1D4ED8" />
+                                        </Box>
+                                        <Typography variant="body2" sx={{ color: '#1E40AF' }}>
+                                            Os documentos já foram enviados por e-mail ao convênio — isso ainda <strong>não</strong> fatura as guias. Elas continuam em "A Faturar" até o lote ser criado. Você pode criar agora ou deixar para depois (a guia ficará marcada como "Documentação enviada").
+                                        </Typography>
+                                    </Box>
+                                )}
 
-                        <TextField
-                            fullWidth
-                            type="date"
-                            label="Data do Faturamento *"
-                            value={faturarLoteData.dataFaturamento}
-                            onChange={(e) => setFaturarLoteData({ ...faturarLoteData, dataFaturamento: e.target.value })}
-                            InputLabelProps={{ shrink: true }}
-                            required
-                        />
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.75, borderRadius: 2.5, bgcolor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                                    <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <FileText size={18} color="#4F46E5" />
+                                    </Box>
+                                    <Typography variant="body2" sx={{ color: '#334155' }}>
+                                        {isGuideMode
+                                            ? <><strong>{selectedGuides.size} guia(s)</strong> serão faturadas. Todas as sessões pendentes de cada guia serão incluídas, independentemente do mês.</>
+                                            : <><strong>{selectedPayments.size} atendimento(s)</strong> serão faturados.</>}
+                                    </Typography>
+                                </Box>
 
-                        {isGuideMode ? (
-                            <Box>
-                                {(() => {
-                                    const selectedGuideList = Array.from(selectedGuides)
-                                        .map(id => pendingGuides.find(g => g.guideId === id))
-                                        .filter(Boolean);
-                                    const firstGuideWithInvoice = selectedGuideList.find(g => g?.invoiceNumber);
-                                    if (firstGuideWithInvoice?.invoiceNumber) {
-                                        return (
-                                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                                                <Typography variant="body2" sx={{ color: '#166534' }}>
-                                                    <strong>Nota Fiscal:</strong> {firstGuideWithInvoice.invoiceNumber}
-                                                </Typography>
-                                            </Box>
-                                        );
-                                    }
-                                    return (
-                                        <TextField
-                                            fullWidth
-                                            label="Nota Fiscal *"
-                                            placeholder="Informe o número da NF para criar o lote"
-                                            value={faturarLoteData.notaFiscal}
-                                            onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
-                                            required
-                                        />
-                                    );
-                                })()}
+                                <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2.5, bgcolor: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                                    <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <AlertCircle size={14} color="#B45309" />
+                                    </Box>
+                                    <Typography variant="body2" sx={{ color: '#92400E' }}>
+                                        Faturar uma guia <strong>não encerra automaticamente a guia</strong>. Ela continua ativa e poderá receber novos faturamentos enquanto houver sessões concluídas pendentes.
+                                        Para impedir novos agendamentos/faturamentos, use <strong>Finalizar guia</strong> no drawer da guia.
+                                    </Typography>
+                                </Box>
+
+                                <TextField
+                                    fullWidth
+                                    type="date"
+                                    label="Data do Faturamento *"
+                                    value={faturarLoteData.dataFaturamento}
+                                    onChange={(e) => setFaturarLoteData({ ...faturarLoteData, dataFaturamento: e.target.value })}
+                                    InputLabelProps={{ shrink: true }}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Calendar size={16} color="#64748B" />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                    required
+                                />
+
+                                {isGuideMode ? (
+                                    <Box>
+                                        {(() => {
+                                            const selectedGuideList = Array.from(selectedGuides)
+                                                .map(id => pendingGuides.find(g => g.guideId === id))
+                                                .filter(Boolean);
+                                            const firstGuideWithInvoice = selectedGuideList.find(g => g?.invoiceNumber);
+                                            if (firstGuideWithInvoice?.invoiceNumber) {
+                                                return (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, p: 1.5, borderRadius: 2.5, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                                                        <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            <Check size={14} color="#15803D" />
+                                                        </Box>
+                                                        <Typography variant="body2" sx={{ color: '#166534' }}>
+                                                            <strong>Nota Fiscal:</strong> {firstGuideWithInvoice.invoiceNumber}
+                                                        </Typography>
+                                                    </Box>
+                                                );
+                                            }
+                                            return (
+                                                <TextField
+                                                    fullWidth
+                                                    label="Nota Fiscal *"
+                                                    placeholder="Informe o número da NF para criar o lote"
+                                                    value={faturarLoteData.notaFiscal}
+                                                    onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
+                                                    InputProps={{
+                                                        startAdornment: (
+                                                            <InputAdornment position="start">
+                                                                <Receipt size={16} color="#64748B" />
+                                                            </InputAdornment>
+                                                        ),
+                                                    }}
+                                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                                    required
+                                                />
+                                            );
+                                        })()}
+                                    </Box>
+                                ) : (
+                                    <TextField
+                                        fullWidth
+                                        label="Nota Fiscal (opcional)"
+                                        placeholder="Número da NF"
+                                        value={faturarLoteData.notaFiscal}
+                                        onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Receipt size={16} color="#64748B" />
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                    />
+                                )}
                             </Box>
-                        ) : (
-                            <TextField
-                                fullWidth
-                                label="Nota Fiscal (opcional)"
-                                placeholder="Número da NF"
-                                value={faturarLoteData.notaFiscal}
-                                onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
-                            />
-                        )}
-                    </Box>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setFaturarLoteModalOpen(false)} disabled={faturarLoteLoading}>
-                        {faturarLoteFromWizard ? 'Deixar para depois' : 'Cancelar'}
-                    </Button>
-                    {(() => {
-                        const selectedGuideList = isGuideMode
-                            ? Array.from(selectedGuides).map(id => pendingGuides.find(g => g.guideId === id)).filter(Boolean)
-                            : [];
-                        const hasInvoiceFromCommunication = selectedGuideList.some(g => g?.invoiceNumber);
-                        const canSubmit = !isGuideMode || hasInvoiceFromCommunication || faturarLoteData.notaFiscal.trim().length > 0;
-                        return (
+                        </DialogContent>
+                        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9', bgcolor: '#FAFAFA' }}>
                             <Button
-                                variant="contained"
-                                onClick={handleFaturarLote}
-                                disabled={faturarLoteLoading || !canSubmit}
-                                startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
-                                sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' } }}
+                                onClick={closeModal}
+                                disabled={faturarLoteLoading}
+                                variant="outlined"
+                                sx={{ borderRadius: 2, borderColor: '#E2E8F0', color: '#475569', '&:hover': { borderColor: '#CBD5E1', bgcolor: '#F8FAFC' } }}
                             >
-                                {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar Faturamento')}
+                                {faturarLoteFromWizard ? 'Deixar para depois' : 'Cancelar'}
                             </Button>
-                        );
-                    })()}
-                </DialogActions>
-            </Dialog>
+                            {(() => {
+                                const selectedGuideList = isGuideMode
+                                    ? Array.from(selectedGuides).map(id => pendingGuides.find(g => g.guideId === id)).filter(Boolean)
+                                    : [];
+                                const hasInvoiceFromCommunication = selectedGuideList.some(g => g?.invoiceNumber);
+                                const canSubmit = !isGuideMode || hasInvoiceFromCommunication || faturarLoteData.notaFiscal.trim().length > 0;
+                                return (
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleFaturarLote}
+                                        disabled={faturarLoteLoading || !canSubmit}
+                                        startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
+                                        sx={{
+                                            bgcolor: '#F59E0B',
+                                            borderRadius: 2,
+                                            px: 2.5,
+                                            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.35)',
+                                            '&:hover': { bgcolor: '#D97706' },
+                                        }}
+                                    >
+                                        {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar faturamento')}
+                                    </Button>
+                                );
+                            })()}
+                        </DialogActions>
+                    </Dialog>
+                );
+            })()}
 
             {/* Modal: Finalizar guias após faturamento */}
             <Dialog

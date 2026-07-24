@@ -468,34 +468,38 @@ export function BillingCommunicationWizard({
                         size="small"
                         disabled={overallSending}
                     />
-                    <TextField
-                        fullWidth
-                        label="Nota Fiscal *"
-                        value={invoiceNumber}
-                        onChange={(e) => setInvoiceNumber(e.target.value)}
-                        size="small"
-                        disabled={overallSending}
-                        placeholder="Ex: 000456"
-                        required
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <FileText size={16} style={{ color: '#9CA3AF' }} />
-                                </InputAdornment>
-                            )
-                        }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Data da Nota Fiscal *"
-                        type="date"
-                        value={invoiceDate}
-                        onChange={(e) => setInvoiceDate(e.target.value)}
-                        size="small"
-                        disabled={overallSending}
-                        InputLabelProps={{ shrink: true }}
-                        required
-                    />
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                        <TextField
+                            fullWidth
+                            label="Nota Fiscal *"
+                            value={invoiceNumber}
+                            onChange={(e) => setInvoiceNumber(e.target.value)}
+                            size="small"
+                            disabled={overallSending}
+                            placeholder="Ex: 000456"
+                            required
+                            sx={{ flex: 3 }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <FileText size={16} style={{ color: '#9CA3AF' }} />
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+                        <TextField
+                            fullWidth
+                            label="Data da Nota Fiscal *"
+                            type="date"
+                            value={invoiceDate}
+                            onChange={(e) => setInvoiceDate(e.target.value)}
+                            size="small"
+                            disabled={overallSending}
+                            InputLabelProps={{ shrink: true }}
+                            required
+                            sx={{ flex: 2 }}
+                        />
+                    </Box>
                 </Stack>
 
                 <Divider sx={{ mb: 2.5 }}>
@@ -547,7 +551,7 @@ export function BillingCommunicationWizard({
                                 </Box>
                             )}
 
-                            <Stack spacing={1}>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 1 }}>
                                 {group.slots.map(slot => {
                                     const isUploading = uploadingSlot?.patientKey === group.patientKey && uploadingSlot?.type === slot.type;
                                     const needsAttention = slot.required && !slot.documentId;
@@ -624,7 +628,7 @@ export function BillingCommunicationWizard({
                                         </Box>
                                     );
                                 })}
-                            </Stack>
+                            </Box>
                         </CardContent>
                     </Card>
                 ))}
