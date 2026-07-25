@@ -348,14 +348,14 @@ export function BillingCommunicationWizard({
     // já está confirmado. Com falha, mantém manual (usuário decide "continuar com
     // sucessos" ou corrigir e tentar de novo).
     useEffect(() => {
-        if (allSent && allSuccessful && !overallSending) {
+        if (open && groups.length > 0 && allSent && allSuccessful && !overallSending) {
             const timer = setTimeout(() => {
                 onClose();
                 onAllSent();
             }, 900);
             return () => clearTimeout(timer);
         }
-    }, [allSent, allSuccessful, overallSending]);
+    }, [open, groups, allSent, allSuccessful, overallSending]);
 
     if (!open) return null;
 
