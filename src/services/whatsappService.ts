@@ -14,6 +14,34 @@ export interface WhatsAppResponse {
     data: any;
 }
 
+export interface WhatsAppWebHealthResponse {
+    status: 'healthy' | 'unhealthy' | 'error';
+    whatsapp: {
+        status: string;
+        ready: boolean;
+        authenticated: boolean;
+        lastReady: string | null;
+        sessionSizeMB: number | null;
+        diskUsagePercent: number | null;
+        storageAlert: boolean;
+    };
+    queue: {
+        waiting: number;
+        active: number;
+        failed: number;
+    };
+    timestamp: string;
+    error?: string;
+}
+
+export interface WhatsAppWebCacheCleanupResult {
+    success: boolean;
+    message: string;
+    removed: string[];
+    skippedReason: string | null;
+    timestamp: string;
+}
+
 interface FetchContactsOptions {
     page?: number;
     limit?: number;
@@ -347,6 +375,18 @@ export async function exchangeLongLivedToken({
         console.error("Erro ao trocar token:", error?.response?.data || error);
         throw new Error("Falha ao obter token de longa duração");
     }
+}
+
+export async function fetchWhatsAppWebHealth(): Promise<WhatsAppWebHealthResponse> {
+    const res = await API.get<WhatsAppWebHealthResponse>('/health/whatsapp', {
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
+    return res.data;
+}
+
+export async function cleanupWhatsAppWebCache(): Promise<WhatsAppWebCacheCleanupResult> {
+    const res = await API.post<WhatsAppWebCacheCleanupResult>('/admin/whatsapp/cleanup-cache');
+    return res.data;
 }
 
 export default whatsappService;
