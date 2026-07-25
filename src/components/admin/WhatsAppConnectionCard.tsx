@@ -41,12 +41,14 @@ const statusConfig: Record<WhatsAppStatus, { label: string; color: string; icon:
   disconnected:  { label: 'Desconectado',    color: '#dc2626', icon: <XCircle size={18} />,     severity: 'error' },
   error:         { label: 'Erro',            color: '#dc2626', icon: <AlertTriangle size={18} />, severity: 'error' },
   reconnecting:  { label: 'Reconectando',    color: '#d97706', icon: <RefreshCw size={18} />,   severity: 'warning' },
+  frozen:        { label: 'Congelado',       color: '#dc2626', icon: <AlertTriangle size={18} />, severity: 'error' },
   unknown:       { label: 'Desconhecido',    color: '#64748b', icon: <Signal size={18} />,      severity: 'info' },
 };
 
 function mapHealthStatus(health: ReturnType<typeof useWhatsAppWebHealth>['data']): WhatsAppStatus {
   if (!health) return 'unknown';
   const s = health.whatsapp?.status;
+  if (health.whatsapp?.frozen || s === 'frozen') return 'frozen';
   if (health.whatsapp?.ready || s === 'ready') return 'ready';
   if (s === 'authenticated') return 'authenticated';
   if (s === 'qr') return 'qr';

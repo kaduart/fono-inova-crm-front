@@ -15,11 +15,14 @@ export interface WhatsAppResponse {
 }
 
 export interface WhatsAppWebHealthResponse {
-    status: 'healthy' | 'unhealthy' | 'error';
+    status: 'healthy' | 'unhealthy' | 'error' | 'frozen';
+    source?: 'mongodb' | 'local';
     whatsapp: {
         status: string;
         ready: boolean;
         authenticated: boolean;
+        frozen: boolean;
+        pageFrozenAt: string | null;
         lastReady: string | null;
         sessionSizeMB: number | null;
         diskUsagePercent: number | null;
@@ -386,7 +389,7 @@ export async function fetchWhatsAppWebHealth(): Promise<WhatsAppWebHealthRespons
 }
 
 export async function cleanupWhatsAppWebCache(): Promise<WhatsAppWebCacheCleanupResult> {
-    const res = await API.post<WhatsAppWebCacheCleanupResult>('/admin/whatsapp/cleanup-cache');
+    const res = await API.post<WhatsAppWebCacheCleanupResult>('/admin/whatsapp/cleanup-cache', {});
     return res.data;
 }
 

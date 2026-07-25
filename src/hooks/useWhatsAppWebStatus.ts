@@ -11,6 +11,7 @@ export type WhatsAppStatus =
   | 'connecting'
   | 'initializing'
   | 'reconnecting'
+  | 'frozen'
   | 'unknown';
 
 export interface WhatsAppWebState {
@@ -82,7 +83,7 @@ export function useWhatsAppWebStatus() {
 
   const reconnect = useCallback(async () => {
     try {
-      await API.post('/whatsapp-web/reconnect');
+      await API.post('/whatsapp-web/reconnect', {});
       await fetchStatus();
     } catch (err: any) {
       setState((prev) => ({
