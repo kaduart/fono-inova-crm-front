@@ -389,7 +389,7 @@ export async function fetchWhatsAppWebHealth(): Promise<WhatsAppWebHealthRespons
 }
 
 export async function cleanupWhatsAppWebCache(): Promise<WhatsAppWebCacheCleanupResult> {
-    const res = await API.post<WhatsAppWebCacheCleanupResult>('/admin/whatsapp/cleanup-cache', {});
+    const res = await API.post<WhatsAppWebCacheCleanupResult>('/admin/whatsapp-queue/cleanup-cache', {});
     return res.data;
 }
 
