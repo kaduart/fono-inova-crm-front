@@ -204,6 +204,19 @@ export default function WhatsAppConnectionCard() {
         </Alert>
       )}
 
+      {!loading && (
+        <Alert severity="info" variant="outlined" icon={<HardDrive size={20} />}>
+          <Typography variant="body2" fontWeight={600}>
+            Limpeza automática de cache
+          </Typography>
+          <Typography variant="caption">
+            Sempre que o worker iniciar, se a sessão estiver acima de <strong>400 MB</strong>,
+            o sistema remove automaticamente caches temporários do Chrome (Cache, Code Cache, GPUCache,
+            Service Worker, blob_storage) preservando a autenticação.
+          </Typography>
+        </Alert>
+      )}
+
       {/* QR Code */}
       {!loading && state.qrCode && !state.ready && (
         <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>

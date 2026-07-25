@@ -155,6 +155,19 @@ export function WhatsAppDiagnostic() {
                             </div>
                         )}
 
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                            <FiHardDrive className="text-blue-600 mt-1" size={18} />
+                            <div>
+                                <h4 className="font-semibold text-blue-800">🧹 Limpeza automática</h4>
+                                <p className="text-sm text-blue-700">
+                                    No startup do worker, se a sessão ultrapassar <strong>400 MB</strong>,
+                                    o sistema limpa automaticamente caches temporários do Chrome
+                                    (Cache, Code Cache, GPUCache, Service Worker, blob_storage)
+                                    <strong> sem apagar a autenticação</strong>.
+                                </p>
+                            </div>
+                        </div>
+
                         {cacheResult && (
                             <div className={`mt-4 p-3 rounded-lg text-sm ${cacheResult.includes('Falha') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
                                 {cacheResult}
