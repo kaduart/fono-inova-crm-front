@@ -11,18 +11,18 @@ import { invalidateCache } from '../utils/cacheManager';
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
   return lazy(() => {
     let attempts = 0;
-    
+
     const tryLoad = (): Promise<any> => {
       attempts++;
-      return importFn().catch((error: any) => {
+      return importFn().catch(async (error: any) => {
         // Se for erro de chunk não encontrado (atualização de build)
-        const isChunkError = error?.name === 'TypeError' || 
+        const isChunkError = error?.name === 'TypeError' ||
                            error?.message?.includes('Failed to fetch dynamically imported module') ||
                            error?.message?.includes('load failed');
-        
+
         if (isChunkError) {
           console.warn(`[AdminDashboard] Chunk load failed (attempt ${attempts}/${retries})`);
-          
+
           // Se ainda tem tentativas, aguarda e tenta novamente
           if (attempts < retries) {
             return new Promise((resolve) => {
@@ -31,16 +31,33 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
               }, delay * attempts); // Backoff exponencial simples
             });
           }
-          
-          // Última tentativa falhou - loga erro sem reload para evitar loop
-          console.error('[AdminDashboard] Chunk failed after all retries. NOT reloading — check build output.', error);
+
+          // Última tentativa falhou: novo build foi deployado. Recarrega a página
+          // uma única vez, usando sessionStorage para evitar loop infinito.
+          console.error('[AdminDashboard] Chunk failed after all retries. Novo build detectado — recarregando...', error);
+          const alreadyReloaded = sessionStorage.getItem('chunk_reload_once');
+          if (!alreadyReloaded) {
+            sessionStorage.setItem('chunk_reload_once', '1');
+            // Tenta limpar caches do service worker antes de recarregar
+            try {
+              if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((k) => caches.delete(k)));
+                console.log('[AdminDashboard] Caches limpos para novo build.');
+              }
+            } catch (cacheErr) {
+              console.warn('[AdminDashboard] Não foi possível limpar caches:', cacheErr);
+            }
+            window.location.reload();
+            return new Promise(() => {}); // aguarda reload
+          }
           throw error;
         }
-        
+
         throw error;
       });
     };
-    
+
     return tryLoad();
   });
 };
