@@ -1,6 +1,15 @@
 // src/pages/Settings/WhatsAppDiagnostic.tsx
 import { useState } from 'react';
-import { FiAlertTriangle, FiCheckCircle, FiRefreshCw, FiTrash2, FiHardDrive, FiMessageSquare } from 'react-icons/fi';
+import {
+    FiAlertTriangle,
+    FiCheckCircle,
+    FiRefreshCw,
+    FiTrash2,
+    FiHardDrive,
+    FiMessageSquare,
+    FiInfo,
+    FiSmartphone,
+} from 'react-icons/fi';
 import API from '../../services/api';
 import { useWhatsAppWebHealth } from '../../hooks/useWhatsAppWebHealth';
 import { cleanupWhatsAppWebCache } from '../../services/whatsappService';
@@ -62,7 +71,6 @@ export function WhatsAppDiagnostic() {
         }
     };
 
-    const statusColor = health?.whatsapp?.ready ? 'bg-green-100 text-green-700' : health?.whatsapp?.authenticated ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
     const statusLabel = health?.whatsapp?.ready ? 'Conectado' : health?.whatsapp?.authenticated ? 'Autenticado' : 'Desconectado';
 
     return (
@@ -96,89 +104,82 @@ export function WhatsAppDiagnostic() {
                 {healthLoading && !health ? (
                     <div className="animate-pulse space-y-3">
                         <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[1, 2, 3, 4].map((i) => (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            {[1, 2, 3, 4, 5].map((i) => (
                                 <div key={i} className="h-20 bg-gray-100 rounded-lg"></div>
                             ))}
                         </div>
                     </div>
                 ) : health ? (
                     <>
-                        <div className="flex items-center gap-3 mb-4">
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColor}`}>
-                                {statusLabel}
-                            </span>
-                            {health.whatsapp.storageAlert && (
-                                <span className="px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700 flex items-center gap-1">
-                                    <FiAlertTriangle size={14} />
-                                    Armazenamento elevado
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className={`p-4 rounded-lg ${health.whatsapp.storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
-                                <div className="text-sm text-gray-500 flex items-center gap-1"><FiHardDrive size={14} /> Sessão</div>
-                                <div className={`text-xl font-bold ${health.whatsapp.storageAlert ? 'text-red-700' : 'text-gray-800'}`}>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                            <div className="p-4 rounded-lg bg-gray-50 text-center">
+                                <div className="text-sm text-gray-500 flex items-center justify-center gap-1">
+                                    <FiSmartphone size={14} /> Status
+                                </div>
+                                <div className={`text-lg font-bold ${health.whatsapp.ready ? 'text-green-600' : health.whatsapp.authenticated ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {statusLabel}
+                                </div>
+                            </div>
+                            <div className={`p-4 rounded-lg text-center ${health.whatsapp.storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
+                                <div className="text-sm text-gray-500 flex items-center justify-center gap-1">
+                                    <FiHardDrive size={14} /> Sessão
+                                </div>
+                                <div className={`text-lg font-bold ${health.whatsapp.storageAlert ? 'text-red-700' : 'text-gray-800'}`}>
                                     {health.whatsapp.sessionSizeMB != null ? `${health.whatsapp.sessionSizeMB.toFixed(1)} MB` : '—'}
                                 </div>
                             </div>
-                            <div className={`p-4 rounded-lg ${health.whatsapp.storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
+                            <div className={`p-4 rounded-lg text-center ${health.whatsapp.storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
                                 <div className="text-sm text-gray-500">Disco</div>
-                                <div className={`text-xl font-bold ${health.whatsapp.storageAlert ? 'text-red-700' : 'text-gray-800'}`}>
+                                <div className={`text-lg font-bold ${health.whatsapp.storageAlert ? 'text-red-700' : 'text-gray-800'}`}>
                                     {health.whatsapp.diskUsagePercent != null ? `${health.whatsapp.diskUsagePercent}%` : '—'}
                                 </div>
                             </div>
-                            <div className="p-4 rounded-lg bg-gray-50">
-                                <div className="text-sm text-gray-500 flex items-center gap-1"><FiMessageSquare size={14} /> Fila</div>
-                                <div className="text-xl font-bold text-gray-800">{health.queue?.waiting ?? '—'} aguardando</div>
+                            <div className="p-4 rounded-lg bg-gray-50 text-center">
+                                <div className="text-sm text-gray-500 flex items-center justify-center gap-1">
+                                    <FiMessageSquare size={14} /> Fila
+                                </div>
+                                <div className="text-lg font-bold text-gray-800">
+                                    {health.queue ? `${health.queue.waiting} / ${health.queue.active}` : '—'}
+                                </div>
+                                <div className="text-xs text-gray-400">waiting / active</div>
                             </div>
-                            <div className="p-4 rounded-lg bg-gray-50">
+                            <div className="p-4 rounded-lg bg-gray-50 text-center">
                                 <div className="text-sm text-gray-500">Falhas</div>
-                                <div className={`text-xl font-bold ${health.queue?.failed ? 'text-red-600' : 'text-gray-800'}`}>
+                                <div className={`text-lg font-bold ${health.queue?.failed ? 'text-red-600' : 'text-gray-800'}`}>
                                     {health.queue?.failed ?? '—'}
                                 </div>
                             </div>
                         </div>
 
                         {health.whatsapp.storageAlert && (
-                            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
-                                <FiAlertTriangle className="text-yellow-600 mt-1" size={18} />
-                                <div>
-                                    <h4 className="font-semibold text-yellow-800">⚠️ Sessão crescendo</h4>
-                                    <p className="text-sm text-yellow-700">
-                                        A sessão do WhatsApp Web está acima do limite recomendado.
-                                        Clique em <strong>Limpar cache</strong> para remover arquivos temporários.
-                                        Se o alerta persistir, será necessário fazer limpeza completa (novo QR).
-                                    </p>
+                            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
+                                <FiAlertTriangle className="text-yellow-600 mt-1 flex-shrink-0" size={18} />
+                                <div className="text-sm text-yellow-700">
+                                    <strong>Sessão elevada.</strong> Clique em <strong>Limpar cache</strong>.
+                                    Se persistir, será necessário limpar a sessão completa (novo QR).
                                 </div>
                             </div>
                         )}
 
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-                            <FiHardDrive className="text-blue-600 mt-1" size={18} />
-                            <div>
-                                <h4 className="font-semibold text-blue-800">🧹 Limpeza automática</h4>
-                                <p className="text-sm text-blue-700">
-                                    No startup do worker, se a sessão ultrapassar <strong>400 MB</strong>,
-                                    o sistema limpa automaticamente caches temporários do Chrome
-                                    (Cache, Code Cache, GPUCache, Service Worker, blob_storage)
-                                    <strong> sem apagar a autenticação</strong>.
-                                </p>
-                            </div>
-                        </div>
-
                         {cacheResult && (
-                            <div className={`mt-4 p-3 rounded-lg text-sm ${cacheResult.includes('Falha') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                            <div className={`mb-4 p-3 rounded-lg text-sm ${cacheResult.includes('Falha') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
                                 {cacheResult}
                             </div>
                         )}
 
-                        {health.whatsapp.lastReady && (
-                            <div className="mt-4 text-xs text-gray-400">
-                                Último ready: {new Date(health.whatsapp.lastReady).toLocaleString('pt-BR')}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-gray-400">
+                            <div className="flex items-center gap-1">
+                                <FiInfo size={12} />
+                                <span>
+                                    Limpeza automática no startup quando sessão &gt; <strong>400 MB</strong>.
+                                    Autenticação preservada.
+                                </span>
                             </div>
-                        )}
+                            {health.whatsapp.lastReady && (
+                                <span>Último ready: {new Date(health.whatsapp.lastReady).toLocaleString('pt-BR')}</span>
+                            )}
+                        </div>
                     </>
                 ) : (
                     <div className="text-gray-500 text-sm">Não foi possível carregar a saúde do WhatsApp.</div>

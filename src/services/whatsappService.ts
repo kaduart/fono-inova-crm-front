@@ -380,6 +380,7 @@ export async function exchangeLongLivedToken({
 export async function fetchWhatsAppWebHealth(): Promise<WhatsAppWebHealthResponse> {
     const res = await API.get<WhatsAppWebHealthResponse>('/health/whatsapp', {
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+        validateStatus: (status) => status === 200 || status === 503,
     });
     return res.data;
 }

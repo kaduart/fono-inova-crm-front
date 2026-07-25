@@ -10,6 +10,7 @@ import {
   Skeleton,
   Tooltip,
   Snackbar,
+  Collapse,
 } from '@mui/material';
 import {
   QrCode,
@@ -23,6 +24,9 @@ import {
   Signal,
   Trash2,
   HardDrive,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useWhatsAppWebStatus, WhatsAppStatus } from '../../hooks/useWhatsAppWebStatus';
 import { useWhatsAppWebHealth } from '../../hooks/useWhatsAppWebHealth';
@@ -40,18 +44,28 @@ const statusConfig: Record<WhatsAppStatus, { label: string; color: string; icon:
   unknown:       { label: 'Desconhecido',    color: '#64748b', icon: <Signal size={18} />,      severity: 'info' },
 };
 
+function mapHealthStatus(health: ReturnType<typeof useWhatsAppWebHealth>['data']): WhatsAppStatus {
+  if (!health) return 'unknown';
+  const s = health.whatsapp?.status;
+  if (health.whatsapp?.ready || s === 'ready') return 'ready';
+  if (s === 'authenticated') return 'authenticated';
+  if (s === 'qr') return 'qr';
+  if (s === 'disconnected') return 'disconnected';
+  if (s === 'error') return 'error';
+  if (s === 'connecting' || s === 'initializing' || s === 'starting') return 'connecting';
+  return 'unknown';
+}
+
 export default function WhatsAppConnectionCard() {
   const { state, loading: loadingStatus, reconnect, refresh: refreshStatus } = useWhatsAppWebStatus();
   const { data: health, loading: loadingHealth, error: healthError, refresh: refreshHealth, cleanupCache } = useWhatsAppWebHealth();
   const [cleaning, setCleaning] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
 
-  // Se o health informar ready, confiamos nele mesmo quando o status legado estiver desatualizado
-  const effectiveStatus: WhatsAppStatus =
-    state.status === 'unknown' && health?.whatsapp?.ready
-      ? 'ready'
-      : state.status;
-
+  // Health tem prioridade sobre o status legado
+  const healthStatus = mapHealthStatus(health);
+  const effectiveStatus: WhatsAppStatus = healthStatus !== 'unknown' ? healthStatus : state.status;
   const cfg = statusConfig[effectiveStatus] || statusConfig.unknown;
   const loading = loadingStatus && loadingHealth;
 
@@ -82,6 +96,9 @@ export default function WhatsAppConnectionCard() {
   const diskUsagePercent = health?.whatsapp?.diskUsagePercent;
   const storageAlert = health?.whatsapp?.storageAlert;
   const queue = health?.queue;
+
+  const hasHealthData = !!health?.whatsapp;
+  const lastReady = health?.whatsapp?.lastReady || state.lastAuthenticatedAt;
 
   return (
     <Box className="space-y-4">
@@ -153,18 +170,87 @@ export default function WhatsAppConnectionCard() {
       {loading && (
         <Card sx={{ borderRadius: 3 }}>
           <CardContent>
-            <Skeleton variant="rectangular" height={200} />
+            <Skeleton variant="rectangular" height={160} />
           </CardContent>
         </Card>
       )}
 
-      {/* Alertas */}
-      {!loading && healthError && (
-        <Alert severity="warning">
-          <Typography variant="body2">{healthError}</Typography>
+      {!loading && !hasHealthData && (
+        <Alert severity="warning" icon={<AlertTriangle size={20} />}>
+          Não foi possível carregar a saúde do WhatsApp. Verifique se o worker está no ar.
         </Alert>
       )}
 
+      {/* Métricas principais */}
+      {!loading && hasHealthData && (
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <Tooltip title="Status da conexão">
+                <Box className="rounded-lg p-3 text-center" sx={{ backgroundColor: cfg.color + '15' }}>
+                  <Typography variant="caption" className="text-gray-400 block">Status</Typography>
+                  <Typography variant="body2" fontWeight="bold" sx={{ color: cfg.color }}>
+                    {cfg.label}
+                  </Typography>
+                </Box>
+              </Tooltip>
+
+              <Tooltip title="Autenticado no WhatsApp">
+                <Box className="rounded-lg p-3 text-center bg-gray-50">
+                  <Typography variant="caption" className="text-gray-400 block">Autenticado</Typography>
+                  <Typography variant="body2" fontWeight="bold" className={health?.whatsapp?.authenticated ? 'text-green-600' : 'text-gray-700'}>
+                    {health?.whatsapp?.authenticated ? 'Sim' : 'Não'}
+                  </Typography>
+                </Box>
+              </Tooltip>
+
+              <Tooltip title="Tamanho da sessão persistente">
+                <Box className={`rounded-lg p-3 text-center ${storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
+                  <Typography variant="caption" className="text-gray-400 block">Sessão</Typography>
+                  <Typography variant="body2" fontWeight="bold" className={storageAlert ? 'text-red-700' : 'text-gray-700'}>
+                    {sessionSizeMB != null ? `${sessionSizeMB.toFixed(1)} MB` : '—'}
+                  </Typography>
+                </Box>
+              </Tooltip>
+
+              <Tooltip title="Uso do disco persistente">
+                <Box className={`rounded-lg p-3 text-center ${storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
+                  <Typography variant="caption" className="text-gray-400 block">Disco</Typography>
+                  <Typography variant="body2" fontWeight="bold" className={storageAlert ? 'text-red-700' : 'text-gray-700'}>
+                    {diskUsagePercent != null ? `${diskUsagePercent}%` : '—'}
+                  </Typography>
+                </Box>
+              </Tooltip>
+
+              <Tooltip title="Fila whatsapp-send">
+                <Box className="rounded-lg p-3 text-center bg-gray-50">
+                  <Typography variant="caption" className="text-gray-400 block">Fila</Typography>
+                  <Typography variant="body2" fontWeight="bold" className={queue && queue.failed > 0 ? 'text-red-600' : 'text-gray-700'}>
+                    {queue ? `${queue.waiting} / ${queue.failed}` : '—'}
+                  </Typography>
+                </Box>
+              </Tooltip>
+            </div>
+
+            {lastReady && (
+              <Typography variant="caption" className="text-gray-400 block mt-3 text-center">
+                Último ready: {new Date(lastReady).toLocaleString('pt-BR')}
+              </Typography>
+            )}
+
+            {/* Info discreta de limpeza automática */}
+            <Box className="mt-3 flex items-start gap-2 text-gray-400" sx={{ fontSize: '0.75rem' }}>
+              <Info size={14} className="mt-0.5 flex-shrink-0" />
+              <Typography variant="caption">
+                Limpeza automática de cache temporário roda no startup quando a sessão ultrapassa <strong>400 MB</strong>.
+                A autenticação é preservada.
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Alerta de storage */}
       {!loading && storageAlert && (
         <Alert severity="warning" icon={<AlertTriangle size={20} />}>
           <Typography variant="body2" fontWeight={600}>
@@ -173,19 +259,19 @@ export default function WhatsAppConnectionCard() {
           <Typography variant="caption">
             Sessão: {sessionSizeMB?.toFixed(1)} MB · Disco: {diskUsagePercent}%.{' '}
             Clique em <strong>Limpar cache</strong> para remover arquivos temporários. Se o alerta persistir,
-            a limpeza completa da sessão pode ser necessária (exigirá novo QR).
+            será necessário limpar a sessão completamente (novo QR).
           </Typography>
         </Alert>
       )}
 
+      {/* Alertas legados */}
       {!loading && state.qrCount > 10 && (
         <Alert severity="warning" icon={<AlertTriangle size={20} />}>
           <Typography variant="body2" fontWeight={600}>
             Possível loop de autenticação detectado
           </Typography>
           <Typography variant="caption">
-            O QR code foi regenerado {state.qrCount} vezes. Isso geralmente indica sessão corrompida ou problema de compatibilidade.
-            Tente clicar em <strong>Reconectar</strong> para limpar a sessão.
+            O QR code foi regenerado {state.qrCount} vezes. Tente <strong>Reconectar</strong> para limpar a sessão.
           </Typography>
         </Alert>
       )}
@@ -200,19 +286,6 @@ export default function WhatsAppConnectionCard() {
         <Alert severity="info" variant="outlined">
           <Typography variant="body2">
             Última desconexão: <strong>{state.lastDisconnectReason}</strong>
-          </Typography>
-        </Alert>
-      )}
-
-      {!loading && (
-        <Alert severity="info" variant="outlined" icon={<HardDrive size={20} />}>
-          <Typography variant="body2" fontWeight={600}>
-            Limpeza automática de cache
-          </Typography>
-          <Typography variant="caption">
-            Sempre que o worker iniciar, se a sessão estiver acima de <strong>400 MB</strong>,
-            o sistema remove automaticamente caches temporários do Chrome (Cache, Code Cache, GPUCache,
-            Service Worker, blob_storage) preservando a autenticação.
           </Typography>
         </Alert>
       )}
@@ -244,114 +317,56 @@ export default function WhatsAppConnectionCard() {
         </Card>
       )}
 
-      {/* Estado conectado */}
-      {!loading && health?.whatsapp?.ready && (
-        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', borderColor: '#16a34a', border: 1 }}>
-          <CardContent className="flex flex-col items-center gap-3 py-8">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 size={32} className="text-green-600" />
-            </div>
-            <Typography variant="h6" fontWeight="bold" className="text-green-700">
-              WhatsApp conectado!
-            </Typography>
-            <Typography variant="body2" className="text-gray-500 text-center">
-              O sistema está pronto para enviar e receber mensagens.
-            </Typography>
-            {health?.whatsapp?.lastReady && (
-              <Typography variant="caption" className="text-gray-400">
-                Último ready: {new Date(health.whatsapp.lastReady).toLocaleString('pt-BR')}
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Métricas de saúde + fila */}
-      {!loading && health && (
-        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-          <CardContent>
-            <Typography variant="subtitle2" fontWeight="bold" className="text-gray-700 mb-3">
-              Saúde da sessão
-            </Typography>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Tooltip title="Tamanho da sessão persistente do WhatsApp">
-                <Box className={`rounded-lg p-3 text-center ${storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
-                  <Typography variant="caption" className="text-gray-400 block">Sessão</Typography>
-                  <Typography variant="body2" fontWeight="bold" className={storageAlert ? 'text-red-700' : 'text-gray-700'}>
-                    {sessionSizeMB != null ? `${sessionSizeMB.toFixed(1)} MB` : '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Uso do disco persistente no Render">
-                <Box className={`rounded-lg p-3 text-center ${storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
-                  <Typography variant="caption" className="text-gray-400 block">Disco</Typography>
-                  <Typography variant="body2" fontWeight="bold" className={storageAlert ? 'text-red-700' : 'text-gray-700'}>
-                    {diskUsagePercent != null ? `${diskUsagePercent}%` : '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Mensagens aguardando envio">
-                <Box className="bg-gray-50 rounded-lg p-3 text-center">
-                  <Typography variant="caption" className="text-gray-400 block">Fila (waiting)</Typography>
-                  <Typography variant="body2" fontWeight="bold" className="text-gray-700">
-                    {queue?.waiting ?? '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Jobs falhos na fila whatsapp-send">
-                <Box className="bg-gray-50 rounded-lg p-3 text-center">
-                  <Typography variant="caption" className="text-gray-400 block">Falhas</Typography>
-                  <Typography variant="body2" fontWeight="bold" className={queue && queue.failed > 0 ? 'text-red-600' : 'text-gray-700'}>
-                    {queue?.failed ?? '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Métricas técnicas legadas */}
+      {/* Detalhes técnicos colapsáveis */}
       {!loading && (
         <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-          <CardContent>
-            <Typography variant="subtitle2" fontWeight="bold" className="text-gray-700 mb-3">
+          <CardContent className="p-0">
+            <Button
+              fullWidth
+              onClick={() => setShowDetails(!showDetails)}
+              endIcon={showDetails ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              sx={{ justifyContent: 'space-between', textTransform: 'none', color: '#64748b', p: 2 }}
+            >
               Detalhes técnicos
-            </Typography>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Tooltip title="Process ID do worker">
-                <Box className="bg-gray-50 rounded-lg p-3 text-center">
-                  <Typography variant="caption" className="text-gray-400 block">PID</Typography>
-                  <Typography variant="body2" fontWeight="bold" className="text-gray-700">
-                    {state.pid ?? '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Uptime do processo">
-                <Box className="bg-gray-50 rounded-lg p-3 text-center">
-                  <Typography variant="caption" className="text-gray-400 block">Uptime</Typography>
-                  <Typography variant="body2" fontWeight="bold" className="text-gray-700">
-                    {state.uptime ? `${Math.floor(state.uptime / 60)}m` : '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Contador de QR gerados">
-                <Box className="bg-gray-50 rounded-lg p-3 text-center">
-                  <Typography variant="caption" className="text-gray-400 block">QRs gerados</Typography>
-                  <Typography variant="body2" fontWeight="bold" className={state.qrCount > 10 ? 'text-red-600' : 'text-gray-700'}>
-                    {state.qrCount}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Tentativas de inicialização">
-                <Box className="bg-gray-50 rounded-lg p-3 text-center">
-                  <Typography variant="caption" className="text-gray-400 block">Init attempts</Typography>
-                  <Typography variant="body2" fontWeight="bold" className="text-gray-700">
-                    {state.initAttempts ?? '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-            </div>
+            </Button>
+            <Collapse in={showDetails}>
+              <Box className="px-4 pb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Tooltip title="Process ID do worker">
+                    <Box className="bg-gray-50 rounded-lg p-3 text-center">
+                      <Typography variant="caption" className="text-gray-400 block">PID</Typography>
+                      <Typography variant="body2" fontWeight="bold" className="text-gray-700">
+                        {state.pid ?? '—'}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                  <Tooltip title="Uptime do processo">
+                    <Box className="bg-gray-50 rounded-lg p-3 text-center">
+                      <Typography variant="caption" className="text-gray-400 block">Uptime</Typography>
+                      <Typography variant="body2" fontWeight="bold" className="text-gray-700">
+                        {state.uptime ? `${Math.floor(state.uptime / 60)}m` : '—'}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                  <Tooltip title="Contador de QR gerados">
+                    <Box className="bg-gray-50 rounded-lg p-3 text-center">
+                      <Typography variant="caption" className="text-gray-400 block">QRs gerados</Typography>
+                      <Typography variant="body2" fontWeight="bold" className={state.qrCount > 10 ? 'text-red-600' : 'text-gray-700'}>
+                        {state.qrCount}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                  <Tooltip title="Tentativas de inicialização">
+                    <Box className="bg-gray-50 rounded-lg p-3 text-center">
+                      <Typography variant="caption" className="text-gray-400 block">Init attempts</Typography>
+                      <Typography variant="body2" fontWeight="bold" className="text-gray-700">
+                        {state.initAttempts ?? '—'}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                </div>
+              </Box>
+            </Collapse>
           </CardContent>
         </Card>
       )}
