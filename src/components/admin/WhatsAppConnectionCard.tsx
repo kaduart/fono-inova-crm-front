@@ -23,7 +23,6 @@ import {
   Power,
   Signal,
   Trash2,
-  HardDrive,
   Info,
   ChevronDown,
   ChevronUp,
@@ -41,14 +40,12 @@ const statusConfig: Record<WhatsAppStatus, { label: string; color: string; icon:
   disconnected:  { label: 'Desconectado',    color: '#dc2626', icon: <XCircle size={18} />,     severity: 'error' },
   error:         { label: 'Erro',            color: '#dc2626', icon: <AlertTriangle size={18} />, severity: 'error' },
   reconnecting:  { label: 'Reconectando',    color: '#d97706', icon: <RefreshCw size={18} />,   severity: 'warning' },
-  frozen:        { label: 'Congelado',       color: '#dc2626', icon: <AlertTriangle size={18} />, severity: 'error' },
   unknown:       { label: 'Desconhecido',    color: '#64748b', icon: <Signal size={18} />,      severity: 'info' },
 };
 
 function mapHealthStatus(health: ReturnType<typeof useWhatsAppWebHealth>['data']): WhatsAppStatus {
   if (!health) return 'unknown';
   const s = health.whatsapp?.status;
-  if (health.whatsapp?.frozen || s === 'frozen') return 'frozen';
   if (health.whatsapp?.ready || s === 'ready') return 'ready';
   if (s === 'authenticated') return 'authenticated';
   if (s === 'qr') return 'qr';
@@ -94,13 +91,10 @@ export default function WhatsAppConnectionCard() {
     }
   };
 
-  const sessionSizeMB = health?.whatsapp?.sessionSizeMB;
-  const diskUsagePercent = health?.whatsapp?.diskUsagePercent;
-  const storageAlert = health?.whatsapp?.storageAlert;
   const queue = health?.queue;
 
   const hasHealthData = !!health?.whatsapp;
-  const lastReady = health?.whatsapp?.lastReady || state.lastAuthenticatedAt;
+  const lastReady = health?.whatsapp?.updatedAt || state.lastAuthenticatedAt;
 
   return (
     <Box className="space-y-4">
@@ -187,7 +181,7 @@ export default function WhatsAppConnectionCard() {
       {!loading && hasHealthData && (
         <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Tooltip title="Status da conexão">
                 <Box className="rounded-lg p-3 text-center" sx={{ backgroundColor: cfg.color + '15' }}>
                   <Typography variant="caption" className="text-gray-400 block">Status</Typography>
@@ -206,24 +200,6 @@ export default function WhatsAppConnectionCard() {
                 </Box>
               </Tooltip>
 
-              <Tooltip title="Tamanho da sessão persistente">
-                <Box className={`rounded-lg p-3 text-center ${storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
-                  <Typography variant="caption" className="text-gray-400 block">Sessão</Typography>
-                  <Typography variant="body2" fontWeight="bold" className={storageAlert ? 'text-red-700' : 'text-gray-700'}>
-                    {sessionSizeMB != null ? `${sessionSizeMB.toFixed(1)} MB` : '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-
-              <Tooltip title="Uso do disco persistente">
-                <Box className={`rounded-lg p-3 text-center ${storageAlert ? 'bg-red-50' : 'bg-gray-50'}`}>
-                  <Typography variant="caption" className="text-gray-400 block">Disco</Typography>
-                  <Typography variant="body2" fontWeight="bold" className={storageAlert ? 'text-red-700' : 'text-gray-700'}>
-                    {diskUsagePercent != null ? `${diskUsagePercent}%` : '—'}
-                  </Typography>
-                </Box>
-              </Tooltip>
-
               <Tooltip title="Fila whatsapp-send">
                 <Box className="rounded-lg p-3 text-center bg-gray-50">
                   <Typography variant="caption" className="text-gray-400 block">Fila</Typography>
@@ -236,7 +212,7 @@ export default function WhatsAppConnectionCard() {
 
             {lastReady && (
               <Typography variant="caption" className="text-gray-400 block mt-3 text-center">
-                Último ready: {new Date(lastReady).toLocaleString('pt-BR')}
+                Última atualização: {new Date(lastReady).toLocaleString('pt-BR')}
               </Typography>
             )}
 
@@ -244,26 +220,12 @@ export default function WhatsAppConnectionCard() {
             <Box className="mt-3 flex items-start gap-2 text-gray-400" sx={{ fontSize: '0.75rem' }}>
               <Info size={14} className="mt-0.5 flex-shrink-0" />
               <Typography variant="caption">
-                Limpeza automática de cache temporário roda no startup quando a sessão ultrapassa <strong>400 MB</strong>.
+                Limpeza automática de cache temporário roda no startup quando a sessão ultrapassa o threshold configurado.
                 A autenticação é preservada.
               </Typography>
             </Box>
           </CardContent>
         </Card>
-      )}
-
-      {/* Alerta de storage */}
-      {!loading && storageAlert && (
-        <Alert severity="warning" icon={<AlertTriangle size={20} />}>
-          <Typography variant="body2" fontWeight={600}>
-            ⚠️ Armazenamento da sessão elevado
-          </Typography>
-          <Typography variant="caption">
-            Sessão: {sessionSizeMB?.toFixed(1)} MB · Disco: {diskUsagePercent}%.{' '}
-            Clique em <strong>Limpar cache</strong> para remover arquivos temporários. Se o alerta persistir,
-            será necessário limpar a sessão completamente (novo QR).
-          </Typography>
-        </Alert>
       )}
 
       {/* Alertas legados */}

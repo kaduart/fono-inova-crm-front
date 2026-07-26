@@ -15,25 +15,27 @@ export interface WhatsAppResponse {
 }
 
 export interface WhatsAppWebHealthResponse {
-    status: 'healthy' | 'unhealthy' | 'error' | 'frozen';
-    source?: 'mongodb' | 'local';
+    status: string;
     whatsapp: {
         status: string;
         ready: boolean;
         authenticated: boolean;
-        frozen: boolean;
-        pageFrozenAt: string | null;
-        lastReady: string | null;
-        sessionSizeMB: number | null;
-        diskUsagePercent: number | null;
-        storageAlert: boolean;
+        qrCount: number;
+        lastAuthenticatedAt: string | null;
+        lastDisconnectReason: string | null;
+        pid: number | null;
+        uptime: number | null;
+        updatedAt: string | null;
     };
     queue: {
+        name: string;
         waiting: number;
         active: number;
         failed: number;
+        delayed: number;
     };
     timestamp: string;
+    uptime: number;
     error?: string;
 }
 
