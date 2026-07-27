@@ -262,6 +262,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     // Carrega counts de todas as abas (A Faturar, Faturados, Recebidos) antecipadamente
     const loadAllCounts = async (month?: string) => {
+        setLoadingGuides(true);
         try {
             const [pendingResponse, allResponse] = await Promise.all([
                 // A Faturar não é escopado por mês: pendência de convênio não tem "mês", só data de quando foi feita.
@@ -274,6 +275,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
+        } finally {
+            setLoadingGuides(false);
         }
     };
 
