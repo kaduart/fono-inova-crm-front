@@ -62,7 +62,8 @@ import {
     faturarConvenioLote,
     receberConvenioLote,
     getPendingBillingGuides,
-    encerrarGuia
+    encerrarGuia,
+    CompetenceBreakdown
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 import { Shield } from 'lucide-react';
@@ -110,6 +111,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [pendingGuides, setPendingGuides] = useState<PendingGuide[]>([]);
     const [orphanSessions, setOrphanSessions] = useState<Array<{ sessionId: string; date?: string | Date | null; patient?: { fullName?: string } | null; specialty?: string; sessionValue?: number; insuranceProvider?: string }>>([]);
     const [loadingGuides, setLoadingGuides] = useState(false);
+    // Quebra do total pendente entre mês corrente e competências anteriores —
+    // computada no backend (ver CompetenceBreakdown), nunca no frontend.
+    const [competenceBreakdown, setCompetenceBreakdown] = useState<CompetenceBreakdown | null>(null);
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
     const [doctors, setDoctors] = useState<any[]>([]);
@@ -272,6 +276,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             ]);
             setPendingGuides(pendingResponse.data.data || []);
             setOrphanSessions(pendingResponse.data.orphanSessions || []);
+            setCompetenceBreakdown(pendingResponse.data.competenceBreakdown || null);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
@@ -883,6 +888,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         {ms.closedCount} guia{ms.closedCount !== 1 ? 's' : ''} finalizada{ms.closedCount !== 1 ? 's' : ''}
                                     </span>
                                 )}
+                                {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
+                                    <span className="text-sm text-red-600 font-semibold" title="Sessões pendentes de faturamento de meses anteriores, dentro do mesmo total acima — guias não são duplicadas.">
+                                        {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado (antes de {competenceBreakdown.referenceMonth})
+                                    </span>
+                                )}
                             </div>
                             <ChevronDown size={16} className={`text-gray-400 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -927,6 +937,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingStateGuides.length} guia{pendingStateGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">não enviado ao convênio</p>
+                                        {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
+                                            <p className="text-xs text-red-500 mt-1">
+                                                {competenceBreakdown.current.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} de {competenceBreakdown.referenceMonth} · {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

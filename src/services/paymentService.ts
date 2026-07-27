@@ -202,8 +202,18 @@ export interface OverdueBillingSummary {
     competenceCount: number;
 }
 
+// Quebra do total pendente (guides + orphanSessions) entre o mês corrente do
+// servidor e competências anteriores. Não escopa/filtra a listagem — só
+// decompõe o mesmo total já retornado, pra evitar recomputar KPI financeiro
+// no frontend (ver CLAUDE.md).
+export interface CompetenceBreakdown {
+    referenceMonth: string;
+    current: { value: number; sessions: number };
+    previous: { value: number; sessions: number };
+}
+
 export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; month?: string; page?: number; limit?: number; includeOverdue?: boolean }) =>
-    API.get<{ success: boolean; data: any[]; orphanSessions: any[]; overdue: OverdueBillingBucket[] | null; overdueSummary: OverdueBillingSummary | null; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
+    API.get<{ success: boolean; data: any[]; orphanSessions: any[]; overdue: OverdueBillingBucket[] | null; overdueSummary: OverdueBillingSummary | null; competenceBreakdown: CompetenceBreakdown | null; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
 
 // Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>

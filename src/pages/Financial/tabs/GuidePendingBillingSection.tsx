@@ -109,6 +109,12 @@ const formatDate = (date: string | Date | null | undefined) => {
     return new Date(date).toLocaleDateString('pt-BR');
 };
 
+const formatDateTime = (date: string | Date | null | undefined) => {
+    if (!date) return '-';
+    const d = new Date(date);
+    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
 const formatProviderName = (slug: string) => {
     if (!slug || slug === 'nao_identificado' || slug === 'convenio') return 'Convênio s/ identificação';
     return slug
@@ -483,7 +489,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                                         }}>
                                                             {sidx + 1}
                                                         </Box>
-                                                        <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}</Typography>
+                                                        <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDateTime(s.date)}</Typography>
                                                         {s.doctorName && (
                                                             <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
                                                         )}
@@ -1046,7 +1052,7 @@ const GuidePendingBillingSection = ({
                                                             </TableCell>
                                                             <TableCell>
                                                                 <Typography fontSize="0.8rem" color="#6B7280">
-                                                                    {formatDate(s.date)}
+                                                                    {formatDateTime(s.date)}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell align="right">
