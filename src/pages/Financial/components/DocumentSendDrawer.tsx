@@ -204,6 +204,16 @@ export function DocumentSendDrawer({
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!communication || !e.target.files?.[0]) return;
         const file = e.target.files[0];
+
+        // PDF é bem mais leve que imagem de print/foto e evita o problema de upload
+        // lento (achado em produção 2026-07-27). O paste de print (Ctrl+V) continua
+        // aceitando imagem, porque não existe como colar print já em PDF.
+        if (file.type !== 'application/pdf') {
+            toast.warn('Envie o documento em PDF (mais leve e rápido). Use "Colar print" se só tiver a imagem.');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('patientId', communication.patientId);
@@ -391,6 +401,7 @@ export function DocumentSendDrawer({
                             </FormControl>
                             <input
                                 type="file"
+                                accept="application/pdf"
                                 ref={fileInputRef}
                                 className="hidden"
                                 onChange={handleFileUpload}

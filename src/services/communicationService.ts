@@ -170,9 +170,16 @@ export interface PaginationResponse {
 export const getPatientDocuments = (patientId: string, type?: string) =>
     api.get<{ success: boolean; data: PatientDocument[]; pagination: PaginationResponse }>(`/v2/patient-documents/patient/${patientId}`, { params: { type } });
 
+// Timeout dedicado (bem acima do padrão global de 15s da instância `api`): uploads
+// de documentos de convênio costumam ter alguns MB e, em upload mais lento, passavam
+// dos 15s e o axios abortava a conexão no meio do multipart (Request aborted no
+// multer) — achado em produção em 2026-07-27.
+const DOCUMENT_UPLOAD_TIMEOUT_MS = 60000;
+
 export const uploadPatientDocument = (formData: FormData) =>
     api.post<{ success: boolean; data: PatientDocument }>('/v2/patient-documents', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: DOCUMENT_UPLOAD_TIMEOUT_MS
     });
 
 export const pastePatientDocument = (data: {
@@ -181,7 +188,9 @@ export const pastePatientDocument = (data: {
     name?: string;
     base64Image: string;
     mimeType?: string;
-}) => api.post<{ success: boolean; data: PatientDocument }>('/v2/patient-documents/paste', data);
+}) => api.post<{ success: boolean; data: PatientDocument }>('/v2/patient-documents/paste', data, {
+    timeout: DOCUMENT_UPLOAD_TIMEOUT_MS
+});
 
 export const getCommunicationJobStatus = (id: string, jobId: string) =>
     api.get<{ success: boolean; data: { jobId: string; state: string; attemptsMade: number; failedReason: string | null; updatedAt: string } }>(`/v2/communications/${id}/job/${jobId}/status`);

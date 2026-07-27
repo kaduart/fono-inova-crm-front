@@ -187,6 +187,16 @@ export function BillingCommunicationWizard({
         if (!group || !e.target.files?.[0]) return;
 
         const file = e.target.files[0];
+
+        // PDF é bem mais leve que imagem de print/foto e evita o problema de upload
+        // lento (achado em produção 2026-07-27). O paste de print (Ctrl+V) continua
+        // aceitando imagem, porque não existe como colar print já em PDF.
+        if (file.type !== 'application/pdf') {
+            toast.warn('Envie o documento em PDF (mais leve e rápido). Use "Colar print" se só tiver a imagem.');
+            e.target.value = '';
+            return;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('patientId', patientKey);
@@ -292,7 +302,10 @@ export function BillingCommunicationWizard({
                                 reject(new Error(statusRes.data.data.failedReason || 'Falha no envio'));
                             } else if (attempts >= maxAttempts) {
                                 clearInterval(interval);
-                                resolve();
+                                // Timeout de polling NUNCA pode virar sucesso — o job pode estar
+                                // travado (ex.: fila sem worker consumindo) e isso precisa aparecer
+                                // como falha visível, não como "Enviado" (achado em produção 2026-07-27).
+                                reject(new Error('Envio ainda em processamento após 30s — verifique o histórico antes de tentar novamente'));
                             }
                         } catch (pollError) {
                             clearInterval(interval);
@@ -608,6 +621,7 @@ export function BillingCommunicationWizard({
                                                     <>
                                                         <input
                                                             type="file"
+                                                            accept="application/pdf"
                                                             id={`file-${group.patientKey}-${slot.type}`}
                                                             className="hidden"
                                                             onChange={(e) => handleFileUpload(e, group.patientKey, slot.type)}
