@@ -42,6 +42,10 @@ import { toast } from 'react-toastify';
 export interface PendingGuideSession {
     sessionId: string;
     date?: string | Date | null;
+    // Horário real do atendimento (Appointment.time, "HH:mm") — Session.date
+    // carrega só o dia de forma confiável; a hora embutida nele não bate com
+    // a lista de presença assinada (achado 2026-07-27, guia 16145509).
+    time?: string | null;
     specialty?: string | null;
     value?: number;
     doctorName?: string | null;
@@ -82,6 +86,7 @@ interface OrphanSession {
     paymentId?: string;
     sessionId?: string;
     date?: string | Date | null;
+    time?: string | null;
     patient?: { fullName?: string } | null;
     specialty?: string;
     sessionValue?: number;
@@ -107,12 +112,6 @@ const formatCurrency = (v: number | undefined) =>
 const formatDate = (date: string | Date | null | undefined) => {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('pt-BR');
-};
-
-const formatDateTime = (date: string | Date | null | undefined) => {
-    if (!date) return '-';
-    const d = new Date(date);
-    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
 const formatProviderName = (slug: string) => {
@@ -466,6 +465,18 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                     )}
                                 </Box>
 
+                                {/* A lista abaixo mostra só sessões PENDENTES (guide.sessions) — as já
+                                    faturadas em ciclos anteriores não entram aí, de propósito, pra não
+                                    reaparecer num lote novo. Essa linha existe só pra deixar visível que
+                                    a guia tem mais sessões do que a lista de pendentes mostra, sem precisar
+                                    ir atrás do lote antigo pra confirmar. */}
+                                {!!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: '#94A3B8', fontSize: '0.7rem', fontStyle: 'italic' }}>
+                                        + {guide.alreadyBilledSessions} sessõe{guide.alreadyBilledSessions !== 1 ? 's' : ''} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
+                                        {guide.lastBatchSentAt ? ` em ${formatDate(guide.lastBatchSentAt)}` : ''} (não aparece{guide.alreadyBilledSessions !== 1 ? 'm' : ''} na lista abaixo)
+                                    </Box>
+                                )}
+
                                 {/* Sessões individuais */}
                                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                                     <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
@@ -489,7 +500,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                                         }}>
                                                             {sidx + 1}
                                                         </Box>
-                                                        <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDateTime(s.date)}</Typography>
+                                                        <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}{s.time ? ` ${s.time}` : ''}</Typography>
                                                         {s.doctorName && (
                                                             <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
                                                         )}
@@ -1052,7 +1063,7 @@ const GuidePendingBillingSection = ({
                                                             </TableCell>
                                                             <TableCell>
                                                                 <Typography fontSize="0.8rem" color="#6B7280">
-                                                                    {formatDateTime(s.date)}
+                                                                    {formatDate(s.date)}{s.time ? ` ${s.time}` : ''}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell align="right">
