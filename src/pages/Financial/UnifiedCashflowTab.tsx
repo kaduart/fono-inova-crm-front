@@ -1293,11 +1293,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
                                   {user?.role === 'admin' && (
-                                      <div className="w-12 shrink-0 flex items-center justify-end gap-0.5">
+                                      <div className="w-20 shrink-0 flex items-center justify-end gap-0.5">
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEditPayment(t); }}
                                               title="Editar pagamento"
-                                              className="p-1 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                              className="p-0.5 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
                                           >
                                               <Pencil size={12} />
                                           </button>
@@ -1305,7 +1305,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                               <button
                                                   onClick={(e) => { e.stopPropagation(); handleRegisterDebit(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
                                                   title="Marcar como débito/fiado"
-                                                  className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                                  className="p-0.5 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
                                               >
                                                   <Banknote size={12} />
                                               </button>
@@ -1313,14 +1313,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEmitFiscalPayment(t); }}
                                               title="Emitir NFSe"
-                                              className="p-1 rounded text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                              className="p-0.5 rounded text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                                           >
                                               <Receipt size={12} />
                                           </button>
                                           <button
                                               onClick={(e) => { e.stopPropagation(); handleDeletePayment(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
                                               title="Excluir pagamento"
-                                              className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                              className="p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                                           >
                                               <Trash2 size={12} />
                                           </button>
@@ -1393,7 +1393,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
-                                  {user?.role === 'admin' && <div className="w-12 shrink-0" />}
+                                  {user?.role === 'admin' && <div className="w-20 shrink-0" />}
                               </div>
                           );
                         };
@@ -1450,7 +1450,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
-                                  {user?.role === 'admin' && <div className="w-12 shrink-0" />}
+                                  {user?.role === 'admin' && <div className="w-20 shrink-0" />}
                               </button>
                           );
                         };
@@ -1490,7 +1490,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
                                     <span className="text-[11px] text-gray-400 w-32 text-center shrink-0">Situação</span>
                                     <span className="text-[11px] text-gray-400 w-20 text-right shrink-0">Valor</span>
-                                    {user?.role === 'admin' && <span className="w-12 shrink-0" />}
+                                    {user?.role === 'admin' && <span className="w-20 shrink-0" />}
                                 </div>
                                 <div className="space-y-2.5">
                                     {txFiltradas.length === 0 ? (
