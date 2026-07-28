@@ -380,7 +380,10 @@ const FinancialDashboard = ({
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [cashflowRange, setCashflowRange] = useState<{ startDate: string; endDate: string; label: string } | undefined>(undefined);
     const [cashflowViewMode, setCashflowViewMode] = useState<'day' | 'month'>('day');
+    const [cashflowLoading, setCashflowLoading] = useState(false);
     const theme = useTheme();
+
+    const [activePeriodKey, setActivePeriodKey] = useState<string | null>(null);
 
     // 🚀 Prefetch all tab chunks on mount so tab switching feels instant
     useEffect(() => {
@@ -439,10 +442,15 @@ const FinancialDashboard = ({
                                 { key: 'last_week', label: 'Semana Passada' },
                                 { key: 'month', label: 'Este Mês' },
                                 { key: 'last_month', label: 'Mês Passado' },
-                            ].map((chip) => (
+                            ].map((chip) => {
+                                const isActive = activePeriodKey === chip.key;
+                                const isLoading = cashflowLoading && isActive;
+                                return (
                                 <button
                                     key={chip.key}
+                                    disabled={cashflowLoading}
                                     onClick={() => {
+                                        setActivePeriodKey(chip.key);
                                         const now = new Date();
                                         const toISODate = (d: Date) => d.toLocaleDateString('en-CA');
                                         if (chip.key === 'day') {
@@ -486,13 +494,27 @@ const FinancialDashboard = ({
                                             setSelectedYear(lm.getFullYear());
                                         }
                                     }}
-                                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all inline-flex items-center gap-1.5 ${
+                                        cashflowLoading
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
                                 >
-                                    {chip.label}
+                                    {isLoading && (
+                                        <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                                    )}
+                                    <span className={isLoading ? 'opacity-70' : ''}>{chip.label}</span>
                                 </button>
-                            ))}
+                                );
+                            })}
                     </div>
-                    <UnifiedCashflowTab month={selectedMonth} year={selectedYear} dateRange={cashflowRange} defaultViewMode={cashflowViewMode} />
+                    <UnifiedCashflowTab
+                        month={selectedMonth}
+                        year={selectedYear}
+                        dateRange={cashflowRange}
+                        defaultViewMode={cashflowViewMode}
+                        onLoadingChange={setCashflowLoading}
+                    />
                     </>
                 );
             case 'pagamentos':

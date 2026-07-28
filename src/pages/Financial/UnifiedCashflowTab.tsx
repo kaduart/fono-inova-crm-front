@@ -29,7 +29,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Pencil, Trash2, Receipt } from 'lucide-react';
+import { Pencil, Trash2, Receipt, Banknote } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
@@ -97,6 +97,7 @@ interface UnifiedCashflowTabProps {
     year: number;
     dateRange?: DateRange;
     defaultViewMode?: 'day' | 'month';
+    onLoadingChange?: (loading: boolean) => void;
 }
 
 // 🩹 Recria o status financeiro legado a partir dos dados atuais do agendamento
@@ -129,7 +130,7 @@ const resolveStatusFinanceiro = (a: any): string => {
     return 'Pendente';
 };
 
-const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: UnifiedCashflowTabProps) => {
+const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoadingChange }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
 
     const [monthData, setMonthData] = useState<DayData[]>([]);
@@ -177,6 +178,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             loadDayData();
         } catch (err: any) {
             toast.error(err?.response?.data?.error || 'Erro ao remover pagamento');
+        }
+    };
+
+    const handleRegisterDebit = async (paymentId: string, label: string) => {
+        if (!window.confirm(`Marcar ${label} como débito/fiado?\n\nO valor será retirado do caixa do dia e adicionado ao saldo devedor do paciente.`)) return;
+        try {
+            await API.patch(`/v2/payments/${paymentId}/register-debit`);
+            toast.success('Registrado como débito');
+            setGroupDetailItems(null);
+            loadDayData();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || 'Erro ao registrar débito');
         }
     };
 
@@ -262,7 +275,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
     useEffect(() => { setTxPage(0); }, [txMetodoFilter, txTipoFilter, txMultiFilter, txPerPage, selectedDate]);
 
     const loadDayData = async (guard = { active: true }) => {
-        if (!dailyCashflow) setLoading(true); // skeleton apenas no primeiro carregamento
+        if (!dailyCashflow) setLoading(true);
+        onLoadingChange?.(true);
         try {
             let res;
             if (dateRange && !manualDateOverride) {
@@ -277,11 +291,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             console.error('Erro ao carregar dados do dia:', error);
         } finally {
             if (guard.active) setLoading(false);
+            onLoadingChange?.(false);
         }
     };
 
     const loadMonthData = async () => {
         setLoading(true);
+        onLoadingChange?.(true);
         try {
             const monthStr = `${year}-${String(month).padStart(2, '0')}`;
             const res = await cashflowService.getMonthlyCashflow(monthStr);
@@ -291,6 +307,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
             console.error('Erro ao carregar dados do mês:', error);
         } finally {
             setLoading(false);
+            onLoadingChange?.(false);
         }
     };
 
@@ -1284,6 +1301,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode }: Unified
                                           >
                                               <Pencil size={12} />
                                           </button>
+                                          {t.tipo === 'Particular' && !t.isPackageSale && (situacao === 'Pago na Sessão' || situacao === 'Pago Parcial') && (
+                                              <button
+                                                  onClick={(e) => { e.stopPropagation(); handleRegisterDebit(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
+                                                  title="Marcar como débito/fiado"
+                                                  className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                              >
+                                                  <Banknote size={12} />
+                                              </button>
+                                          )}
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEmitFiscalPayment(t); }}
                                               title="Emitir NFSe"
