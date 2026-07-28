@@ -10,6 +10,7 @@ import {
   receivePayment,
   type FinancialSummary,
 } from '../../services/financialSummaryService';
+import { toast } from 'react-toastify';
 import API from '../../services/api';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { ModalSpinner } from '../ui/LoadingSpinner';
@@ -178,8 +179,9 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setQuickPaymentId(null);
       await fetchData();
       onRefresh?.();
-    } catch (error: any) {
-      alert(extractErrorMessage(error, 'Erro ao registrar pagamento'));
+      toast.success('Pagamento registrado com sucesso');
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento'));
     } finally {
       setIsSubmitting(false);
     }
@@ -188,11 +190,11 @@ export const PatientBalanceModal: React.FC<Props> = ({
   const handleBulkPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPayments.size === 0) {
-      alert('Selecione pelo menos um pagamento');
+      toast.error('Selecione pelo menos um pagamento');
       return;
     }
     if (selectedTotal <= 0) {
-      alert('Valor deve ser maior que zero');
+      toast.error('Valor deve ser maior que zero');
       return;
     }
     setIsSubmitting(true);
@@ -201,16 +203,18 @@ export const PatientBalanceModal: React.FC<Props> = ({
         paymentIds: Array.from(selectedPayments),
         paymentMethod: confirmMethod,
         totalAmount: selectedTotal,
-      });
+      }, { timeout: 60000 });
       if (!res.data?.success) {
         throw new Error(res.data?.error || 'Erro ao quitar pagamentos');
       }
+      const settledCount = res.data?.data?.settledCount || selectedPayments.size;
       setConfirmMode(null);
       setSelectedPayments(new Set());
       await fetchData();
       onRefresh?.();
-    } catch (error: any) {
-      alert(extractErrorMessage(error, 'Erro ao registrar pagamento em lote'));
+      toast.success(`${settledCount} pagamento(s) quitado(s) com sucesso`);
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento em lote'));
     } finally {
       setIsSubmitting(false);
     }
@@ -219,7 +223,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
   const handleCreatePending = async (e: React.FormEvent) => {
     e.preventDefault();
     if (addAmount <= 0) {
-      alert('Valor deve ser maior que zero');
+      toast.error('Valor deve ser maior que zero');
       return;
     }
     setIsSubmitting(true);
@@ -235,8 +239,9 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setActiveTab('pending');
       await fetchData();
       onRefresh?.();
-    } catch (error: any) {
-      alert(extractErrorMessage(error, 'Erro ao criar pagamento pendente'));
+      toast.success('Débito pendente registrado com sucesso');
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, 'Erro ao criar pagamento pendente'));
     } finally {
       setIsSubmitting(false);
     }
@@ -246,7 +251,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
     e.preventDefault();
     const amount = parseFloat(receiveAmount.replace(',', '.'));
     if (isNaN(amount) || amount <= 0) {
-      alert('Valor deve ser maior que zero');
+      toast.error('Valor deve ser maior que zero');
       return;
     }
     setIsSubmitting(true);
@@ -265,8 +270,9 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setReceiveAmount('');
       await fetchData();
       onRefresh?.();
-    } catch (error: any) {
-      alert(extractErrorMessage(error, 'Erro ao registrar recebimento'));
+      toast.success('Recebimento registrado com sucesso');
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, 'Erro ao registrar recebimento'));
     } finally {
       setIsSubmitting(false);
     }
