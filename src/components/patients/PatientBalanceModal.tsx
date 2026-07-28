@@ -50,6 +50,9 @@ const mapToPaymentItem = (p: any): PaymentItem => ({
   specialty: p.specialty || null,
 });
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -78,6 +81,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
   const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
   const [confirmMode, setConfirmMode] = useState<ConfirmMode | null>(null);
   const [confirmMethod, setConfirmMethod] = useState('dinheiro');
+  const [splitMethods, setSplitMethods] = useState<{ method: string; amount: number }[]>([]);
   const [quickPaymentId, setQuickPaymentId] = useState<string | null>(null);
 
   const [addAmount, setAddAmount] = useState(0);
@@ -197,19 +201,32 @@ export const PatientBalanceModal: React.FC<Props> = ({
       toast.error('Valor deve ser maior que zero');
       return;
     }
+    const useSplit = splitMethods && splitMethods.length > 0;
+    if (useSplit) {
+      const splitTotal = splitMethods.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+      if (Math.abs(splitTotal - selectedTotal) > 0.01) {
+        toast.error(`Total do split (${formatCurrency(splitTotal)}) não corresponde ao valor dos débitos (${formatCurrency(selectedTotal)})`);
+        return;
+      }
+    }
     setIsSubmitting(true);
     try {
-      const res = await API.post('/v2/payments/bulk-settle', {
+      const payload: any = {
         paymentIds: Array.from(selectedPayments),
         paymentMethod: confirmMethod,
         totalAmount: selectedTotal,
-      }, { timeout: 60000 });
+      };
+      if (useSplit) {
+        payload.splitMethods = splitMethods.map(s => ({ method: s.method, amount: Number(s.amount) }));
+      }
+      const res = await API.post('/v2/payments/bulk-settle', payload, { timeout: 60000 });
       if (!res.data?.success) {
         throw new Error(res.data?.error || 'Erro ao quitar pagamentos');
       }
       const settledCount = res.data?.data?.settledCount || selectedPayments.size;
       setConfirmMode(null);
       setSelectedPayments(new Set());
+      setSplitMethods([]);
       await fetchData();
       onRefresh?.();
       toast.success(`${settledCount} pagamento(s) quitado(s) com sucesso`);
@@ -292,6 +309,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
   const closeConfirm = () => {
     setConfirmMode(null);
     setQuickPaymentId(null);
+    setSplitMethods([]);
   };
 
   if (!isOpen) return null;
@@ -445,8 +463,10 @@ export const PatientBalanceModal: React.FC<Props> = ({
           items={confirmItems}
           totalAmount={confirmTotal}
           paymentMethod={confirmMethod}
+          splitMethods={splitMethods}
           isSubmitting={isSubmitting}
           onMethodChange={setConfirmMethod}
+          onSplitMethodsChange={setSplitMethods}
           onConfirm={confirmMode === 'quick' ? handleQuickPayment : handleBulkPayment}
           onCancel={closeConfirm}
         />
