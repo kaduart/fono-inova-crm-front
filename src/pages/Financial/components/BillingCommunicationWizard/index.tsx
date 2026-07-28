@@ -235,6 +235,100 @@ export function BillingCommunicationWizard({
         }));
     };
 
+    // Envia (ou reenvia) um único grupo. Se o grupo já tem communicationId (retry de uma
+    // falha anterior), reaproveita a comunicação e o pacote já criados — só dispara o
+    // envio de novo, sem recriar tudo do zero nem exigir que o usuário digite os dados
+    // de novo (achado em produção 2026-07-28: reabrir o wizard perdia nome/anexos/NF).
+    const sendGroup = async (group: PatientGroup) => {
+        const documentIds = group.slots.map(s => s.documentId).filter(Boolean) as string[];
+
+        setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? { ...g, sending: true, sendStatus: 'sending', sendError: null } : g));
+
+        try {
+            let communicationId = group.communicationId;
+
+            if (!communicationId) {
+                const createRes = await createCommunication({
+                    patientId: group.patientKey,
+                    insuranceProvider: group.insuranceProvider,
+                    guideId: group.guideIds[0],
+                    purpose: 'billing',
+                    notes: `Envio de faturamento para ${group.patientName}`,
+                    invoiceNumber: invoiceNumber || undefined,
+                    invoiceDate: invoiceDate || undefined
+                });
+                communicationId = createRes.data.data._id;
+                await setCommunicationPackage(communicationId, documentIds);
+            }
+
+            const sendRes = await sendCommunication(communicationId, {
+                to: to.trim(),
+                subject: subject.trim() || 'Documentação para Faturamento',
+                message: message.trim()
+            });
+
+            const jobId = sendRes.data.data.jobId;
+
+            await new Promise<void>((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 30;
+                const elapsedLimitMs = 30000;
+                const startedAt = Date.now();
+
+                const poll = async () => {
+                    attempts++;
+                    try {
+                        const statusRes = await getCommunicationJobStatus(communicationId!, jobId);
+                        const state = statusRes.data.data.state;
+
+                        if (state === 'completed') {
+                            resolve();
+                            return;
+                        }
+                        if (state === 'failed') {
+                            reject(new Error(statusRes.data.data.failedReason || 'Falha no envio'));
+                            return;
+                        }
+                        if (attempts >= maxAttempts || Date.now() - startedAt >= elapsedLimitMs) {
+                            // Timeout de polling NUNCA pode virar sucesso — o job pode estar
+                            // travado (ex.: fila sem worker consumindo) e isso precisa aparecer
+                            // como falha visível, não como "Enviado" (achado em produção 2026-07-27).
+                            reject(new Error('Envio ainda em processamento após 30s — verifique o histórico antes de tentar novamente'));
+                            return;
+                        }
+
+                        // Job ainda na fila: consulta a cada 1s. Já em processamento (worker pegou
+                        // o job): consulta a cada 500ms — fecha o modal mais rápido assim que
+                        // completar, sem aumentar muito a carga de polling.
+                        const nextDelay = state === 'active' ? 500 : 1000;
+                        setTimeout(poll, nextDelay);
+                    } catch (pollError) {
+                        reject(pollError);
+                    }
+                };
+
+                setTimeout(poll, 1000);
+            });
+
+            setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? {
+                ...g,
+                sending: false,
+                sendStatus: 'sent',
+                sendError: null,
+                communicationId
+            } : g));
+            setSentCount(prev => prev + 1);
+        } catch (err) {
+            setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? {
+                ...g,
+                sending: false,
+                sendStatus: 'failed',
+                sendError: extractErrorMessage(err, 'Erro ao enviar')
+            } : g));
+            setFailedCount(prev => prev + 1);
+        }
+    };
+
     const handleSendAll = async () => {
         if (!to.trim()) {
             toast.warn('Informe o e-mail do destinatário');
@@ -260,79 +354,21 @@ export function BillingCommunicationWizard({
         for (const group of groups) {
             const documentIds = group.slots.map(s => s.documentId).filter(Boolean) as string[];
             if (group.sendStatus !== 'idle' || documentIds.length === 0) continue;
-
-            setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? { ...g, sending: true, sendStatus: 'sending' } : g));
-
-            try {
-                const createRes = await createCommunication({
-                    patientId: group.patientKey,
-                    insuranceProvider: group.insuranceProvider,
-                    guideId: group.guideIds[0],
-                    purpose: 'billing',
-                    notes: `Envio de faturamento para ${group.patientName}`,
-                    invoiceNumber: invoiceNumber || undefined,
-                    invoiceDate: invoiceDate || undefined
-                });
-
-                const communicationId = createRes.data.data._id;
-                await setCommunicationPackage(communicationId, documentIds);
-
-                const sendRes = await sendCommunication(communicationId, {
-                    to: to.trim(),
-                    subject: subject.trim() || 'Documentação para Faturamento',
-                    message: message.trim()
-                });
-
-                const jobId = sendRes.data.data.jobId;
-
-                await new Promise<void>((resolve, reject) => {
-                    let attempts = 0;
-                    const maxAttempts = 30;
-                    const interval = setInterval(async () => {
-                        attempts++;
-                        try {
-                            const statusRes = await getCommunicationJobStatus(communicationId, jobId);
-                            const state = statusRes.data.data.state;
-
-                            if (state === 'completed') {
-                                clearInterval(interval);
-                                resolve();
-                            } else if (state === 'failed') {
-                                clearInterval(interval);
-                                reject(new Error(statusRes.data.data.failedReason || 'Falha no envio'));
-                            } else if (attempts >= maxAttempts) {
-                                clearInterval(interval);
-                                // Timeout de polling NUNCA pode virar sucesso — o job pode estar
-                                // travado (ex.: fila sem worker consumindo) e isso precisa aparecer
-                                // como falha visível, não como "Enviado" (achado em produção 2026-07-27).
-                                reject(new Error('Envio ainda em processamento após 30s — verifique o histórico antes de tentar novamente'));
-                            }
-                        } catch (pollError) {
-                            clearInterval(interval);
-                            reject(pollError);
-                        }
-                    }, 1000);
-                });
-
-                setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? {
-                    ...g,
-                    sending: false,
-                    sendStatus: 'sent',
-                    sendError: null,
-                    communicationId
-                } : g));
-                setSentCount(prev => prev + 1);
-            } catch (err) {
-                setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? {
-                    ...g,
-                    sending: false,
-                    sendStatus: 'failed',
-                    sendError: extractErrorMessage(err, 'Erro ao enviar')
-                } : g));
-                setFailedCount(prev => prev + 1);
-            }
+            await sendGroup(group);
         }
 
+        setOverallSending(false);
+    };
+
+    // Tenta de novo só o grupo que falhou, sem fechar o wizard nem pedir pra redigitar
+    // nada — reaproveita o communicationId/pacote já criados na tentativa anterior.
+    const handleRetry = async (patientKey: string) => {
+        const group = groups.find(g => g.patientKey === patientKey);
+        if (!group || overallSending) return;
+
+        setOverallSending(true);
+        setFailedCount(prev => Math.max(0, prev - 1));
+        await sendGroup(group);
         setOverallSending(false);
     };
 
@@ -559,8 +595,16 @@ export function BillingCommunicationWizard({
                             </Box>
 
                             {group.sendError && (
-                                <Box sx={{ bgcolor: '#FEF2F2', border: '1px solid #FECACA', p: 1.5, borderRadius: 2, mb: 2 }}>
+                                <Box sx={{ bgcolor: '#FEF2F2', border: '1px solid #FECACA', p: 1.5, borderRadius: 2, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                                     <Typography color="error" fontSize="0.85rem">{group.sendError}</Typography>
+                                    <Button
+                                        size="small"
+                                        onClick={() => handleRetry(group.patientKey)}
+                                        disabled={overallSending}
+                                        sx={{ textTransform: 'none', fontWeight: 600, flexShrink: 0 }}
+                                    >
+                                        Tentar novamente
+                                    </Button>
                                 </Box>
                             )}
 
