@@ -32,6 +32,8 @@ export interface PaymentItem {
   packageId?: string | null;
   packageName?: string | null;
   specialty?: string | null;
+  paymentMethod?: string | null;
+  splitMethods?: { method: string; amount: number; date?: string }[] | null;
 }
 
 const mapToPaymentItem = (p: any): PaymentItem => ({
@@ -48,6 +50,8 @@ const mapToPaymentItem = (p: any): PaymentItem => ({
   packageId: p.packageId || null,
   packageName: p.packageName || null,
   specialty: p.specialty || null,
+  paymentMethod: p.paymentMethod || null,
+  splitMethods: p.splitMethods || null,
 });
 
 const formatCurrency = (value: number) =>

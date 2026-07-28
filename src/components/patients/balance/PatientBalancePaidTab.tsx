@@ -8,6 +8,47 @@ interface Props {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+const translateMethod = (method?: string | null): string => {
+  if (!method) return '';
+  const map: Record<string, string> = {
+    pix: 'PIX',
+    dinheiro: 'Dinheiro',
+    credit_card: 'Cartão Crédito',
+    debit_card: 'Cartão Débito',
+    bank_transfer: 'Transferência',
+    cartão: 'Cartão',
+    transferencia: 'Transferência',
+    cash: 'Dinheiro',
+    other: 'Outro',
+    outro: 'Outro',
+  };
+  return map[method] || method;
+};
+
+const PaymentMethodBadge = ({ payment }: { payment: PaymentItem }) => {
+  if (payment.splitMethods && payment.splitMethods.length >= 2) {
+    return (
+      <div className="text-xs text-green-700 dark:text-green-300 mt-1">
+        <span className="font-semibold">Split:</span>{' '}
+        {payment.splitMethods.map((s, i) => (
+          <span key={i}>
+            {translateMethod(s.method)} {formatCurrency(s.amount)}
+            {i < payment.splitMethods!.length - 1 ? ' + ' : ''}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (payment.paymentMethod) {
+    return (
+      <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+        💳 {translateMethod(payment.paymentMethod)}
+      </p>
+    );
+  }
+  return null;
+};
+
 const formatSessionDate = (dateString?: string): string => {
   if (!dateString) return '';
   return new Date(dateString).toLocaleDateString('pt-BR', {
@@ -69,6 +110,7 @@ export const PatientBalancePaidTab: React.FC<Props> = ({ payments }) => {
                         Quitado em: {formatDateTime(payment.paidAt)}
                       </p>
                     )}
+                    <PaymentMethodBadge payment={payment} />
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">

@@ -24,6 +24,7 @@ export interface PendingPayment {
   amount: number;
   status: string;
   createdAt: string;
+  paidAt?: string;
   appointment: {
     id: string;
     date: string;
@@ -34,6 +35,8 @@ export interface PendingPayment {
   packageId?: string | null;
   packageName?: string | null;
   specialty?: string | null;
+  paymentMethod?: string | null;
+  splitMethods?: { method: string; amount: number; date?: string }[] | null;
 }
 
 export async function getPatientFinancialSummary(patientId: string, packageId?: string): Promise<FinancialSummary> {
