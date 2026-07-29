@@ -19,6 +19,7 @@ const EMPTY_PATIENT: IPatient = {
     phone: '',
     email: '',
     cpf: '',
+    cnpj: '',
     rg: '',
     specialties: [],
     mainComplaint: '',

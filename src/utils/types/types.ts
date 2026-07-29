@@ -454,10 +454,12 @@ export interface IPatient {
         city: string;
         state: string;
         zipCode: string;
+        municipioIBGE?: string;
     };
     phone: string;
     email: string;
     cpf: string;
+    cnpj?: string;
     rg: string;
     packages: string[];
     specialties: string[];

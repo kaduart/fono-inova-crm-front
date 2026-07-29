@@ -18,7 +18,7 @@ import {
   DialogActions,
   IconButton
 } from '@mui/material';
-import { Save, Upload, CheckCircle, AlertCircle, Link2, RefreshCw, Building2, FileText, Shield, Settings, X } from 'lucide-react';
+import { Save, Upload, CheckCircle, AlertCircle, Link2, RefreshCw, Building2, FileText, Shield, Settings, X, Pencil, MapPin } from 'lucide-react';
 import { fiscalService } from '../../services/fiscalService';
 import { toast } from 'react-toastify';
 
@@ -37,6 +37,29 @@ const AMBIENTE_OPTIONS = [
 // certificados na lista, caso existam vários.
 const shortId = (id: string) => (id ? `••••${id.slice(-6)}` : '');
 
+const formatCnpj = (value?: string) => {
+  const d = (value || '').replace(/\D/g, '');
+  if (d.length !== 14) return value || '-';
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+};
+
+const formatCep = (value?: string) => {
+  const d = (value || '').replace(/\D/g, '');
+  if (d.length !== 8) return value || '-';
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+};
+
+const REGIME_LABELS: Record<string, string> = {
+  SIMPLES_NACIONAL: 'Simples Nacional',
+  LUCRO_PRESUMIDO: 'Lucro Presumido',
+  LUCRO_REAL: 'Lucro Real'
+};
+
+const AMBIENTE_LABELS: Record<string, string> = {
+  producao_restrita: 'Homologação',
+  producao: 'Produção'
+};
+
 export function FiscalConfiguration() {
   // ============================================================
   // TODOS OS HOOKS E ESTADOS PERMANECEM EXATAMENTE IGUAIS
@@ -44,33 +67,53 @@ export function FiscalConfiguration() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
-  const [cnpj] = useState('12345678000199');
+  const [cnpj] = useState('60359243000142');
   const [certificates, setCertificates] = useState<any[]>([]);
   const [certModalOpen, setCertModalOpen] = useState(false);
+  // Perfil completo entra em modo de visualização (resumo) por padrão; formulário só aparece
+  // ao editar ou quando ainda não existe perfil salvo — evita a tela ficar "do mesmo jeito"
+  // depois de salvar, sem feedback visual de que funcionou.
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const [form, setForm] = useState({
     razaoSocial: '',
     cnpj: '',
     inscricaoMunicipal: '',
     municipioIBGE: '5201108',
-    cnae: '8650-0/03',
+    cnae: '8650-0/06',
     codigoServicoLC116: '040803',
-    regimeTributario: 'LUCRO_PRESUMIDO',
-    ambiente: 'producao_restrita'
+    regimeTributario: 'SIMPLES_NACIONAL',
+    ambiente: 'producao_restrita',
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cep: ''
   });
 
   const [certificate, setCertificate] = useState({
     type: 'A1',
     password: '',
-    passwordReference: '',
-    storageKey: '',
-    expiresAt: '',
-    status: 'active'
+    status: 'active',
+    file: null as File | null
   });
 
-  // ============================================================
-  // TODAS AS FUNÇÕES PERMANECEM EXATAMENTE IGUAIS
-  // ============================================================
+  const profileToForm = (data: any) => ({
+    razaoSocial: data.razaoSocial || '',
+    cnpj: data.cnpj || '',
+    inscricaoMunicipal: data.inscricaoMunicipal || '',
+    municipioIBGE: data.municipioIBGE || '5201108',
+    cnae: data.cnae || '8650-0/06',
+    codigoServicoLC116: data.codigoServicoLC116 || '040803',
+    regimeTributario: data.regimeTributario || 'SIMPLES_NACIONAL',
+    ambiente: data.ambiente || 'producao_restrita',
+    logradouro: data.endereco?.logradouro || '',
+    numero: data.endereco?.numero || '',
+    complemento: data.endereco?.complemento || '',
+    bairro: data.endereco?.bairro || '',
+    cep: data.endereco?.cep || ''
+  });
+
   const load = async () => {
     setLoading(true);
     try {
@@ -80,16 +123,7 @@ export function FiscalConfiguration() {
       ]);
       if (profileResponse.success && profileResponse.data) {
         setProfile(profileResponse.data);
-        setForm({
-          razaoSocial: profileResponse.data.razaoSocial || '',
-          cnpj: profileResponse.data.cnpj || '',
-          inscricaoMunicipal: profileResponse.data.inscricaoMunicipal || '',
-          municipioIBGE: profileResponse.data.municipioIBGE || '5201108',
-          cnae: profileResponse.data.cnae || '8650-0/03',
-          codigoServicoLC116: profileResponse.data.codigoServicoLC116 || '040803',
-          regimeTributario: profileResponse.data.regimeTributario || 'LUCRO_PRESUMIDO',
-          ambiente: profileResponse.data.ambiente || 'producao_restrita'
-        });
+        setForm(profileToForm(profileResponse.data));
       }
       if (certificatesResponse.success && Array.isArray(certificatesResponse.data)) {
         setCertificates(certificatesResponse.data);
@@ -101,6 +135,11 @@ export function FiscalConfiguration() {
     }
   };
 
+  const handleCancelEdit = () => {
+    if (profile) setForm(profileToForm(profile));
+    setEditingProfile(false);
+  };
+
   useEffect(() => {
     load();
   }, []);
@@ -108,12 +147,15 @@ export function FiscalConfiguration() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
+      const { logradouro, numero, complemento, bairro, cep, ...rest } = form;
       const response = await fiscalService.upsertProfile({
-        ...form,
-        cnpj: form.cnpj || cnpj
+        ...rest,
+        cnpj: form.cnpj || cnpj,
+        endereco: { logradouro, numero, complemento, bairro, cep }
       });
       if (response.success) {
         setProfile(response.data);
+        setEditingProfile(false); // feedback visual: sai do formulário, mostra o resumo salvo
         toast.success('Perfil fiscal salvo');
       }
     } catch (err: any) {
@@ -124,22 +166,25 @@ export function FiscalConfiguration() {
   };
 
   const handleSaveCertificate = async () => {
-    if (!certificate.password || !certificate.expiresAt) {
-      toast.error('Preencha senha e validade do certificado');
+    if (!certificate.file || !certificate.password) {
+      toast.error('Selecione o arquivo (.pfx/.p12) e a senha do certificado');
       return;
     }
     try {
+      // Validade não é mais digitada — o backend abre o certificado de verdade e extrai a data
+      // real (evita cadastro manual incorreto). Se a senha estiver errada, o erro aparece aqui.
       const certificateResponse = await fiscalService.createCertificate({
+        file: certificate.file,
         type: certificate.type,
-        passwordReference: `secret-manager://certificates/${form.cnpj || cnpj}`,
-        storageKey: `certificates/${form.cnpj || cnpj}`,
-        expiresAt: new Date(certificate.expiresAt).toISOString(),
+        password: certificate.password,
         status: certificate.status
       });
 
+      const { logradouro, numero, complemento, bairro, cep, ...rest } = form;
       const profileResponse = await fiscalService.upsertProfile({
-        ...form,
+        ...rest,
         cnpj: form.cnpj || cnpj,
+        endereco: { logradouro, numero, complemento, bairro, cep },
         certificateRef: certificateResponse.data._id
       });
 
@@ -148,8 +193,27 @@ export function FiscalConfiguration() {
       }
 
       await load();
-      toast.success('Certificado salvo e vinculado ao perfil fiscal');
-      setCertificate((prev) => ({ ...prev, password: '' }));
+
+      // Conferência visual: o CNPJ detectado no certificado bate com o CNPJ do perfil fiscal?
+      const subjectInfo = certificateResponse.data.subjectInfo;
+      const profileCnpjDigits = (form.cnpj || cnpj).replace(/\D/g, '');
+      if (subjectInfo?.detectedCnpj && subjectInfo.detectedCnpj !== profileCnpjDigits) {
+        toast.warning(
+          `Atenção: o certificado foi emitido para "${subjectInfo.commonName}" (CNPJ ${formatCnpj(subjectInfo.detectedCnpj)}), diferente do CNPJ do perfil fiscal (${formatCnpj(profileCnpjDigits)}). Confirme se é o certificado certo.`,
+          { autoClose: 12000 }
+        );
+      } else if (subjectInfo?.commonName) {
+        toast.success(`Certificado salvo e vinculado — titular: ${subjectInfo.commonName}`);
+      } else {
+        toast.success('Certificado salvo e vinculado ao perfil fiscal');
+      }
+
+      // Avisos que não bloquearam o cadastro (ex: vencimento próximo, Key Usage ausente).
+      const warnings: string[] = certificateResponse.data.warnings || [];
+      warnings.forEach((w) => toast.warning(w, { autoClose: 12000 }));
+
+      // Senha e arquivo nunca ficam em memória depois do envio — foram criptografados no servidor.
+      setCertificate((prev) => ({ ...prev, password: '', file: null }));
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Erro ao salvar certificado');
     }
@@ -172,6 +236,9 @@ export function FiscalConfiguration() {
   };
 
   const isProfileComplete = profile && profile.cnpj && profile.municipioIBGE && profile.regimeTributario;
+  // Sem perfil ainda, ou editando de propósito: mostra o formulário. Perfil completo e "quieto":
+  // mostra o resumo (evita a tela ficar idêntica depois de salvar, sem feedback visual).
+  const showProfileForm = editingProfile || !isProfileComplete;
   const isCertificateLinked = !!profile?.certificateRef;
   const linkedCertificate = certificates.find((c) => c._id === profile?.certificateRef);
 
@@ -241,6 +308,60 @@ export function FiscalConfiguration() {
           </div>
         </div>
 
+        {!showProfileForm ? (
+          <div className="p-6">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar sx={{ bgcolor: '#10B981', width: 40, height: 40 }}>
+                    <CheckCircle className="w-5 h-5 text-white" />
+                  </Avatar>
+                  <div className="min-w-0">
+                    <Typography variant="subtitle1" fontWeight="700" className="text-gray-800 truncate">
+                      {profile.razaoSocial}
+                    </Typography>
+                    <Typography variant="caption" className="text-gray-500 font-mono">
+                      {formatCnpj(profile.cnpj)}
+                    </Typography>
+                  </div>
+                </div>
+                <Chip label="Completo" size="small" color="success" className="shrink-0" />
+              </div>
+
+              {profile.endereco?.logradouro && (
+                <div className="flex items-start gap-2 text-sm text-gray-600 pl-1">
+                  <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" />
+                  <span>
+                    {profile.endereco.logradouro}, {profile.endereco.numero}
+                    {profile.endereco.complemento ? ` - ${profile.endereco.complemento}` : ''}
+                    {profile.endereco.bairro ? `, ${profile.endereco.bairro}` : ''}
+                    {profile.endereco.cep ? ` — CEP ${formatCep(profile.endereco.cep)}` : ''}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Chip label={REGIME_LABELS[profile.regimeTributario] || profile.regimeTributario} size="small" variant="outlined" />
+                <Chip label={AMBIENTE_LABELS[profile.ambiente] || profile.ambiente} size="small" variant="outlined" />
+                {profile.inscricaoMunicipal && <Chip label={`IM ${profile.inscricaoMunicipal}`} size="small" variant="outlined" />}
+                {profile.cnae && <Chip label={`CNAE ${profile.cnae}`} size="small" variant="outlined" />}
+              </div>
+
+              <Typography variant="caption" className="text-gray-400 block pt-1">
+                Atualizado em {formatDate(profile.updatedAt)}
+              </Typography>
+
+              <Button
+                variant="outlined"
+                startIcon={<Pencil size={16} />}
+                onClick={() => setEditingProfile(true)}
+                className="mt-1 normal-case border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl"
+              >
+                Editar Perfil Fiscal
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="p-6 space-y-6">
           {/* Grupo 1: Identificação */}
           <div>
@@ -286,6 +407,57 @@ export function FiscalConfiguration() {
 
           <Divider />
 
+          {/* Grupo 1.5: Endereço — Anexo I confirma como obrigatório para o prestador */}
+          <div>
+            <Typography variant="overline" className="text-indigo-600 font-semibold tracking-wider text-xs">
+              Endereço
+            </Typography>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              <TextField
+                label="Logradouro"
+                fullWidth
+                value={form.logradouro}
+                onChange={(e) => setForm({ ...form, logradouro: e.target.value })}
+                placeholder="Avenida Minas Gerais"
+                size="small"
+              />
+              <TextField
+                label="Número"
+                fullWidth
+                value={form.numero}
+                onChange={(e) => setForm({ ...form, numero: e.target.value })}
+                placeholder="405"
+                size="small"
+              />
+              <TextField
+                label="Complemento"
+                fullWidth
+                value={form.complemento}
+                onChange={(e) => setForm({ ...form, complemento: e.target.value })}
+                placeholder="Sala 2 (opcional)"
+                size="small"
+              />
+              <TextField
+                label="Bairro"
+                fullWidth
+                value={form.bairro}
+                onChange={(e) => setForm({ ...form, bairro: e.target.value })}
+                placeholder="Jundiaí"
+                size="small"
+              />
+              <TextField
+                label="CEP"
+                fullWidth
+                value={form.cep}
+                onChange={(e) => setForm({ ...form, cep: e.target.value })}
+                placeholder="75110-770"
+                size="small"
+              />
+            </div>
+          </div>
+
+          <Divider />
+
           {/* Grupo 2: Configuração tributária */}
           <div>
             <Typography variant="overline" className="text-indigo-600 font-semibold tracking-wider text-xs">
@@ -297,7 +469,7 @@ export function FiscalConfiguration() {
                 fullWidth
                 value={form.cnae}
                 onChange={(e) => setForm({ ...form, cnae: e.target.value })}
-                placeholder="8650-0/03"
+                placeholder="8650-0/06"
                 size="small"
               />
               <TextField
@@ -336,17 +508,30 @@ export function FiscalConfiguration() {
             </div>
           </div>
 
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={18} className="text-white" /> : <Save size={18} />}
-            onClick={handleSaveProfile}
-            disabled={saving}
-            fullWidth
-            className="bg-indigo-600 hover:bg-indigo-700 normal-case py-3 rounded-xl shadow-sm"
-          >
-            Salvar Perfil Fiscal
-          </Button>
+          <div className="flex gap-3">
+            {profile && (
+              <Button
+                variant="outlined"
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="normal-case py-3 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              startIcon={saving ? <CircularProgress size={18} className="text-white" /> : <Save size={18} />}
+              onClick={handleSaveProfile}
+              disabled={saving}
+              fullWidth
+              className="bg-indigo-600 hover:bg-indigo-700 normal-case py-3 rounded-xl shadow-sm"
+            >
+              Salvar Perfil Fiscal
+            </Button>
+          </div>
         </div>
+        )}
       </div>
 
       {/* ── Seção: Certificado digital — resumo compacto, gestão fica no modal ── */}
@@ -405,7 +590,7 @@ export function FiscalConfiguration() {
       <Dialog
         open={certModalOpen}
         onClose={() => setCertModalOpen(false)}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
         PaperProps={{ className: 'rounded-2xl' }}
       >
@@ -493,7 +678,26 @@ export function FiscalConfiguration() {
                 ? 'Só preencha se for substituir o certificado que a clínica usa hoje.'
                 : 'Importe o certificado A1 da clínica para liberar a emissão de NFSe.'}
             </Typography>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white pl-3 pr-1.5 h-10">
+                <FileText size={16} className="text-gray-400 shrink-0" />
+                <span className={`flex-1 text-sm truncate ${certificate.file ? 'text-gray-800' : 'text-gray-400'}`}>
+                  {certificate.file ? certificate.file.name : 'Nenhum arquivo selecionado (.pfx ou .p12)'}
+                </span>
+                <Button
+                  component="label"
+                  size="small"
+                  className="normal-case text-xs text-indigo-600 shrink-0 px-2 min-w-0"
+                >
+                  Procurar
+                  <input
+                    type="file"
+                    accept=".pfx,.p12"
+                    hidden
+                    onChange={(e) => setCertificate({ ...certificate, file: e.target.files?.[0] || null })}
+                  />
+                </Button>
+              </div>
               <TextField
                 label="Senha do Certificado"
                 type="password"
@@ -503,17 +707,10 @@ export function FiscalConfiguration() {
                 size="small"
                 className="bg-white"
               />
-              <TextField
-                label="Validade"
-                type="date"
-                fullWidth
-                value={certificate.expiresAt}
-                onChange={(e) => setCertificate({ ...certificate, expiresAt: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-                className="bg-white"
-              />
             </div>
+            <Typography variant="caption" className="text-gray-400 block mt-2">
+              O arquivo e a senha são criptografados (AES-256) antes de salvar — nunca ficam em texto puro.
+            </Typography>
             <Button
               variant="contained"
               startIcon={<Upload size={18} />}

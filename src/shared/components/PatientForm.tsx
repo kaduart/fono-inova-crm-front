@@ -124,7 +124,15 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
           {renderField('Certidão Nascimento', <Input {...register('birthCertificate')} placeholder="Digite o número da certidão" />, errors.birthCertificate?.message)}
           {renderField('Telefone', <Input {...register('phone')} placeholder="(00) 00000-0000" />, errors.phone?.message)}
           {renderField('E-mail', <Input type="email" {...register('email')} placeholder="exemplo@email.com" />, errors.email?.message)}
+          {renderField(
+            'CNPJ (tomador PJ, opcional)',
+            <Input {...register('cnpj')} placeholder="00.000.000/0000-00" />,
+            (errors as any).cnpj?.message
+          )}
         </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Preencha o CNPJ apenas se a nota fiscal desse paciente deve sair no nome de um convênio/empresa, em vez do CPF.
+        </p>
       </Section>
 
       {/* Endereço */}

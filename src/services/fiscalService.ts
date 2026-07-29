@@ -26,6 +26,13 @@ export interface FiscalProfilePayload {
   regimeTributario?: 'SIMPLES_NACIONAL' | 'LUCRO_PRESUMIDO' | 'LUCRO_REAL';
   ambiente?: 'producao' | 'producao_restrita';
   certificateRef?: string;
+  endereco?: {
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cep?: string;
+  };
 }
 
 export interface FiscalProfileResponse {
@@ -41,13 +48,12 @@ export interface FiscalInvoiceResponse {
   };
 }
 
-export interface CertificatePayload {
+export interface CertificateUploadPayload {
+  file: File;
   type: string;
-  passwordReference: string;
-  expiresAt: string;
+  password: string;
   issuer?: string;
   thumbprint?: string;
-  storageKey?: string;
   status?: string;
 }
 
@@ -62,8 +68,17 @@ export const fiscalService = {
     return data;
   },
 
-  async createCertificate(payload: CertificatePayload): Promise<any> {
-    const { data } = await API.post('/v2/fiscal/certificates', payload);
+  async createCertificate(payload: CertificateUploadPayload): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', payload.file);
+    formData.append('type', payload.type);
+    formData.append('password', payload.password);
+    if (payload.issuer) formData.append('issuer', payload.issuer);
+    if (payload.thumbprint) formData.append('thumbprint', payload.thumbprint);
+    if (payload.status) formData.append('status', payload.status);
+    // Não define Content-Type manualmente — o interceptor global de api.ts já detecta FormData
+    // e deixa o navegador definir o multipart/form-data com o boundary correto (ver o "FIX" lá).
+    const { data } = await API.post('/v2/fiscal/certificates', formData);
     return data;
   },
 
