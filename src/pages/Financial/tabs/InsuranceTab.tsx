@@ -512,11 +512,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const selectAllFromPatient = (patient: any) => {
         const newSelected = new Set(selectedPayments);
         patient.payments.forEach((p: any) => {
-            if (subTab === 2 && p.status === 'pending_billing') {
+            if (subTab === 2 && p.status === 'billed') {
                 newSelected.add(p.paymentId);
-            } else if (subTab === 3 && p.status === 'billed') {
-                newSelected.add(p.paymentId);
-            } else if (subTab === 4 && ['received', 'partial', 'glosa'].includes(p.status)) {
+            } else if (subTab === 3 && ['received', 'partial', 'glosa'].includes(p.status)) {
                 newSelected.add(p.paymentId);
             }
         });
@@ -540,9 +538,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         receivables.forEach(group => {
             (group.patients || []).forEach((patient: any) => {
                 (patient.payments || []).forEach((p: any) => {
-                    if (subTab === 2 && p.status === 'pending_billing') newSelected.add(p.paymentId);
-                    else if (subTab === 3 && p.status === 'billed') newSelected.add(p.paymentId);
-                    else if (subTab === 4 && ['received', 'partial', 'glosa'].includes(p.status)) newSelected.add(p.paymentId);
+                    if (subTab === 2 && p.status === 'billed') newSelected.add(p.paymentId);
+                    else if (subTab === 3 && ['received', 'partial', 'glosa'].includes(p.status)) newSelected.add(p.paymentId);
                 });
             });
         });
@@ -656,7 +653,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     }
 
                     // Oferece finalização manual explícita das guias faturadas (nunca automático)
-                    const guides = (data.guides || []).filter((g: any) => g.guideId);
+                    // Só guias per_month têm período de faturamento a encerrar.
+                    const guides = (data.guides || []).filter((g: any) => g.guideId && (g.billingMode === 'per_month' || !g.billingMode));
                     if (guides.length > 0) {
                         setFaturarLoteModalOpen(false);
                         setPostFaturamentoCloseModal({ open: true, guides });
@@ -717,6 +715,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedCloseGuides(new Set());
         loadReceivables(selectedMonthYear);
         setPostFaturamentoCloseLoading(false);
+    };
+
+    const handleCloseGuideFromReceivables = (guides: Array<{ guideId: string; guideNumber?: string | null }>) => {
+        if (!guides || guides.length === 0) return;
+        setPostFaturamentoCloseModal({
+            open: true,
+            guides: guides.map(g => ({ guideId: g.guideId, number: g.guideNumber || g.guideId, sessionsCount: 0 }))
+        });
+        setSelectedCloseGuides(new Set(guides.map(g => g.guideId)));
     };
 
     const handleOpenReceberLoteModal = () => {
@@ -1099,7 +1106,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             Faturar Guias Selecionadas
                                         </Button>
                                     )}
-                                    {subTab === 3 && (
+                                    {subTab === 2 && (
                                         <Button
                                             variant="contained"
                                             size="small"
@@ -1262,6 +1269,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                         onSelectAllFromPatient={selectAllFromPatient}
                                                         onDeselectAllFromPatient={deselectAllFromPatient}
                                                         subTab={subTab}
+                                                        onCloseGuide={handleCloseGuideFromReceivables}
                                                     />
                                                 ))}
                                             </div>
@@ -1485,13 +1493,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         <Avatar sx={{ bgcolor: '#7C3AED', width: 32, height: 32 }}>
                             <Shield className="w-4 h-4 text-white" />
                         </Avatar>
-                        <Typography variant="h6">Faturamento realizado com sucesso</Typography>
+                        <Typography variant="h6">Finalizar guia</Typography>
                     </Box>
                 </DialogTitle>
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            O lote foi criado e as sessões concluídas foram faturadas. Se não houver mais atendimentos previstos nesta guia, você pode finalizá-la agora.
+                            Se não houver mais atendimentos previstos nesta guia, você pode encerrá-la agora. Sessões pendentes futuras serão canceladas.
                         </Typography>
 
                         <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#FEF3C7', border: '1px solid #F59E0B' }}>

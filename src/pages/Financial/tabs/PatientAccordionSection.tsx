@@ -21,7 +21,7 @@ import {
     TableRow,
     Paper
 } from '@mui/material';
-import { User, Calendar, ChevronRight, ChevronDown, ChevronUp, Send, Check } from 'lucide-react';
+import { User, Calendar, ChevronRight, ChevronDown, ChevronUp, Send, Check, Lock } from 'lucide-react';
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 
 // 🆕 UX helpers (também definidos em InsuranceTab.tsx)
@@ -63,7 +63,11 @@ interface Payment {
     billedAt?: string | null;
     authorizationCode?: string;
     specialty?: string;
-    guideNumber?: string;
+    guideNumber?: string | null;
+    guideId?: string | null;
+    billingMode?: 'per_month' | 'per_guide' | null;
+    guideStatus?: string | null;
+    guideClosedAt?: string | Date | null;
 }
 
 interface Patient {
@@ -87,6 +91,7 @@ interface PatientAccordionSectionProps {
     onSelectAllFromPatient?: (patient: Patient) => void;
     onDeselectAllFromPatient?: (patient: Patient) => void;
     subTab?: number;
+    onCloseGuide?: (guides: Array<{ guideId: string; guideNumber?: string | null }>) => void;
 }
 
 // Função para formatar data (YYYY-MM-DD ou ISO) para DD/MM/YYYY
@@ -111,6 +116,7 @@ interface MonthlyPaymentTableProps {
     onMarkAsBilled: (payment: Payment) => void;
     onReceive: (payment: Payment) => void;
     getStatusChip: (status: string) => React.ReactNode;
+    subTab?: number;
 }
 
 function fmtMonthShort(monthKey: string) {
@@ -119,7 +125,7 @@ function fmtMonthShort(monthKey: string) {
     return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
 }
 
-function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment, onMarkAsBilled, onReceive, getStatusChip }: MonthlyPaymentTableProps) {
+function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment, onMarkAsBilled, onReceive, getStatusChip, subTab }: MonthlyPaymentTableProps) {
     const [expanded, setExpanded] = useState<Set<string>>(new Set(monthlyGroups.map(([key]) => key)));
 
     const toggle = (key: string) => {
@@ -281,7 +287,8 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
     onTogglePayment,
     onSelectAllFromPatient,
     onDeselectAllFromPatient,
-    subTab = 0
+    subTab = 0,
+    onCloseGuide
 }) => {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('');
@@ -319,13 +326,70 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
         return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
     }, [groupedBySpecialty, activeTab]);
 
+    // Guias encerráveis deste paciente (para ação de fechar guia na aba Faturados)
+    // ⚠️ Só guias per_month têm período de faturamento a encerrar. Guias per_guide
+    // são encerradas automaticamente ao esgotar as sessões (status exhausted).
+    const closeableGuides = useMemo(() => {
+        const seen = new Set<string>();
+        const guides: Array<{ guideId: string; guideNumber?: string | null }> = [];
+        patient.payments.forEach(p => {
+            if (!p.guideId || seen.has(p.guideId)) return;
+            if (p.billingMode !== 'per_month') return;
+            if (p.guideStatus === 'cancelled') return;
+            if (p.guideClosedAt) return;
+            seen.add(p.guideId);
+            guides.push({ guideId: p.guideId, guideNumber: p.guideNumber });
+        });
+        return guides;
+    }, [patient.payments]);
+
+    // Guias já encerradas/esgotadas (indicador visual para o comercial)
+    const closedGuides = useMemo(() => {
+        const seen = new Set<string>();
+        const guides: Array<{ guideId: string; guideNumber?: string | null }> = [];
+        patient.payments.forEach(p => {
+            if (!p.guideId || seen.has(p.guideId)) return;
+            if (p.guideStatus === 'cancelled') return;
+            const isClosed = p.guideClosedAt || p.guideStatus === 'exhausted' || p.guideStatus === 'closed';
+            if (!isClosed) return;
+            seen.add(p.guideId);
+            guides.push({ guideId: p.guideId, guideNumber: p.guideNumber });
+        });
+        return guides;
+    }, [patient.payments]);
+
     const openDrawer = () => setDrawerOpen(true);
     const closeDrawer = () => setDrawerOpen(false);
+
+    // 🆕 Guias únicas deste paciente para exibir no cabeçalho
+    const patientGuides = useMemo(() => {
+        const seen = new Set<string>();
+        const guides: string[] = [];
+        patient.payments.forEach(p => {
+            const gn = p.guideNumber;
+            if (gn && gn !== 'N/A' && !seen.has(gn)) {
+                seen.add(gn);
+                guides.push(gn);
+            }
+        });
+        return guides;
+    }, [patient.payments]);
+
+    const guidesLabel = patientGuides.length === 0
+        ? null
+        : patientGuides.length === 1
+            ? `Guia: ${patientGuides[0]}`
+            : `Guias: ${patientGuides.slice(0, 2).join(', ')}${patientGuides.length > 2 ? ` +${patientGuides.length - 2}` : ''}`;
 
     const subtitle = (
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
             <span className="text-xs text-gray-500">{patient.payments?.length || 0} atendimento(s)</span>
             <span className="text-xs text-blue-600 font-semibold">{specialties.length} especialidade(s)</span>
+            {guidesLabel && (
+                <span className="text-xs text-amber-700 font-medium" title={patientGuides.join(', ')}>
+                    {guidesLabel}
+                </span>
+            )}
             <span className="text-xs font-bold text-gray-800">
                 R$ {(patient.total || 0).toLocaleString('pt-BR')}
             </span>
@@ -381,6 +445,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                             {patient.payments?.length || 0} atendimento(s) • {specialties.length} especialidade(s)
+                            {guidesLabel && ` • ${guidesLabel}`}
                         </Typography>
                     </Box>
                 </Box>
@@ -390,6 +455,33 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                         label={`R$ ${(patient.total || 0).toLocaleString('pt-BR')}`}
                         sx={{ bgcolor: '#10B98120', color: '#10B981', fontWeight: 'bold' }}
                     />
+                    {subTab === 2 && closeableGuides.length > 0 && onCloseGuide && (
+                        <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); onCloseGuide(closeableGuides); }}
+                            sx={{ color: '#94A3B8', '&:hover': { color: '#B45309', bgcolor: '#FEF3C7' } }}
+                            title={closeableGuides.length === 1
+                                ? `Finalizar guia ${closeableGuides[0].guideNumber || closeableGuides[0].guideId} (cancela agendamentos pendentes)`
+                                : `Finalizar ${closeableGuides.length} guias (cancela agendamentos pendentes)`}
+                        >
+                            <Lock size={16} />
+                        </IconButton>
+                    )}
+                    {subTab === 2 && closeableGuides.length === 0 && closedGuides.length > 0 && (
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                color: '#9CA3AF',
+                                cursor: 'default'
+                            }}
+                            title={closedGuides.length === 1
+                                ? `Guia ${closedGuides[0].guideNumber || closedGuides[0].guideId} esgotada/encerrada`
+                                : `${closedGuides.length} guias esgotadas/encerradas`}
+                        >
+                            <Lock size={16} />
+                        </Box>
+                    )}
                     <ChevronRight size={20} className="text-gray-400" />
                 </Box>
             </Box>
@@ -455,6 +547,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                                 onMarkAsBilled={onMarkAsBilled}
                                 onReceive={onReceive}
                                 getStatusChip={getStatusChip}
+                                subTab={subTab}
                             />
                         )}
                     </Box>

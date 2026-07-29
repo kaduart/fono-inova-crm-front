@@ -100,6 +100,11 @@ export interface InsuranceReceivableGroup {
             status: string;
             paymentDate: string;
             authorizationCode?: string;
+            guideId?: string | null;
+            guideNumber?: string | null;
+            billingMode?: 'per_month' | 'per_guide' | null;
+            guideStatus?: string | null;
+            guideClosedAt?: string | Date | null;
         }>;
     }>;
 }
