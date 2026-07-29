@@ -1291,9 +1291,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   <div className="w-32 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
-                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
+                                  <div className="w-28 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
                                   {user?.role === 'admin' && (
-                                      <div className="w-24 shrink-0 flex items-center justify-end gap-1 flex-nowrap">
+                                      <div className="w-32 shrink-0 flex items-center justify-end gap-2 flex-nowrap">
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEditPayment(t); }}
                                               title="Editar pagamento"
@@ -1392,8 +1392,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   <div className="w-32 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
-                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
-                                  {user?.role === 'admin' && <div className="w-20 shrink-0" />}
+                                  <div className="w-28 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
+                                  {user?.role === 'admin' && <div className="w-32 shrink-0" />}
                               </div>
                           );
                         };
@@ -1449,8 +1449,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   <div className="w-32 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${situacaoCls}`}>{situacao}</span>
                                   </div>
-                                  <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
-                                  {user?.role === 'admin' && <div className="w-20 shrink-0" />}
+                                  <div className="w-28 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(totalGrupo)}</div>
+                                  {user?.role === 'admin' && <div className="w-32 shrink-0" />}
                               </button>
                           );
                         };
@@ -1489,8 +1489,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Método</span>
                                     <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
                                     <span className="text-[11px] text-gray-400 w-32 text-center shrink-0">Situação</span>
-                                    <span className="text-[11px] text-gray-400 w-20 text-right shrink-0">Valor</span>
-                                    {user?.role === 'admin' && <span className="w-20 shrink-0" />}
+                                    <span className="text-[11px] text-gray-400 w-28 text-right shrink-0">Valor</span>
+                                    {user?.role === 'admin' && <span className="w-32 shrink-0" />}
                                 </div>
                                 <div className="space-y-2.5">
                                     {txFiltradas.length === 0 ? (

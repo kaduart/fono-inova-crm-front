@@ -433,7 +433,7 @@ const FinancialDashboard = ({
             case 'caixa-unificado':
                 return (
                     <>
-                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
                             <span className="text-xs font-medium text-gray-600">Período:</span>
                             {[
                                 { key: 'day', label: 'Hoje' },
