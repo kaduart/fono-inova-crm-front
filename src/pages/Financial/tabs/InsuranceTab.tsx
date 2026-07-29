@@ -490,12 +490,21 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const countByStatus = (status: string) => {
-        // Usar allReceivables para as contagens das abas
-        return allReceivables.reduce((sum, group) =>
-            sum + (group.patients || []).reduce((pSum, patient) =>
-                pSum + (patient.payments || []).filter((p: any) => p.status === status && paymentMatchesMonth()).length, 0
-            ), 0
-        );
+        // Contador por GUIA: número de guias distintas com ao menos um payment no status.
+        // Payments sem guia (legado/sessão avulsa) são contados individualmente.
+        const guideIds = new Set<string>();
+        let orphanCount = 0;
+        allReceivables.forEach(group => {
+            (group.patients || []).forEach(patient => {
+                (patient.payments || []).forEach((p: any) => {
+                    if (p.status === status && paymentMatchesMonth()) {
+                        if (p.guideId) guideIds.add(p.guideId);
+                        else orphanCount += 1;
+                    }
+                });
+            });
+        });
+        return guideIds.size + orphanCount;
     };
 
     // Funções para seleção em lote
