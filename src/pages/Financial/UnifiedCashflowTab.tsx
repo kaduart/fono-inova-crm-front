@@ -1293,36 +1293,36 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   </div>
                                   <div className="w-20 shrink-0 text-right font-bold text-emerald-600 text-sm">{formatCurrency(t.valor)}</div>
                                   {user?.role === 'admin' && (
-                                      <div className="w-20 shrink-0 flex items-center justify-end gap-0.5">
+                                      <div className="w-24 shrink-0 flex items-center justify-end gap-1 flex-nowrap">
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEditPayment(t); }}
                                               title="Editar pagamento"
-                                              className="p-0.5 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                              className="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors shrink-0"
                                           >
-                                              <Pencil size={12} />
+                                              <Pencil size={14} />
                                           </button>
                                           {t.tipo === 'Particular' && !t.isPackageSale && (situacao === 'Pago na Sessão' || situacao === 'Pago Parcial') && (
                                               <button
                                                   onClick={(e) => { e.stopPropagation(); handleRegisterDebit(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
                                                   title="Marcar como débito/fiado"
-                                                  className="p-0.5 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                                  className="p-1 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors shrink-0"
                                               >
-                                                  <Banknote size={12} />
+                                                  <Banknote size={14} />
                                               </button>
                                           )}
                                           <button
                                               onClick={(e) => { e.stopPropagation(); setEmitFiscalPayment(t); }}
                                               title="Emitir NFSe"
-                                              className="p-0.5 rounded text-gray-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                              className="p-1 rounded text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0"
                                           >
-                                              <Receipt size={12} />
+                                              <Receipt size={14} />
                                           </button>
                                           <button
                                               onClick={(e) => { e.stopPropagation(); handleDeletePayment(t.id?.toString(), `${formatCurrency(t.valor)} — ${t.paciente}`); }}
                                               title="Excluir pagamento"
-                                              className="p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                              className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
                                           >
-                                              <Trash2 size={12} />
+                                              <Trash2 size={14} />
                                           </button>
                                       </div>
                                   )}
