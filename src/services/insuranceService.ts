@@ -77,18 +77,6 @@ export interface UpdateConvenioData {
     taxId?: string;
 }
 
-export interface InsuranceBatch {
-    _id: string;
-    batchNumber: string;
-    insuranceProvider: string;
-    status: string;
-    totalSessions: number;
-    totalGross: number;
-    totalNet: number;
-    receivedAmount: number;
-    createdAt: string;
-}
-
 // ============================================
 // CONVÊNIOS - CRUD
 // ============================================
@@ -135,87 +123,14 @@ export const importConvenios = async (convenios: CreateConvenioData[]): Promise<
 };
 
 // ============================================
-// LOTES E FATURAMENTO
-// ============================================
-
-export const getInsuranceBatches = async (params?: { status?: string; month?: string }): Promise<InsuranceBatch[]> => {
-    const response = await api.get('/insurance/batches', { params });
-    return response.data.data;
-};
-
-export const getInsuranceBatch = async (id: string): Promise<InsuranceBatch> => {
-    const response = await api.get(`/insurance/batches/${id}`);
-    return response.data.data;
-};
-
-export const createInsuranceBatch = async (data: {
-    insuranceProvider: string;
-    startDate: string;
-    endDate: string;
-    items: any[];
-}): Promise<{ batchId: string; batchNumber: string }> => {
-    const response = await api.post('/insurance/batches', data);
-    return response.data.data;
-};
-
-export const sealBatch = async (id: string): Promise<void> => {
-    await api.post(`/insurance/batches/${id}/seal`);
-};
-
-export const reprocessBatch = async (id: string, data?: { itemIds?: string[]; reason?: string }): Promise<void> => {
-    await api.post(`/insurance/batches/${id}/reprocess`, data);
-};
-
-// ============================================
 // AUTOMAÇÃO CONVÊNIOS
 // ============================================
-
-export const getPendingSessions = async (code: string, startDate: string, endDate: string): Promise<{
-    sessionsCount: number;
-    sessionValue: number;
-    totalEstimated: number;
-    sessions: any[];
-}> => {
-    const response = await api.get(`/insurance/convenios/${code}/sessoes-pendentes`, {
-        params: { startDate, endDate }
-    });
-    return response.data.data;
-};
-
-export const createBatchAuto = async (code: string, data: { startDate: string; endDate: string }): Promise<{
-    batchId: string;
-    batchNumber: string;
-    sessionsCount: number;
-    totalGross: number;
-}> => {
-    const response = await api.post(`/insurance/convenios/${code}/criar-lote`, data);
-    return response.data.data;
-};
-
-export const getConvenioStats = async (code: string, startDate?: string, endDate?: string): Promise<{
-    byStatus: Record<string, any>;
-    pendingSessions: number;
-    period: { startDate: string; endDate: string };
-}> => {
-    const response = await api.get(`/insurance/convenios/${code}/estatisticas`, {
-        params: { startDate, endDate }
-    });
-    return response.data.data;
-};
-
-export const getDashboardSummary = async (): Promise<{
-    batchesByStatus: Record<string, any>;
-    convenios: Convenio[];
-    totals: {
-        totalSessions: number;
-        totalGross: number;
-        totalReceived: number;
-        totalGlosa: number;
-    };
-}> => {
-    const response = await api.get('/insurance/resumo');
-    return response.data.data;
-};
+// NOTA (2026-07-29): getInsuranceBatches/getInsuranceBatch/createInsuranceBatch/
+// sealBatch/reprocessBatch/getPendingSessions/createBatchAuto/getConvenioStats/
+// getDashboardSummary foram removidos por não terem nenhum chamador na UI
+// (investigação de arquitetura de convênio, ver back/docs para o pipeline real
+// de faturamento em uso hoje). processConvenioReturn e importConvenios continuam
+// aqui — pendentes de confirmação operacional antes de decidir remoção.
 
 export const processConvenioReturn = async (batchId: string, data: {
     items: any[];
