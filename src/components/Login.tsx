@@ -58,7 +58,6 @@ const Login = () => {
     
     if (sessionExpiredParam === 'true' || errorCode === 'TOKEN_EXPIRED') {
       setSessionExpired(true);
-      toast.info('Sua sessão expirou. Por favor, faça login novamente.');
     }
 
     // 🧹 Se forçar login, limpa TODOS os dados de autenticação

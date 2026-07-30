@@ -412,7 +412,7 @@ const ScheduleAppointmentModal = ({
     useEffect(() => {
         if (erroMessage) {
             toast.error(erroMessage, {
-                position: 'top-center',
+                position: 'top-right',
                 duration: 4000,
             });
         }

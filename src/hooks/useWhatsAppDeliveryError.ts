@@ -34,7 +34,7 @@ export function useWhatsAppDeliveryError() {
       toast.error(
         `⚠️ Mensagem não entregue!\n\nPara: ${formattedPhone}\n${errorMessage}\n\nVerifique se o número está correto e tente novamente.`,
         {
-          position: 'top-center',
+          position: 'top-right',
           autoClose: 8000,
           hideProgressBar: false,
           closeOnClick: true,

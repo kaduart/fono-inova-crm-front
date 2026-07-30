@@ -45,16 +45,16 @@ const App: React.FC = () => {
         </DoctorsProvider>
 
         <ToastContainer
-          position="top-center"
+          position="top-right"
           autoClose={4000}
           newestOnTop
           closeOnClick
           draggable
           pauseOnHover
           theme="colored"
-          style={{ zIndex: 100000 }}
+          style={{ zIndex: 100000, top: 20, right: 20 }}
         />
-        <Toaster position="top-center" />
+        <Toaster position="top-right" containerStyle={{ top: 20, right: 20 }} />
       </Suspense>
 
       <PixNotificationPopup />
