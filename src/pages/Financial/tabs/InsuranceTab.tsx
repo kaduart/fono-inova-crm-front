@@ -51,6 +51,7 @@ import { PatientAccordionSection } from './PatientAccordionSection';
 import GuidePendingBillingSection, { PendingGuide } from './GuidePendingBillingSection';
 import InsuranceHistorySection from './InsuranceHistorySection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
+import BreakdownDetailsModal, { BreakdownRow, BreakdownTab } from '../components/BreakdownDetailsModal';
 import doctorService from '../../../services/doctorService';
 import { usePatients } from '../../../hooks/usePatients';
 import {
@@ -90,6 +91,13 @@ const formatProviderName = (slug: string) => {
     .replace('Sao ', 'São ')
     .replace('Saude', 'Saúde')
     .replace('Brasilia', 'Brasília');
+};
+
+const fmtDateShort = (d?: string | Date | null) => {
+    if (!d) return null;
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return null;
+    return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
 interface InsuranceTabProps {
@@ -175,6 +183,17 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [billingWizardLoading, setBillingWizardLoading] = useState(false);
     const [wizardSelectedGuides, setWizardSelectedGuides] = useState<PendingGuide[]>([]);
 
+    // Modal reutilizável de detalhamento — aberto pelos cards do Painel de Convênios
+    // (A Faturar, Aguardando Faturamento, Faturado, Recebido) pra mostrar quais
+    // guias/pagamentos compõem cada total, em vez de espremer tudo dentro do card.
+    const [detailsModal, setDetailsModal] = useState<{ open: boolean; title: string; accentColor: string; rows: BreakdownRow[]; tabs?: BreakdownTab[] }>(
+        { open: false, title: '', accentColor: '#6366F1', rows: [] }
+    );
+
+    const openDetailsModal = (title: string, accentColor: string, rows: BreakdownRow[], tabs?: BreakdownTab[]) => {
+        setDetailsModal({ open: true, title, accentColor, rows, tabs });
+    };
+
     const getMonthLabel = () => {
         if (!selectedMonthYear) return '';
         const [year, month] = selectedMonthYear.split('-');
@@ -191,6 +210,53 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         const waiting = pendingGuides.filter(g => g.billingState === 'documentation_sent');
         return { pendingStateGuides: pending, waitingBillingGuides: waiting };
     }, [pendingGuides]);
+
+    // Detalha QUAIS guias compõem o "atrasado" do competenceBreakdown (que só vem
+    // como valor agregado do backend) — sem isso o usuário via um total vermelho
+    // sem conseguir identificar/monitorar qual guia agir primeiro.
+    const overdueGuidesList = useMemo(() => {
+        if (!competenceBreakdown || !competenceBreakdown.previous.value) return [];
+        const [refY, refM] = competenceBreakdown.referenceMonth.split('-').map(Number);
+        const cutoff = new Date(refY, refM - 1, 1);
+        return pendingStateGuides
+            .map(g => {
+                const overdueSessions = (g.sessions || []).filter(s => s.date && new Date(s.date) < cutoff);
+                const overdueValue = overdueSessions.reduce((sum, s) => sum + (s.value || 0), 0);
+                return { guideId: g.guideId, number: g.number, patientName: g.patient?.fullName || 'Paciente', overdueValue, overdueCount: overdueSessions.length };
+            })
+            .filter(g => g.overdueValue > 0)
+            .sort((a, b) => b.overdueValue - a.overdueValue);
+    }, [pendingStateGuides, competenceBreakdown]);
+
+    const overdueValueByGuideId = useMemo(
+        () => new Map(overdueGuidesList.map(g => [g.guideId, g.overdueValue])),
+        [overdueGuidesList]
+    );
+
+    // Faturado/Recebido vêm de allReceivables (provider→pacientes→payments) — precisa
+    // achatar mantendo o nome do paciente junto, senão o modal não tem o que mostrar.
+    const { billedPaymentsDetailed, receivedPaymentsDetailed } = useMemo(() => {
+        const billed: Array<{ id: string; label: string; sublabel?: string; value: number }> = [];
+        const received: Array<{ id: string; label: string; sublabel?: string; value: number }> = [];
+        allReceivables.forEach(group => {
+            (group.patients || []).forEach(p => {
+                (p.payments || []).forEach(pay => {
+                    const row = {
+                        id: pay.paymentId,
+                        label: p.patientName,
+                        sublabel: pay.guideNumber ? `guia ${pay.guideNumber} · ${formatProviderName(group._id)}` : formatProviderName(group._id),
+                        value: pay.grossAmount,
+                    };
+                    if (pay.status === 'billed') billed.push(row);
+                    else if (pay.status === 'received') received.push(row);
+                });
+            });
+        });
+        const byPatientThenValue = (a: BreakdownRow, b: BreakdownRow) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value;
+        billed.sort(byPatientThenValue);
+        received.sort(byPatientThenValue);
+        return { billedPaymentsDetailed: billed, receivedPaymentsDetailed: received };
+    }, [allReceivables]);
 
     const getMonthSummary = () => {
         // Aba "A Faturar" usa modelo guide-based (guias + sessões sem guia)
@@ -882,16 +948,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                         >
                             <div className="flex items-center gap-4 flex-wrap">
-                                <span className="text-sm font-semibold text-gray-700">Resumo do mês</span>
-                                <span className="text-sm text-purple-700 font-bold">
+                                <span className="text-sm font-semibold text-gray-700">Painel de Convênios</span>
+                                <span className="text-sm text-purple-700 font-bold" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
                                     {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} produção
                                 </span>
-                                <span className="text-sm text-amber-600">
-                                    {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a faturar
+                                <span className="text-sm text-amber-600" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
+                                    {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a faturar (total)
                                 </span>
                                 {ms.totalWaiting > 0 && (
-                                    <span className="text-sm text-blue-600">
-                                        {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} aguardando faturamento
+                                    <span className="text-sm text-blue-600" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
+                                        {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} aguardando faturamento (total)
                                     </span>
                                 )}
                                 {ms.totalRecebido > 0 && (
@@ -942,7 +1008,35 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 </div>
 
                                 {/* A Faturar */}
-                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                <div
+                                    onClick={() => openDetailsModal(
+                                        'A Faturar',
+                                        '#F59E0B',
+                                        pendingStateGuides
+                                            .map(g => {
+                                                const start = fmtDateShort(g.firstSessionDate);
+                                                const end = fmtDateShort(g.lastSessionDate);
+                                                const period = start && end ? (start === end ? start : `${start} a ${end}`) : null;
+                                                return {
+                                                    id: g.guideId,
+                                                    label: g.patient?.fullName || 'Paciente',
+                                                    sublabel: `guia ${g.number}${period ? ` · ${period}` : ''} · ${g.pendingSessions} sessão${g.pendingSessions !== 1 ? 'ões' : ''}`,
+                                                    value: g.pendingValue,
+                                                    highlight: overdueValueByGuideId.has(g.guideId),
+                                                    highlightLabel: 'atrasado',
+                                                };
+                                            })
+                                            // Agrupa por paciente (mesmo nome fica adjacente) em vez de intercalar
+                                            // por valor puro — muito mais fácil de escanear com várias guias.
+                                            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value),
+                                        [
+                                            { key: 'all', label: 'Todos', predicate: () => true },
+                                            { key: 'overdue', label: 'Atrasado', predicate: (r) => !!r.highlight },
+                                            { key: 'current', label: 'Mês atual', predicate: (r) => !r.highlight },
+                                        ]
+                                    )}
+                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-200 transition-all"
+                                >
                                     <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
                                     <div className="p-4 bg-white">
                                         <div className="flex items-center justify-between mb-2">
@@ -953,16 +1047,32 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingStateGuides.length} guia{pendingStateGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">não enviado ao convênio</p>
+                                        <p className="text-xs text-gray-400">total acumulado — não filtra pelo Período acima</p>
                                         {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
-                                            <p className="text-xs text-red-500 mt-1">
+                                            <p className="text-xs text-red-500 font-medium mt-2 pt-2 border-t border-amber-100">
                                                 {competenceBreakdown.current.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} de {competenceBreakdown.referenceMonth} · {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado
                                             </p>
                                         )}
+                                        <p className="text-[11px] text-amber-600 font-semibold mt-2">Ver guias →</p>
                                     </div>
                                 </div>
 
                                 {/* Aguardando Faturamento */}
-                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                <div
+                                    onClick={() => openDetailsModal(
+                                        'Aguardando Faturamento',
+                                        '#1D4ED8',
+                                        waitingBillingGuides
+                                            .map(g => ({
+                                                id: g.guideId,
+                                                label: g.patient?.fullName || 'Paciente',
+                                                sublabel: `guia ${g.number} · ${g.pendingSessions} sessão${g.pendingSessions !== 1 ? 'ões' : ''}`,
+                                                value: g.pendingValue,
+                                            }))
+                                            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value)
+                                    )}
+                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all"
+                                >
                                     <div style={{ height: 3, backgroundColor: '#1D4ED8' }} />
                                     <div className="p-4 bg-white">
                                         <div className="flex items-center justify-between mb-2">
@@ -973,11 +1083,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.waitingCount} sessões · {waitingBillingGuides.length} guia{waitingBillingGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">documentação já enviada</p>
+                                        <p className="text-[11px] text-blue-600 font-semibold mt-2">Ver guias →</p>
                                     </div>
                                 </div>
 
                                 {/* Faturado */}
-                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                <div
+                                    onClick={() => openDetailsModal('Faturado', '#3B82F6', billedPaymentsDetailed)}
+                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all"
+                                >
                                     <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
                                     <div className="p-4 bg-white">
                                         <div className="flex items-center justify-between mb-2">
@@ -988,11 +1102,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
                                         <p className="text-xs text-gray-400 mt-1">aguardando repasse</p>
+                                        <p className="text-[11px] text-blue-600 font-semibold mt-2">Ver pagamentos →</p>
                                     </div>
                                 </div>
 
                                 {/* Recebido */}
-                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                <div
+                                    onClick={() => openDetailsModal('Recebido', '#10B981', receivedPaymentsDetailed)}
+                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all"
+                                >
                                     <div style={{ height: 3, backgroundColor: '#10B981' }} />
                                     <div className="p-4 bg-white">
                                         <div className="flex items-center justify-between mb-2">
@@ -1003,6 +1121,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
                                         <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
+                                        <p className="text-[11px] text-emerald-600 font-semibold mt-2">Ver pagamentos →</p>
                                     </div>
                                 </div>
                             </div>
@@ -1770,7 +1889,18 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     onClose={() => setIs360ModalOpen(false)}
                 />
             )}
-            
+
+            {/* Modal reutilizável de detalhamento — aberto pelos cards A Faturar / Aguardando
+                Faturamento / Faturado / Recebido do Painel de Convênios */}
+            <BreakdownDetailsModal
+                open={detailsModal.open}
+                onClose={() => setDetailsModal(prev => ({ ...prev, open: false }))}
+                title={detailsModal.title}
+                accentColor={detailsModal.accentColor}
+                rows={detailsModal.rows}
+                tabs={detailsModal.tabs}
+            />
+
             <BillingCommunicationWizard
                 open={billingWizardOpen}
                 selectedGuides={wizardSelectedGuides}

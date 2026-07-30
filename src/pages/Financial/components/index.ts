@@ -1,5 +1,6 @@
 // Exportar todos os componentes de Financial
 
+export { default as BreakdownDetailsModal } from './BreakdownDetailsModal';
 export { default as ConvenioManagerModal } from './ConvenioManagerModal';
 export { default as FinancialDetailsModal } from './FinancialDetailsModal';
 export { default as FinancialLoading } from './FinancialLoading';

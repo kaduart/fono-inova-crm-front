@@ -16,15 +16,14 @@ import {
     TableRow,
     Paper,
     FormControl,
-    InputLabel,
     Button,
     Collapse,
-    Chip,
     IconButton,
 } from '@mui/material';
 // Note: Table/TableContainer still used in PatientSessionDetails inner component
-import { TrendingUp, Download, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, X, ArrowLeft } from 'lucide-react';
+import { TrendingUp, Download, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, X, ArrowLeft, Search } from 'lucide-react';
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
+import BreakdownDetailsModal, { BreakdownRow } from '../components/BreakdownDetailsModal';
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession } from '../../../services/paymentService';
@@ -61,22 +60,30 @@ function StatusBadge({ status }: { status: string }) {
 
 interface MetricStatsProps {
     production: number; billed: number; received: number; pending: number;
+    onStatClick?: (label: 'Produção' | 'Faturado' | 'Recebido' | 'Pendente') => void;
 }
-function MetricStats({ production, billed, received, pending }: MetricStatsProps) {
+function MetricStats({ production, billed, received, pending, onStatClick }: MetricStatsProps) {
     const stats = [
-        { label: 'Produção', value: production, color: '#6366F1', bg: '#F5F3FF' },
-        { label: 'Faturado', value: billed,     color: '#3B82F6', bg: '#EFF6FF' },
-        { label: 'Recebido', value: received,   color: '#10B981', bg: '#F0FDF4' },
-        { label: 'Pendente', value: pending,    color: '#F59E0B', bg: '#FFFBEB' },
+        { label: 'Produção' as const, value: production, color: '#6366F1', bg: '#F5F3FF' },
+        { label: 'Faturado' as const, value: billed,     color: '#3B82F6', bg: '#EFF6FF' },
+        { label: 'Recebido' as const, value: received,   color: '#10B981', bg: '#F0FDF4' },
+        { label: 'Pendente' as const, value: pending,    color: '#F59E0B', bg: '#FFFBEB' },
     ];
     return (
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
             {stats.map(s => (
-                <Box key={s.label} sx={{
-                    flex: '1 1 120px', px: 2, py: 1.5,
-                    bgcolor: s.bg, borderRadius: 2,
-                    borderTop: `3px solid ${s.color}`,
-                }}>
+                <Box
+                    key={s.label}
+                    onClick={() => onStatClick?.(s.label)}
+                    sx={{
+                        flex: '1 1 120px', px: 2, py: 1.5,
+                        bgcolor: s.bg, borderRadius: 2,
+                        borderTop: `3px solid ${s.color}`,
+                        cursor: onStatClick ? 'pointer' : 'default',
+                        transition: 'box-shadow 0.15s, transform 0.15s',
+                        '&:hover': onStatClick ? { boxShadow: '0 4px 12px rgba(0,0,0,0.08)', transform: 'translateY(-1px)' } : undefined,
+                    }}
+                >
                     <Typography fontSize="0.67rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
                         {s.label}
                     </Typography>
@@ -84,6 +91,11 @@ function MetricStats({ production, billed, received, pending }: MetricStatsProps
                     {production > 0 && (
                         <Typography fontSize="0.65rem" fontWeight={600} color={s.color}>
                             {((s.value / production) * 100).toFixed(0)}%
+                        </Typography>
+                    )}
+                    {onStatClick && (
+                        <Typography fontSize="0.62rem" fontWeight={700} color={s.color} sx={{ mt: 0.5 }}>
+                            Ver detalhes →
                         </Typography>
                     )}
                 </Box>
@@ -302,6 +314,12 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
     // Drawer de especialidades do paciente
     const [drawerPatient, setDrawerPatient] = useState<{ name: string; patientId?: string; provider: string; providerSlug?: string; rows: FlatRow[] } | null>(null);
 
+    // Modal reutilizável de detalhamento — mesmo padrão do Painel de Convênios,
+    // aberto pelos 4 cards do "Resumo" (Produção/Faturado/Recebido/Pendente)
+    const [detailsModal, setDetailsModal] = useState<{ open: boolean; title: string; accentColor: string; rows: BreakdownRow[] }>(
+        { open: false, title: '', accentColor: '#6366F1', rows: [] }
+    );
+
     // Filtros primários
     const [searchText, setSearchText] = useState('');
 
@@ -310,6 +328,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
 
     // Filtros avançados — mês inicia no mês ativo da aba pai
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [metricsOpen, setMetricsOpen] = useState(false);
     const [filterMonth, setFilterMonth] = useState(() => _defaultMonth(activeYear ?? currentYear, activeMonth));
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterSpecialty, setFilterSpecialty] = useState('all');
@@ -321,6 +340,15 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
         setSelectedPatient(null);
         load();
     }, [year]);
+
+    // Sincroniza com o Período do painel pai (InsuranceTab) — sem isso, o "Histórico"
+    // ficava travado no mês/ano de quando a aba foi montada pela 1ª vez, já que
+    // year/filterMonth só liam activeYear/activeMonth no useState inicial.
+    useEffect(() => {
+        const targetYear = activeYear ?? currentYear;
+        setYear(targetYear);
+        setFilterMonth(_defaultMonth(targetYear, activeMonth));
+    }, [activeYear, activeMonth]);
 
     async function load() {
         setLoading(true);
@@ -368,6 +396,30 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
         if (filterSpecialty !== 'all' && r.specialty !== filterSpecialty) return false;
         return true;
     }), [flatRows, filterMonth, filterStatus, filterSpecialty]);
+
+    const STAT_STATUS: Record<string, string | null> = { 'Produção': null, 'Faturado': 'billed', 'Recebido': 'received', 'Pendente': 'pending_batch' };
+    const STAT_COLOR: Record<string, string> = { 'Produção': '#6366F1', 'Faturado': '#3B82F6', 'Recebido': '#10B981', 'Pendente': '#F59E0B' };
+
+    // Linhas do modal reutilizável — mesma base (advFiltered) que já alimenta os
+    // totais dos cards, então o que abre bate exatamente com o número clicado.
+    // No nível 2 (dentro de um convênio) escopa só àquele convênio.
+    function statRowsFor(label: 'Produção' | 'Faturado' | 'Recebido' | 'Pendente') {
+        const status = STAT_STATUS[label];
+        const base = selectedProvider ? advFiltered.filter(r => r.provider === selectedProvider) : advFiltered;
+        const rows = status ? base.filter(r => r.status === status) : base;
+        return rows
+            .map(r => ({
+                id: `${r.monthKey}-${r.provider}-${r.patientName}-${r.specialty}`,
+                label: r.patientName,
+                sublabel: `${r.provider} · ${getSpecialtyLabel(r.specialty)} · ${fmtMonthShort(r.monthKey)}`,
+                value: r.value,
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value);
+    }
+
+    function openDetailsModal(label: 'Produção' | 'Faturado' | 'Recebido' | 'Pendente') {
+        setDetailsModal({ open: true, title: label, accentColor: STAT_COLOR[label], rows: statRowsFor(label) });
+    }
 
     // ── Nível 1: resumo por convênio ───────────────────────────────────────
     const providerSummary = useMemo<ProviderSummary[]>(() => {
@@ -511,20 +563,49 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
 
             {!loading && data.length > 0 && (
                 <>
-                    {/* MÉTRICAS */}
-                    {level < 3 && (
-                        <Box sx={{ mb: 3 }}>
-                            <MetricStats
-                                production={level === 1 ? globalTotals.producao : providerTotals.value}
-                                billed={level === 1 ? globalTotals.faturado : patientSummary.filter(p => p.status === 'billed').reduce((s, p) => s + p.value, 0)}
-                                received={level === 1 ? globalTotals.recebido : patientSummary.filter(p => p.status === 'received').reduce((s, p) => s + p.value, 0)}
-                                pending={level === 1 ? globalTotals.pendente : patientSummary.filter(p => p.status === 'pending_batch').reduce((s, p) => s + p.value, 0)}
-                            />
-                        </Box>
-                    )}
+                    {/* MÉTRICAS — accordion, mesmo padrão do "Resumo do Dia" em Caixa & Fluxo */}
+                    {level < 3 && (() => {
+                        const production = level === 1 ? globalTotals.producao : providerTotals.value;
+                        const billed = level === 1 ? globalTotals.faturado : patientSummary.filter(p => p.status === 'billed').reduce((s, p) => s + p.value, 0);
+                        const received = level === 1 ? globalTotals.recebido : patientSummary.filter(p => p.status === 'received').reduce((s, p) => s + p.value, 0);
+                        const pending = level === 1 ? globalTotals.pendente : patientSummary.filter(p => p.status === 'pending_batch').reduce((s, p) => s + p.value, 0);
+                        return (
+                            <Box sx={{ mb: 3 }}>
+                                <button
+                                    onClick={() => setMetricsOpen(o => !o)}
+                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-2 transition-all shadow-sm border border-indigo-200 hover:brightness-95"
+                                    style={{ background: 'linear-gradient(90deg, #F5F3FF 0%, #EFF6FF 100%)' }}
+                                >
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <span className="text-sm font-black text-indigo-700 uppercase tracking-widest">Resumo</span>
+                                        {!metricsOpen && (
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-700">
+                                                    💜 {fmtBRL(production)} produção
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                                                    🔵 {fmtBRL(billed)} faturado
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                                                    🟢 {fmtBRL(received)} recebido
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
+                                                    🟡 {fmtBRL(pending)} pendente
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <ChevronDown size={18} className={`text-indigo-600 transition-transform duration-200 ${metricsOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                <Collapse in={metricsOpen}>
+                                    <MetricStats production={production} billed={billed} received={received} pending={pending} onStatClick={openDetailsModal} />
+                                </Collapse>
+                            </Box>
+                        );
+                    })()}
 
                     {/* FILTROS */}
-                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <div className="flex flex-wrap items-center gap-2.5 mb-4">
                         {/* Busca só no nível 2 (pacientes) — no nível 1 você navega clicando */}
                         {level >= 2 && (
                             <TextField
@@ -532,58 +613,92 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                                 placeholder="Buscar paciente..."
                                 value={searchText}
                                 onChange={e => setSearchText(e.target.value)}
-                                sx={{ minWidth: 200 }}
+                                sx={{
+                                    minWidth: 220,
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: 999,
+                                        bgcolor: '#F8FAFC',
+                                        fontSize: '0.85rem',
+                                        '& fieldset': { borderColor: '#E2E8F0' },
+                                        '&:hover fieldset': { borderColor: '#CBD5E1' },
+                                        '&.Mui-focused': { bgcolor: 'white' },
+                                        '&.Mui-focused fieldset': { borderColor: '#6366F1', borderWidth: 1.5 },
+                                    },
+                                }}
                                 InputProps={{
+                                    startAdornment: <Search size={14} className="text-gray-400 mr-1.5 shrink-0" />,
                                     endAdornment: searchText ? (
-                                        <button onClick={() => setSearchText('')}><X size={14} className="text-gray-400" /></button>
+                                        <button onClick={() => setSearchText('')} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                            <X size={13} />
+                                        </button>
                                     ) : undefined,
                                 }}
                             />
                         )}
 
-                        <Button
-                            size="small"
-                            variant={showAdvanced ? 'contained' : 'outlined'}
-                            color={hasAdvancedFilters ? 'primary' : 'inherit'}
-                            startIcon={<SlidersHorizontal size={14} />}
+                        <button
                             onClick={() => setShowAdvanced(v => !v)}
-                            endIcon={<ChevronDown size={12} style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />}
+                            className={`inline-flex items-center gap-1.5 pl-3 pr-2.5 py-[7px] rounded-full text-xs font-semibold border transition-colors ${
+                                hasAdvancedFilters
+                                    ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700'
+                                    : showAdvanced
+                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
                         >
+                            <SlidersHorizontal size={13} />
                             Filtros avançados
-                            {hasAdvancedFilters && <Chip label={[filterMonth !== 'all', filterStatus !== 'all', filterSpecialty !== 'all'].filter(Boolean).length} size="small" color="primary" sx={{ ml: 0.5, height: 16, fontSize: 10 }} />}
-                        </Button>
+                            {hasAdvancedFilters && (
+                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-[10px] font-bold">
+                                    {[filterMonth !== 'all', filterStatus !== 'all', filterSpecialty !== 'all'].filter(Boolean).length}
+                                </span>
+                            )}
+                            <ChevronDown size={12} className="transition-transform duration-200" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
+                        </button>
 
                         {(searchText || hasAdvancedFilters) && (
-                            <Button size="small" variant="text" color="inherit" onClick={() => { setSearchText(''); setFilterMonth('all'); setFilterStatus('all'); setFilterSpecialty('all'); }}
-                                startIcon={<X size={14} />} className="text-gray-400">
+                            <button
+                                onClick={() => { setSearchText(''); setFilterMonth('all'); setFilterStatus('all'); setFilterSpecialty('all'); }}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors px-1"
+                            >
+                                <X size={13} />
                                 Limpar
-                            </Button>
+                            </button>
                         )}
                     </div>
 
                     <Collapse in={showAdvanced}>
-                        <div className="flex flex-wrap gap-3 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                            <FormControl size="small" sx={{ minWidth: 140 }}>
-                                <InputLabel>Mês</InputLabel>
-                                <Select value={filterMonth} label="Mês" onChange={e => setFilterMonth(e.target.value)}>
-                                    <MenuItem value="all">Todos os meses</MenuItem>
-                                    {months.map(([key, label]) => <MenuItem key={key} value={key} sx={{ textTransform: 'capitalize' }}>{label}</MenuItem>)}
-                                </Select>
-                            </FormControl>
-                            <FormControl size="small" sx={{ minWidth: 140 }}>
-                                <InputLabel>Status</InputLabel>
-                                <Select value={filterStatus} label="Status" onChange={e => setFilterStatus(e.target.value)}>
-                                    <MenuItem value="all">Todos</MenuItem>
-                                    {Object.entries(STATUS_STYLE).map(([k, v]) => <MenuItem key={k} value={k}>{v.label}</MenuItem>)}
-                                </Select>
-                            </FormControl>
-                            <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>Especialidade</InputLabel>
-                                <Select value={filterSpecialty} label="Especialidade" onChange={e => setFilterSpecialty(e.target.value)}>
-                                    <MenuItem value="all">Todas</MenuItem>
-                                    {specialties.map(s => <MenuItem key={s} value={s}>{getSpecialtyLabel(s)}</MenuItem>)}
-                                </Select>
-                            </FormControl>
+                        <div className="relative flex flex-wrap gap-4 mb-4 p-4 pt-5 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-indigo-500" />
+                            {[
+                                { label: 'Mês', value: filterMonth, set: setFilterMonth, options: [['all', 'Todos os meses'], ...months] as [string, string][], capitalize: true },
+                                { label: 'Status', value: filterStatus, set: setFilterStatus, options: [['all', 'Todos'], ...Object.entries(STATUS_STYLE).map(([k, v]) => [k, v.label] as [string, string])] as [string, string][], capitalize: false },
+                                { label: 'Especialidade', value: filterSpecialty, set: setFilterSpecialty, options: [['all', 'Todas'], ...specialties.map(s => [s, getSpecialtyLabel(s)] as [string, string])] as [string, string][], capitalize: false },
+                            ].map(f => (
+                                <FormControl key={f.label} size="small" sx={{ minWidth: 160 }}>
+                                    <Typography fontSize="0.65rem" fontWeight={800} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
+                                        {f.label}
+                                    </Typography>
+                                    <Select
+                                        value={f.value}
+                                        onChange={e => f.set(e.target.value)}
+                                        sx={{
+                                            borderRadius: 2.5,
+                                            fontSize: '0.85rem',
+                                            bgcolor: f.value !== 'all' ? '#EEF2FF' : '#F8FAFC',
+                                            '& .MuiOutlinedInput-notchedOutline': { borderColor: f.value !== 'all' ? '#C7D2FE' : '#E2E8F0' },
+                                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#A5B4FC' },
+                                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366F1', borderWidth: 1.5 },
+                                        }}
+                                    >
+                                        {f.options.map(([key, label]) => (
+                                            <MenuItem key={key} value={key} sx={{ textTransform: f.capitalize ? 'capitalize' : 'none', fontSize: '0.85rem' }}>
+                                                {label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            ))}
                         </div>
                     </Collapse>
 
@@ -701,6 +816,15 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                             />
                         </InsurancePatientDrawer>
                     )}
+
+                    {/* Modal reutilizável de detalhamento — aberto pelos cards do Resumo */}
+                    <BreakdownDetailsModal
+                        open={detailsModal.open}
+                        onClose={() => setDetailsModal(prev => ({ ...prev, open: false }))}
+                        title={detailsModal.title}
+                        accentColor={detailsModal.accentColor}
+                        rows={detailsModal.rows}
+                    />
                 </>
             )}
         </Box>
