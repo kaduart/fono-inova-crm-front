@@ -360,9 +360,14 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
     const [data, setData] = useState<InsuranceHistoryMonth[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Navegação drill-down
+    // Navegação drill-down — só existem 2 níveis reais na tela (convênio → paciente).
+    // O detalhe por especialidade/guia do paciente é sempre mostrado via drawerPatient
+    // (overlay), nunca substituindo a lista — por isso não existe um 3º nível de state
+    // aqui. Um `selectedPatient`/nível 3 chegou a existir neste arquivo mas nunca era
+    // setado por nenhum clique real (a linha do paciente sempre abria o drawer direto),
+    // e por isso a navegação "andava presa": breadcrumb/voltar/limpar resetavam esse
+    // estado morto e deixavam o drawer real intocado. Achado 2026-08-03.
     const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-    const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
 
     // Drawer de especialidades do paciente
     const [drawerPatient, setDrawerPatient] = useState<{ name: string; patientId?: string; provider: string; providerSlug?: string; rows: FlatRow[] } | null>(null);
@@ -386,11 +391,11 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterSpecialty, setFilterSpecialty] = useState('all');
 
-    const level = selectedPatient ? 3 : selectedProvider ? 2 : 1;
+    const level = selectedProvider ? 2 : 1;
 
     useEffect(() => {
         setSelectedProvider(null);
-        setSelectedPatient(null);
+        setDrawerPatient(null);
         load();
     }, [year]);
 
@@ -543,14 +548,6 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
         { sessions: 0, value: 0 }
     ), [patientSummary]);
 
-    // ── Nível 3: especialidades do paciente ────────────────────────────────
-    const specialtyRows = useMemo<FlatRow[]>(() => {
-        if (!selectedProvider || !selectedPatient) return [];
-        return advFiltered
-            .filter(r => r.provider === selectedProvider && r.patientName === selectedPatient)
-            .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-    }, [advFiltered, selectedProvider, selectedPatient]);
-
     // ── Listas para selects avançados ──────────────────────────────────────
     const months = useMemo(() => {
         const seen = new Map<string, string>();
@@ -563,12 +560,13 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
     const hasAdvancedFilters = filterMonth !== 'all' || filterStatus !== 'all' || filterSpecialty !== 'all';
 
     function goBack() {
-        if (selectedPatient) { setSelectedPatient(null); setSearchText(''); }
+        // Fecha o drawer primeiro (passo mais interno), só depois sai do convênio —
+        // reflete a navegação real: Convênio → Paciente(drawer) → Voltar → Convênio → Voltar → Histórico.
+        if (drawerPatient) { setDrawerPatient(null); }
         else if (selectedProvider) { setSelectedProvider(null); setSearchText(''); }
     }
 
-    function drillToProvider(p: string) { setSelectedProvider(p); setSelectedPatient(null); setSearchText(''); }
-    function drillToPatient(name: string) { setSelectedPatient(name); setSearchText(''); }
+    function drillToProvider(p: string) { setSelectedProvider(p); setSearchText(''); }
     function openPatientDrawer(name: string, patientId: string | undefined, provider: string, providerSlug: string | undefined, rows: FlatRow[]) {
         setDrawerPatient({ name, patientId, provider, providerSlug, rows });
     }
@@ -587,30 +585,29 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                     <div>
                         {/* Breadcrumb */}
                         <div className="flex items-center gap-1 text-sm text-gray-500">
-                            <button onClick={() => { setSelectedProvider(null); setSelectedPatient(null); setSearchText(''); }}
+                            <button onClick={() => { setSelectedProvider(null); setDrawerPatient(null); setSearchText(''); }}
                                 className={`hover:text-indigo-600 ${level === 1 ? 'font-bold text-gray-800' : ''}`}>
                                 Histórico
                             </button>
                             {selectedProvider && (
                                 <>
                                     <ChevronRight size={14} />
-                                    <button onClick={() => { setSelectedPatient(null); setSearchText(''); }}
-                                        className={`hover:text-indigo-600 ${level === 2 ? 'font-bold text-gray-800' : ''}`}>
+                                    <button onClick={() => setDrawerPatient(null)}
+                                        className={`hover:text-indigo-600 ${level === 2 && !drawerPatient ? 'font-bold text-gray-800' : ''}`}>
                                         {selectedProvider}
                                     </button>
                                 </>
                             )}
-                            {selectedPatient && (
+                            {drawerPatient && (
                                 <>
                                     <ChevronRight size={14} />
-                                    <span className="font-bold text-gray-800">{selectedPatient}</span>
+                                    <span className="font-bold text-gray-800">{drawerPatient.name}</span>
                                 </>
                             )}
                         </div>
                         <Typography variant="caption" color="text.secondary">
                             {level === 1 && `${providerSummary.length} convênios · ${fmtBRL(globalTotals.producao)} produção`}
                             {level === 2 && `${patientSummary.length} pacientes · ${providerTotals.sessions} sessões · ${fmtBRL(providerTotals.value)}`}
-                            {level === 3 && `${specialtyRows.length} registros · ${fmtBRL(specialtyRows.reduce((s, r) => s + r.value, 0))}`}
                         </Typography>
                     </div>
                 </div>
@@ -727,9 +724,19 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                             <ChevronDown size={12} className="transition-transform duration-200" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
                         </button>
 
-                        {(searchText || hasAdvancedFilters) && (
+                        {(searchText || hasAdvancedFilters || selectedProvider || drawerPatient) && (
                             <button
-                                onClick={() => { setSearchText(''); setFilterMonth('all'); setFilterStatus('all'); setFilterSpecialty('all'); }}
+                                onClick={() => {
+                                    // "Limpar" precisa devolver a tela inteira ao estado inicial — só resetar
+                                    // os filtros avançados e manter o drill-down (convênio/paciente aberto no
+                                    // drawer) deixava a tela "presa" mesmo depois de limpar.
+                                    setSearchText('');
+                                    setFilterMonth('all');
+                                    setFilterStatus('all');
+                                    setFilterSpecialty('all');
+                                    setSelectedProvider(null);
+                                    setDrawerPatient(null);
+                                }}
                                 className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors px-1"
                             >
                                 <X size={13} />
