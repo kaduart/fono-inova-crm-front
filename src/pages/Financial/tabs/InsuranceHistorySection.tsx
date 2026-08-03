@@ -23,7 +23,7 @@ import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import BreakdownDetailsModal, { BreakdownRow } from '../components/BreakdownDetailsModal';
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
-import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession } from '../../../services/paymentService';
+import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession, BILLING_MODEL, BillingModel } from '../../../services/paymentService';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -193,7 +193,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     // Cache de respostas por chave estável
     interface CachedResponse {
         data: InsurancePatientSession[];
-        billingModel: 'legacy' | 'current';
+        billingModel: BillingModel;
         groups: import('../../../services/paymentService').InsurancePatientSessionGroup[];
     }
     const [cacheByKey, setCacheByKey] = useState<Record<string, CachedResponse>>({});
@@ -229,9 +229,12 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                     }
                 }));
             })
-            .catch((err: any) => {
+            .catch((err: unknown) => {
                 console.error('[PatientSessionDetails] Erro ao carregar sessões:', err);
-                setErrorByKey(prev => ({ ...prev, [key]: err?.response?.data?.error || 'Erro ao carregar sessões' }));
+                const apiError = err as { response?: { data?: { error?: string } } } | undefined;
+                const message = apiError?.response?.data?.error
+                    || (err instanceof Error ? err.message : String(err));
+                setErrorByKey(prev => ({ ...prev, [key]: message || 'Erro ao carregar sessões' }));
             })
             .finally(() => {
                 setLoadingByKey(prev => ({ ...prev, [key]: false }));
@@ -246,8 +249,8 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     const error = key ? errorByKey[key] : '';
 
     // Total do rodapé bate com os grupos renderizados.
-    const totalSessions = groups.reduce((s, g) => s + g.sessions.length, 0);
-    const total = groups.reduce((s, g) => s + g.total, 0);
+    const totalSessions = groups.reduce((s, g) => s + (g.summary?.sessions ?? g.sessions.length), 0);
+    const total = groups.reduce((s, g) => s + (g.summary?.grossAmount ?? g.total ?? 0), 0);
 
     if (rows.length === 0) {
         return (
@@ -292,7 +295,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                 <Box className="text-gray-400 text-xs py-4">Nenhuma sessão encontrada.</Box>
             )}
 
-            {billingModel === 'legacy' && groups.length > 0 && (
+            {billingModel === BILLING_MODEL.LEGACY_MONTHLY_BATCH && groups.length > 0 && (
                 <Box sx={{ mb: 1.5, px: 1 }}>
                     <Chip
                         size="small"
@@ -339,12 +342,15 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                     {group.type === 'batch' && group.sentDate && (
                                         <>Enviado {fmtDateShort(group.sentDate)} · </>
                                     )}
-                                    {group.sessions.length} sessõe{group.sessions.length !== 1 ? 's' : ''}
+                                    {(group.summary?.sessions ?? group.sessions.length)} sessõe{(group.summary?.sessions ?? group.sessions.length) !== 1 ? 's' : ''}
+                                    {group.summary && group.summary.issAmount > 0 && (
+                                        <> · Bruto {fmtBRL(group.summary.grossAmount)} · ISS {fmtBRL(group.summary.issAmount)} · Líquido {fmtBRL(group.summary.netAmount)}</>
+                                    )}
                                 </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textAlign: 'right' }}>
-                                <StatusBadge status={computeGuideStatus(group.sessions)} />
-                                <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(group.total)}</Typography>
+                                <StatusBadge status={group.summary?.status || computeGuideStatus(group.sessions)} />
+                                <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(group.summary?.grossAmount ?? group.total ?? 0)}</Typography>
                             </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>

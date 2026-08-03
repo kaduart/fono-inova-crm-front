@@ -262,6 +262,21 @@ export interface InsurancePatientSession {
     source: 'lote' | 'avulso' | 'guia';
 }
 
+export const BILLING_MODEL = {
+    LEGACY_MONTHLY_BATCH: 'LEGACY_MONTHLY_BATCH',
+    CURRENT_GUIDE_BATCH: 'CURRENT_GUIDE_BATCH',
+} as const;
+
+export type BillingModel = typeof BILLING_MODEL[keyof typeof BILLING_MODEL];
+
+export interface InsurancePatientSessionGroupSummary {
+    sessions: number;
+    grossAmount: number;
+    issAmount: number;
+    netAmount: number;
+    status: 'pending_batch' | 'billed' | 'received' | 'partial_billed' | 'partial_received' | 'mixed';
+}
+
 export interface InsurancePatientSessionGroup {
     type: 'batch' | 'guide';
     guideNumber?: string | null;
@@ -270,14 +285,16 @@ export interface InsurancePatientSessionGroup {
     sentDate?: string | null;
     invoiceNumber?: string | null;
     sessions: InsurancePatientSession[];
-    total: number;
+    /** @deprecated use summary.grossAmount em vez de total */
+    total?: number;
+    summary: InsurancePatientSessionGroupSummary;
 }
 
 export interface PatientInsuranceSessionsResponse {
     success: boolean;
     data: InsurancePatientSession[];
     count: number;
-    billingModel: 'legacy' | 'current';
+    billingModel: BillingModel;
     groups: InsurancePatientSessionGroup[];
 }
 
