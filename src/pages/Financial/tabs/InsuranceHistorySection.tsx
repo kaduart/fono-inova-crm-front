@@ -11,10 +11,14 @@ import {
     FormControl,
     Button,
     Collapse,
-    Card,
     Chip,
+    Tabs,
+    Tab,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
 } from '@mui/material';
-import { TrendingUp, Download, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, X, ArrowLeft, Search } from 'lucide-react';
+import { TrendingUp, Download, ChevronRight, ChevronDown, SlidersHorizontal, X, ArrowLeft, Search } from 'lucide-react';
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import BreakdownDetailsModal, { BreakdownRow } from '../components/BreakdownDetailsModal';
 import { useEffect, useState, useMemo } from 'react';
@@ -141,208 +145,257 @@ interface PatientSessionDetailsProps {
     provider?: string;
 }
 
+function fmtDateTime(iso: string, time?: string | null) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return time ? `${date} ${time}` : date;
+}
+
+function fmtDateShort(iso?: string | Date | null) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
 function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDetailsProps) {
-    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    // Tabs por especialidade
+    const specialtyTabs = useMemo(() => {
+        const seen = new Map<string, FlatRow>();
+        rows.forEach(r => { if (!seen.has(r.specialty)) seen.set(r.specialty, r); });
+        return [...seen.values()].sort((a, b) => getSpecialtyLabel(a.specialty).localeCompare(getSpecialtyLabel(b.specialty), 'pt-BR'));
+    }, [rows]);
+
+    const [activeSpecialty, setActiveSpecialty] = useState<string>(specialtyTabs[0]?.specialty || '');
+
+    useEffect(() => {
+        if (specialtyTabs.length && !specialtyTabs.some(t => t.specialty === activeSpecialty)) {
+            setActiveSpecialty(specialtyTabs[0].specialty);
+        }
+    }, [specialtyTabs, activeSpecialty]);
+
+    // Cache de sessões por chave estável
     const [sessionsByKey, setSessionsByKey] = useState<Record<string, InsurancePatientSession[]>>({});
     const [loadingByKey, setLoadingByKey] = useState<Record<string, boolean>>({});
     const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
 
-    const toggle = async (row: FlatRow) => {
-        // patientId entra na chave de propósito: o drawer não desmonta ao trocar
-        // de paciente (só atualiza props), então sem isso o cache de sessões de
-        // um paciente vazava pro card de outro paciente com mesmo mês+especialidade.
-        const key = `${patientId}__${row.monthKey}__${row.specialty}`;
-        if (expanded.has(key)) {
-            setExpanded(prev => { const next = new Set(prev); next.delete(key); return next; });
-            return;
-        }
-        setExpanded(prev => { const next = new Set(prev); next.add(key); return next; });
+    const activeRow = useMemo(
+        () => specialtyTabs.find(r => r.specialty === activeSpecialty),
+        [specialtyTabs, activeSpecialty]
+    );
 
-        if (sessionsByKey[key] || loadingByKey[key] || !patientId) return;
+    useEffect(() => {
+        if (!patientId || !activeRow) return;
+        const key = `${patientId}__${activeRow.monthKey}__${activeRow.specialty}`;
+        if (sessionsByKey[key] || loadingByKey[key]) return;
 
         setLoadingByKey(prev => ({ ...prev, [key]: true }));
         setErrorByKey(prev => ({ ...prev, [key]: '' }));
-        try {
-            const res = await getPatientInsuranceSessions({
-                patientId,
-                month: row.monthKey,
-                specialty: row.specialty,
-                provider,
-                status: row.status
+        getPatientInsuranceSessions({
+            patientId,
+            month: activeRow.monthKey,
+            specialty: activeRow.specialty,
+            provider,
+            status: activeRow.status
+        })
+            .then(res => {
+                setSessionsByKey(prev => ({ ...prev, [key]: res.data.data || [] }));
+            })
+            .catch((err: any) => {
+                console.error('[PatientSessionDetails] Erro ao carregar sessões:', err);
+                setErrorByKey(prev => ({ ...prev, [key]: err?.response?.data?.error || 'Erro ao carregar sessões' }));
+            })
+            .finally(() => {
+                setLoadingByKey(prev => ({ ...prev, [key]: false }));
             });
-            setSessionsByKey(prev => ({ ...prev, [key]: res.data.data || [] }));
-        } catch (err: any) {
-            console.error('[PatientSessionDetails] Erro ao carregar sessões:', err);
-            setErrorByKey(prev => ({ ...prev, [key]: err?.response?.data?.error || 'Erro ao carregar sessões' }));
-        } finally {
-            setLoadingByKey(prev => ({ ...prev, [key]: false }));
+    }, [patientId, activeRow, provider]);
+
+    const key = activeRow ? `${patientId}__${activeRow.monthKey}__${activeRow.specialty}` : '';
+    const sessions = key ? sessionsByKey[key] || [] : [];
+    const isLoading = key ? loadingByKey[key] : false;
+    const error = key ? errorByKey[key] : '';
+
+    // Accordion por guia dentro da especialidade ativa
+    const guides = useMemo(() => {
+        const map = new Map<string, { guideNumber: string; sessions: InsurancePatientSession[]; total: number }>();
+        for (const s of sessions) {
+            const gn = s.guideNumber || 'sem número';
+            if (!map.has(gn)) map.set(gn, { guideNumber: gn, sessions: [], total: 0 });
+            const g = map.get(gn)!;
+            g.sessions.push(s);
+            g.total += s.value || 0;
         }
-    };
+        for (const g of map.values()) {
+            g.sessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        }
+        return [...map.values()].sort((a, b) => a.guideNumber.localeCompare(b.guideNumber));
+    }, [sessions]);
 
-    function fmtDateTime(iso: string, time?: string | null) {
-        if (!iso) return '-';
-        const d = new Date(iso);
-        const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        return time ? `${date} ${time}` : date;
-    }
-
-    const total = rows.reduce((s, r) => s + r.value, 0);
     const totalSessions = rows.reduce((s, r) => s + r.sessions, 0);
+    const total = rows.reduce((s, r) => s + r.value, 0);
+
+    if (rows.length === 0) {
+        return (
+            <Box sx={{ p: 2 }}>
+                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum registro encontrado.</Box>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ p: 2 }}>
-            {rows.length === 0 ? (
-                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum registro encontrado.</Box>
-            ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                    {rows.map((r, idx) => {
-                        const key = `${patientId}__${r.monthKey}__${r.specialty}`;
-                        const isOpen = expanded.has(key);
-                        const sessions = sessionsByKey[key] || [];
-                        const isLoading = loadingByKey[key];
-                        const error = errorByKey[key];
-                        const canExpand = !!patientId;
-                        const style = STATUS_STYLE[r.status] || STATUS_STYLE.pending_batch;
-                        const mostRecentSessionId = sessions.length
-                            ? sessions.reduce((latest, s) =>
-                                !latest || new Date(s.date).getTime() > new Date(latest.date).getTime() ? s : latest
-                            , sessions[0]).sessionId
-                            : null;
+            <Tabs
+                value={activeSpecialty}
+                onChange={(_, v) => setActiveSpecialty(v)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{ mb: 2, minHeight: 40, '& .MuiTabs-flexContainer': { gap: 1 } }}
+            >
+                {specialtyTabs.map(t => (
+                    <Tab
+                        key={t.specialty}
+                        value={t.specialty}
+                        label={
+                            <Box sx={{ textAlign: 'left', lineHeight: 1.2 }}>
+                                <Typography fontSize="0.8rem" fontWeight={700}>{getSpecialtyLabel(t.specialty)}</Typography>
+                                <Typography fontSize="0.65rem" color="text.secondary">{t.sessions} sess · {fmtBRL(t.value)}</Typography>
+                            </Box>
+                        }
+                        sx={{ textTransform: 'none', minHeight: 44, px: 1.5 }}
+                    />
+                ))}
+            </Tabs>
 
-                        return (
-                            <Card key={key || idx} elevation={0} sx={{
-                                border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                                '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-                            }}>
-                                <Box sx={{ height: 4, bgcolor: style.dot }} />
-                                <Box sx={{ p: 1.75 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                        <Box>
-                                            <Typography fontWeight={700} fontSize="0.9rem" color="#0F172A">
-                                                {getSpecialtyLabel(r.specialty)}
-                                            </Typography>
-                                            <Chip
-                                                size="small"
-                                                label={fmtMonthShort(r.monthKey)}
-                                                sx={{ fontSize: '0.63rem', height: 17, bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600, mt: 0.5 }}
-                                            />
-                                        </Box>
-                                        <Box sx={{ textAlign: 'right' }}>
-                                            <Typography fontWeight={800} fontSize="1rem" color="#0F172A">{fmtBRL(r.value)}</Typography>
-                                            <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
-                                                {r.sessions} sessõe{r.sessions !== 1 ? 's' : ''}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <StatusBadge status={r.status} />
-                                        {canExpand && (
-                                            <Box
-                                                onClick={() => toggle(r)}
-                                                sx={{
-                                                    display: 'flex', alignItems: 'center', gap: 0.5,
-                                                    cursor: 'pointer', color: '#3B82F6', fontSize: '0.73rem', fontWeight: 600,
-                                                    '&:hover': { color: '#1D4ED8' }
-                                                }}
-                                            >
-                                                {isOpen ? 'Ocultar sessões' : `Ver ${r.sessions} sessões`}
-                                                {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                            </Box>
-                                        )}
-                                    </Box>
-
-                                    <Collapse in={isOpen} timeout="auto" unmountOnExit>
-                                        <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
-                                            {isLoading && (
-                                                <Box className="flex items-center gap-2 py-2 text-gray-500 text-xs">
-                                                    <CircularProgress size={14} />
-                                                    Carregando sessões...
-                                                </Box>
-                                            )}
-                                            {error && <Box className="text-red-600 text-xs py-2">{error}</Box>}
-                                            {!isLoading && !error && sessions.length === 0 && (
-                                                <Box className="text-gray-400 text-xs py-2">Nenhuma sessão encontrada.</Box>
-                                            )}
-                                            {!isLoading && !error && (() => {
-                                                // Um card é especialidade+mês, que pode abranger MAIS DE UMA guia (ex:
-                                                // guia renovada no meio do mês) — sem agrupar, sessões de guias
-                                                // diferentes ficavam intercaladas por data e pareciam bagunçadas.
-                                                const sorted = [...sessions].sort((a, b) =>
-                                                    (a.guideNumber || '').localeCompare(b.guideNumber || '') ||
-                                                    new Date(a.date).getTime() - new Date(b.date).getTime()
-                                                );
-                                                const distinctGuides = new Set(sorted.map(s => s.guideNumber || '')).size;
-                                                let lastGuide: string | null = null;
-                                                return sorted.map((s, sidx) => {
-                                                    const isMostRecent = s.sessionId === mostRecentSessionId;
-                                                    const showGuideHeader = distinctGuides > 1 && s.guideNumber !== lastGuide;
-                                                    lastGuide = s.guideNumber || null;
-                                                    return (
-                                                        <Box key={s.sessionId || s.paymentId || sidx}>
-                                                            {showGuideHeader && (
-                                                                <Typography
-                                                                    fontSize="0.65rem" fontWeight={700} color="#94A3B8"
-                                                                    sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', mt: sidx > 0 ? 1 : 0, mb: 0.5 }}
-                                                                >
-                                                                    Guia {s.guideNumber || 'sem número'}
-                                                                </Typography>
-                                                            )}
-                                                            <Box sx={{
-                                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                                py: 0.5, px: isMostRecent ? 0.75 : 0, borderRadius: 1.5,
-                                                                bgcolor: isMostRecent ? '#F0FDF4' : 'transparent',
-                                                                borderBottom: !isMostRecent && sidx < sorted.length - 1 ? '1px dashed #F1F5F9' : 'none',
-                                                            }}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                                                                    <Box sx={{
-                                                                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                        bgcolor: isMostRecent ? '#059669' : '#E2E8F0',
-                                                                        color: isMostRecent ? '#fff' : '#64748B',
-                                                                        fontSize: '0.62rem', fontWeight: 700,
-                                                                    }}>
-                                                                        {sidx + 1}
-                                                                    </Box>
-                                                                    <Typography fontSize="0.78rem" color="#475569" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>
-                                                                        {fmtDateTime(String(s.date), s.time)}
-                                                                    </Typography>
-                                                                    {s.doctor?.fullName && (
-                                                                        <Typography fontSize="0.71rem" color="#94A3B8" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                            · {s.doctor.fullName}
-                                                                        </Typography>
-                                                                    )}
-                                                                    {!distinctGuides || distinctGuides <= 1 ? (
-                                                                        s.guideNumber && (
-                                                                            <Chip size="small" label={`guia ${s.guideNumber}`} sx={{ fontSize: '0.6rem', height: 16, bgcolor: '#F1F5F9', color: '#64748B', fontWeight: 600, flexShrink: 0 }} />
-                                                                        )
-                                                                    ) : null}
-                                                                </Box>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                                                                    <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">{fmtBRL(s.value)}</Typography>
-                                                                    <StatusBadge status={s.billingStatus} />
-                                                                </Box>
-                                                            </Box>
-                                                        </Box>
-                                                    );
-                                                });
-                                            })()}
-                                        </Box>
-                                    </Collapse>
-                                </Box>
-                            </Card>
-                        );
-                    })}
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 1 }}>
-                        <Typography fontSize="0.72rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            Total · {totalSessions} sessõe{totalSessions !== 1 ? 's' : ''}
-                        </Typography>
-                        <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A">{fmtBRL(total)}</Typography>
-                    </Box>
+            {isLoading && (
+                <Box className="flex items-center gap-2 py-4 text-gray-500 text-xs">
+                    <CircularProgress size={14} />
+                    Carregando sessões...
                 </Box>
             )}
+            {error && <Box className="text-red-600 text-xs py-2">{error}</Box>}
+            {!isLoading && !error && guides.length === 0 && (
+                <Box className="text-gray-400 text-xs py-4">Nenhuma sessão encontrada.</Box>
+            )}
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                {guides.map((guide, gidx) => (
+                    <Accordion
+                        key={guide.guideNumber}
+                        defaultExpanded={gidx === 0}
+                        elevation={0}
+                        sx={{
+                            border: '1.5px solid #E2E8F0',
+                            borderRadius: '12px !important',
+                            overflow: 'hidden',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                            '&:before': { display: 'none' },
+                            '&.Mui-expanded': { margin: 0 }
+                        }}
+                    >
+                        <AccordionSummary
+                            expandIcon={<ChevronDown size={18} color="#64748B" />}
+                            sx={{
+                                px: 2,
+                                py: 0.5,
+                                minHeight: 52,
+                                '& .MuiAccordionSummary-content': { my: 1, alignItems: 'center' }
+                            }}
+                        >
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A">
+                                    Guia {guide.guideNumber}
+                                </Typography>
+                                <Typography fontSize="0.68rem" color="#64748B">
+                                    {activeRow?.month ? `Competência ${fmtMonthShort(activeRow.monthKey)}` : ''}
+                                    {activeRow?.month ? ' · ' : ''}
+                                    {guide.sessions.length} sessõe{guide.sessions.length !== 1 ? 's' : ''}
+                                </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: 'right' }}>
+                                <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(guide.total)}</Typography>
+                            </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
+                            <Box sx={{ borderTop: '1px solid #F1F5F9', pt: 1.5 }}>
+                                {guide.sessions.map((s, sidx) => {
+                                    const isLast = sidx === guide.sessions.length - 1;
+                                    return (
+                                        <Box
+                                            key={s.sessionId || s.paymentId || sidx}
+                                            sx={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                py: 0.6,
+                                                borderBottom: isLast ? 'none' : '1px dashed #F1F5F9',
+                                            }}
+                                        >
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                                    <Box sx={{
+                                                        width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        bgcolor: '#E2E8F0', color: '#64748B',
+                                                        fontSize: '0.62rem', fontWeight: 700,
+                                                    }}>
+                                                        {sidx + 1}
+                                                    </Box>
+                                                    <Typography fontSize="0.78rem" color="#475569" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>
+                                                        {fmtDateTime(String(s.date), s.time)}
+                                                    </Typography>
+                                                    {s.doctor?.fullName && (
+                                                        <Typography fontSize="0.71rem" color="#94A3B8" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            · {s.doctor.fullName}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                                                    <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">{fmtBRL(s.value)}</Typography>
+                                                    <StatusBadge status={s.billingStatus} />
+                                                </Box>
+                                            </Box>
+                                            {(s.batchNumber || s.invoiceNumber || s.billedAt || s.receivedAt) && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, ml: 3.25, flexWrap: 'wrap' }}>
+                                                    {s.batchNumber && (
+                                                        <Chip size="small" label={`Lote ${s.batchNumber}`} sx={{ height: 16, fontSize: '0.58rem', bgcolor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600 }} />
+                                                    )}
+                                                    {s.invoiceNumber && (
+                                                        <Chip size="small" label={`NF ${s.invoiceNumber}`} sx={{ height: 16, fontSize: '0.58rem', bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600 }} />
+                                                    )}
+                                                    {s.billedAt && (
+                                                        <Typography fontSize="0.63rem" color="#64748B">Faturado em {fmtDateShort(s.billedAt)}</Typography>
+                                                    )}
+                                                    {s.receivedAt && (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                                                            <Typography fontSize="0.63rem" color="#059669">
+                                                                Recebido em {fmtDateShort(s.receivedAt)}
+                                                            </Typography>
+                                                            {(s.grossAmount || s.receivedAmount) && (
+                                                                <Typography fontSize="0.63rem" color="#64748B">
+                                                                    Bruto {fmtBRL(s.grossAmount || s.receivedAmount || 0)}
+                                                                    {s.issAmount ? ` · ISS ${fmtBRL(s.issAmount)}` : ''}
+                                                                    {s.receivedAmount ? ` · Líquido ${fmtBRL(s.receivedAmount)}` : ''}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    )}
+                                                </Box>
+                                            )}
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </AccordionDetails>
+                    </Accordion>
+                ))}
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 1, mt: 1 }}>
+                <Typography fontSize="0.72rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Total · {totalSessions} sessõe{totalSessions !== 1 ? 's' : ''}
+                </Typography>
+                <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A">{fmtBRL(total)}</Typography>
+            </Box>
         </Box>
     );
 }
@@ -407,6 +460,13 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
         setYear(targetYear);
         setFilterMonth(_defaultMonth(targetYear, activeMonth));
     }, [activeYear, activeMonth]);
+
+    // Fecha o drawer quando filtros avançados mudam — a seleção de paciente
+    // pertence a um contexto de mês/status/especialidade; mantê-lo aberto ao
+    // trocar esses filtros deixa a tela "presa" com dados fora de contexto.
+    useEffect(() => {
+        setDrawerPatient(null);
+    }, [filterMonth, filterStatus, filterSpecialty]);
 
     async function load() {
         setLoading(true);

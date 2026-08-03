@@ -243,11 +243,23 @@ export interface InsurancePatientSession {
     provider: string;
     guideNumber?: string | null;
     value: number;
+    /** Valor bruto faturado (antes de ISS/glosa) */
+    grossAmount?: number;
+    /** Alíquota de ISS aplicada no recebimento (%) */
+    issRate?: number | null;
+    /** Valor de ISS retido na fonte */
+    issAmount?: number | null;
     billingStatus: 'pending_batch' | 'billed' | 'received';
     batchId?: string | null;
+    batchNumber?: string | null;
+    sentDate?: string | null;
+    invoiceNumber?: string | null;
+    billedAt?: string | null;
+    receivedAt?: string | null;
+    receivedAmount?: number | null;
     paymentId?: string | null;
     appointmentId?: string | null;
-    source: 'lote' | 'avulso';
+    source: 'lote' | 'avulso' | 'guia';
 }
 
 export const getPatientInsuranceSessions = (params: { patientId: string; month: string; specialty?: string; provider?: string; status?: string }) =>
