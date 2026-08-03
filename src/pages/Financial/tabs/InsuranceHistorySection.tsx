@@ -247,12 +247,13 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
         return [...map.values()].sort((a, b) => a.guideNumber.localeCompare(b.guideNumber));
     }, [sessions]);
 
-    // Total deve refletir a especialidade ativamente selecionada (o conteúdo do
-    // drawer), não a soma de todas as especialidades do paciente — antes exibia
-    // 54 sessões quando a guia ativa tinha apenas 6.
-    const activeRowTotal = activeRow ? { sessions: activeRow.sessions, value: activeRow.value } : null;
-    const totalSessions = activeRowTotal ? activeRowTotal.sessions : guides.reduce((s, g) => s + g.sessions.length, 0);
-    const total = activeRowTotal ? activeRowTotal.value : guides.reduce((s, g) => s + g.total, 0);
+    // Total do rodapé deve bater exatamente com as sessões exibidas abaixo,
+    // não com o resumo da linha do paciente. A linha resumo vem de agregações
+    // do backend que podem usar valores de lote/payment divergentes (caso R$ 80
+    // no batch vs R$ 100 no payment), então aqui somamos o que realmente foi
+    // renderizado nos accordions.
+    const totalSessions = guides.reduce((s, g) => s + g.sessions.length, 0);
+    const total = guides.reduce((s, g) => s + g.total, 0);
 
     if (rows.length === 0) {
         return (
