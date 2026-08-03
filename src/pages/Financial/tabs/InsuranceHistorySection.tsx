@@ -39,10 +39,25 @@ function fmtMonthShort(monthKey: string) {
 }
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-    pending_batch: { label: 'Aguardando Lote', color: '#92400E', bg: '#FEF3C7', dot: '#F59E0B' },
-    billed:        { label: 'Faturado',        color: '#1E40AF', bg: '#EFF6FF', dot: '#3B82F6' },
-    received:      { label: 'Recebido',        color: '#065F46', bg: '#ECFDF5', dot: '#10B981' },
+    pending_batch:   { label: 'Aguardando Lote',  color: '#92400E', bg: '#FEF3C7', dot: '#F59E0B' },
+    billed:          { label: 'Faturado',         color: '#1E40AF', bg: '#EFF6FF', dot: '#3B82F6' },
+    received:        { label: 'Recebido',         color: '#065F46', bg: '#ECFDF5', dot: '#10B981' },
+    partial_billed:  { label: 'Parcialmente Faturado', color: '#1E40AF', bg: '#EFF6FF', dot: '#3B82F6' },
+    partial_received:{ label: 'Parcialmente Recebido', color: '#065F46', bg: '#ECFDF5', dot: '#10B981' },
+    mixed:           { label: 'Misto',            color: '#475569', bg: '#F1F5F9', dot: '#94A3B8' },
 };
+
+function computeGuideStatus(sessions: InsurancePatientSession[]) {
+    const statuses = new Set(sessions.map(s => s.billingStatus).filter(Boolean));
+    if (statuses.size === 0) return 'pending_batch';
+    if (statuses.size === 1) return sessions[0].billingStatus;
+    const hasReceived = statuses.has('received');
+    const hasBilled = statuses.has('billed');
+    const hasPending = statuses.has('pending_batch');
+    if (hasReceived && (hasBilled || hasPending)) return 'partial_received';
+    if (hasBilled && hasPending) return 'partial_billed';
+    return 'mixed';
+}
 
 function StatusBadge({ status }: { status: string }) {
     const s = STATUS_STYLE[status] || STATUS_STYLE.pending_batch;
@@ -232,8 +247,12 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
         return [...map.values()].sort((a, b) => a.guideNumber.localeCompare(b.guideNumber));
     }, [sessions]);
 
-    const totalSessions = rows.reduce((s, r) => s + r.sessions, 0);
-    const total = rows.reduce((s, r) => s + r.value, 0);
+    // Total deve refletir a especialidade ativamente selecionada (o conteúdo do
+    // drawer), não a soma de todas as especialidades do paciente — antes exibia
+    // 54 sessões quando a guia ativa tinha apenas 6.
+    const activeRowTotal = activeRow ? { sessions: activeRow.sessions, value: activeRow.value } : null;
+    const totalSessions = activeRowTotal ? activeRowTotal.sessions : guides.reduce((s, g) => s + g.sessions.length, 0);
+    const total = activeRowTotal ? activeRowTotal.value : guides.reduce((s, g) => s + g.total, 0);
 
     if (rows.length === 0) {
         return (
@@ -312,7 +331,8 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                     {guide.sessions.length} sessõe{guide.sessions.length !== 1 ? 's' : ''}
                                 </Typography>
                             </Box>
-                            <Box sx={{ textAlign: 'right' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textAlign: 'right' }}>
+                                <StatusBadge status={computeGuideStatus(guide.sessions)} />
                                 <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(guide.total)}</Typography>
                             </Box>
                         </AccordionSummary>
