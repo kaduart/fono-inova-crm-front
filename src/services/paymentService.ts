@@ -284,6 +284,8 @@ export interface InsurancePatientSessionGroup {
     batchNumber?: string | null;
     sentDate?: string | null;
     invoiceNumber?: string | null;
+    /** Mês de competência (YYYY-MM) usado para agrupar sessões sem lote no modelo legado */
+    competenceMonth?: string | null;
     sessions: InsurancePatientSession[];
     /** @deprecated use summary.grossAmount em vez de total */
     total?: number;

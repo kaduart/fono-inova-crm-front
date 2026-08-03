@@ -331,8 +331,10 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         >
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A">
-                                    {group.type === 'batch'
+                                    {group.type === 'batch' && (group.batchNumber || group.batchId)
                                         ? `Lote ${group.batchNumber || group.batchId}`
+                                        : group.type === 'batch'
+                                        ? `Competência ${fmtMonthShort(group.competenceMonth || '')}`
                                         : `Guia ${group.guideNumber || 'sem número'}`}
                                 </Typography>
                                 <Typography fontSize="0.68rem" color="#64748B">
