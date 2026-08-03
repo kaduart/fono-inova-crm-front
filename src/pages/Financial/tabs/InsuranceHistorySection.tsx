@@ -190,8 +190,13 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
         }
     }, [specialtyTabs, activeSpecialty]);
 
-    // Cache de sessões por chave estável
-    const [sessionsByKey, setSessionsByKey] = useState<Record<string, InsurancePatientSession[]>>({});
+    // Cache de respostas por chave estável
+    interface CachedResponse {
+        data: InsurancePatientSession[];
+        billingModel: 'legacy' | 'current';
+        groups: import('../../../services/paymentService').InsurancePatientSessionGroup[];
+    }
+    const [cacheByKey, setCacheByKey] = useState<Record<string, CachedResponse>>({});
     const [loadingByKey, setLoadingByKey] = useState<Record<string, boolean>>({});
     const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
 
@@ -203,7 +208,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     useEffect(() => {
         if (!patientId || !activeRow) return;
         const key = `${patientId}__${activeRow.monthKey}__${activeRow.specialty}`;
-        if (sessionsByKey[key] || loadingByKey[key]) return;
+        if (cacheByKey[key] || loadingByKey[key]) return;
 
         setLoadingByKey(prev => ({ ...prev, [key]: true }));
         setErrorByKey(prev => ({ ...prev, [key]: '' }));
@@ -215,7 +220,14 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
             status: activeRow.status
         })
             .then(res => {
-                setSessionsByKey(prev => ({ ...prev, [key]: res.data.data || [] }));
+                setCacheByKey(prev => ({
+                    ...prev,
+                    [key]: {
+                        data: res.data.data || [],
+                        billingModel: res.data.billingModel || 'current',
+                        groups: res.data.groups || []
+                    }
+                }));
             })
             .catch((err: any) => {
                 console.error('[PatientSessionDetails] Erro ao carregar sessões:', err);
@@ -227,33 +239,15 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     }, [patientId, activeRow, provider]);
 
     const key = activeRow ? `${patientId}__${activeRow.monthKey}__${activeRow.specialty}` : '';
-    const sessions = key ? sessionsByKey[key] || [] : [];
+    const cached = key ? cacheByKey[key] : null;
+    const billingModel = cached?.billingModel || 'current';
+    const groups = cached?.groups || [];
     const isLoading = key ? loadingByKey[key] : false;
     const error = key ? errorByKey[key] : '';
 
-    // Accordion por guia dentro da especialidade ativa
-    const guides = useMemo(() => {
-        const map = new Map<string, { guideNumber: string; sessions: InsurancePatientSession[]; total: number }>();
-        for (const s of sessions) {
-            const gn = s.guideNumber || 'sem número';
-            if (!map.has(gn)) map.set(gn, { guideNumber: gn, sessions: [], total: 0 });
-            const g = map.get(gn)!;
-            g.sessions.push(s);
-            g.total += s.value || 0;
-        }
-        for (const g of map.values()) {
-            g.sessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        }
-        return [...map.values()].sort((a, b) => a.guideNumber.localeCompare(b.guideNumber));
-    }, [sessions]);
-
-    // Total do rodapé deve bater exatamente com as sessões exibidas abaixo,
-    // não com o resumo da linha do paciente. A linha resumo vem de agregações
-    // do backend que podem usar valores de lote/payment divergentes (caso R$ 80
-    // no batch vs R$ 100 no payment), então aqui somamos o que realmente foi
-    // renderizado nos accordions.
-    const totalSessions = guides.reduce((s, g) => s + g.sessions.length, 0);
-    const total = guides.reduce((s, g) => s + g.total, 0);
+    // Total do rodapé bate com os grupos renderizados.
+    const totalSessions = groups.reduce((s, g) => s + g.sessions.length, 0);
+    const total = groups.reduce((s, g) => s + g.total, 0);
 
     if (rows.length === 0) {
         return (
@@ -294,14 +288,24 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                 </Box>
             )}
             {error && <Box className="text-red-600 text-xs py-2">{error}</Box>}
-            {!isLoading && !error && guides.length === 0 && (
+            {!isLoading && !error && groups.length === 0 && (
                 <Box className="text-gray-400 text-xs py-4">Nenhuma sessão encontrada.</Box>
             )}
 
+            {billingModel === 'legacy' && groups.length > 0 && (
+                <Box sx={{ mb: 1.5, px: 1 }}>
+                    <Chip
+                        size="small"
+                        label="Modelo legado: guia reutilizada em múltiplos lotes"
+                        sx={{ height: 20, fontSize: '0.62rem', bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700 }}
+                    />
+                </Box>
+            )}
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                {guides.map((guide, gidx) => (
+                {groups.map((group, gidx) => (
                     <Accordion
-                        key={guide.guideNumber}
+                        key={group.type === 'batch' ? `${group.batchId}-${group.guideNumber}` : group.guideNumber}
                         defaultExpanded={gidx === 0}
                         elevation={0}
                         sx={{
@@ -324,23 +328,29 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         >
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A">
-                                    Guia {guide.guideNumber}
+                                    {group.type === 'batch'
+                                        ? `Lote ${group.batchNumber || group.batchId}`
+                                        : `Guia ${group.guideNumber || 'sem número'}`}
                                 </Typography>
                                 <Typography fontSize="0.68rem" color="#64748B">
-                                    {activeRow?.month ? `Competência ${fmtMonthShort(activeRow.monthKey)}` : ''}
-                                    {activeRow?.month ? ' · ' : ''}
-                                    {guide.sessions.length} sessõe{guide.sessions.length !== 1 ? 's' : ''}
+                                    {group.type === 'batch' && group.guideNumber && (
+                                        <>Guia {group.guideNumber} · </>
+                                    )}
+                                    {group.type === 'batch' && group.sentDate && (
+                                        <>Enviado {fmtDateShort(group.sentDate)} · </>
+                                    )}
+                                    {group.sessions.length} sessõe{group.sessions.length !== 1 ? 's' : ''}
                                 </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textAlign: 'right' }}>
-                                <StatusBadge status={computeGuideStatus(guide.sessions)} />
-                                <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(guide.total)}</Typography>
+                                <StatusBadge status={computeGuideStatus(group.sessions)} />
+                                <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(group.total)}</Typography>
                             </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
                             <Box sx={{ borderTop: '1px solid #F1F5F9', pt: 1.5 }}>
-                                {guide.sessions.map((s, sidx) => {
-                                    const isLast = sidx === guide.sessions.length - 1;
+                                {group.sessions.map((s, sidx) => {
+                                    const isLast = sidx === group.sessions.length - 1;
                                     return (
                                         <Box
                                             key={s.sessionId || s.paymentId || sidx}
@@ -375,11 +385,8 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                                     <StatusBadge status={s.billingStatus} />
                                                 </Box>
                                             </Box>
-                                            {(s.batchNumber || s.invoiceNumber || s.billedAt || s.receivedAt) && (
+                                            {(s.invoiceNumber || s.billedAt || s.receivedAt) && (
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, ml: 3.25, flexWrap: 'wrap' }}>
-                                                    {s.batchNumber && (
-                                                        <Chip size="small" label={`Lote ${s.batchNumber}`} sx={{ height: 16, fontSize: '0.58rem', bgcolor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600 }} />
-                                                    )}
                                                     {s.invoiceNumber && (
                                                         <Chip size="small" label={`NF ${s.invoiceNumber}`} sx={{ height: 16, fontSize: '0.58rem', bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600 }} />
                                                     )}

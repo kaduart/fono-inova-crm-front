@@ -262,8 +262,27 @@ export interface InsurancePatientSession {
     source: 'lote' | 'avulso' | 'guia';
 }
 
+export interface InsurancePatientSessionGroup {
+    type: 'batch' | 'guide';
+    guideNumber?: string | null;
+    batchId?: string | null;
+    batchNumber?: string | null;
+    sentDate?: string | null;
+    invoiceNumber?: string | null;
+    sessions: InsurancePatientSession[];
+    total: number;
+}
+
+export interface PatientInsuranceSessionsResponse {
+    success: boolean;
+    data: InsurancePatientSession[];
+    count: number;
+    billingModel: 'legacy' | 'current';
+    groups: InsurancePatientSessionGroup[];
+}
+
 export const getPatientInsuranceSessions = (params: { patientId: string; month: string; specialty?: string; provider?: string; status?: string }) =>
-    API.get<{ success: boolean; data: InsurancePatientSession[]; count: number }>('/v2/insurance/patient-sessions', { params });
+    API.get<PatientInsuranceSessionsResponse>('/v2/insurance/patient-sessions', { params });
 
 export interface InsuranceHistorySpecialty {
     specialty: string;
