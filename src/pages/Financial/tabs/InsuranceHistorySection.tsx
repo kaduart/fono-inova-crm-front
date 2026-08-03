@@ -8,19 +8,12 @@ import {
     Select,
     Typography,
     TextField,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper,
     FormControl,
     Button,
     Collapse,
-    IconButton,
+    Card,
+    Chip,
 } from '@mui/material';
-// Note: Table/TableContainer still used in PatientSessionDetails inner component
 import { TrendingUp, Download, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, X, ArrowLeft, Search } from 'lucide-react';
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import BreakdownDetailsModal, { BreakdownRow } from '../components/BreakdownDetailsModal';
@@ -38,7 +31,7 @@ function fmtBRL(v: number) {
 function fmtMonthShort(monthKey: string) {
     if (!monthKey || monthKey === 'all') return '-';
     const [y, m] = monthKey.split('-');
-    return new Date(Number(y), Number(m) - 1, 1).toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
+    return `${m}/${y}`;
 }
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string; dot: string }> = {
@@ -127,10 +120,13 @@ interface ProviderSummary {
     faturado: number;
     recebido: number;
     pendente: number;
+    /** Envio mais recente pra faturamento (mais recente entre os meses/guias filtrados) */
+    lastSentAt: string | null;
 }
 
 interface PatientSummary {
     name: string;
+    patientId?: string;
     phone?: string;
     sessions: number;
     value: number;
@@ -152,7 +148,10 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
 
     const toggle = async (row: FlatRow) => {
-        const key = `${row.monthKey}__${row.specialty}`;
+        // patientId entra na chave de propósito: o drawer não desmonta ao trocar
+        // de paciente (só atualiza props), então sem isso o cache de sessões de
+        // um paciente vazava pro card de outro paciente com mesmo mês+especialidade.
+        const key = `${patientId}__${row.monthKey}__${row.specialty}`;
         if (expanded.has(key)) {
             setExpanded(prev => { const next = new Set(prev); next.delete(key); return next; });
             return;
@@ -180,117 +179,171 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
         }
     };
 
-    function fmtDateShort(iso: string) {
+    function fmtDateTime(iso: string, time?: string | null) {
         if (!iso) return '-';
         const d = new Date(iso);
-        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        return time ? `${date} ${time}` : date;
     }
 
+    const total = rows.reduce((s, r) => s + r.value, 0);
+    const totalSessions = rows.reduce((s, r) => s + r.sessions, 0);
+
     return (
-        <TableContainer component={Paper} variant="outlined" className="rounded-xl overflow-hidden m-3" sx={{ width: 'calc(100% - 24px)' }}>
-            <Table size="small" sx={{ tableLayout: 'fixed' }}>
-                <TableHead className="bg-gray-50">
-                    <TableRow>
-                        <TableCell sx={{ fontWeight: 600, width: 50 }} />
-                        <TableCell sx={{ fontWeight: 600, width: 110 }}>Mês</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Especialidade</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, width: 90 }}>Sessões</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, width: 130 }}>Valor</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, width: 140 }}>Status</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {rows.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={6} align="center" className="py-8 text-gray-400 text-sm">
-                                Nenhum registro encontrado.
-                            </TableCell>
-                        </TableRow>
-                    ) : rows.map((r, idx) => {
-                        const key = `${r.monthKey}__${r.specialty}`;
+        <Box sx={{ p: 2 }}>
+            {rows.length === 0 ? (
+                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum registro encontrado.</Box>
+            ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                    {rows.map((r, idx) => {
+                        const key = `${patientId}__${r.monthKey}__${r.specialty}`;
                         const isOpen = expanded.has(key);
                         const sessions = sessionsByKey[key] || [];
                         const isLoading = loadingByKey[key];
                         const error = errorByKey[key];
                         const canExpand = !!patientId;
+                        const style = STATUS_STYLE[r.status] || STATUS_STYLE.pending_batch;
+                        const mostRecentSessionId = sessions.length
+                            ? sessions.reduce((latest, s) =>
+                                !latest || new Date(s.date).getTime() > new Date(latest.date).getTime() ? s : latest
+                            , sessions[0]).sessionId
+                            : null;
 
                         return (
-                            <>
-                                <TableRow key={idx} className="border-t border-gray-50" hover={canExpand}>
-                                    <TableCell sx={{ width: 50, p: 0 }}>
+                            <Card key={key || idx} elevation={0} sx={{
+                                border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
+                            }}>
+                                <Box sx={{ height: 4, bgcolor: style.dot }} />
+                                <Box sx={{ p: 1.75 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                        <Box>
+                                            <Typography fontWeight={700} fontSize="0.9rem" color="#0F172A">
+                                                {getSpecialtyLabel(r.specialty)}
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                label={fmtMonthShort(r.monthKey)}
+                                                sx={{ fontSize: '0.63rem', height: 17, bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600, mt: 0.5 }}
+                                            />
+                                        </Box>
+                                        <Box sx={{ textAlign: 'right' }}>
+                                            <Typography fontWeight={800} fontSize="1rem" color="#0F172A">{fmtBRL(r.value)}</Typography>
+                                            <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
+                                                {r.sessions} sessõe{r.sessions !== 1 ? 's' : ''}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <StatusBadge status={r.status} />
                                         {canExpand && (
-                                            <IconButton size="small" onClick={() => toggle(r)} sx={{ p: 0.5 }}>
-                                                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                            </IconButton>
+                                            <Box
+                                                onClick={() => toggle(r)}
+                                                sx={{
+                                                    display: 'flex', alignItems: 'center', gap: 0.5,
+                                                    cursor: 'pointer', color: '#3B82F6', fontSize: '0.73rem', fontWeight: 600,
+                                                    '&:hover': { color: '#1D4ED8' }
+                                                }}
+                                            >
+                                                {isOpen ? 'Ocultar sessões' : `Ver ${r.sessions} sessões`}
+                                                {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                            </Box>
                                         )}
-                                    </TableCell>
-                                    <TableCell className="text-gray-600 capitalize whitespace-nowrap">{fmtMonthShort(r.monthKey)}</TableCell>
-                                    <TableCell className="text-gray-700">{getSpecialtyLabel(r.specialty)}</TableCell>
-                                    <TableCell align="center" className="text-gray-600">{r.sessions}</TableCell>
-                                    <TableCell align="right" className="font-semibold text-gray-800">{fmtBRL(r.value)}</TableCell>
-                                    <TableCell align="center"><StatusBadge status={r.status} /></TableCell>
-                                </TableRow>
-                                {canExpand && (
-                                    <TableRow>
-                                        <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
-                                            <Collapse in={isOpen} timeout="auto" unmountOnExit>
-                                                <Box sx={{ bgcolor: '#F8FAFC', px: 2, py: 1 }}>
-                                                    {isLoading && (
-                                                        <Box className="flex items-center gap-2 py-2 text-gray-500 text-xs">
-                                                            <CircularProgress size={14} />
-                                                            Carregando sessões...
-                                                        </Box>
-                                                    )}
-                                                    {error && (
-                                                        <Box className="text-red-600 text-xs py-2">{error}</Box>
-                                                    )}
-                                                    {!isLoading && !error && sessions.length === 0 && (
-                                                        <Box className="text-gray-400 text-xs py-2">Nenhuma sessão encontrada.</Box>
-                                                    )}
-                                                    {!isLoading && !error && sessions.length > 0 && (
-                                                        <Table size="small" sx={{ tableLayout: 'fixed' }}>
-                                                            <TableHead>
-                                                                <TableRow>
-                                                                    <TableCell sx={{ fontWeight: 600, width: 90 }}>Data</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 600 }}>Profissional</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 600, width: 110 }}>Guia</TableCell>
-                                                                    <TableCell align="right" sx={{ fontWeight: 600, width: 110 }}>Valor</TableCell>
-                                                                    <TableCell align="center" sx={{ fontWeight: 600, width: 120 }}>Status</TableCell>
-                                                                </TableRow>
-                                                            </TableHead>
-                                                            <TableBody>
-                                                                {sessions.map((s) => (
-                                                                    <TableRow key={s.sessionId || s.paymentId} className="border-t border-gray-100">
-                                                                        <TableCell className="text-gray-600 text-xs whitespace-nowrap">{fmtDateShort(s.date)}</TableCell>
-                                                                        <TableCell className="text-gray-700 text-xs">{s.doctor?.fullName || '-'}</TableCell>
-                                                                        <TableCell className="text-gray-500 text-xs">{s.guideNumber || '-'}</TableCell>
-                                                                        <TableCell align="right" className="font-medium text-gray-800 text-xs">{fmtBRL(s.value)}</TableCell>
-                                                                        <TableCell align="center"><StatusBadge status={s.billingStatus} /></TableCell>
-                                                                    </TableRow>
-                                                                ))}
-                                                            </TableBody>
-                                                        </Table>
-                                                    )}
+                                    </Box>
+
+                                    <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                                        <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
+                                            {isLoading && (
+                                                <Box className="flex items-center gap-2 py-2 text-gray-500 text-xs">
+                                                    <CircularProgress size={14} />
+                                                    Carregando sessões...
                                                 </Box>
-                                            </Collapse>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </>
+                                            )}
+                                            {error && <Box className="text-red-600 text-xs py-2">{error}</Box>}
+                                            {!isLoading && !error && sessions.length === 0 && (
+                                                <Box className="text-gray-400 text-xs py-2">Nenhuma sessão encontrada.</Box>
+                                            )}
+                                            {!isLoading && !error && (() => {
+                                                // Um card é especialidade+mês, que pode abranger MAIS DE UMA guia (ex:
+                                                // guia renovada no meio do mês) — sem agrupar, sessões de guias
+                                                // diferentes ficavam intercaladas por data e pareciam bagunçadas.
+                                                const sorted = [...sessions].sort((a, b) =>
+                                                    (a.guideNumber || '').localeCompare(b.guideNumber || '') ||
+                                                    new Date(a.date).getTime() - new Date(b.date).getTime()
+                                                );
+                                                const distinctGuides = new Set(sorted.map(s => s.guideNumber || '')).size;
+                                                let lastGuide: string | null = null;
+                                                return sorted.map((s, sidx) => {
+                                                    const isMostRecent = s.sessionId === mostRecentSessionId;
+                                                    const showGuideHeader = distinctGuides > 1 && s.guideNumber !== lastGuide;
+                                                    lastGuide = s.guideNumber || null;
+                                                    return (
+                                                        <Box key={s.sessionId || s.paymentId || sidx}>
+                                                            {showGuideHeader && (
+                                                                <Typography
+                                                                    fontSize="0.65rem" fontWeight={700} color="#94A3B8"
+                                                                    sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', mt: sidx > 0 ? 1 : 0, mb: 0.5 }}
+                                                                >
+                                                                    Guia {s.guideNumber || 'sem número'}
+                                                                </Typography>
+                                                            )}
+                                                            <Box sx={{
+                                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                                py: 0.5, px: isMostRecent ? 0.75 : 0, borderRadius: 1.5,
+                                                                bgcolor: isMostRecent ? '#F0FDF4' : 'transparent',
+                                                                borderBottom: !isMostRecent && sidx < sorted.length - 1 ? '1px dashed #F1F5F9' : 'none',
+                                                            }}>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                                                    <Box sx={{
+                                                                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                        bgcolor: isMostRecent ? '#059669' : '#E2E8F0',
+                                                                        color: isMostRecent ? '#fff' : '#64748B',
+                                                                        fontSize: '0.62rem', fontWeight: 700,
+                                                                    }}>
+                                                                        {sidx + 1}
+                                                                    </Box>
+                                                                    <Typography fontSize="0.78rem" color="#475569" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>
+                                                                        {fmtDateTime(String(s.date), s.time)}
+                                                                    </Typography>
+                                                                    {s.doctor?.fullName && (
+                                                                        <Typography fontSize="0.71rem" color="#94A3B8" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                            · {s.doctor.fullName}
+                                                                        </Typography>
+                                                                    )}
+                                                                    {!distinctGuides || distinctGuides <= 1 ? (
+                                                                        s.guideNumber && (
+                                                                            <Chip size="small" label={`guia ${s.guideNumber}`} sx={{ fontSize: '0.6rem', height: 16, bgcolor: '#F1F5F9', color: '#64748B', fontWeight: 600, flexShrink: 0 }} />
+                                                                        )
+                                                                    ) : null}
+                                                                </Box>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                                                                    <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">{fmtBRL(s.value)}</Typography>
+                                                                    <StatusBadge status={s.billingStatus} />
+                                                                </Box>
+                                                            </Box>
+                                                        </Box>
+                                                    );
+                                                });
+                                            })()}
+                                        </Box>
+                                    </Collapse>
+                                </Box>
+                            </Card>
                         );
                     })}
-                    {rows.length > 0 && (
-                        <TableRow className="bg-gray-50">
-                            <TableCell />
-                            <TableCell colSpan={2} className="font-semibold text-gray-700">Total</TableCell>
-                            <TableCell align="center" className="font-semibold">{rows.reduce((s, r) => s + r.sessions, 0)}</TableCell>
-                            <TableCell align="right" className="font-bold text-gray-900">{fmtBRL(rows.reduce((s, r) => s + r.value, 0))}</TableCell>
-                            <TableCell />
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
-        </TableContainer>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 1 }}>
+                        <Typography fontSize="0.72rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Total · {totalSessions} sessõe{totalSessions !== 1 ? 's' : ''}
+                        </Typography>
+                        <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A">{fmtBRL(total)}</Typography>
+                    </Box>
+                </Box>
+            )}
+        </Box>
     );
 }
 
@@ -422,21 +475,35 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
     }
 
     // ── Nível 1: resumo por convênio ───────────────────────────────────────
+    // Lookup de lastSentAt por convênio+mês, direto do dado bruto do backend
+    // (advFiltered já achatou pra nível de especialidade e perdeu esse campo).
+    const lastSentAtByMonthProvider = useMemo(() => {
+        const map = new Map<string, string>();
+        data.forEach(month => {
+            month.providers.forEach(prov => {
+                if (prov.lastSentAt) map.set(`${month.monthKey}__${prov.providerLabel}`, prov.lastSentAt);
+            });
+        });
+        return map;
+    }, [data]);
+
     const providerSummary = useMemo<ProviderSummary[]>(() => {
         const search = searchText.toLowerCase();
         const map = new Map<string, ProviderSummary>();
         advFiltered.forEach(r => {
             if (search && !r.provider.toLowerCase().includes(search)) return;
-            if (!map.has(r.provider)) map.set(r.provider, { provider: r.provider, sessions: 0, producao: 0, faturado: 0, recebido: 0, pendente: 0 });
+            if (!map.has(r.provider)) map.set(r.provider, { provider: r.provider, sessions: 0, producao: 0, faturado: 0, recebido: 0, pendente: 0, lastSentAt: null });
             const e = map.get(r.provider)!;
             e.sessions += r.sessions;
             e.producao += r.value;
             if (r.status === 'received') e.recebido += r.value;
             else if (r.status === 'billed') e.faturado += r.value;
             else e.pendente += r.value;
+            const sentAt = lastSentAtByMonthProvider.get(`${r.monthKey}__${r.provider}`);
+            if (sentAt && (!e.lastSentAt || sentAt > e.lastSentAt)) e.lastSentAt = sentAt;
         });
         return [...map.values()].sort((a, b) => b.producao - a.producao);
-    }, [advFiltered, searchText]);
+    }, [advFiltered, searchText, lastSentAtByMonthProvider]);
 
     const globalTotals = useMemo(() => providerSummary.reduce(
         (acc, p) => ({ producao: acc.producao + p.producao, faturado: acc.faturado + p.faturado, recebido: acc.recebido + p.recebido, pendente: acc.pendente + p.pendente }),
@@ -447,19 +514,23 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
     const patientSummary = useMemo<PatientSummary[]>(() => {
         if (!selectedProvider) return [];
         const search = searchText.toLowerCase();
-        const map = new Map<string, { name: string; phone?: string; sessions: number; value: number; statuses: Set<string> }>();
+        const map = new Map<string, { name: string; patientId?: string; phone?: string; sessions: number; value: number; statuses: Set<string> }>();
         advFiltered
             .filter(r => r.provider === selectedProvider)
             .forEach(r => {
                 if (search && !r.patientName.toLowerCase().includes(search)) return;
-                if (!map.has(r.patientName)) map.set(r.patientName, { name: r.patientName, phone: r.patientPhone, sessions: 0, value: 0, statuses: new Set() });
+                if (!map.has(r.patientName)) map.set(r.patientName, { name: r.patientName, patientId: r.patientId, phone: r.patientPhone, sessions: 0, value: 0, statuses: new Set() });
                 const e = map.get(r.patientName)!;
+                // patientId pode faltar em algumas linhas (payment avulso sem populate) — pega
+                // a primeira que tiver, senão o botão de expandir nunca aparece pro paciente.
+                if (r.patientId && !e.patientId) e.patientId = r.patientId;
                 e.sessions += r.sessions;
                 e.value += r.value;
                 e.statuses.add(r.status);
             });
         return [...map.values()].map(e => ({
             name: e.name,
+            patientId: e.patientId,
             phone: e.phone,
             sessions: e.sessions,
             value: e.value,
@@ -713,6 +784,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Faturado</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recebido</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pendente</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 90, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Enviado</Typography>
                                 <Box sx={{ width: 24 }} />
                             </Box>
                             {providerSummary.length === 0 ? (
@@ -732,6 +804,14 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                                     <Typography fontSize="0.83rem" color="#2563EB" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.faturado)}</Typography>
                                     <Typography fontSize="0.83rem" color="#059669" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.recebido)}</Typography>
                                     <Typography fontSize="0.83rem" color="#D97706" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.pendente)}</Typography>
+                                    <Typography
+                                        fontSize="0.75rem"
+                                        color={p.lastSentAt ? '#64748B' : '#CBD5E1'}
+                                        sx={{ width: 90, textAlign: 'right' }}
+                                        title={p.lastSentAt ? `Envio mais recente — pode haver guias mais antigas enviadas em outra data` : 'Nenhum envio registrado'}
+                                    >
+                                        {p.lastSentAt ? new Date(p.lastSentAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                                    </Typography>
                                     <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: '#CBD5E1' }}>
                                         <ChevronRight size={16} />
                                     </Box>

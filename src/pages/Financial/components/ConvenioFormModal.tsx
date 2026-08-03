@@ -45,6 +45,7 @@ const DEFAULT_FORM_DATA: CreateConvenioData = {
     defaultSessions: null,
     legalName: '',
     taxId: '',
+    issRate: 0,
     guidePolicy: {
         renewalType: 'end_of_month',
         renewalDay: 'last_day',
@@ -89,6 +90,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 defaultSessions: editingConvenio.defaultSessions ?? null,
                 legalName: editingConvenio.legalName || '',
                 taxId: editingConvenio.taxId || '',
+                issRate: editingConvenio.issRate ?? 0,
                 guidePolicy: {
                     ...DEFAULT_FORM_DATA.guidePolicy,
                     ...editingConvenio.guidePolicy
@@ -155,6 +157,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                     defaultSessions: formData.defaultSessions,
                     legalName: formData.legalName,
                     taxId: formData.taxId,
+                    issRate: formData.issRate,
                     guidePolicy: formData.guidePolicy
                 });
                 toast.success('Convênio atualizado!');
@@ -313,6 +316,16 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                             onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
                             placeholder="46.124.624/0001-11"
                             size="small"
+                        />
+                        <TextField
+                            label="ISS retido na fonte (%)"
+                            type="number"
+                            value={formData.issRate ?? 0}
+                            onChange={(e) => setFormData({ ...formData, issRate: e.target.value ? Number(e.target.value) : 0 })}
+                            placeholder="2.01"
+                            size="small"
+                            inputProps={{ min: 0, max: 100, step: 0.01 }}
+                            helperText="Alíquota que o convênio retém ao pagar (ex: Unimed 2,01%). Deduzida automaticamente do valor bruto ao registrar recebimento"
                         />
                     </Box>
                 </Box>

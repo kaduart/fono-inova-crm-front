@@ -819,7 +819,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             });
 
             if (result.data.success) {
-                toast.success(`${result.data.data.recebidos} recebimento(s) registrado(s) com sucesso!`);
+                const { recebidos, totalValor, totalIss, totalLiquido } = result.data.data;
+                const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                const message = totalIss > 0
+                    ? `${recebidos} recebimento(s) registrado(s)! Bruto: ${fmt(totalValor)} · ISS retido: ${fmt(totalIss)} · Líquido: ${fmt(totalLiquido)}`
+                    : `${recebidos} recebimento(s) registrado(s) com sucesso!`;
+                toast.success(message);
                 setReceberLoteModalOpen(false);
                 clearAllSelection();
                 loadReceivables(selectedMonthYear);

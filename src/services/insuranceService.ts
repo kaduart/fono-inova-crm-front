@@ -44,6 +44,8 @@ export interface Convenio {
     legalName?: string;
     /** CNPJ — destinatário da NF */
     taxId?: string;
+    /** Alíquota (%) de imposto retido na fonte pelo convênio ao pagar (ex: ISS Unimed = 2.01) */
+    issRate?: number;
     createdAt: string;
     updatedAt: string;
     stats?: {
@@ -63,6 +65,7 @@ export interface CreateConvenioData {
     defaultSessions?: number | null;
     legalName?: string;
     taxId?: string;
+    issRate?: number;
 }
 
 export interface UpdateConvenioData {
@@ -75,6 +78,7 @@ export interface UpdateConvenioData {
     defaultSessions?: number | null;
     legalName?: string;
     taxId?: string;
+    issRate?: number;
 }
 
 // ============================================

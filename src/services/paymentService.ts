@@ -236,6 +236,7 @@ export const getInsuranceHistory = (params?: { provider?: string; year?: number 
 export interface InsurancePatientSession {
     sessionId: string | null;
     date: string;
+    time?: string | null;
     patient: { _id: string; fullName?: string; phone?: string };
     doctor: { _id: string; fullName?: string; specialty?: string };
     specialty: string;
@@ -276,6 +277,8 @@ export interface InsuranceHistoryProvider {
     totalSessions: number;
     totalValue: number;
     status: 'pending_batch' | 'billed' | 'received';
+    /** Envio mais recente pra faturamento nesse convênio+mês (pode haver guias mais antigas com data diferente) */
+    lastSentAt: string | null;
 }
 
 export interface InsuranceHistoryMonth {
