@@ -359,7 +359,12 @@ export function DocumentSendDrawer({
         .filter(req => req.required)
         .filter(req => !(groupedByType[req.type] || []).some(d => selectedDocumentIds.has(d._id)));
 
-    const isReadyToSend = to.trim() !== '' && selectedDocumentIds.size > 0 && missingRequiredDocuments.length === 0;
+    // Documentos obrigatórios só fazem sentido pro 1º envio — reenvio/complemento usa
+    // anexos que já foram aceitos e enviados com sucesso antes, então não faz sentido
+    // travar o botão exigindo um tipo de documento que nem estava lá da primeira vez
+    // (achado 2026-08-04: paciente com guia já enviada sem "Guia" anexada tinha o
+    // Reenviar sempre desabilitado).
+    const isReadyToSend = to.trim() !== '' && selectedDocumentIds.size > 0 && (isAlreadySent || missingRequiredDocuments.length === 0);
 
     return (
         <Drawer
@@ -413,8 +418,9 @@ export function DocumentSendDrawer({
                     </Box>
                 ) : (
                     <Box className="flex-1 overflow-y-auto p-4 space-y-5">
-                        {/* Checklist de documentos obrigatórios */}
-                        {requiredDocuments.length > 0 && (
+                        {/* Checklist de documentos obrigatórios — só no 1º envio; no reenvio/complemento
+                            os anexos já foram aceitos antes, então "Faltando" aqui seria enganoso. */}
+                        {!isAlreadySent && requiredDocuments.length > 0 && (
                             <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
                                 <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A" className="mb-2">
                                     Documentos obrigatórios
