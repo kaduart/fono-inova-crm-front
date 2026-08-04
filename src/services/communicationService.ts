@@ -31,6 +31,7 @@ export interface CommunicationRequest {
     insuranceProvider: string;
     insuranceName?: string;
     guideId?: string;
+    guideNumber?: string | null;
     specialty?: string;
     requestedSessions?: number;
     purpose: CommunicationPurpose;
@@ -38,6 +39,12 @@ export interface CommunicationRequest {
     notes?: string;
     packageStatus?: 'draft' | 'sent' | 'resent' | 'failed';
     lastEmailStatus?: 'success' | 'error' | null;
+    lastEmailType?: CommunicationEmailType | null;
+    lastEmailTo?: string | null;
+    lastEmailSubject?: string | null;
+    lastEmailSentAt?: string | null;
+    lastEmailProtocol?: string | null;
+    lastEmailAttachments?: Array<{ name?: string; mimeType?: string; size?: number }>;
     invoiceNumber?: string | null;
     invoiceDate?: string | null;
     createdAt: string;
@@ -63,11 +70,34 @@ export interface CommunicationPackage {
     resentAt?: string;
 }
 
+// Constante compartilhada com o backend (models/CommunicationEmailLog.js EmailLogType) —
+// nunca usar string solta ('resend', 'complement'...) pra não divergir dos dois lados.
+export const CommunicationEmailType = {
+    FIRST_SEND: 'first_send',
+    RESEND: 'resend',
+    COMPLEMENT: 'complement',
+    MANUAL: 'manual'
+} as const;
+export type CommunicationEmailType = typeof CommunicationEmailType[keyof typeof CommunicationEmailType];
+
+// Rótulo de exibição por tipo — badge só aparece pra tentativas que não são o 1º envio
+// (por isso FIRST_SEND fica de fora). Centralizado aqui pra EnviosTab e DocumentSendDrawer
+// nunca divergirem no texto mostrado pro mesmo tipo.
+export const CommunicationEmailTypeLabels: Partial<Record<CommunicationEmailType, string>> = {
+    [CommunicationEmailType.RESEND]: 'Reenvio',
+    [CommunicationEmailType.COMPLEMENT]: 'Complemento',
+    [CommunicationEmailType.MANUAL]: 'Manual'
+};
+
 export interface CommunicationEmailLog {
     _id: string;
     to: string;
     subject: string;
+    message?: string | null;
     status: 'success' | 'error';
+    type?: CommunicationEmailType;
+    reason?: string | null;
+    provider?: string | null;
     sentAt: string;
     protocol?: string;
     attempt: number;
@@ -82,6 +112,28 @@ export interface CommunicationEmailLog {
         mimeType?: string;
         size?: number;
     }>;
+}
+
+// Uma linha por TENTATIVA de envio (não por comunicação) — junta o log com o
+// contexto do paciente/convênio/guia, pra alimentar a aba "Envios" como um
+// histórico/auditoria de verdade, não um resumo do último envio.
+export interface CommunicationEmailLogEntry extends CommunicationEmailLog {
+    communicationId: string;
+    patientId?: string;
+    patientName?: string;
+    insuranceProvider: string;
+    insuranceName?: string;
+    guideNumber?: string | null;
+    purpose: CommunicationPurpose;
+    communicationStatus?: CommunicationStatus;
+}
+
+export interface CommunicationEmailLogFilters {
+    purpose?: CommunicationPurpose;
+    insurance?: string;
+    patientId?: string;
+    page?: number;
+    limit?: number;
 }
 
 export interface CommunicationRules {
@@ -158,7 +210,12 @@ export const sendCommunication = (id: string, payload: {
     subject?: string;
     message?: string;
     template?: string;
+    sendType?: typeof CommunicationEmailType.RESEND | typeof CommunicationEmailType.COMPLEMENT;
+    reason?: string;
 }) => api.post<{ success: boolean; data: { jobId: string; status: string; message: string } }>(`/v2/communications/${id}/send`, payload);
+
+export const getCommunicationEmailLogs = (filters: CommunicationEmailLogFilters = {}) =>
+    api.get<{ success: boolean; data: CommunicationEmailLogEntry[]; pagination: PaginationResponse }>('/v2/communications/email-logs', { params: filters });
 
 export interface PaginationResponse {
     total: number;

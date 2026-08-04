@@ -69,6 +69,7 @@ import {
 import { extractErrorMessage } from '../../../utils/errorUtils';
 import { Shield } from 'lucide-react';
 import { AutorizacoesTab } from './AutorizacoesTab';
+import EnviosTab from './EnviosTab';
 import { useConvenios } from '../../../hooks/useConvenios';
 import BillingCommunicationWizard from '../components/BillingCommunicationWizard';
 
@@ -621,8 +622,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedPayments(newSelected);
     };
 
-    const totalSelectable = subTab === 5 || subTab === 6
-        ? 0 // Histórico, Autorizações e Convênios Cadastrados: sem seleção em lote
+    const totalSelectable = subTab === 5 || subTab === 6 || subTab === 7
+        ? 0 // Histórico, Autorizações, Envios e Convênios Cadastrados: sem seleção em lote
         : subTab === 0
         ? pendingStateGuides.length
         : subTab === 1
@@ -921,8 +922,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </div>
             </div>
 
-            {/* Filtro de Mês — oculto no Histórico, Autorizações e Convênios Cadastrados (não são escopados por mês) */}
-            {subTab !== 4 && subTab !== 5 && subTab !== 6 && (
+            {/* Filtro de Mês — oculto no Histórico, Autorizações, Envios e Convênios Cadastrados (não são escopados por mês) */}
+            {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1 text-gray-500">
                         <Calendar size={16} />
@@ -1146,6 +1147,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { label: 'Recebidos', count: countByStatus('received'),   icon: <CheckCircle size={15} />, amber: false },
                             { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
                             { label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
+                            { label: 'Envios', count: 0,                             icon: <Mail size={15} />, amber: false },
                             { label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
                         ].map((tab, i) => (
                             <button key={i} onClick={() => setSubTab(i)}
@@ -1257,8 +1259,10 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 6 ? (
+                    {subTab === 7 ? (
                         <ConvenioManagerModal open onClose={() => {}} embedded />
+                    ) : subTab === 6 ? (
+                        <EnviosTab />
                     ) : subTab === 5 ? (
                         <AutorizacoesTab month={month} year={year} />
                     ) : subTab === 4 ? (

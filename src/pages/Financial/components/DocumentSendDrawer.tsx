@@ -14,9 +14,10 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    Tooltip
 } from '@mui/material';
-import { X, Send, Upload, Clipboard, FileText, History } from 'lucide-react';
+import { X, Send, Upload, Clipboard, FileText, History, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     getCommunication,
@@ -29,7 +30,9 @@ import {
     CommunicationDetail,
     CommunicationRequest,
     PatientDocument,
-    CommunicationPurpose
+    CommunicationPurpose,
+    CommunicationEmailType,
+    CommunicationEmailTypeLabels
 } from '../../../services/communicationService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 
@@ -94,6 +97,11 @@ export function DocumentSendDrawer({
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
+    const [reasonText, setReasonText] = useState('');
+    // Snapshot do último envio real, capturado no load() — usado só pra decidir se um
+    // clique em "Reenviar" conta como RESEND (nada mudou) ou COMPLEMENT (mudou algo),
+    // sem expor essa escolha como dois botões separados pro usuário.
+    const [originalSnapshot, setOriginalSnapshot] = useState<{ to: string; subject: string; message: string; documentIds: string[] } | null>(null);
     const [pasting, setPasting] = useState(false);
     const [uploadType, setUploadType] = useState('other');
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -123,8 +131,23 @@ export function DocumentSendDrawer({
             );
             setSelectedDocumentIds(existingIds);
 
-            setTo(detailData.communicationRules?.defaultEmail || '');
-            setSubject(detailData.communicationRules?.defaultSubject || purposeLabels.defaultSubject);
+            // emailLogs vem ordenado do mais recente pro mais antigo — reenvio/complemento
+            // parte do que foi de fato enviado da última vez, não do default genérico do
+            // convênio (que só faz sentido pro 1º envio, quando ainda não existe log).
+            const latestLog = detailData.emailLogs?.[0];
+            const initialTo = latestLog?.to || detailData.communicationRules?.defaultEmail || '';
+            const initialSubject = latestLog?.subject || detailData.communicationRules?.defaultSubject || purposeLabels.defaultSubject;
+            const initialMessage = latestLog?.message || '';
+            setTo(initialTo);
+            setSubject(initialSubject);
+            setMessage(initialMessage);
+            setReasonText('');
+            setOriginalSnapshot({
+                to: initialTo,
+                subject: initialSubject,
+                message: initialMessage,
+                documentIds: [...existingIds].sort()
+            });
         } catch (error) {
             toast.error(extractErrorMessage(error, 'Erro ao carregar detalhes'));
         } finally {
@@ -231,7 +254,12 @@ export function DocumentSendDrawer({
         }
     };
 
-    const handleSend = async () => {
+    const isAlreadySent = communication?.status === 'sent' || communication?.status === 'approved';
+
+    const handleSend = async (
+        sendType?: typeof CommunicationEmailType.RESEND | typeof CommunicationEmailType.COMPLEMENT,
+        subjectOverride?: string
+    ) => {
         if (!communication) return;
         if (!to) return toast.warn('Informe o destinatário');
         if (selectedDocumentIds.size === 0) return toast.warn('Selecione pelo menos um documento');
@@ -240,7 +268,13 @@ export function DocumentSendDrawer({
         let jobId: string | null = null;
         try {
             await setCommunicationPackage(communication._id, Array.from(selectedDocumentIds));
-            const res = await sendCommunication(communication._id, { to, subject, message });
+            const res = await sendCommunication(communication._id, {
+                to,
+                subject: subjectOverride ?? subject,
+                message,
+                sendType,
+                reason: sendType ? (reasonText.trim() || undefined) : undefined
+            });
             jobId = res.data.data.jobId;
             toast.info('Comunicação enfileirada. Aguardando confirmação de envio...');
 
@@ -284,6 +318,33 @@ export function DocumentSendDrawer({
             toast.error(extractErrorMessage(error, 'Erro ao enviar comunicação'));
             setSending(false);
         }
+    };
+
+    // Único botão pro usuário ("Reenviar") — o tipo (resend/complement) é decidido
+    // sozinho comparando com o que foi de fato enviado da última vez: nada mudou =
+    // reenvio; mudou mensagem/assunto/anexos/destinatário = complemento. Dois botões
+    // separados só aumentavam a dúvida de qual escolher sem mudar o que acontece.
+    const handleReenviar = () => {
+        if (!originalSnapshot) {
+            handleSend();
+            return;
+        }
+        const currentIds = [...selectedDocumentIds].sort().join('|');
+        const originalIds = originalSnapshot.documentIds.join('|');
+        const changed =
+            to !== originalSnapshot.to ||
+            subject !== originalSnapshot.subject ||
+            message !== originalSnapshot.message ||
+            currentIds !== originalIds;
+
+        if (!changed) {
+            handleSend(CommunicationEmailType.RESEND);
+            return;
+        }
+
+        const prefixed = subject.startsWith('Complemento - ') ? subject : `Complemento - ${subject}`;
+        if (prefixed !== subject) setSubject(prefixed);
+        handleSend(CommunicationEmailType.COMPLEMENT, prefixed);
     };
 
     const requiredDocuments = detail?.communicationRules?.requiredDocuments || [];
@@ -503,6 +564,17 @@ export function DocumentSendDrawer({
                                 size="small"
                                 placeholder="Mensagem opcional a ser incluída no corpo do e-mail..."
                             />
+                            {isAlreadySent && (
+                                <TextField
+                                    fullWidth
+                                    label="Motivo do reenvio/complemento (opcional)"
+                                    value={reasonText}
+                                    onChange={(e) => setReasonText(e.target.value)}
+                                    size="small"
+                                    sx={{ mt: 2 }}
+                                    placeholder='Ex.: "Convênio informou que não recebeu" ou "Relatório assinado"'
+                                />
+                            )}
                         </div>
 
                         {/* Histórico de envios */}
@@ -516,20 +588,45 @@ export function DocumentSendDrawer({
                                         <div key={log._id} className="bg-gray-50 rounded-lg p-2 text-sm">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-gray-700 font-medium">{log.to}</span>
-                                                <Chip
-                                                    size="small"
-                                                    label={log.status === 'success' ? 'Enviado' : 'Erro'}
-                                                    sx={{
-                                                        bgcolor: log.status === 'success' ? '#D1FAE5' : '#FEE2E2',
-                                                        color: log.status === 'success' ? '#065F46' : '#B91C1C',
-                                                        fontSize: '0.65rem'
-                                                    }}
-                                                />
+                                                <div className="flex items-center gap-1">
+                                                    {log.type && log.type !== CommunicationEmailType.FIRST_SEND && (
+                                                        <Chip
+                                                            size="small"
+                                                            label={CommunicationEmailTypeLabels[log.type] || log.type}
+                                                            sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontSize: '0.65rem', fontWeight: 700 }}
+                                                        />
+                                                    )}
+                                                    <Chip
+                                                        size="small"
+                                                        label={log.status === 'success' ? 'Enviado' : 'Erro'}
+                                                        sx={{
+                                                            bgcolor: log.status === 'success' ? '#D1FAE5' : '#FEE2E2',
+                                                            color: log.status === 'success' ? '#065F46' : '#B91C1C',
+                                                            fontSize: '0.65rem'
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="text-xs text-gray-500 mt-1">
                                                 {formatDate(log.sentAt)} · {log.attachments.length} anexo(s)
                                                 {log.attempt > 1 ? ` · tentativa ${log.attempt}` : ''}
                                             </div>
+                                            {log.reason && (
+                                                <div className="text-xs text-gray-500 italic mt-0.5">"{log.reason}"</div>
+                                            )}
+                                            {log.attachments.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {log.attachments.map((att, i) => (
+                                                        <span
+                                                            key={att.documentId || i}
+                                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] bg-white border border-gray-200 text-gray-600"
+                                                            title={att.size ? `${(att.size / 1024).toFixed(0)} KB` : undefined}
+                                                        >
+                                                            {att.name || 'anexo'}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -549,15 +646,44 @@ export function DocumentSendDrawer({
                         >
                             Cancelar
                         </Button>
-                        <Button
-                            variant="contained"
-                            onClick={handleSend}
-                            disabled={sending || !isReadyToSend}
-                            startIcon={sending ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
-                            sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2, textTransform: 'none' }}
-                        >
-                            {sending ? 'Enviando...' : purposeLabels.action}
-                        </Button>
+                        {isAlreadySent ? (
+                            <Tooltip
+                                arrow
+                                placement="top"
+                                title={
+                                    <span style={{ fontSize: '0.75rem', lineHeight: 1.5 }}>
+                                        Manda um novo e-mail pra este destinatário. Se você não mudar nada,
+                                        fica registrado como <strong>reenvio</strong>. Se alterar a mensagem, o
+                                        assunto ou os anexos, fica registrado como <strong>complemento</strong> —
+                                        nada do que já foi enviado é apagado, cada envio vira uma linha nova no
+                                        histórico.
+                                    </span>
+                                }
+                            >
+                                <span>
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleReenviar}
+                                        disabled={sending || !isReadyToSend}
+                                        startIcon={sending ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
+                                        endIcon={<Info size={14} style={{ opacity: 0.7 }} />}
+                                        sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2, textTransform: 'none' }}
+                                    >
+                                        {sending ? 'Enviando...' : 'Reenviar'}
+                                    </Button>
+                                </span>
+                            </Tooltip>
+                        ) : (
+                            <Button
+                                variant="contained"
+                                onClick={() => handleSend()}
+                                disabled={sending || !isReadyToSend}
+                                startIcon={sending ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
+                                sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2, textTransform: 'none' }}
+                            >
+                                {sending ? 'Enviando...' : purposeLabels.action}
+                            </Button>
+                        )}
                     </div>
                 </Box>
             </div>
