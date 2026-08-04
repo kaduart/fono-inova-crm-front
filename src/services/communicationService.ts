@@ -94,7 +94,7 @@ export interface CommunicationEmailLog {
     to: string;
     subject: string;
     message?: string | null;
-    status: 'success' | 'error';
+    status: 'success' | 'error' | 'pending';
     type?: CommunicationEmailType;
     reason?: string | null;
     provider?: string | null;

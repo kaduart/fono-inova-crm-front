@@ -66,6 +66,15 @@ function fmtMonthLabel(key: string) {
     return new Date(Number(y), Number(m) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
+// 'pending' = marcador gravado antes de chamar o provedor de e-mail, ainda não
+// confirmado — nunca deve aparecer como "Enviado" (seria enganoso, o resultado real
+// é desconhecido até o job terminar ou ser investigado manualmente).
+const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }> = {
+    success: { label: 'Enviado', bg: '#D1FAE5', color: '#065F46' },
+    error: { label: 'Falha no envio', bg: '#FEE2E2', color: '#B91C1C' },
+    pending: { label: 'Processando…', bg: '#FEF3C7', color: '#92400E' }
+};
+
 // Cada extensão ganha uma cor de identificação — ajuda a escanear um lote de
 // anexos sem precisar ler cada nome (o mesmo princípio de um selo de correio).
 const EXT_STYLE: Record<string, { bg: string; color: string }> = {
@@ -275,9 +284,9 @@ export default function EnviosTab() {
             ) : (
                 <div className="space-y-3">
                     {filtered.map(log => {
-                        const isError = log.status === 'error';
+                        const statusStyle = STATUS_STYLE[log.status] || STATUS_STYLE.error;
                         const sentAt = formatDateTime(log.sentAt);
-                        const accent = isError ? '#E11D48' : '#059669';
+                        const accent = log.status === 'success' ? '#059669' : log.status === 'pending' ? '#D97706' : '#E11D48';
                         const typeLabel = log.type ? CommunicationEmailTypeLabels[log.type] : undefined;
                         return (
                             <div
@@ -323,15 +332,15 @@ export default function EnviosTab() {
                                             )}
                                             <Chip
                                                 size="small"
-                                                icon={isError ? <XCircle size={13} /> : <CheckCircle size={13} />}
-                                                label={isError ? 'Falha no envio' : 'Enviado'}
+                                                icon={log.status === 'success' ? <CheckCircle size={13} /> : log.status === 'pending' ? <Clock size={13} /> : <XCircle size={13} />}
+                                                label={statusStyle.label}
                                                 sx={{
-                                                    bgcolor: isError ? '#FEE2E2' : '#D1FAE5',
-                                                    color: isError ? '#B91C1C' : '#065F46',
+                                                    bgcolor: statusStyle.bg,
+                                                    color: statusStyle.color,
                                                     fontWeight: 700,
                                                     fontSize: '0.68rem',
                                                     height: 22,
-                                                    '& .MuiChip-icon': { color: isError ? '#B91C1C' : '#065F46' }
+                                                    '& .MuiChip-icon': { color: statusStyle.color }
                                                 }}
                                             />
                                         </div>

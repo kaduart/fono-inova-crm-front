@@ -45,6 +45,7 @@ import {
     Receipt,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
@@ -106,8 +107,28 @@ interface InsuranceTabProps {
     year: number;
 }
 
+// Mesmo padrão de front/src/pages/Financial/FinancialDashboard.tsx (useSearchParams pro
+// tab principal) — sem isso, o subTab (A Faturar/Envios/Histórico/...) era só estado local
+// e todo reload da página voltava pra "A Faturar", perdendo onde o usuário estava
+// (achado 2026-08-04). Usa id estável (não o índice) pra não quebrar se a ordem das abas mudar.
+const CONVENIO_SUBTAB_PARAM = 'convenioSubTab';
+const SUB_TAB_IDS = ['a-faturar', 'aguardando', 'faturados', 'recebidos', 'historico', 'autorizacoes', 'envios', 'cadastrados'];
+
 const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
-    const [subTab, setSubTab] = useState(0);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [subTab, setSubTabState] = useState(() => {
+        const idx = SUB_TAB_IDS.indexOf(searchParams.get(CONVENIO_SUBTAB_PARAM) || '');
+        return idx >= 0 ? idx : 0;
+    });
+
+    const setSubTab = (index: number) => {
+        setSubTabState(index);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set(CONVENIO_SUBTAB_PARAM, SUB_TAB_IDS[index] || SUB_TAB_IDS[0]);
+            return next;
+        }, { replace: true });
+    };
     const [receivables, setReceivables] = useState<InsuranceReceivableGroup[]>([]);
     const [allReceivables, setAllReceivables] = useState<InsuranceReceivableGroup[]>([]); // Todos os status para os cards
     const [loading, setLoading] = useState(false);

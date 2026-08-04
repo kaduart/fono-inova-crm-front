@@ -604,10 +604,10 @@ export function DocumentSendDrawer({
                                                     )}
                                                     <Chip
                                                         size="small"
-                                                        label={log.status === 'success' ? 'Enviado' : 'Erro'}
+                                                        label={log.status === 'success' ? 'Enviado' : log.status === 'pending' ? 'Processando…' : 'Erro'}
                                                         sx={{
-                                                            bgcolor: log.status === 'success' ? '#D1FAE5' : '#FEE2E2',
-                                                            color: log.status === 'success' ? '#065F46' : '#B91C1C',
+                                                            bgcolor: log.status === 'success' ? '#D1FAE5' : log.status === 'pending' ? '#FEF3C7' : '#FEE2E2',
+                                                            color: log.status === 'success' ? '#065F46' : log.status === 'pending' ? '#92400E' : '#B91C1C',
                                                             fontSize: '0.65rem'
                                                         }}
                                                     />
