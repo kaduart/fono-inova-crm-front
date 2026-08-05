@@ -167,7 +167,7 @@ export const useAppointments = () => {
     const fetchAppointmentsByPatient = useCallback(async (id: string, month?: string) => {
         try {
             setLoading(true);
-            const params: any = { patientId: id, limit: 100 };
+            const params: any = { patientId: id, limit: 1000 };
             if (month) {
                 const [y, m] = month.split('-').map(Number);
                 params.startDate = new Date(y, m - 1, 1).toISOString().split('T')[0];

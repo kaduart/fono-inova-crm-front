@@ -4,7 +4,6 @@ import { IAppointment } from '../../utils/types/types';
 
 interface Props {
   appointments: IAppointment[];
-  onMonthChange?: (month: string) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -57,19 +56,16 @@ function PaymentStatusBadge({ status }: { status?: string }) {
   );
 }
 
-export function PatientAppointmentsTable({ appointments, onMonthChange }: Props) {
-  const now = new Date();
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
+export function PatientAppointmentsTable({ appointments }: Props) {
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedDay, setSelectedDay] = useState<string>('all');
+  const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
-  // Extrai meses únicos dos appointments — sempre inclui o mês atual
+  // Extrai meses únicos a partir do dataset completo (já vem inteiro do backend,
+  // então a lista de meses não depende de qual filtro está selecionado)
   const months = useMemo(() => {
     const map = new Map<string, string>();
-    const now = new Date();
-    const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const nowLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    map.set(nowKey, nowLabel);
     appointments.forEach((appt) => {
       const d = new Date(appt.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -93,16 +89,42 @@ export function PatientAppointmentsTable({ appointments, onMonthChange }: Props)
     return Array.from(set).sort((a, b) => Number(a) - Number(b));
   }, [appointments, selectedMonth]);
 
-  // Filtro de dia client-side (mês já vem filtrado da API)
+  // Extrai profissionais únicos presentes no dataset
+  const doctors = useMemo(() => {
+    const map = new Map<string, string>();
+    appointments.forEach((appt) => {
+      const id = appt.doctor?._id;
+      const name = appt.doctor?.fullName;
+      if (id && name) map.set(id, name);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [appointments]);
+
+  // Extrai status únicos presentes no dataset
+  const statuses = useMemo(() => {
+    const set = new Set<string>();
+    appointments.forEach((appt) => {
+      if (appt.operationalStatus) set.add(appt.operationalStatus);
+    });
+    return Array.from(set);
+  }, [appointments]);
+
+  // Filtro 100% client-side — mês, dia, profissional e status
   const filtered = useMemo(() => {
     return appointments
       .filter((appt) => {
-        if (selectedDay === 'all') return true;
         const d = new Date(appt.date);
-        return String(d.getDate()).padStart(2, '0') === selectedDay;
+        if (selectedMonth !== 'all') {
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          if (key !== selectedMonth) return false;
+        }
+        if (selectedDay !== 'all' && String(d.getDate()).padStart(2, '0') !== selectedDay) return false;
+        if (selectedDoctor !== 'all' && appt.doctor?._id !== selectedDoctor) return false;
+        if (selectedStatus !== 'all' && appt.operationalStatus !== selectedStatus) return false;
+        return true;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [appointments, selectedMonth, selectedDay]);
+  }, [appointments, selectedMonth, selectedDay, selectedDoctor, selectedStatus]);
 
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null) return '—';
@@ -120,10 +142,14 @@ export function PatientAppointmentsTable({ appointments, onMonthChange }: Props)
     });
   };
 
+  const hasActiveFilters =
+    selectedMonth !== 'all' || selectedDay !== 'all' || selectedDoctor !== 'all' || selectedStatus !== 'all';
+
   const clearFilters = () => {
     setSelectedMonth('all');
     setSelectedDay('all');
-    onMonthChange?.('all');
+    setSelectedDoctor('all');
+    setSelectedStatus('all');
   };
 
   return (
@@ -149,7 +175,6 @@ export function PatientAppointmentsTable({ appointments, onMonthChange }: Props)
               onChange={(e) => {
                 setSelectedMonth(e.target.value);
                 setSelectedDay('all');
-                onMonthChange?.(e.target.value);
               }}
               className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
             >
@@ -179,7 +204,37 @@ export function PatientAppointmentsTable({ appointments, onMonthChange }: Props)
             </div>
           )}
 
-          {(selectedMonth !== 'all' || selectedDay !== 'all') && (
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+            <select
+              value={selectedDoctor}
+              onChange={(e) => setSelectedDoctor(e.target.value)}
+              className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
+            >
+              <option value="all">Todos os profissionais</option>
+              {doctors.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
+            >
+              <option value="all">Todos os status</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabels[status] || status}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {hasActiveFilters && (
             <button
               onClick={clearFilters}
               className="p-2 text-gray-400 hover:text-red-500 transition-colors"

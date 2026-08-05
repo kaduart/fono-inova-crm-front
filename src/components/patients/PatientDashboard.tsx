@@ -122,16 +122,13 @@ export default function PatientDashboard() {
     pollingState
   } = useAppointments();
 
-  const currentMonthKey = (() => {
-    const n = new Date();
-    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
-  })();
-
-  const loadAppointmentsByMonth = async (month: string) => {
+  const loadAllAppointments = async () => {
     if (!patientId) return;
     try {
       setIsLoading(true);
-      const data = await fetchAppointmentsByPatient(patientId, month === 'all' ? undefined : month);
+      // Busca única e completa — mês/dia/profissional/status são filtrados
+      // no client (PatientAppointmentsTable), evitando refetch a cada troca de filtro
+      const data = await fetchAppointmentsByPatient(patientId);
       setPatientAppointments(data || []);
       setAllAppointmentsById(data || []);
     } catch (err) {
@@ -144,7 +141,7 @@ export default function PatientDashboard() {
 
   // 🚀 V2: Busca agendamentos específicos do paciente (Event-Driven)
   useEffect(() => {
-    loadAppointmentsByMonth(currentMonthKey);
+    loadAllAppointments();
   }, [patientId, fetchAppointmentsByPatient]);
   const handleNewAppointment = async (appointmentData: IAppointment) => {
     try {
@@ -701,7 +698,7 @@ export default function PatientDashboard() {
 
       {/* Tabela de todos os atendimentos com filtros por mês/dia */}
       <div className="mb-8">
-        <PatientAppointmentsTable appointments={allAppointmentsById} onMonthChange={loadAppointmentsByMonth} />
+        <PatientAppointmentsTable appointments={allAppointmentsById} />
       </div>
 
       {/* O restante do conteúdo permanece igual */}
