@@ -813,6 +813,42 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     </div>
 
+                    {/* ========== EFICIÊNCIA FINANCEIRA DO DIA ========== */}
+                    {!isMultiDayRange && data.eficienciaFinanceira && data.eficienciaFinanceira.atendimentos > 0 && (() => {
+                        const ef = data.eficienciaFinanceira;
+                        return (
+                            <div className="mb-4 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0891B2', backgroundColor: '#ECFEFF' }}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <div className="text-[10px] font-black text-cyan-700 uppercase tracking-widest">Eficiência Financeira do Dia</div>
+                                        <div className="text-[11px] text-gray-400 leading-tight">{ef.atendimentos} atendimento{ef.atendimentos !== 1 ? 's' : ''} realizado{ef.atendimentos !== 1 ? 's' : ''} hoje</div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">💵 Geraram caixa hoje</div>
+                                        <div className="text-xl font-bold text-emerald-700">{formatCurrency(ef.geraramCaixaHoje.valor)}</div>
+                                        <div className="text-[11px] text-gray-400 mt-0.5">{ef.geraramCaixaHoje.quantidade} atendimento{ef.geraramCaixaHoje.quantidade !== 1 ? 's' : ''}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">📅 A receber futuramente</div>
+                                        <div className="text-xl font-bold text-amber-700">{formatCurrency(ef.aReceberFuturamente.valor)}</div>
+                                        <div className="text-[11px] text-gray-400 mt-0.5">{ef.aReceberFuturamente.quantidade} atendimento{ef.aReceberFuturamente.quantidade !== 1 ? 's' : ''}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">📦 Consumiram créditos</div>
+                                        <div className="text-xl font-bold text-indigo-700">{formatCurrency(ef.consumiramCredito.valor)}</div>
+                                        <div className="text-[11px] text-gray-400 mt-0.5">{ef.consumiramCredito.quantidade} atendimento{ef.consumiramCredito.quantidade !== 1 ? 's' : ''}</div>
+                                    </div>
+                                </div>
+                                <div className="pt-3 mt-3 border-t border-cyan-100 flex items-center justify-between">
+                                    <span className="text-[11px] text-gray-500">Monetização imediata</span>
+                                    <span className="text-sm font-bold text-cyan-700">{ef.monetizacaoImediataPct}%</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* ========== LINHA 2: Riscos Operacionais ========== */}
                     {!isMultiDayRange && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

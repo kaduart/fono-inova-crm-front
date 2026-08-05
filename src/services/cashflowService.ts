@@ -212,6 +212,13 @@ export interface CashflowV2Data {
         professional: string;
         valor: number;
     }>;
+    eficienciaFinanceira?: {
+        atendimentos: number;
+        geraramCaixaHoje: { quantidade: number; valor: number };
+        aReceberFuturamente: { quantidade: number; valor: number };
+        consumiramCredito: { quantidade: number; valor: number };
+        monetizacaoImediataPct: number;
+    };
 }
 
 export interface CashflowV2Response {
