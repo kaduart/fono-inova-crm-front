@@ -15,7 +15,9 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    Tooltip
+    Tooltip,
+    Tabs,
+    Tab
 } from '@mui/material';
 import { X, Send, Upload, Clipboard, FileText, History, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -98,6 +100,7 @@ export function DocumentSendDrawer({
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [reasonText, setReasonText] = useState('');
+    const [drawerTab, setDrawerTab] = useState<'send' | 'history'>('send');
     // Snapshot do último envio real, capturado no load() — usado só pra decidir se um
     // clique em "Reenviar" conta como RESEND (nada mudou) ou COMPLEMENT (mudou algo),
     // sem expor essa escolha como dois botões separados pro usuário.
@@ -142,6 +145,7 @@ export function DocumentSendDrawer({
             setSubject(initialSubject);
             setMessage(initialMessage);
             setReasonText('');
+            setDrawerTab('send');
             setOriginalSnapshot({
                 to: initialTo,
                 subject: initialSubject,
@@ -418,7 +422,25 @@ export function DocumentSendDrawer({
                         <CircularProgress size={32} />
                     </Box>
                 ) : (
+                    <>
+                        {/* Abas — separar "Enviar" do "Histórico" evita empilhar tudo num scroll só;
+                            com muitas tentativas (reenvio/complemento repetidos) isso poluía a tela
+                            inteira (achado 2026-08-05). */}
+                        <Tabs
+                            value={drawerTab}
+                            onChange={(_, v) => setDrawerTab(v)}
+                            variant="fullWidth"
+                            sx={{ borderBottom: '1px solid #E2E8F0', minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 700, fontSize: '0.82rem' } }}
+                        >
+                            <Tab value="send" label={isAlreadySent ? 'Reenviar' : 'Enviar'} />
+                            <Tab
+                                value="history"
+                                label={`Histórico${detail?.emailLogs?.length ? ` (${detail.emailLogs.length})` : ''}`}
+                            />
+                        </Tabs>
+
                     <Box className="flex-1 overflow-y-auto p-4 space-y-5">
+                        {drawerTab === 'send' && <>
                         {/* Checklist de documentos obrigatórios — só no 1º envio; no reenvio/complemento
                             os anexos já foram aceitos antes, então "Faltando" aqui seria enganoso. */}
                         {!isAlreadySent && requiredDocuments.length > 0 && (
@@ -583,13 +605,17 @@ export function DocumentSendDrawer({
                                 />
                             )}
                         </div>
+                        </>}
 
+                        {drawerTab === 'history' && (<>
                         {/* Histórico de envios */}
-                        {detail?.emailLogs && detail.emailLogs.length > 0 && (
+                        {!detail?.emailLogs || detail.emailLogs.length === 0 ? (
+                            <div className="text-center py-10 text-gray-400">
+                                <History size={32} className="mx-auto mb-2 opacity-40" />
+                                <Typography fontSize="0.85rem">Nenhum envio registrado ainda.</Typography>
+                            </div>
+                        ) : (
                             <div>
-                                <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A" className="mb-2 flex items-center gap-1">
-                                    <History size={16} /> Histórico de envios
-                                </Typography>
                                 <div className="space-y-2">
                                     {detail.emailLogs.map(log => (
                                         <div key={log._id} className="bg-gray-50 rounded-lg p-2 text-sm">
@@ -639,7 +665,9 @@ export function DocumentSendDrawer({
                                 </div>
                             </div>
                         )}
+                        </>)}
                     </Box>
+                    </>
                 )}
 
                 {/* Footer */}

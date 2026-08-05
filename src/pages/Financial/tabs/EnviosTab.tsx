@@ -16,7 +16,7 @@ import {
     Select,
     MenuItem
 } from '@mui/material';
-import { CheckCircle, XCircle, Mail, Clock, Hash, FileText, MessageSquare } from 'lucide-react';
+import { CheckCircle, XCircle, Mail, FileText, ChevronRight, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     getCommunicationEmailLogs,
@@ -51,12 +51,6 @@ function formatDateTime(iso?: string | null) {
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function fmtSize(bytes?: number) {
-    if (!bytes) return null;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function monthKeyOf(log: CommunicationEmailLogEntry) {
     return log.sentAt ? log.sentAt.slice(0, 7) : null; // 'YYYY-MM'
 }
@@ -74,71 +68,6 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }>
     error: { label: 'Falha no envio', bg: '#FEE2E2', color: '#B91C1C' },
     pending: { label: 'Processando…', bg: '#FEF3C7', color: '#92400E' }
 };
-
-// Cada extensão ganha uma cor de identificação — ajuda a escanear um lote de
-// anexos sem precisar ler cada nome (o mesmo princípio de um selo de correio).
-const EXT_STYLE: Record<string, { bg: string; color: string }> = {
-    pdf: { bg: '#FEE2E2', color: '#B91C1C' },
-    doc: { bg: '#DBEAFE', color: '#1D4ED8' },
-    docx: { bg: '#DBEAFE', color: '#1D4ED8' },
-    jpg: { bg: '#EDE9FE', color: '#6D28D9' },
-    jpeg: { bg: '#EDE9FE', color: '#6D28D9' },
-    png: { bg: '#EDE9FE', color: '#6D28D9' },
-    xls: { bg: '#D1FAE5', color: '#047857' },
-    xlsx: { bg: '#D1FAE5', color: '#047857' }
-};
-const DEFAULT_EXT_STYLE = { bg: '#F1F5F9', color: '#475569' };
-
-function extOf(name: string) {
-    const match = name.match(/\.([^.]+)$/);
-    return match ? match[1].toLowerCase() : '';
-}
-
-function AttachmentChip({ name, size }: { name: string; size?: number }) {
-    const ext = extOf(name);
-    const style = EXT_STYLE[ext] || DEFAULT_EXT_STYLE;
-    const label = name.replace(/\.[^.]+$/, '');
-    const sizeLabel = fmtSize(size);
-    return (
-        <span
-            className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 max-w-[220px] transition-colors hover:border-slate-300 hover:bg-white"
-            title={sizeLabel ? `${name} · ${sizeLabel}` : name}
-        >
-            <span
-                className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wide"
-                style={{ background: style.bg, color: style.color }}
-            >
-                {ext ? ext.toUpperCase() : 'DOC'}
-            </span>
-            <span className="truncate text-[12px] font-medium text-slate-700">{label}</span>
-            {sizeLabel && <span className="shrink-0 text-[10.5px] text-slate-400 font-medium">{sizeLabel}</span>}
-        </span>
-    );
-}
-
-function MetaField({ icon: Icon, label, value, mono, title }: {
-    icon: typeof Mail;
-    label: string;
-    value?: string | null;
-    mono?: boolean;
-    title?: string;
-}) {
-    if (!value) return null;
-    return (
-        <div className="min-w-0">
-            <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-                <Icon size={10} strokeWidth={2.5} />
-                {label}
-            </div>
-            <div
-                className={`text-[12.5px] font-semibold text-slate-700 truncate ${mono ? 'font-mono tracking-tight' : ''}`}
-                title={title || value}
-            >
-                {value}
-            </div>
-        </div>
-    );
-}
 
 export default function EnviosTab() {
     const [items, setItems] = useState<CommunicationEmailLogEntry[]>([]);
@@ -348,41 +277,24 @@ export default function EnviosTab() {
 
                                     {/* Assunto — tratado como a "janela do envelope" */}
                                     {log.subject && (
-                                        <div className="mt-2.5 flex items-center gap-1.5 text-[12.5px] text-slate-600 pl-[52px]">
+                                        <div className="mt-2 flex items-center gap-1.5 text-[12.5px] text-slate-600 pl-[52px]">
                                             <FileText size={12} className="text-slate-400 shrink-0" />
                                             <span className="truncate italic">{log.subject}</span>
                                         </div>
                                     )}
 
-                                    {/* Motivo do reenvio/complemento, quando informado */}
-                                    {log.reason && (
-                                        <div className="mt-1 flex items-center gap-1.5 text-[12px] text-slate-500 pl-[52px]">
-                                            <MessageSquare size={11} className="text-slate-400 shrink-0" />
-                                            <span className="truncate">{log.reason}</span>
-                                        </div>
-                                    )}
-
-                                    {/* Ficha técnica do disparo */}
-                                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-2.5">
-                                        <MetaField icon={Mail} label="Destinatário" value={log.to} />
-                                        <MetaField icon={Clock} label="Enviado em" value={sentAt} mono />
-                                        <MetaField
-                                            icon={Hash}
-                                            label="Protocolo"
-                                            value={log.protocol ? `${log.protocol.slice(0, 12)}…` : null}
-                                            title={log.protocol || undefined}
-                                            mono
-                                        />
+                                    {/* Rodapé compacto — data + anexos, resto fica atrás do clique */}
+                                    <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 pl-[52px]">
+                                        <span className="text-[11px] text-slate-400 truncate">
+                                            {sentAt}
+                                            {log.attachments && log.attachments.length > 0 && (
+                                                <> · {log.attachments.length} anexo{log.attachments.length !== 1 ? 's' : ''}</>
+                                            )}
+                                        </span>
+                                        <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-violet-600 shrink-0 group-hover:text-violet-700">
+                                            Ver detalhes <ChevronRight size={12} />
+                                        </span>
                                     </div>
-
-                                    {/* Anexos */}
-                                    {log.attachments && log.attachments.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
-                                            {log.attachments.map((att, i) => (
-                                                <AttachmentChip key={att.documentId || i} name={att.name || 'documento'} size={att.size} />
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         );
