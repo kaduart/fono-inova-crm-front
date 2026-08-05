@@ -342,9 +342,10 @@ export function DocumentSendDrawer({
             return;
         }
 
-        const prefixed = subject.startsWith('Complemento - ') ? subject : `Complemento - ${subject}`;
-        if (prefixed !== subject) setSubject(prefixed);
-        handleSend(CommunicationEmailType.COMPLEMENT, prefixed);
+        // Complemento mantém o mesmo subject do e-mail original (ou o que o usuário
+        // editou). Adicionar prefixo "Complemento - " quebra o threading no Gmail,
+        // que dá peso grande ao subject igual para agrupar conversas.
+        handleSend(CommunicationEmailType.COMPLEMENT, subject);
     };
 
     const requiredDocuments = detail?.communicationRules?.requiredDocuments || [];
