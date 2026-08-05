@@ -30,6 +30,9 @@ export interface Planning {
         overallStatus: 'on_track' | 'at_risk' | 'behind' | 'achieved';
         gapRevenue?: number;
     };
+    calculationStatus?: 'idle' | 'processing' | 'completed' | 'failed';
+    lastCalculatedAt?: string;
+    lastCalculationError?: string;
     byDoctor?: Array<{
         doctor: any;
         targetSessions: number;
@@ -116,7 +119,7 @@ export const planningService = {
     // Buscar com atualização automática
     getAllWithRefresh: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string; month?: number; year?: number }) => {
         const response = await api.get('/planning', { params: { ...filters, refresh: true } });
-        return response.data as { success: boolean; count: number; data: Planning[]; projection?: MonthlyProjection };
+        return response.data as { success: boolean; count: number; data: Planning[]; projection?: MonthlyProjection; refreshQueued?: boolean };
     },
 
     // Buscar detalhes completos de um planejamento

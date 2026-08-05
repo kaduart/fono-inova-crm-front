@@ -10,15 +10,57 @@ export const usePlanning = () => {
 
     const fetchPlannings = useCallback(async (filters?: any) => {
         setLoading(true);
+        let refreshQueued = false;
         try {
             // Usar refresh=true para recalcular automaticamente
             const response = await planningService.getAllWithRefresh(filters);
             setPlannings(response.data);
             setProjection(response.projection || null);
+            refreshQueued = response.refreshQueued || false;
+
+            // Se o backend enfileirou refresh em background, fica em loading e
+            // faz polling silencioso até os cálculos terminarem.
+            if (refreshQueued) {
+                console.log('[usePlanning] 🔄 Refresh enfileirado, iniciando polling...');
+                const maxAttempts = 15;
+                const intervalMs = 3000;
+                let attempts = 0;
+
+                const poll = async () => {
+                    attempts += 1;
+                    try {
+                        const pollResponse = await planningService.getAll(filters);
+                        const allDone = pollResponse.data.every(
+                            (p: any) => p.calculationStatus !== 'processing'
+                        );
+
+                        if (allDone || attempts >= maxAttempts) {
+                            setPlannings(pollResponse.data);
+                            setProjection(pollResponse.projection || null);
+                            setLoading(false);
+                            if (allDone) {
+                                console.log('[usePlanning] ✅ Refresh concluído após polling');
+                            } else {
+                                console.warn('[usePlanning] ⚠️ Polling atingiu timeout');
+                            }
+                            return;
+                        }
+
+                        setTimeout(poll, intervalMs);
+                    } catch (pollErr: any) {
+                        console.error('[usePlanning] ❌ Erro no polling:', pollErr.message);
+                        setLoading(false);
+                    }
+                };
+
+                setTimeout(poll, intervalMs);
+            }
         } catch (error: any) {
             toast.error('Erro ao carregar planejamentos');
         } finally {
-            setLoading(false);
+            if (!refreshQueued) {
+                setLoading(false);
+            }
         }
     }, []);
 
