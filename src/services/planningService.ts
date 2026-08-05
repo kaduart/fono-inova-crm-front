@@ -113,7 +113,7 @@ export const planningService = {
     // Atualizar TODOS os planejamentos (admin)
     refreshAll: async () => {
         const response = await api.post('/planning/refresh-all');
-        return response.data;
+        return response.data as { success: boolean; refreshQueued?: boolean; data?: { updated: number; failed: number } };
     },
 
     // Buscar com atualização automática

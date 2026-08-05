@@ -68,7 +68,11 @@ export const usePlanning = () => {
         setLoading(true);
         try {
             const response = await planningService.refreshAll();
-            toast.success(`${response.data.updated} planejamentos atualizados!`);
+            if (response.refreshQueued) {
+                toast.success('Atualização de planejamentos enfileirada! Acompanhando progresso...');
+            } else {
+                toast.success(`${response.data?.updated} planejamentos atualizados!`);
+            }
             // Recarregar após atualizar
             await fetchPlannings({});
             return response.data;
