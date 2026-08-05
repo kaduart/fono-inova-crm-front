@@ -698,7 +698,7 @@ export default function PatientDashboard() {
 
       {/* Tabela de todos os atendimentos com filtros por mês/dia */}
       <div className="mb-8">
-        <PatientAppointmentsTable appointments={allAppointmentsById} />
+        <PatientAppointmentsTable appointments={allAppointmentsById} patientId={patientId} onMoved={loadAllAppointments} />
       </div>
 
       {/* O restante do conteúdo permanece igual */}

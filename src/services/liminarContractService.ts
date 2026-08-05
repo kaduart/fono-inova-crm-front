@@ -200,6 +200,25 @@ const liminarContractService = {
     const res = await API.get(`/v2/liminar-contracts/${contractId}/sessions?${query.toString()}`);
     return res.data?.sessions ?? [];
   },
+
+  async moveAppointmentSpecialty(
+    contractId: string,
+    appointmentId: string,
+    targetSpecialty: string,
+    reason?: string
+  ): Promise<{
+    appointmentId: string;
+    fromSpecialty: string;
+    toSpecialty: string;
+    sessionValue: { old: number; new: number };
+    doctorId: string;
+  }> {
+    const res = await API.patch(
+      `/v2/liminar-contracts/${contractId}/appointments/${appointmentId}/specialty`,
+      { targetSpecialty, reason }
+    );
+    return res.data.data;
+  },
 };
 
 export default liminarContractService;

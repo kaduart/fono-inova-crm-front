@@ -10,6 +10,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import ReactInputMask from 'react-input-mask';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { useConvenios } from '../../hooks/useConvenios';
+import liminarContractService from '../../services/liminarContractService';
 import { IDoctor, SelectedEvent } from '../../utils/types/types';
 import { mapToUpdateAppointmentDTO } from '../../dtos/appointment.dto';
 import { InputCurrency } from '../ui/InputCurrency';
@@ -362,6 +363,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [insuranceGuide, setInsuranceGuide] = useState<string | null>(null);
     const [insurancePlan, setInsurancePlan] = useState<string | null>(null);
     const [packageId, setPackageId] = useState<string | null>(null);
+
+    // ⚖️ LIMINAR: mover sessão entre especialidades do plano terapêutico
+    const [liminarPlan, setLiminarPlan] = useState<any>(null);
+    const [liminarPlanLoading, setLiminarPlanLoading] = useState(false);
+    const [moveTargetSpecialty, setMoveTargetSpecialty] = useState('');
+    const [moveReason, setMoveReason] = useState('');
+    const [moveSubmitting, setMoveSubmitting] = useState(false);
     
     // 💰 NOVO: Controle de saldo devedor ao confirmar
     const [addToBalance, setAddToBalance] = useState(false);
@@ -394,7 +402,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         if (activeTab === 'edit' && editedAppointment.sessionType && editedAppointment.doctorId && prevSessionTypeRef.current && prevSessionTypeRef.current !== editedAppointment.sessionType) {
             const isDoctorCompatible = doctorsList.some(
                 d => d._id === editedAppointment.doctorId &&
-                (d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase() || !d.specialty)
+                (d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase() ||
+                    d.specialties?.some(s => s?.toLowerCase() === editedAppointment.sessionType.toLowerCase()) ||
+                    !d.specialty)
             );
             if (!isDoctorCompatible) {
                 console.log('🚨 [Modal] Médico incompatível com a especialidade, limpando seleção');
@@ -410,6 +420,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         !editedAppointment.sessionType ||
         !d.specialty ||
         d.specialty?.toLowerCase() === editedAppointment.sessionType.toLowerCase() ||
+        d.specialties?.some(s => s?.toLowerCase() === editedAppointment.sessionType.toLowerCase()) ||
         d._id === editedAppointment.doctorId  // 👈 SEMPRE inclui o médico atual
     );
     
@@ -497,8 +508,32 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setCancelReason('');
             setConfirmedAbsence(false);
             setPayments([{ id: 1, amount: 0, date: '', method: '' }]);
+            setLiminarPlan(null);
+            setMoveTargetSpecialty('');
+            setMoveReason('');
         }
     }, [isOpen]);
+
+    // ⚖️ LIMINAR: carrega plano terapêutico ativo quando abrir um agendamento liminar
+    useEffect(() => {
+        if (!isOpen || !event?.liminarContract) return;
+        const contractId = typeof event.liminarContract === 'string'
+            ? event.liminarContract
+            : (event.liminarContract as any)?._id;
+        if (!contractId) return;
+
+        setLiminarPlanLoading(true);
+        liminarContractService.getActivePlan(contractId)
+            .then((plan) => {
+                setLiminarPlan(plan);
+                if (plan && moveTargetSpecialty) {
+                    const therapies = plan.therapies ?? {};
+                    if (!therapies[moveTargetSpecialty]) setMoveTargetSpecialty('');
+                }
+            })
+            .catch(() => setLiminarPlan(null))
+            .finally(() => setLiminarPlanLoading(false));
+    }, [isOpen, event?.liminarContract]);
     
     // 🔄 ESCUTA EVENTO GLOBAL de atualização de dados
     useEffect(() => {
@@ -861,6 +896,42 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         } finally {
             setIsEditing(false);
             setProcessingState(null);
+        }
+    };
+
+    const handleMoveLiminarSpecialty = async () => {
+        if (!moveTargetSpecialty) {
+            toast.error('Selecione a especialidade destino');
+            return;
+        }
+        if (!event?.id || !event?.liminarContract) {
+            toast.error('Agendamento sem contrato liminar vinculado');
+            return;
+        }
+
+        const contractId = typeof event.liminarContract === 'string'
+            ? event.liminarContract
+            : (event.liminarContract as any)?._id;
+        if (!contractId) {
+            toast.error('Contrato liminar não identificado');
+            return;
+        }
+
+        setMoveSubmitting(true);
+        try {
+            await liminarContractService.moveAppointmentSpecialty(
+                contractId,
+                event.id,
+                moveTargetSpecialty,
+                moveReason || undefined
+            );
+            toast.success(`Atendimento movido para ${moveTargetSpecialty.replace(/_/g, ' ')}`);
+            onClose();
+        } catch (err: any) {
+            const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Erro ao mover atendimento';
+            toast.error(msg, { id: `liminar-move-${event.id}` });
+        } finally {
+            setMoveSubmitting(false);
         }
     };
 
@@ -1867,6 +1938,62 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400" />
                                             </div>
                                         </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ⚖️ LIMINAR: mover atendimento para outra especialidade do plano */}
+                        {billingType === 'liminar' && event?.liminarContract && (
+                            <div className="bg-purple-50/60 rounded-2xl border border-purple-100 p-4 space-y-3">
+                                <div className="flex items-center gap-1.5">
+                                    <Scale className="w-3.5 h-3.5 text-purple-600" />
+                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Liminar — Mover especialidade</span>
+                                </div>
+
+                                {liminarPlanLoading ? (
+                                    <p className="text-xs text-purple-600">Carregando plano terapêutico...</p>
+                                ) : !liminarPlan ? (
+                                    <p className="text-xs text-red-600">Plano terapêutico ativo não encontrado.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-medium text-gray-500">Especialidade destino</label>
+                                                <select
+                                                    value={moveTargetSpecialty}
+                                                    onChange={(e) => setMoveTargetSpecialty(e.target.value)}
+                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 bg-white"
+                                                >
+                                                    <option value="">Selecione...</option>
+                                                    {Object.keys(liminarPlan.therapies ?? {})
+                                                        .filter((sp) => sp !== (event?.specialty || editedAppointment.sessionType))
+                                                        .map((sp) => (
+                                                            <option key={sp} value={sp}>
+                                                                {sp.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-medium text-gray-500">Motivo (opcional)</label>
+                                                <input
+                                                    type="text"
+                                                    value={moveReason}
+                                                    onChange={(e) => setMoveReason(e.target.value)}
+                                                    placeholder="Ex: correção de especialidade"
+                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleMoveLiminarSpecialty}
+                                            disabled={moveSubmitting || !moveTargetSpecialty}
+                                            className="w-full py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                                        >
+                                            {moveSubmitting ? 'Movendo...' : 'Mover atendimento para especialidade selecionada'}
+                                        </button>
                                     </div>
                                 )}
                             </div>

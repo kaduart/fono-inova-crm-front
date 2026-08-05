@@ -1,9 +1,21 @@
-import { Calendar, Filter, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Calendar, Filter, X, ArrowRightLeft } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { IAppointment } from '../../utils/types/types';
+import { getGuides, moveAppointmentToGuide } from '../../services/insuranceGuideApi';
+import type { InsuranceGuide } from '../../services/insuranceGuideApi';
 
 interface Props {
   appointments: IAppointment[];
+  patientId?: string;
+  onMoved?: () => void;
+}
+
+// O endpoint /v2/appointments retorna `id`, não `_id` (mapAppointmentToEvent) —
+// alguns fluxos legados ainda mandam `_id`. Aceita os dois pra não colidir tudo
+// na mesma chave quando `_id` vem undefined.
+function apptId(appt: IAppointment): string {
+  return appt._id || appt.id || '';
 }
 
 const statusLabels: Record<string, string> = {
@@ -56,7 +68,147 @@ function PaymentStatusBadge({ status }: { status?: string }) {
   );
 }
 
-export function PatientAppointmentsTable({ appointments }: Props) {
+function OriginBadge({ appt, ordinalInPackage }: { appt: IAppointment; ordinalInPackage: number | null }) {
+  if (appt.package) {
+    const total = appt.package.totalSessions;
+    const label = ordinalInPackage && total ? `Pacote ${ordinalInPackage}/${total}` : 'Pacote';
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+        {label}
+      </span>
+    );
+  }
+  if (appt.liminarContract) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+        Liminar
+      </span>
+    );
+  }
+  if (appt.billingType === 'convenio') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700">
+        {appt.insuranceProvider ? `Convênio (${appt.insuranceProvider})` : 'Convênio'}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+      Avulso
+    </span>
+  );
+}
+
+function MoveGuideModal({
+  appt,
+  patientId,
+  onClose,
+  onSuccess,
+}: {
+  appt: IAppointment;
+  patientId?: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [guides, setGuides] = useState<InsuranceGuide[] | null>(null);
+  const [loadingGuides, setLoadingGuides] = useState(false);
+  const [targetGuideId, setTargetGuideId] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!patientId) return;
+    setLoadingGuides(true);
+    // 🚨 GET /v2/insurance-guides ignora o filtro de specialty no backend
+    // (só filtra patientId/insurance/status) — filtra no client pra não
+    // deixar escolher guia de outra especialidade e só descobrir no erro.
+    getGuides(patientId)
+      .then((all) => setGuides(appt.specialty ? all.filter((g) => g.specialty === appt.specialty) : all))
+      .catch((err) => toast.error(err.message || 'Erro ao buscar guias'))
+      .finally(() => setLoadingGuides(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId, appt.specialty]);
+
+  const handleConfirm = async () => {
+    if (!targetGuideId) {
+      toast.error('Selecione a guia de destino');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await moveAppointmentToGuide(apptId(appt), targetGuideId, { reason: reason || undefined });
+      toast.success('Atendimento movido para a nova guia');
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao mover atendimento');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
+        <h4 className="text-base font-semibold text-gray-900 mb-1">Mover atendimento entre guias</h4>
+        <p className="text-xs text-gray-500 mb-4">
+          {formatDateStatic(appt.date)} · {appt.specialty || appt.sessionType || '—'}
+          {appt.insuranceProvider ? ` · ${appt.insuranceProvider}` : ''}
+        </p>
+
+        <label className="block text-xs font-medium text-gray-600 mb-1">Guia de destino</label>
+        {loadingGuides ? (
+          <p className="text-sm text-gray-400 mb-3">Carregando guias...</p>
+        ) : (
+          <select
+            value={targetGuideId}
+            onChange={(e) => setTargetGuideId(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 outline-none focus:border-indigo-400"
+          >
+            <option value="">Selecione...</option>
+            {(guides || []).map((g) => (
+              <option key={g._id} value={g._id}>
+                {g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
+              </option>
+            ))}
+          </select>
+        )}
+
+        <label className="block text-xs font-medium text-gray-600 mb-1">Motivo (opcional)</label>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Ex: correção administrativa"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-indigo-400"
+        />
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={submitting || !targetGuideId}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {submitting ? 'Movendo...' : 'Confirmar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatDateStatic(date: string | Date) {
+  return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+export function PatientAppointmentsTable({ appointments, patientId, onMoved }: Props) {
+  const [movingAppt, setMovingAppt] = useState<IAppointment | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedDay, setSelectedDay] = useState<string>('all');
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
@@ -107,6 +259,33 @@ export function PatientAppointmentsTable({ appointments }: Props) {
       if (appt.operationalStatus) set.add(appt.operationalStatus);
     });
     return Array.from(set);
+  }, [appointments]);
+
+  // Numeração global (ordem cronológica, do 1º atendimento pro mais recente) —
+  // estável independente dos filtros aplicados, pra servir de referência rápida.
+  const globalOrdinal = useMemo(() => {
+    const map = new Map<string, number>();
+    const ascending = [...appointments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    ascending.forEach((appt, idx) => map.set(apptId(appt), idx + 1));
+    return map;
+  }, [appointments]);
+
+  // Posição do atendimento dentro do próprio pacote (ex: 5/16) — só faz
+  // sentido pra atendimentos vinculados a um Package.
+  const packageOrdinal = useMemo(() => {
+    const byPackage = new Map<string, IAppointment[]>();
+    appointments.forEach((appt) => {
+      const pkgId = appt.package?._id;
+      if (!pkgId) return;
+      if (!byPackage.has(pkgId)) byPackage.set(pkgId, []);
+      byPackage.get(pkgId)!.push(appt);
+    });
+    const map = new Map<string, number>();
+    byPackage.forEach((appts) => {
+      const ascending = [...appts].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      ascending.forEach((appt, idx) => map.set(apptId(appt), idx + 1));
+    });
+    return map;
   }, [appointments]);
 
   // Filtro 100% client-side — mês, dia, profissional e status
@@ -251,10 +430,12 @@ export function PatientAppointmentsTable({ appointments }: Props) {
           <table className="min-w-full divide-y divide-gray-200 text-sm text-gray-700">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
+                <th className="px-4 py-3 text-left font-medium">#</th>
                 <th className="px-4 py-3 text-left font-medium">Data</th>
                 <th className="px-4 py-3 text-left font-medium">Hora</th>
                 <th className="px-4 py-3 text-left font-medium">Profissional</th>
                 <th className="px-4 py-3 text-left font-medium">Especialidade</th>
+                <th className="px-4 py-3 text-left font-medium">Origem</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-left font-medium">Valor</th>
                 <th className="px-4 py-3 text-left font-medium">Pagamento</th>
@@ -262,7 +443,10 @@ export function PatientAppointmentsTable({ appointments }: Props) {
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {filtered.map((appt) => (
-                <tr key={appt._id} className="hover:bg-gray-50 transition-colors">
+                <tr key={apptId(appt)} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-400">
+                    {globalOrdinal.get(apptId(appt)) ?? '—'}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap">{formatDate(appt.date)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{appt.time}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
@@ -270,6 +454,20 @@ export function PatientAppointmentsTable({ appointments }: Props) {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap capitalize">
                     {appt.specialty || appt.sessionType || '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <OriginBadge appt={appt} ordinalInPackage={packageOrdinal.get(apptId(appt)) ?? null} />
+                      {appt.billingType === 'convenio' && (
+                        <button
+                          onClick={() => setMovingAppt(appt)}
+                          className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                          title="Mover para outra guia"
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span
@@ -302,6 +500,18 @@ export function PatientAppointmentsTable({ appointments }: Props) {
           </div>
         )}
       </div>
+
+      {movingAppt && (
+        <MoveGuideModal
+          appt={movingAppt}
+          patientId={patientId}
+          onClose={() => setMovingAppt(null)}
+          onSuccess={() => {
+            setMovingAppt(null);
+            onMoved?.();
+          }}
+        />
+      )}
     </div>
   );
 }

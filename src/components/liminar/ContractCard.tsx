@@ -71,7 +71,7 @@ type SpecialtyMeta = { key: string; label: string; slotsPerWeek: number; session
 
 type ConfirmState = {
   open: true;
-  weeks: 4 | 8;
+  weeks: number;
   allSpecialties: SpecialtyMeta[];
   selectedSpecialties: string[];
   pendingBySpecialty: Record<string, number>;
@@ -84,6 +84,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false });
+  const [generateWeeks, setGenerateWeeks] = useState<number>(4);
   const [generating, setGenerating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
@@ -153,7 +154,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       ? { text: '#C75146', bg: '#FDECEA', border: '#F5C6C2' }
       : { text: '#8A99B0', bg: '#F1F5F9', border: '#DDE4EE' };
 
-  async function openConfirm(weeks: 4 | 8) {
+  async function openConfirm(weeks: number) {
     if (!plan) return;
     const allSpecialties: SpecialtyMeta[] = Object.entries(plan.therapies ?? {}).map(([key, cfg]: [string, any]) => ({
       key,
@@ -531,7 +532,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             <div className="flex items-center gap-2 flex-wrap">
               <Calendar className="w-4 h-4" style={{ color: '#2E7A5E' }} />
               <span className="font-bold text-sm" style={{ color: '#1A2C3E' }}>
-                {plan ? `Plano Terapêutico (v${plan.version})` : 'Plano Terapêutico'}
+                {plan ? `Plano Terapêutico` : 'Plano Terapêutico'}
               </span>
               {integrity && (() => {
                 const pct = integrity.summary.integrityPercent;
@@ -555,43 +556,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             </button>
           </div>
 
-          {/* ── Resumo de sessões ── */}
-          {integrity && (() => {
-            const { completed, pending, missing, expected } = integrity.summary;
-            const pctComp    = expected > 0 ? (completed / expected) * 100 : 0;
-            const pctPend    = expected > 0 ? (pending   / expected) * 100 : 0;
-            const pctMissing = expected > 0 ? (missing   / expected) * 100 : 0;
-            return (
-              <div className="mb-3 rounded-xl p-3" style={{ background: '#F8FAFE', border: '1px solid #EDF2F7' }}>
-                {/* Barra empilhada */}
-                <div className="flex rounded-full overflow-hidden mb-2" style={{ height: 10, background: '#E9EEF2' }}>
-                  <div style={{ width: `${pctComp}%`,    background: '#10B981', transition: 'width 0.5s' }} title={`Realizadas: ${completed}`} />
-                  <div style={{ width: `${pctPend}%`,    background: '#6366F1', transition: 'width 0.5s' }} title={`Agendadas: ${pending}`} />
-                  <div style={{ width: `${pctMissing}%`, background: NEUTRAL_MISSING_COLOR.bar, transition: 'width 0.5s' }} title={`Faltando: ${missing}`} />
-                </div>
-                {/* Legenda em linha */}
-                <div className="flex justify-between text-xs">
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#10B981' }} />
-                    <span style={{ color: '#065F46' }}><b>{completed}</b> realizadas</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#6366F1' }} />
-                    <span style={{ color: '#3730A3' }}><b>{pending}</b> agendadas</span>
-                  </span>
-                  {missing > 0 && (
-                    <span className="flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 rounded-full" style={{ background: NEUTRAL_MISSING_COLOR.dot }} />
-                      <span style={{ color: NEUTRAL_MISSING_COLOR.text }}><b>{missing}</b> faltando</span>
-                    </span>
-                  )}
-                </div>
-                <div className="text-right text-xs mt-1" style={{ color: '#A0AABF' }}>
-                  de <b>{expected}</b> esperadas
-                </div>
-              </div>
-            );
-          })()}
 
           {plan ? (
             <>
@@ -715,20 +679,12 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
               {contract.status === 'active' && (
                 <div className="mt-4 flex gap-2">
                   <button
-                    onClick={() => openConfirm(4)}
+                    onClick={() => openConfirm(generateWeeks)}
                     disabled={generating}
                     className="flex-1 py-2 text-xs font-semibold rounded-xl text-white transition-all disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #1B4D6E 0%, #2563EB 100%)' }}
                   >
-                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />Gerar 4 semanas</>}
-                  </button>
-                  <button
-                    onClick={() => openConfirm(8)}
-                    disabled={generating}
-                    className="flex-1 py-2 text-xs font-semibold rounded-xl text-white transition-all disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg, #5B21B6 0%, #7C3AED 100%)' }}
-                  >
-                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />Gerar 8 semanas</>}
+                    {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />Gerar sessões</>}
                   </button>
                 </div>
               )}
@@ -801,12 +757,29 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                   <Calendar className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">Gerar sessões — {confirm.weeks} semanas</h3>
+                  <h3 className="font-bold text-slate-800">Gerar sessões</h3>
                   <p className="text-xs text-slate-500">A partir de hoje, com o plano atual</p>
                 </div>
                 <button onClick={() => setConfirm({ open: false })} className="ml-auto text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
+              </div>
+
+              {/* Quantidade de semanas */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Quantas semanas?</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={52}
+                  value={confirm.weeks}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    setConfirm(prev => (prev.open ? { ...prev, weeks: Number.isNaN(value) ? 1 : Math.max(1, Math.min(52, value)) } : prev));
+                  }}
+                  className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                />
+                <p className="text-xs text-slate-400 mt-1">Máximo de 52 semanas por vez</p>
               </div>
 
               {/* Aviso sessões pendentes */}

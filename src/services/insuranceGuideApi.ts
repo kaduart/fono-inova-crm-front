@@ -328,6 +328,45 @@ export const supersedeGuide = async (
 };
 
 /**
+ * Move um atendimento (appointment + session/payment vinculados) de uma guia
+ * pra outra. Correção administrativa — guia lançada errada, appointment na
+ * guia errada, etc. Contadores das duas guias são recalculados no backend
+ * dentro de uma transação (ver POST /v2/insurance-guides/move-appointment).
+ */
+export const moveAppointmentToGuide = async (
+  appointmentId: string,
+  targetGuideId: string,
+  options?: { reason?: string; force?: boolean }
+): Promise<{
+  appointmentId: string;
+  fromGuide: { id: string; number: string; usedSessions: number; remaining: number; status: string };
+  toGuide: { id: string; number: string; usedSessions: number; remaining: number; status: string };
+  validationWarnings: string[];
+}> => {
+  try {
+    const response = await API.post('/v2/insurance-guides/move-appointment', {
+      appointmentId,
+      targetGuideId,
+      reason: options?.reason,
+      force: options?.force === true,
+    });
+    return response.data.data;
+  } catch (error: any) {
+    const code = extractErrorCode(error);
+    if (code === 'SAME_GUIDE')                    throw new Error('O atendimento já está nessa guia');
+    if (code === 'PATIENT_MISMATCH')               throw new Error('Guia destino é de outro paciente');
+    if (code === 'SPECIALTY_MISMATCH')             throw new Error('Especialidade da guia destino não bate com o atendimento');
+    if (code === 'INSURANCE_MISMATCH')             throw new Error('Convênio da guia destino é diferente');
+    if (code === 'TARGET_GUIDE_NOT_BILLABLE')      throw new Error('Guia destino não está apta para faturamento');
+    if (code === 'TARGET_GUIDE_EXHAUSTED')         throw new Error('Guia destino está esgotada (sem sessões restantes)');
+    if (code === 'APPOINTMENT_BEFORE_GUIDE_WINDOW') throw new Error('Atendimento é anterior à emissão da guia destino');
+    if (code === 'APPOINTMENT_AFTER_GUIDE_WINDOW')  throw new Error('Atendimento é posterior à validade da guia destino');
+    if (code === 'APPOINTMENT_HAS_NO_GUIDE')       throw new Error('Este atendimento não está vinculado a nenhuma guia');
+    throw new Error(extractErrorMessage(error, 'Erro ao mover atendimento entre guias'));
+  }
+};
+
+/**
  * Busca saldo agregado de guias do paciente
  */
 export const getBalance = async (

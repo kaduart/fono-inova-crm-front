@@ -49,7 +49,8 @@ import {
   RefreshCw,
   XOctagon,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  ArrowRightLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
@@ -58,7 +59,7 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import { useInsurancePlan, insurancePlanQueryKey } from '../../../hooks/useInsurancePlan';
-import { getGuideAppointments, updateGuideAppointmentsBulk, supersedeGuide } from '../../../services/insuranceGuideApi';
+import { getGuideAppointments, updateGuideAppointmentsBulk, supersedeGuide, getGuides, moveAppointmentToGuide } from '../../../services/insuranceGuideApi';
 import { buildGuidesPresentation, buildGuidePresentation } from '../../../services/guidePresentationService';
 import API from '../../../services/api';
 import doctorService from '../../../services/doctorService';
@@ -1325,6 +1326,14 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [bulkSaving, setBulkSaving]         = useState(false);
   const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
 
+  // Mover atendimento para outra guia (correção administrativa)
+  const [movingAppt, setMovingAppt]           = useState(null);
+  const [moveGuides, setMoveGuides]           = useState([]);
+  const [moveGuidesLoading, setMoveGuidesLoading] = useState(false);
+  const [moveTargetGuideId, setMoveTargetGuideId] = useState('');
+  const [moveReason, setMoveReason]           = useState('');
+  const [moveSubmitting, setMoveSubmitting]   = useState(false);
+
   // Mesma query key do GuideCard — reaproveita o cache, sem fetch duplicado
   const { data: modalPlan = null, isLoading: modalPlanLoading, isError: modalPlanError, refetch: refetchModalPlan } = useInsurancePlan(guide?._id);
 
@@ -1373,6 +1382,38 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     setEditTime(appt.time || '');
     setEditStatus(normalizeEditStatus(appt.operationalStatus || appt.status));
     setEditDoctorId(appt.doctor?._id || '');
+  };
+
+  const openMove = (appt) => {
+    setMovingAppt(appt);
+    setMoveTargetGuideId('');
+    setMoveReason('');
+    // guide.patientId vem populado ({_id, fullName, cpf}) neste fluxo (GET /v2/insurance-guides
+    // faz .populate('patientId', ...)) — aceita os dois formatos pra não quebrar a query.
+    const patientIdValue = guide?.patientId?._id || guide?.patientId;
+    if (!patientIdValue) return;
+    setMoveGuidesLoading(true);
+    // GET /v2/insurance-guides ignora filtro de specialty no backend — filtra no client
+    getGuides(patientIdValue)
+      .then((all) => setMoveGuides(all.filter(g => g.specialty === guide.specialty && g._id !== guide._id)))
+      .catch(() => toast.error('Não foi possível carregar as guias do paciente'))
+      .finally(() => setMoveGuidesLoading(false));
+  };
+
+  const confirmMove = async () => {
+    if (!moveTargetGuideId) { toast.error('Selecione a guia de destino'); return; }
+    setMoveSubmitting(true);
+    try {
+      await moveAppointmentToGuide(movingAppt._id, moveTargetGuideId, { reason: moveReason || undefined });
+      toast.success('Atendimento movido para a nova guia');
+      setMovingAppt(null);
+      await loadAppointments(guide._id);
+      onUpdate?.();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao mover atendimento');
+    } finally {
+      setMoveSubmitting(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -1769,6 +1810,14 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                         />
                         <IconButton
                           size="small"
+                          onClick={() => openMove(appt)}
+                          sx={{ color: '#8A99B0', '&:hover': { color: '#1565C0' }, p: 0.5 }}
+                          title="Mover para outra guia"
+                        >
+                          <ArrowRightLeft size={13} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
                           onClick={() => openEdit(appt)}
                           sx={{ color: '#8A99B0', '&:hover': { color: '#1B4D6E' }, p: 0.5 }}
                         >
@@ -2093,6 +2142,65 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             bgcolor: '#1B4D6E', '&:hover': { bgcolor: '#163d58' } }}
         >
           {editSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Salvar'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+    <Dialog open={!!movingAppt} onClose={() => setMovingAppt(null)} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>Mover atendimento entre guias</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <Typography sx={{ fontSize: '0.8rem', color: '#8A99B0' }}>
+          {movingAppt?.date ? format(parseISO(movingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
+          {movingAppt?.time ? ` às ${movingAppt.time}` : ''} · Guia atual: #{guide?.number}
+        </Typography>
+        <FormControl fullWidth size="small">
+          <InputLabel>Guia de destino</InputLabel>
+          <Select
+            value={moveTargetGuideId}
+            label="Guia de destino"
+            onChange={e => setMoveTargetGuideId(e.target.value)}
+            disabled={moveGuidesLoading}
+            sx={{ borderRadius: '12px' }}
+          >
+            {moveGuides.map(g => (
+              <MenuItem key={g._id} value={g._id}>
+                #{g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {!moveGuidesLoading && moveGuides.length === 0 && (
+          <Typography sx={{ fontSize: '0.75rem', color: '#C75146' }}>
+            Nenhuma outra guia de {guide?.specialty} disponível para este paciente.
+          </Typography>
+        )}
+        <TextField
+          label="Motivo (opcional)"
+          size="small"
+          fullWidth
+          value={moveReason}
+          onChange={e => setMoveReason(e.target.value)}
+          placeholder="Ex: correção administrativa"
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button
+          onClick={() => setMovingAppt(null)}
+          disabled={moveSubmitting}
+          variant="outlined"
+          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
+            borderColor: '#DDE4EE', color: '#5B6E8C' }}
+        >
+          Cancelar
+        </Button>
+        <Button
+          onClick={confirmMove}
+          disabled={moveSubmitting || !moveTargetGuideId}
+          variant="contained"
+          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
+            bgcolor: '#1565C0', '&:hover': { bgcolor: '#0d4b94' } }}
+        >
+          {moveSubmitting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirmar'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -504,6 +504,7 @@ export const EspecialidadesDisponiveis = [
 
 export interface IAppointment {
     _id: string;
+    id?: string; // 🆕 endpoint /v2/appointments retorna `id`, não `_id` (ver mapAppointmentToEvent)
     patientId: string;
     doctorId: string;
     date: string | Date; // 🆕 Pode ser string (legado) ou Date (novo)
@@ -561,6 +562,18 @@ export interface IAppointment {
         status?: string;
         mode?: string;
     };
+
+    // 🆕 Origem do atendimento — populado pelo endpoint /v2/appointments
+    billingType?: 'particular' | 'convenio' | string;
+    insuranceProvider?: string;
+    package?: {
+        _id?: string;
+        type?: string; // 'therapy' | 'convenio' | 'liminar'
+        paymentType?: string; // 'full' | 'per-session' | 'installment'
+        totalSessions?: number;
+        sessionsDone?: number;
+        remainingSessions?: number;
+    } | null;
 }
 
 export interface IAppointmentResponse extends Omit<IAppointment, 'patient' | 'doctor'> {
