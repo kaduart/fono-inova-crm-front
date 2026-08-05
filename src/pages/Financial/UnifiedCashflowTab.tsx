@@ -2653,7 +2653,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                 open={!!editPayment}
                 payment={editPayment}
                 onClose={() => setEditPayment(null)}
-                onSuccess={() => { setEditPayment(null); setGroupDetailItems(null); loadDayData(); }}
+                onSuccess={() => { setEditPayment(null); setGroupDetailItems(null); loadDayData(); loadDayAppointments(); }}
             />
         )}
         {emitFiscalPayment && (
