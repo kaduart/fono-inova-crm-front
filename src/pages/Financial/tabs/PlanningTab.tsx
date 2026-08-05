@@ -780,7 +780,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           {/* TAB: MENSAL */}
           {selectedTab === 'monthly' && (
             <Box>
-              {monthlyOfMonth ? (
+              {loading ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 4 }}>
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                </Box>
+              ) : monthlyOfMonth ? (
                 <PlanningCard
                   planning={monthlyOfMonth}
                   formatCurrency={formatCurrency}
@@ -821,7 +827,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           {/* TAB: SEMANAL */}
           {selectedTab === 'weekly' && (
             <Box>
-              {weeklyOfMonth.length > 0 ? (
+              {loading ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 4 }}>
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                </Box>
+              ) : weeklyOfMonth.length > 0 ? (
                 <Grid container spacing={2}>
                   {weeklyOfMonth.map((p, idx) => (
                     <PlanningCard
@@ -867,7 +879,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           {/* TAB: DIÁRIA */}
           {selectedTab === 'daily' && (
             <Box>
-              {dailyOfMonth.length > 0 ? (
+              {loading ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 4 }}>
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />
+                </Box>
+              ) : dailyOfMonth.length > 0 ? (
                 <Grid container spacing={2}>
                   {dailyOfMonth.map((p) => (
                     <PlanningCard
