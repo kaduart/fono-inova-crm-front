@@ -53,6 +53,8 @@ export interface SpecialtyIntegrity {
   completed: number;
   pending: number;
   missing: number;
+  canceled: number;
+  totalSessions: number | null;
 }
 
 export interface ContractIntegrity {

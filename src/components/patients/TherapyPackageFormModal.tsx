@@ -30,6 +30,25 @@ import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { validateObject, required, betweenNumber, minNumber } from "../../utils/validators";
 
+const WEEKS_PER_MONTH = 4;
+
+// Semanal = ocorrência toda semana (intervalWeeks=1). Quinzenal = ocorrência a
+// cada 2 semanas (intervalWeeks=2) — mesma "Sessões por Semana"/slots dentro da
+// semana ativa, só espaçados o dobro. Centraliza a matemática de duração↔sessões
+// pra não duplicar `durationMonths * 4 * sessionsPerWeek` em 4+ lugares diferentes.
+function sessionsForDuration(durationMonths: number, sessionsPerOccurrence: number, intervalWeeks: number): number {
+    const weeksAvailable = (durationMonths || 0) * WEEKS_PER_MONTH;
+    const occurrences = Math.floor(weeksAvailable / intervalWeeks);
+    return occurrences * (sessionsPerOccurrence || 0);
+}
+
+function durationForSessions(totalSessions: number, sessionsPerOccurrence: number, intervalWeeks: number): number {
+    if (!sessionsPerOccurrence) return 0;
+    const occurrencesNeeded = Math.ceil((totalSessions || 0) / sessionsPerOccurrence);
+    const weeksNeeded = occurrencesNeeded * intervalWeeks;
+    return Math.ceil(weeksNeeded / WEEKS_PER_MONTH);
+}
+
 const rules = {
     doctorId: [required("Profissional")],
     sessionType: [required("Tipo de sessão")],
@@ -81,6 +100,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const selectedAppointmentIdRef = useRef<string>(''); // ref para garantir valor no submit
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [calculationMode, setCalculationMode] = useState('duration');
+    const [frequencyInterval, setFrequencyInterval] = useState<'weekly' | 'biweekly'>('weekly');
+    const intervalWeeks = frequencyInterval === 'biweekly' ? 2 : 1;
+    const occurrenceLabel = frequencyInterval === 'biweekly' ? 'quinzena' : 'semana';
     const [isLoading, setIsLoading] = useState(false);
 
 
@@ -176,7 +198,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             }
         } else {
             if (!sessionsPerWeek || sessionsPerWeek < 1 || sessionsPerWeek > 5) {
-                baseErrors.sessionsPerWeek = "Sessões por semana deve estar entre 1 e 5";
+                baseErrors.sessionsPerWeek = `Sessões por ${occurrenceLabel} deve estar entre 1 e 5`;
             }
         }
 
@@ -205,20 +227,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     // Calcular duração estimada baseada no número de sessões e frequência
     const estimatedDuration = calculationMode === 'sessions' && formData.sessionsPerWeek > 0
-        ? Math.ceil(formData.totalSessions / formData.sessionsPerWeek / 4)
+        ? durationForSessions(formData.totalSessions, formData.sessionsPerWeek, intervalWeeks)
         : formData.durationMonths;
 
     // 🧩 Atualiza totalSessions dinamicamente
     useEffect(() => {
         if (calculationMode === 'duration') {
-            const total = (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+            const total = sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
 
             // evita loop infinito e re-render desnecessário
             if (formData.totalSessions !== total) {
                 setFormData(prev => ({ ...prev, totalSessions: total }));
             }
         }
-    }, [formData.durationMonths, formData.sessionsPerWeek, calculationMode]);
+    }, [formData.durationMonths, formData.sessionsPerWeek, calculationMode, intervalWeeks]);
 
     const [selectedSlots, setSelectedSlots] = useState<Array<{ day: string; time: string }>>([]);
 
@@ -257,6 +279,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         // Determina modo de cálculo: se totalSessions está preenchido, assume modo 'sessions'
         const hasDuration = Boolean((initialData as any).durationMonths);
         setCalculationMode(hasDuration ? 'duration' : 'sessions');
+        setFrequencyInterval((initialData as any).frequencyInterval === 'biweekly' ? 'biweekly' : 'weekly');
 
         setFormData(prev => ({
             ...prev,
@@ -306,7 +329,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
         // recalcula total: (sessões futuras do formulário + retroativas) × valor
         const sv = formData.sessionValue || debtValue || 0;
-        const futuras = (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0);
+        const futuras = calculationMode === 'sessions'
+            ? toNumber(formData.totalSessions)
+            : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
         const total = (futuras + selected.length) * sv;
         if (total > 0 && payments.length > 0) {
             setPayments(prev => prev.map((p, i) => i === 0 ? { ...p, amount: total } : p));
@@ -466,7 +491,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         sessionsPerWeek,
         selectedSlots = [],
         sameDaySessions = false,
-        dailySessionTimes = []
+        dailySessionTimes = [],
+        intervalWeeks = 1
     }: {
         startDate: string;
         startTime: string;
@@ -475,6 +501,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         selectedSlots?: { day: string; time: string }[];
         sameDaySessions?: boolean;
         dailySessionTimes?: string[];
+        intervalWeeks?: number;
     }) {
         const start = moment(startDate, "YYYY-MM-DD");
         const results: { date: string; time: string }[] = [];
@@ -503,7 +530,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     }
                 }
 
-                currentWeek.add(1, 'week');
+                // Semanal = avança 1 semana; quinzenal = pula 2 (ocorrência a cada 15 dias)
+                currentWeek.add(intervalWeeks, 'week');
             }
             return results;
         }
@@ -570,8 +598,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 sessionsCreated++;
             }
 
-            // Avança para a próxima semana
-            currentWeek.add(1, 'week');
+            // Avança para a próxima ocorrência (1 semana no modo semanal, 2 no quinzenal)
+            currentWeek.add(intervalWeeks, 'week');
         }
 
         return results.slice(0, totalSessions);
@@ -601,7 +629,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 ? formData.totalSessions
                 : (calculationMode === "sessions"
                     ? formData.totalSessions
-                    : (formData.durationMonths || 0) * 4 * (formData.sessionsPerWeek || 0));
+                    : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks));
 
             // ============================================================
             // 📅 Gera as datas reais (apenas na criação)
@@ -616,7 +644,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     sessionsPerWeek: formData.sessionsPerWeek,
                     selectedSlots,
                     sameDaySessions,
-                    dailySessionTimes
+                    dailySessionTimes,
+                    intervalWeeks
                 });
                 const unique = Array.from(
                     new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
@@ -655,10 +684,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     durationMonths:
                         calculationMode === "duration"
                             ? formData.durationMonths
-                            : Math.ceil(
-                                formData.totalSessions / (formData.sessionsPerWeek || 1) / 4
-                            ),
+                            : durationForSessions(formData.totalSessions, formData.sessionsPerWeek, intervalWeeks),
                     totalSessions,
+                    frequencyInterval,
                     date: formData.date,
                     time: formData.time,
                     calculationMode,
@@ -875,7 +903,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         const futureSessions =
             calculationMode === 'sessions'
                 ? toNumber(formData.totalSessions)
-                : toNumber(formData.durationMonths) * 4 * toNumber(formData.sessionsPerWeek);
+                : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
 
         // total contratual = futuras + retroativas selecionadas
         const sessions = futureSessions + selectedDebtIds.size;
@@ -894,6 +922,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         formData.durationMonths,
         formData.sessionsPerWeek,
         formData.sessionValue,
+        intervalWeeks,
         payments,
         selectedDebtIds,
     ]);
@@ -1107,6 +1136,15 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 <span className="text-red-500 text-sm">{errors.totalSessions}</span>
                                             )}
                                         </div>
+                                        <div>
+                                            <label className="form-label">
+                                                Frequência
+                                            </label>
+                                            <div className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
+                                                {frequencyInterval === 'biweekly' ? 'Quinzenal (a cada 15 dias)' : 'Semanal'}
+                                            </div>
+                                            <p className="text-xs text-gray-400 mt-1">Definida na criação do pacote, não editável.</p>
+                                        </div>
                                     </div>
                                 ) : (
                                     <>
@@ -1122,6 +1160,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 >
                                                     <option value="sessions">Por número de sessões</option>
                                                     <option value="duration">Por duração (meses/semanas)</option>
+                                                </Select>
+                                            </div>
+
+                                            <div>
+                                                <label className="form-label">
+                                                    Frequência
+                                                </label>
+                                                <Select
+                                                    value={frequencyInterval}
+                                                    onChange={(e) => setFrequencyInterval(e.target.value as 'weekly' | 'biweekly')}
+                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                >
+                                                    <option value="weekly">Semanal</option>
+                                                    <option value="biweekly">Quinzenal (a cada 15 dias)</option>
                                                 </Select>
                                             </div>
                                         </div>
@@ -1147,7 +1199,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                                 <div>
                                                     <label className="form-label">
-                                                        Sessões por Semana *
+                                                        Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
                                                     </label>
                                                     <Select
                                                         name="sessionsPerWeek"
@@ -1158,7 +1210,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                         <option value="">Selecione a frequência</option>
                                                         {FREQUENCY_OPTIONS.map(opt => (
                                                             <option key={opt} value={opt}>
-                                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
                                                             </option>
                                                         ))}
                                                     </Select>
@@ -1196,7 +1248,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                         <div>
                                             <label className="form-label">
-                                                Sessões por Semana *
+                                                Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
                                             </label>
                                             <Select
                                                 name="sessionsPerWeek"
@@ -1204,10 +1256,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 onChange={handleChange}
                                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                             >
-                                                <option value="">Escolha quantidade de vez na semana</option>
+                                                <option value="">Escolha quantidade de vez na {occurrenceLabel}</option>
                                                 {FREQUENCY_OPTIONS.map(opt => (
                                                     <option key={opt} value={opt}>
-                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por semana
+                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
                                                     </option>
                                                 ))}
                                             </Select>

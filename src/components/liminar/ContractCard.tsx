@@ -564,11 +564,15 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     const intSp = integrity?.specialties?.[specialty];
                     const completed  = intSp?.completed ?? 0;
                     const generated  = intSp?.generated ?? 0;
+                    const canceled   = intSp?.canceled ?? 0;
                     const missing    = intSp?.missing   ?? 0;
                     const expected   = intSp?.expected  ?? 0;
+                    const totalAuth  = config.totalSessions ?? generated ?? expected ?? 0;
                     const scheduled  = generated - completed;
-                    const pctComp    = expected > 0 ? Math.min((completed / expected) * 100, 100) : 0;
-                    const pctPend    = expected > 0 ? Math.min((scheduled / expected) * 100, 100 - pctComp) : 0;
+                    const base       = totalAuth > 0 ? totalAuth : generated > 0 ? generated : expected;
+                    const pctComp    = base > 0 ? Math.min((completed / base) * 100, 100) : 0;
+                    const pctPend    = base > 0 ? Math.min((scheduled / base) * 100, 100 - pctComp) : 0;
+                    const missingPct = base > 0 ? Math.max(0, (base - generated) / base) * 100 : 0;
                     const spTheme    = getSpecialtyTheme(specialty);
 
                     return (
@@ -585,7 +589,9 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                           </span>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <span className="text-xs" style={{ color: '#8A99B0' }}>
-                              {(config.slots ?? []).length}×/sem · R$ {fmt(config.sessionValue ?? 0)}
+                              {(config.slots ?? []).length > 0
+                                ? `${(config.slots ?? []).length}×/sem · R$ ${fmt(config.sessionValue ?? 0)}`
+                                : `R$ ${fmt(config.sessionValue ?? 0)}`}
                             </span>
                             <button
                               onClick={(e) => { e.stopPropagation(); openSpecialtyModal(specialty); }}
@@ -610,28 +616,34 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                             <div
                               className="flex rounded-full overflow-hidden"
                               style={{ height: 6, background: '#E9EEF2' }}
-                              title={`Esperado: ${expected} | Realizado: ${completed} | Agendado: ${scheduled} | Faltando: ${missing}`}
+                              title={`Autorizado: ${base} | Concluídas: ${completed} | Agendadas: ${scheduled} | Canceladas: ${canceled} | Faltando: ${Math.max(0, base - generated)}`}
                             >
                               <div style={{ width: `${pctComp}%`, background: '#10B981', transition: 'width 0.5s' }} />
                               <div style={{ width: `${pctPend}%`, background: '#6366F1', transition: 'width 0.5s' }} />
-                              {missing > 0 && (
-                                <div style={{ width: `${Math.min((missing / expected) * 100, 100 - pctComp - pctPend)}%`, background: NEUTRAL_MISSING_COLOR.bar, transition: 'width 0.5s' }} />
+                              {base > generated && (
+                                <div style={{ width: `${Math.min(missingPct, 100 - pctComp - pctPend)}%`, background: NEUTRAL_MISSING_COLOR.bar, transition: 'width 0.5s' }} />
                               )}
                             </div>
 
                             <div className="flex items-center gap-3 text-xs flex-wrap">
                               <span className="flex items-center gap-1">
                                 <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
-                                <span style={{ color: '#065F46' }}><b>{completed}</b> feitas</span>
+                                <span style={{ color: '#065F46' }}><b>{completed}</b> concluídas</span>
                               </span>
                               <span className="flex items-center gap-1">
                                 <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#6366F1' }} />
-                                <span style={{ color: '#3730A3' }}><b>{scheduled}</b> agend.</span>
+                                <span style={{ color: '#3730A3' }}><b>{scheduled}</b> agendadas</span>
                               </span>
+                              {canceled > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#EF4444' }} />
+                                  <span style={{ color: '#B91C1C' }}><b>{canceled}</b> canceladas</span>
+                                </span>
+                              )}
                               {missing > 0 ? (
                                 <span className="flex items-center gap-1">
                                   <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: NEUTRAL_MISSING_COLOR.dot }} />
-                                  <span style={{ color: NEUTRAL_MISSING_COLOR.text }}><b>{missing}</b> falt.</span>
+                                  <span style={{ color: NEUTRAL_MISSING_COLOR.text }}><b>{missing}</b> faltando</span>
                                 </span>
                               ) : (
                                 <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#D1FAE5', color: '#065F46' }}>
@@ -639,8 +651,34 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                                 </span>
                               )}
                               <span className="ml-auto text-xs" style={{ color: '#A0AABF' }}>
-                                {completed}/{expected}
+                                {completed}/{base}
                               </span>
+                            </div>
+
+                            {/* Detalhes da especialidade — padrão guia de convênio */}
+                            <div className="grid grid-cols-3 gap-2 mt-2">
+                              <div
+                                className="rounded-lg p-2 text-center"
+                                style={{ background: 'rgba(255,255,255,0.6)', border: `1px solid ${spTheme.border}` }}
+                              >
+                                <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Valor/sessão</p>
+                                <p className="text-xs font-bold" style={{ color: spTheme.text }}>R$ {fmt(config.sessionValue ?? 0)}</p>
+                              </div>
+                              <div
+                                className="rounded-lg p-2 text-center"
+                                style={{ background: 'rgba(255,255,255,0.6)', border: `1px solid ${spTheme.border}` }}
+                              >
+                                <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Total autorizado</p>
+                                <p className="text-xs font-bold" style={{ color: spTheme.text }}>{base} sessões</p>
+                                <p className="text-[10px]" style={{ color: '#8A99B0' }}>R$ {fmt(base * (config.sessionValue ?? 0))}</p>
+                              </div>
+                              <div
+                                className="rounded-lg p-2 text-center"
+                                style={{ background: 'rgba(255,255,255,0.6)', border: `1px solid ${spTheme.border}` }}
+                              >
+                                <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Sessões geradas</p>
+                                <p className="text-xs font-bold" style={{ color: spTheme.text }}>{generated}</p>
+                              </div>
                             </div>
                           </>
                         ) : (

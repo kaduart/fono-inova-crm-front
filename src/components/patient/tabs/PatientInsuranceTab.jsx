@@ -762,13 +762,25 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
   const [generating, setGenerating] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
   const queryClient = useQueryClient();
 
-  const handleGenerateSessions = async (planId) => {
+  const runGenerateSessions = async (planId, { allowPastGeneration = false } = {}) => {
     setGenerating(true);
     try {
-      const res = await API.post(`/v2/insurance-plans/${planId}/generate-sessions`, {}, { timeout: 60000 });
-      const { appointmentsGenerated, appointmentsCanceled, replanned, remaining } = res.data?.data || {};
+      const res = await API.post(
+        `/v2/insurance-plans/${planId}/generate-sessions`,
+        { allowPastGeneration },
+        { timeout: 60000 }
+      );
+      const {
+        appointmentsGenerated,
+        appointmentsCanceled,
+        replanned,
+        remaining,
+        pastAppointmentsCompleted,
+        pastAppointmentsFailed
+      } = res.data?.data || {};
 
       if (replanned && appointmentsCanceled > 0 && appointmentsGenerated > 0) {
         toast.success(
@@ -781,6 +793,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         toast('Todos os agendamentos futuros já existem', { icon: 'ℹ️' });
       } else {
         toast('Nenhuma sessão nova foi gerada', { icon: 'ℹ️' });
+      }
+
+      if (pastAppointmentsCompleted > 0) {
+        toast.success(`${pastAppointmentsCompleted} sessão(ões) retroativa(s) marcada(s) como concluída(s)`, { duration: 5000 });
+      }
+      if (pastAppointmentsFailed?.length > 0) {
+        toast.error(`${pastAppointmentsFailed.length} sessão(ões) retroativa(s) não puderam ser concluídas automaticamente. Complete-as manualmente pela agenda.`, { duration: 7000 });
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
@@ -799,6 +818,36 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
       }
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleGenerateSessions = (planId) => {
+    // Mesmo padrão do "Gerar sessões" da Liminar: sempre abre modal confirmando
+    // quantidade e data de início antes de gerar, em vez de disparar direto.
+    const startDateStr = plan?.startDate ? plan.startDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    setGenerateModal({ open: true, planId, startDate: startDateStr });
+  };
+
+  const handleConfirmGenerate = async () => {
+    if (!generateModal?.open) return;
+    const { planId, startDate } = generateModal;
+    setGenerateModal(null);
+
+    const currentStartDate = plan?.startDate ? plan.startDate.slice(0, 10) : null;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const startsInPast = startDate < todayStr;
+
+    try {
+      // Data mudou em relação ao plano salvo — persiste antes de gerar (mesmo
+      // endpoint da edição do plano, PATCH /:id).
+      if (startDate !== currentStartDate) {
+        await API.patch(`/v2/insurance-plans/${planId}`, { startDate });
+        queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
+      }
+      await runGenerateSessions(planId, { allowPastGeneration: startsInPast });
+    } catch (err) {
+      const serverMsg = err?.response?.data?.message;
+      toast.error(serverMsg || 'Erro ao salvar a data de início do plano');
     }
   };
 
@@ -1166,6 +1215,70 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
         )}
       </div>
+
+      {/* Gerar sessões — mesmo padrão do modal da Liminar: confirma quantidade e início antes de gerar */}
+      {generateModal?.open && (() => {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const startsInPast = generateModal.startDate < todayStr;
+        return (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: theme.to }}>
+                  <Zap className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">Gerar sessões</h3>
+                  <p className="text-xs text-slate-500">Guia #{guide.number} — {presentation.specialtyLabel || guide.specialty}</p>
+                </div>
+                <button onClick={() => setGenerateModal(null)} className="ml-auto text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Data de início</label>
+                <input
+                  type="date"
+                  value={generateModal.startDate}
+                  onChange={(e) => setGenerateModal(prev => (prev ? { ...prev, startDate: e.target.value } : prev))}
+                  className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                />
+              </div>
+
+              {startsInPast && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">
+                    Data no passado: as sessões entre ela e hoje serão criadas <strong>já concluídas</strong> — consomem a guia e liquidam o pagamento, representando atendimentos que já aconteceram. Sessões futuras seguem normalmente.
+                  </p>
+                </div>
+              )}
+
+              <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Sessões a gerar (autorizado pela guia):</span>
+                  <span className="font-semibold text-slate-800">{remaining}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setGenerateModal(null)}
+                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmGenerate}
+                  disabled={!generateModal.startDate}
+                  className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)` }}>
+                  <CheckCircle className="w-4 h-4" /> Gerar sessões
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </motion.div>
   );
 };

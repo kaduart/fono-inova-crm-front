@@ -147,6 +147,7 @@ const sanitizeV2Payload = (data: any): any => {
     'schedule',       // Array de {date, time}
     'durationMonths',
     'sessionsPerWeek',
+    'frequencyInterval',
     'calculationMode',
     'selectedSlots',
     // Financeiro
