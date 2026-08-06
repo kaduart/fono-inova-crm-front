@@ -99,6 +99,8 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 appointmentId: sessionData.appointmentId,
                 confirmedAbsence: sessionData.confirmedAbsence,
                 payment: { amount: Number(sessionData.paymentAmount) || 0, method: sessionData.paymentMethod || '' },
+                professionalPaymentStatus: sessionData.professionalPaymentStatus,
+                professionalPaymentOverride: sessionData.professionalPaymentOverride,
             };
             await packageService.updateSession(packId, payload);
             const isCompleting = modalAction === 'use' && sessionData.status === 'completed';
@@ -140,6 +142,8 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                 appointmentId: sessionData.appointmentId,
                 confirmedAbsence: sessionData.confirmedAbsence,
                 payment: { amount: Number(sessionData.paymentAmount) || 0, method: sessionData.paymentMethod || '' },
+                professionalPaymentStatus: sessionData.professionalPaymentStatus,
+                professionalPaymentOverride: sessionData.professionalPaymentOverride,
             };
             await packageService.updateSession(packId, payload);
             const isCompleting = modalAction === 'use' && sessionData.status === 'completed';

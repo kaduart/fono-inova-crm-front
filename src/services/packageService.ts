@@ -108,6 +108,13 @@ export type UseSessionParams = {
   sessionsPerWeek?: number;
   status?: 'pending' | 'completed' | 'active';
   confirmedAbsence?: boolean;
+  professionalPaymentStatus?: 'payable' | 'non_payable';
+  professionalPaymentOverride?: {
+    excluded: boolean;
+    reason?: string;
+    excludedAt?: string;
+    excludedBy?: string;
+  };
 };
 
 /**
@@ -381,7 +388,9 @@ export const packageService = {
     if (!appointmentId) {
       throw new Error('appointmentId é obrigatório para atualizar sessão no V2');
     }
-    
+
+    let result;
+
     // 🎯 CADA STATUS usa o endpoint correto que já sincroniza a triade (appointment + session + package)
     if (data.status === 'completed') {
       // ✅ completeSessionV2 sincroniza: appointment → session → package → payment
@@ -389,37 +398,53 @@ export const packageService = {
       const response = await API.patch(`/v2/appointments/${appointmentId}/complete`, {
         paymentMethod: data.payment?.method || 'pix',
         amount: data.payment?.amount,
+        excludeFromProfessionalPayment: data.professionalPaymentStatus === 'non_payable',
+        exclusionReason: data.professionalPaymentOverride?.reason,
       });
       window.dispatchEvent(new CustomEvent('session:completed'));
-      return extractV2Data(response);
-    }
-    
-    if (data.status === 'canceled') {
+      result = extractV2Data(response);
+    } else if (data.status === 'canceled') {
       // ✅ cancelSessionV2 sincroniza: appointment → session → package
       const response = await API.patch(`/v2/appointments/${appointmentId}/cancel`, {
         reason: data.notes || 'Cancelado pelo usuário',
         confirmedAbsence: data.confirmedAbsence || false,
       });
-      return extractV2Data(response);
+      result = extractV2Data(response);
+    } else {
+      // 📝 Para scheduled/pending: PUT sincroniza appointment + session + payment
+      // 🎯 NORMALIZA: 'pending' do frontend → 'scheduled' no backend
+      const normalizedStatus = data.status === 'pending' ? 'scheduled' : data.status;
+      const response = await API.put(`/v2/appointments/${appointmentId}`, {
+        patientId: data.patientId || data.patient,
+        doctorId: data.doctorId,
+        date: data.date,
+        time: data.time,
+        notes: data.notes,
+        specialty: data.specialty || data.sessionType,
+        operationalStatus: normalizedStatus,
+        clinicalStatus: 'pending',
+        paymentAmount: data.payment?.amount,
+        paymentMethod: data.payment?.method,
+      });
+      result = extractV2Data(response);
     }
-    
-    // 📝 Para scheduled/pending: PUT sincroniza appointment + session + payment
-    // 🎯 NORMALIZA: 'pending' do frontend → 'scheduled' no backend
-    const normalizedStatus = data.status === 'pending' ? 'scheduled' : data.status;
-    const response = await API.put(`/v2/appointments/${appointmentId}`, {
-      patientId: data.patientId || data.patient,
-      doctorId: data.doctorId,
-      date: data.date,
-      time: data.time,
-      notes: data.notes,
-      specialty: data.specialty || data.sessionType,
-      operationalStatus: normalizedStatus,
-      clinicalStatus: 'pending',
-      paymentAmount: data.payment?.amount,
-      paymentMethod: data.payment?.method,
-    });
-    
-    return extractV2Data(response);
+
+    // 🎯 Sincroniza flag de remuneração do profissional quando o usuário a alterou no modal.
+    // O endpoint /complete só aplica a flag durante a primeira completação; para sessões já
+    // completed, usamos o PATCH dedicado.
+    if (data.professionalPaymentStatus && ['payable', 'non_payable'].includes(data.professionalPaymentStatus)) {
+      try {
+        await API.patch(`/v2/appointments/${appointmentId}/professional-payment-status`, {
+          status: data.professionalPaymentStatus,
+          reason: data.professionalPaymentOverride?.reason || 'Ajuste via edição de sessão',
+        });
+      } catch (err: any) {
+        // Não falha a operação principal se o PATCH de remuneração der erro, mas loga.
+        console.warn('[packageService.updateSession] Falha ao sincronizar professionalPaymentStatus:', err);
+      }
+    }
+
+    return result;
   },
 
   addSession: async (packageId: string, sessionData: any) => {
@@ -439,7 +464,7 @@ export const packageService = {
   },
 
   // Operação para "usar" uma sessão e atualizar pagamento
-  useSession: async (packageId: string, data: UseSessionParams & { appointmentId?: string }) => {
+  useSession: async (packageId: string, data: UseSessionParams & { appointmentId?: string; excludeFromProfessionalPayment?: boolean; exclusionReason?: string }) => {
     // 🚀 V2: Completa o agendamento diretamente
     if (!data.appointmentId) {
       throw new Error('appointmentId é obrigatório para usar sessão no V2');
@@ -447,6 +472,8 @@ export const packageService = {
     const response = await API.patch(`/v2/appointments/${data.appointmentId}/complete`, {
       paymentMethod: data.paymentMethod || 'pix',
       amount: data.paymentAmount,
+      excludeFromProfessionalPayment: data.excludeFromProfessionalPayment,
+      exclusionReason: data.exclusionReason,
     });
     return extractV2Data(response);
   },

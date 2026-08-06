@@ -131,6 +131,23 @@ export interface SettlementItem {
   cancelledAt?: string;
 }
 
+export interface SettlementPreview {
+  doctorId: string;
+  periodMonth: number;
+  periodYear: number;
+  canClose: boolean;
+  alreadyClosed: boolean;
+  hasFinancialIssues: boolean;
+  financialIssues: {
+    orphanSessions: number;
+    orphanPayments: number;
+    hasCommissionData: boolean;
+  } | null;
+  preview: ProfessionalSummary & {
+    linkedAdvances: Array<{ advanceId: string; amount: number; type: string; date: string }>;
+  };
+}
+
 export interface FinancialIssue {
   type: 'orphan_payment' | 'orphan_session' | 'private_pending' | 'commission_mismatch' | 'missing_doctor';
   severity: 'high' | 'medium' | 'low';
@@ -178,6 +195,21 @@ export const professionalResultsService = {
 
   async getSettlements(doctorId: string): Promise<SettlementItem[]> {
     const response = await API.get<ApiResponse<SettlementItem[]>>(`/v2/professionals/${doctorId}/settlements`);
+    return response.data.data;
+  },
+
+  async previewSettlement(doctorId: string, month: number, year: number): Promise<SettlementPreview> {
+    const response = await API.get<ApiResponse<SettlementPreview>>(
+      `/v2/professionals/${doctorId}/settlements/preview?month=${month}&year=${year}`
+    );
+    return response.data.data;
+  },
+
+  async closeSettlement(doctorId: string, month: number, year: number, options: { force?: boolean; notes?: string } = {}): Promise<SettlementItem> {
+    const response = await API.post<ApiResponse<SettlementItem>>(
+      `/v2/professionals/${doctorId}/settlements/close`,
+      { month, year, force: options.force, notes: options.notes }
+    );
     return response.data.data;
   },
 

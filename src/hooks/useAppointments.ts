@@ -223,7 +223,7 @@ export const useAppointments = () => {
         }
     }, []);
 
-    const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }, options?: {
+    const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string; excludeFromProfessionalPayment?: boolean; exclusionReason?: string }, options?: {
         onSuccess?: () => void;
         onError?: (error: Error) => void;
     }) => {

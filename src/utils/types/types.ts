@@ -96,6 +96,19 @@ export interface ISession {
     notes?: string;
     isPaid?: boolean;
     confirmedAbsence?: boolean | null;
+    professionalPaymentStatus?: 'payable' | 'non_payable';
+    professionalPaymentOverride?: {
+        excluded: boolean;
+        reason?: string;
+        excludedAt?: string;
+        excludedBy?: string;
+    };
+    professionalPaymentOverrideHistory?: Array<{
+        status: 'payable' | 'non_payable';
+        reason: string;
+        changedAt: string;
+        changedBy?: string;
+    }>;
 }
 
 export const DURATION_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);

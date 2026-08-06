@@ -1,5 +1,5 @@
 import { ptBR } from 'date-fns/locale';
-import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, X, XCircle } from 'lucide-react';
+import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, Wallet, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
@@ -42,6 +42,8 @@ interface AppointmentDetailModalProps {
         balanceAmount?: number;
         balanceDescription?: string;
         payments?: Array<{ amount: number; date: string; method: string }>;
+        excludeFromProfessionalPayment?: boolean;
+        exclusionReason?: string;
     }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
     onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
@@ -382,6 +384,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         { id: 1, amount: 0, date: '', method: '' }
     ]);
 
+    // 🏦 CONTROLE DE REMUNERAÇÃO DO PROFISSIONAL (sessão faturada mas não remunerada)
+    const [excludeFromProfessionalPayment, setExcludeFromProfessionalPayment] = useState(false);
+    const [exclusionReason, setExclusionReason] = useState('');
+
     // 🎯 Helper: identifica sessões de pacote pago
     const isPackageSession = useCallback(() => {
         const st = event?.serviceType || event?.sessionType;
@@ -470,6 +476,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 date: new Date().toISOString().split('T')[0],
                 method: event.paymentMethod || ''
             }]);
+
+            // 🏦 Inicializa flag de remuneração do profissional a partir do evento/Session
+            const sessionStatus = (event as any).professionalPaymentStatus;
+            setExcludeFromProfessionalPayment(sessionStatus === 'non_payable');
+            setExclusionReason((event as any).professionalPaymentOverride?.reason || '');
         }
         // ⛔ Depende só de event?.id (não de `event` inteiro): refetches em segundo plano do
         // MESMO agendamento recriam o objeto `event` mas não podem resetar addToBalance/debitAmount/
@@ -508,6 +519,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setCancelReason('');
             setConfirmedAbsence(false);
             setPayments([{ id: 1, amount: 0, date: '', method: '' }]);
+            setExcludeFromProfessionalPayment(false);
+            setExclusionReason('');
             setLiminarPlan(null);
             setMoveTargetSpecialty('');
             setMoveReason('');
@@ -645,6 +658,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             return;
         }
 
+        // 🏦 BLOQUEIO: motivo obrigatório ao desabilitar remuneração do profissional
+        if (excludeFromProfessionalPayment && !exclusionReason.trim()) {
+            toast.error('Informe o motivo para não remunerar o profissional.');
+            return;
+        }
+
         // 💰 ALERTA DE DÍVIDA: só para particular — convenio/liminar são pós-pagos pelo plano/judicial
         // Checa múltiplos campos: billingType pode estar errado no DB (data quality issue)
         const isThirdPartyBilling = (
@@ -721,10 +740,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 ...(billingType === 'convenio' && { insuranceProvider, insuranceValue, authorizationCode }),
             };
 
+            const professionalPaymentMeta = excludeFromProfessionalPayment
+                ? { excludeFromProfessionalPayment: true, exclusionReason: exclusionReason.trim() }
+                : {};
+
             if (addToBalance) {
                 console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
                 await onCompleteAppointment(event.id, {
                     ...billingMeta,
+                    ...professionalPaymentMeta,
                     addToBalance: true,
                     balanceAmount: debitAmount,
                     balanceDescription: debitDescription,
@@ -733,6 +757,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             } else {
                 await onCompleteAppointment(event.id, {
                     ...billingMeta,
+                    ...professionalPaymentMeta,
                     ...(paymentsPayload?.length ? { splitMethods: paymentsPayload } : {})
                 });
             }
@@ -1597,6 +1622,52 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             <p className="font-semibold">⚠️ Atenção</p>
                                             <p>Ao confirmar, o agendamento será marcado como concluído e <strong>R$ {debitAmount.toFixed(2)}</strong> será adicionado ao saldo devedor do paciente.</p>
                                         </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 🏦 REMUNERAÇÃO DO PROFISSIONAL */}
+                        {permissions.canSeeFinancial && !event?.__isPreAgendamento && (
+                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="p-1.5 bg-indigo-100 rounded-lg">
+                                        <Wallet className="w-4 h-4 text-indigo-600" />
+                                    </div>
+                                    <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">
+                                        Remuneração do Profissional
+                                    </h3>
+                                </div>
+
+                                <label className="flex items-start gap-3 cursor-pointer p-3 bg-white/60 rounded-lg border border-indigo-100 hover:bg-white/80 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={excludeFromProfessionalPayment}
+                                        onChange={(e) => setExcludeFromProfessionalPayment(e.target.checked)}
+                                        className="mt-0.5 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded shrink-0"
+                                    />
+                                    <div className="flex-1">
+                                        <span className="text-sm font-semibold text-gray-800 block">
+                                            Não remunerar o profissional por este atendimento
+                                        </span>
+                                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                            O atendimento continua faturado e recebido pela clínica, mas não gera comissão ao profissional.
+                                        </p>
+                                    </div>
+                                </label>
+
+                                {excludeFromProfessionalPayment && (
+                                    <div className="mt-3">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                            Motivo *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={exclusionReason}
+                                            onChange={(e) => setExclusionReason(e.target.value)}
+                                            placeholder="Ex: Paciente avisou com antecedência"
+                                            className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                        />
                                     </div>
                                 )}
                             </div>

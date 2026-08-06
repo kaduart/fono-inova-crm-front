@@ -592,7 +592,12 @@ const FinancialDashboard = ({
             case 'profissionais':
                 return (
                     <Suspense fallback={<div className="min-h-[400px] flex items-center justify-center text-gray-400">Carregando...</div>}>
-                        <ProfessionalResultsPage />
+                        <ProfessionalResultsPage
+                            month={selectedMonth}
+                            year={selectedYear}
+                            onMonthChange={setSelectedMonth}
+                            onYearChange={setSelectedYear}
+                        />
                     </Suspense>
                 );
             case 'planejamento':

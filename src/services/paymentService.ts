@@ -260,6 +260,13 @@ export interface InsurancePatientSession {
     paymentId?: string | null;
     appointmentId?: string | null;
     source: 'lote' | 'avulso' | 'guia';
+    professionalPaymentStatus?: 'payable' | 'non_payable' | null;
+    professionalPaymentOverride?: {
+        excluded?: boolean;
+        reason?: string | null;
+        excludedAt?: string | null;
+        excludedBy?: string | null;
+    } | null;
 }
 
 export const BILLING_MODEL = {

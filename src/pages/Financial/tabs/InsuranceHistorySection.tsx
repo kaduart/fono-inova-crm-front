@@ -17,13 +17,20 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
+    IconButton,
+    Menu,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from '@mui/material';
-import { TrendingUp, Download, ChevronRight, ChevronDown, SlidersHorizontal, X, ArrowLeft, Search } from 'lucide-react';
+import { TrendingUp, Download, ChevronRight, ChevronDown, SlidersHorizontal, X, ArrowLeft, Search, MoreVertical, Wallet, UserX, UserCheck } from 'lucide-react';
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import BreakdownDetailsModal, { BreakdownRow } from '../components/BreakdownDetailsModal';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession, BILLING_MODEL, BillingModel } from '../../../services/paymentService';
+import appointmentService from '../../../services/appointmentService';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -200,6 +207,16 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     const [loadingByKey, setLoadingByKey] = useState<Record<string, boolean>>({});
     const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
 
+    // Menu de ações por sessão
+    const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+    const [menuSession, setMenuSession] = useState<InsurancePatientSession | null>(null);
+    const menuSessionRef = useRef<InsurancePatientSession | null>(null);
+
+    // Diálogo de motivo para não remunerar profissional
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogReason, setDialogReason] = useState('');
+    const [dialogLoading, setDialogLoading] = useState(false);
+
     const activeRow = useMemo(
         () => specialtyTabs.find(r => r.specialty === activeSpecialty),
         [specialtyTabs, activeSpecialty]
@@ -251,6 +268,87 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     // Total do rodapé bate com os grupos renderizados.
     const totalSessions = groups.reduce((s, g) => s + (g.summary?.sessions ?? g.sessions.length), 0);
     const total = groups.reduce((s, g) => s + (g.summary?.grossAmount ?? g.total ?? 0), 0);
+
+    function handleOpenMenu(event: React.MouseEvent<HTMLElement>, s: InsurancePatientSession) {
+        event.stopPropagation();
+        setMenuAnchor(event.currentTarget);
+        setMenuSession(s);
+        menuSessionRef.current = s;
+    }
+
+    function handleCloseMenu() {
+        setMenuAnchor(null);
+    }
+
+    function handleToggleDialog() {
+        const s = menuSessionRef.current;
+        if (!s) return;
+        setDialogReason(s.professionalPaymentOverride?.reason || '');
+        setDialogOpen(true);
+        handleCloseMenu();
+    }
+
+    function handleCloseDialog() {
+        setDialogOpen(false);
+        setDialogReason('');
+        setMenuSession(null);
+        menuSessionRef.current = null;
+    }
+
+    async function handleSaveProfessionalPaymentStatus() {
+        const s = menuSessionRef.current;
+        console.log('[PPS] handleSave chamado', { session: s, dialogReason });
+        if (!s || !s.appointmentId) {
+            console.warn('[PPS] Sem sessão ou appointmentId');
+            toast.error('Sessão não identificada. Tente novamente.');
+            return;
+        }
+        const isNonPayable = s.professionalPaymentStatus === 'payable';
+        if (isNonPayable && !dialogReason.trim()) {
+            toast.error('Informe o motivo para não remunerar o profissional.');
+            return;
+        }
+
+        setDialogLoading(true);
+        try {
+            console.log('[PPS] Chamando API', { appointmentId: s.appointmentId, status: isNonPayable ? 'non_payable' : 'payable' });
+            const res = await appointmentService.updateProfessionalPaymentStatus(s.appointmentId, {
+                status: isNonPayable ? 'non_payable' : 'payable',
+                reason: isNonPayable ? dialogReason.trim() : 'Habilitado pelo usuário'
+            });
+            console.log('[PPS] API resposta', res.data);
+            toast.success(isNonPayable ? 'Profissional não será remunerado por esta sessão.' : 'Profissional voltará a ser remunerado por esta sessão.');
+            // Atualiza o cache local
+            setCacheByKey(prev => {
+                const next = { ...prev };
+                if (!next[key]) return prev;
+                next[key] = {
+                    ...next[key],
+                    groups: next[key].groups.map(g => ({
+                        ...g,
+                        sessions: g.sessions.map(sess =>
+                            sess.sessionId === s.sessionId
+                                ? {
+                                    ...sess,
+                                    professionalPaymentStatus: isNonPayable ? 'non_payable' : 'payable',
+                                    professionalPaymentOverride: isNonPayable
+                                        ? { excluded: true, reason: dialogReason.trim(), excludedAt: new Date().toISOString(), excludedBy: '' }
+                                        : null
+                                }
+                                : sess
+                        )
+                    }))
+                };
+                return next;
+            });
+            handleCloseDialog();
+        } catch (err: any) {
+            console.error('[PPS] Erro ao alterar remuneração:', err);
+            toast.error(err?.response?.data?.error || 'Erro ao alterar remuneração do profissional.');
+        } finally {
+            setDialogLoading(false);
+        }
+    }
 
     if (rows.length === 0) {
         return (
@@ -390,7 +488,24 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                                 </Box>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                                                     <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">{fmtBRL(s.value)}</Typography>
+                                                    {s.professionalPaymentStatus === 'non_payable' && (
+                                                        <Chip
+                                                            size="small"
+                                                            icon={<UserX size={12} />}
+                                                            label="Não remunerado"
+                                                            sx={{ height: 18, fontSize: '0.58rem', bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 600, '& .MuiChip-icon': { color: '#92400E' } }}
+                                                        />
+                                                    )}
                                                     <StatusBadge status={s.billingStatus} />
+                                                    {s.appointmentId && (
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={(e) => handleOpenMenu(e, s)}
+                                                            sx={{ p: 0.5, ml: 0.5 }}
+                                                        >
+                                                            <MoreVertical size={14} color="#64748B" />
+                                                        </IconButton>
+                                                    )}
                                                 </Box>
                                             </Box>
                                             {(s.invoiceNumber || s.billedAt || s.receivedAt) && (
@@ -432,6 +547,68 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                 </Typography>
                 <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A">{fmtBRL(total)}</Typography>
             </Box>
+
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={handleCloseMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ sx: { minWidth: 220, borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } }}
+            >
+                {menuSession?.professionalPaymentStatus === 'non_payable' ? (
+                    <MenuItem onClick={handleToggleDialog} sx={{ gap: 1.5, fontSize: '0.85rem', py: 1 }}>
+                        <UserCheck size={16} color="#059669" />
+                        Voltar a remunerar profissional
+                    </MenuItem>
+                ) : (
+                    <MenuItem onClick={handleToggleDialog} sx={{ gap: 1.5, fontSize: '0.85rem', py: 1 }}>
+                        <UserX size={16} color="#92400E" />
+                        Não remunerar profissional
+                    </MenuItem>
+                )}
+            </Menu>
+
+            <Dialog open={dialogOpen} onClose={() => !dialogLoading && setDialogOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                    {menuSession?.professionalPaymentStatus === 'non_payable'
+                        ? 'Habilitar remuneração do profissional'
+                        : 'Desabilitar remuneração do profissional'}
+                </DialogTitle>
+                <DialogContent sx={{ pb: 1 }}>
+                    <Typography fontSize="0.85rem" color="#475569" sx={{ mb: 2 }}>
+                        {menuSession?.professionalPaymentStatus === 'non_payable'
+                            ? 'A sessão voltará a gerar comissão ao profissional no fechamento.'
+                            : 'A sessão continuará faturada/recebida pela clínica, mas não gerará comissão ao profissional.'}
+                    </Typography>
+                    {menuSession?.professionalPaymentStatus !== 'non_payable' && (
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            label="Motivo *"
+                            placeholder="Ex: Paciente avisou com antecedência"
+                            value={dialogReason}
+                            onChange={(e) => setDialogReason(e.target.value)}
+                            size="small"
+                            sx={{ '& .MuiInputBase-root': { fontSize: '0.85rem' } }}
+                        />
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleCloseDialog} disabled={dialogLoading} size="small" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        onClick={handleSaveProfessionalPaymentStatus}
+                        disabled={dialogLoading || (menuSession?.professionalPaymentStatus !== 'non_payable' && !dialogReason.trim())}
+                        size="small"
+                        variant="contained"
+                        sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                    >
+                        {dialogLoading ? 'Salvando...' : 'Confirmar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

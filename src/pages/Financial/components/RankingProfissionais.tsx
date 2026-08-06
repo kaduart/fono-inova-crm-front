@@ -21,6 +21,7 @@ interface RankingProfissionaisProps {
   onRowClick?: (doctorId: string) => void;
   title?: string;
   subtitle?: string;
+  onAdvanceRegistered?: () => void;
 }
 
 interface CommissionRate {
@@ -87,6 +88,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
   onRowClick,
   title = 'Ranking de Profissionais',
   subtitle = 'Produção, recebimento, comissão e saldo por profissional',
+  onAdvanceRegistered,
 }) => {
   const now = new Date();
   const dateRange = {
@@ -331,6 +333,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
           doctorName={advanceModal.doctorName}
           open={!!advanceModal}
           onClose={() => setAdvanceModal(null)}
+          onSuccess={onAdvanceRegistered}
         />
       )}
     </Box>

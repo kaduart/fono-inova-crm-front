@@ -524,6 +524,8 @@ export default function AdminDashboard() {
         billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
         insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
         payments?: Array<{ amount: number; date: string; method: string }>;
+        excludeFromProfessionalPayment?: boolean;
+        exclusionReason?: string;
     }) => {
         try {
             console.log('[AdminDashboard] Completando agendamento:', appointmentId, data);

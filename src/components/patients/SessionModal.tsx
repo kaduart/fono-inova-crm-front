@@ -1,4 +1,4 @@
-import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, X } from 'lucide-react';
+import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, X, Wallet, Ban } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -81,6 +81,10 @@ export const SessionModal = ({
         }
         if (!sessionData.doctorId) {
             toast.error("Profissional é obrigatório!");
+            return false;
+        }
+        if (sessionData.professionalPaymentStatus === 'non_payable' && !sessionData.professionalPaymentOverride?.reason?.trim()) {
+            toast.error("Motivo é obrigatório ao desabilitar remuneração do profissional.");
             return false;
         }
         return true;
@@ -273,6 +277,71 @@ export const SessionModal = ({
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Remuneração do Profissional */}
+                            {sessionData.status === 'completed' && (
+                                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-100">
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                        <Wallet className="w-5 h-5 text-indigo-600" />
+                                        Remuneração do Profissional
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <label className="flex items-start cursor-pointer gap-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={sessionData.professionalPaymentStatus === 'non_payable'}
+                                                onChange={(e) => {
+                                                    const isNonPayable = e.target.checked;
+                                                    onSessionDataChange({
+                                                        ...sessionData,
+                                                        professionalPaymentStatus: isNonPayable ? 'non_payable' : 'payable',
+                                                        professionalPaymentOverride: isNonPayable
+                                                            ? { excluded: true, reason: sessionData.professionalPaymentOverride?.reason || '' }
+                                                            : { excluded: false, reason: '' }
+                                                    });
+                                                }}
+                                                className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded"
+                                            />
+                                            <div>
+                                                <span className="text-gray-700 font-medium">
+                                                    Não remunerar o profissional por esta sessão
+                                                </span>
+                                                <p className="text-sm text-gray-600">
+                                                    A sessão continua faturada e recebida pela clínica, mas não gera comissão ao profissional.
+                                                </p>
+                                            </div>
+                                        </label>
+
+                                        {sessionData.professionalPaymentStatus === 'non_payable' && (
+                                            <div>
+                                                <label className="block mb-2 text-sm font-medium text-gray-700">
+                                                    Motivo *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={sessionData.professionalPaymentOverride?.reason || ''}
+                                                    onChange={(e) => onSessionDataChange({
+                                                        ...sessionData,
+                                                        professionalPaymentOverride: {
+                                                            ...(sessionData.professionalPaymentOverride || { excluded: true }),
+                                                            reason: e.target.value
+                                                        }
+                                                    })}
+                                                    placeholder="Ex: Paciente avisou com antecedência"
+                                                    className="w-full py-3 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {sessionData.professionalPaymentOverride?.excludedAt && (
+                                            <p className="text-xs text-gray-500">
+                                                Última alteração: {new Date(sessionData.professionalPaymentOverride.excludedAt).toLocaleString('pt-BR')}
+                                                {sessionData.professionalPaymentOverride.reason ? ` — ${sessionData.professionalPaymentOverride.reason}` : ''}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Falta Confirmada */}
                             {sessionData.status === 'canceled' && (

@@ -24,6 +24,19 @@ export interface SessionDTO {
     notes: string;
     isPaid: boolean;
     confirmedAbsence: boolean | null;
+    professionalPaymentStatus: 'payable' | 'non_payable';
+    professionalPaymentOverride: {
+        excluded: boolean;
+        reason?: string;
+        excludedAt?: string;
+        excludedBy?: string;
+    } | null;
+    professionalPaymentOverrideHistory: Array<{
+        status: 'payable' | 'non_payable';
+        reason: string;
+        changedAt: string;
+        changedBy?: string;
+    }>;
     raw: any;
 }
 
@@ -136,6 +149,32 @@ export function extractConfirmedAbsence(raw: any): boolean | null {
     return null;
 }
 
+export function extractProfessionalPaymentStatus(raw: any): 'payable' | 'non_payable' {
+    return raw?.professionalPaymentStatus === 'non_payable' ? 'non_payable' : 'payable';
+}
+
+export function extractProfessionalPaymentOverride(raw: any): SessionDTO['professionalPaymentOverride'] {
+    const override = raw?.professionalPaymentOverride;
+    if (!override) return null;
+    return {
+        excluded: !!override.excluded,
+        reason: override.reason || undefined,
+        excludedAt: override.excludedAt ? new Date(override.excludedAt).toISOString() : undefined,
+        excludedBy: override.excludedBy?.toString?.() || undefined,
+    };
+}
+
+export function extractProfessionalPaymentOverrideHistory(raw: any): SessionDTO['professionalPaymentOverrideHistory'] {
+    const history = raw?.professionalPaymentOverrideHistory;
+    if (!Array.isArray(history)) return [];
+    return history.map((entry: any) => ({
+        status: entry.status === 'non_payable' ? 'non_payable' : 'payable',
+        reason: entry.reason || '',
+        changedAt: entry.changedAt ? new Date(entry.changedAt).toISOString() : new Date().toISOString(),
+        changedBy: entry.changedBy?.toString?.() || undefined,
+    }));
+}
+
 // ============================================================
 // Mapeadores principais
 // ============================================================
@@ -182,6 +221,9 @@ export function mapSessionResponseDTO(raw: any, context?: SessionContext): Sessi
         notes: extractNotes(raw),
         isPaid: extractIsPaid(raw),
         confirmedAbsence: extractConfirmedAbsence(raw),
+        professionalPaymentStatus: extractProfessionalPaymentStatus(raw),
+        professionalPaymentOverride: extractProfessionalPaymentOverride(raw),
+        professionalPaymentOverrideHistory: extractProfessionalPaymentOverrideHistory(raw),
         raw,
     };
 }
@@ -212,5 +254,8 @@ export function sessionDTOToISession(dto: SessionDTO): any {
         notes: dto.notes,
         isPaid: dto.isPaid,
         confirmedAbsence: dto.confirmedAbsence,
+        professionalPaymentStatus: dto.professionalPaymentStatus,
+        professionalPaymentOverride: dto.professionalPaymentOverride,
+        professionalPaymentOverrideHistory: dto.professionalPaymentOverrideHistory,
     };
 }

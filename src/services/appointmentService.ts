@@ -309,6 +309,8 @@ export const appointmentService = {
         billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
         insuranceProvider?: string; insuranceValue?: number; authorizationCode?: string;
         splitMethods?: Array<{ amount: number; date: string; method: string }>;
+        excludeFromProfessionalPayment?: boolean;
+        exclusionReason?: string;
     }): Promise<CompleteAppointmentResult> => {
         const endpoint = appointmentService.USE_V2_COMPLETE
             ? `/v2/appointments/${id}/complete`  // ✅ V2 ATIVO: backend decide roteamento
@@ -344,6 +346,14 @@ export const appointmentService = {
 
         console.log(`[AppointmentService] cancel: ${endpoint} (V2=${appointmentService.USE_V2_CANCEL})`);
         return API.patch<IAppointmentResponse>(endpoint, data);
+    },
+
+    // 💰 Altera o status de remuneração do profissional para uma sessão já concluída
+    updateProfessionalPaymentStatus: async (id: string, data: {
+        status: 'payable' | 'non_payable';
+        reason: string;
+    }) => {
+        return API.patch<{ success: boolean; data: any; message?: string }>(`/v2/appointments/${id}/professional-payment-status`, data);
     },
 
     // Consultas

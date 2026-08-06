@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { X, Wallet } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
 import InputCurrency from '../ui/InputCurrency';
@@ -9,7 +9,11 @@ interface ProfessionalAdvanceModalProps {
   onClose: () => void;
   doctorId: string;
   doctorName: string;
-  onSuccess: () => void;
+  // 🚨 Opcional: caller pode não ter um refresh pra oferecer. Chamar como
+  // função obrigatória e receber undefined aqui já causou crash real
+  // (TypeError, capturado pelo catch como "erro ao registrar" mesmo com o
+  // adiantamento já criado com sucesso — modal nunca fechava).
+  onSuccess?: () => void;
 }
 
 const TYPE_OPTIONS = [
@@ -32,6 +36,10 @@ export const ProfessionalAdvanceModal = ({
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [type, setType] = useState<AdvanceType>('advance');
   const [notes, setNotes] = useState('');
+  // 🛡️ Guard síncrono contra duplo-clique — `loading` (estado) só desabilita o botão
+  // no próximo render; um segundo clique rápido dispara handleSubmit de novo antes
+  // disso, gerando 2 requests (1 sucesso + 1 erro/duplicata) e o modal ficando preso.
+  const isSubmittingRef = useRef(false);
 
   const reset = () => {
     setAmount(0);
@@ -46,6 +54,8 @@ export const ProfessionalAdvanceModal = ({
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current) return;
+
     if (amount <= 0) {
       toast.error('Informe um valor maior que zero');
       return;
@@ -55,6 +65,7 @@ export const ProfessionalAdvanceModal = ({
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       await api.post(`/v2/professionals/${doctorId}/advances`, {
@@ -65,11 +76,12 @@ export const ProfessionalAdvanceModal = ({
       });
       toast.success('Adiantamento registrado com sucesso!');
       reset();
-      onSuccess();
       onClose();
+      onSuccess?.();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Erro ao registrar adiantamento');
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
@@ -82,14 +94,19 @@ export const ProfessionalAdvanceModal = ({
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">Registrar Adiantamento</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{doctorName}</p>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#4F46E5' }}>
+              <Wallet className="w-6 h-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-gray-900">Registrar Adiantamento</h2>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">{doctorName}</p>
+            </div>
           </div>
           <button
             onClick={handleClose}
             disabled={loading}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
           >
             <X size={18} />
           </button>
@@ -121,8 +138,9 @@ export const ProfessionalAdvanceModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor *</label>
             <InputCurrency
+              name="amount"
               value={amount}
-              onChange={(val) => setAmount(val)}
+              onChange={(e) => setAmount(e.target.value)}
               className="w-full"
             />
           </div>

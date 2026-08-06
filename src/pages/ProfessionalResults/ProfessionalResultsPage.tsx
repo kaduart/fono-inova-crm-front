@@ -1,5 +1,5 @@
 // src/pages/ProfessionalResults/ProfessionalResultsPage.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Paper, Typography, FormControl, Select, MenuItem, Button } from '@mui/material';
 import {
   Trophy,
@@ -9,8 +9,12 @@ import {
   AlertTriangle,
   RefreshCw,
   Calendar,
-  DollarSign
+  DollarSign,
+  Lock,
+  X,
+  CheckCircle2
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { useProfessionalResults, TabValue } from '../../hooks/useProfessionalResults';
 import { RankingProfissionais } from '../Financial/components/RankingProfissionais';
@@ -18,7 +22,7 @@ import { ListaPacientesVIP } from '../Financial/components/ListaPacientesVIP';
 import AlertsPanel from '../../components/doctor/AlertsPanel';
 import { ReceivablesCard } from './components/ReceivablesCard';
 import { ProfessionalResultsTable, Column } from './components/ProfessionalResultsTable';
-import { SettlementItem } from '../../services/professionalResultsService';
+import { SettlementItem, SettlementPreview, professionalResultsService } from '../../services/professionalResultsService';
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -77,7 +81,19 @@ const KPICard: React.FC<{
   );
 };
 
-export const ProfessionalResultsPage: React.FC = () => {
+interface ProfessionalResultsPageProps {
+  month?: number;
+  year?: number;
+  onMonthChange?: (month: number) => void;
+  onYearChange?: (year: number) => void;
+}
+
+export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = ({
+  month: externalMonth,
+  year: externalYear,
+  onMonthChange,
+  onYearChange,
+}) => {
   const {
     activeTab,
     setActiveTab,
@@ -108,6 +124,48 @@ export const ProfessionalResultsPage: React.FC = () => {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const toggleCard = (card: string) => setSelectedCard(prev => prev === card ? null : card);
 
+  // 🔒 Fechamento mensal — preview antes de confirmar, nunca fecha direto
+  const [closeModal, setCloseModal] = useState<{
+    open: boolean;
+    loading: boolean;
+    confirming: boolean;
+    preview: SettlementPreview | null;
+  }>({ open: false, loading: false, confirming: false, preview: null });
+
+  const handleOpenCloseModal = async () => {
+    if (!selectedDoctorId) return;
+    setCloseModal({ open: true, loading: true, confirming: false, preview: null });
+    try {
+      const preview = await professionalResultsService.previewSettlement(
+        selectedDoctorId,
+        currentMonth.month,
+        currentMonth.year
+      );
+      setCloseModal({ open: true, loading: false, confirming: false, preview });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar prévia do fechamento');
+      setCloseModal({ open: false, loading: false, confirming: false, preview: null });
+    }
+  };
+
+  const handleConfirmClose = async () => {
+    if (!selectedDoctorId) return;
+    setCloseModal((prev) => ({ ...prev, confirming: true }));
+    try {
+      await professionalResultsService.closeSettlement(
+        selectedDoctorId,
+        currentMonth.month,
+        currentMonth.year
+      );
+      toast.success('Mês fechado com sucesso!');
+      setCloseModal({ open: false, loading: false, confirming: false, preview: null });
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao fechar o mês');
+      setCloseModal((prev) => ({ ...prev, confirming: false }));
+    }
+  };
+
   const handleDoctorClick = (doctorId: string) => {
     setSelectedDoctorId(doctorId);
     setActiveTab('result');
@@ -121,11 +179,24 @@ export const ProfessionalResultsPage: React.FC = () => {
     return { year, month };
   }, [period]);
 
+  // 🔗 Sincroniza com o seletor global do Painel Financeiro (topo da página) —
+  // sem isso esta aba mantinha um período 100% desconectado, sempre iniciando
+  // no mês atual mesmo com outra aba já filtrada por outro mês.
+  useEffect(() => {
+    if (externalMonth === undefined || externalYear === undefined) return;
+    if (externalMonth === currentMonth.month && externalYear === currentMonth.year) return;
+    const start = `${externalYear}-${String(externalMonth).padStart(2, '0')}-01`;
+    const end = new Date(externalYear, externalMonth, 0).toISOString().split('T')[0];
+    setPeriod({ startDate: start, endDate: end });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalMonth, externalYear]);
+
   const handleMonthChange = (month: number) => {
     const year = currentMonth.year;
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
     const end = new Date(year, month, 0).toISOString().split('T')[0];
     setPeriod({ startDate: start, endDate: end });
+    onMonthChange?.(month);
   };
 
   const handleYearChange = (year: number) => {
@@ -133,6 +204,7 @@ export const ProfessionalResultsPage: React.FC = () => {
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
     const end = new Date(year, month, 0).toISOString().split('T')[0];
     setPeriod({ startDate: start, endDate: end });
+    onYearChange?.(year);
   };
 
   const settlementColumns: Column<SettlementItem>[] = [
@@ -255,6 +327,7 @@ export const ProfessionalResultsPage: React.FC = () => {
                 loading={loadingRanking}
                 onRowClick={handleDoctorClick}
                 title="Ranking de Profissionais"
+                onAdvanceRegistered={refresh}
               />
             </TabsContent>
 
@@ -672,9 +745,19 @@ export const ProfessionalResultsPage: React.FC = () => {
                 </Box>
               ) : (
                 <Box>
-                  <Typography variant="h5" fontWeight="bold" color="grey.800" sx={{ mb: 3 }}>
-                    Fechamentos — {selectedDoctor?.doctorName}
-                  </Typography>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <Typography variant="h5" fontWeight="bold" color="grey.800">
+                      Fechamentos — {selectedDoctor?.doctorName}
+                    </Typography>
+                    <button
+                      onClick={handleOpenCloseModal}
+                      className="px-4 py-2 rounded-xl text-white text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity"
+                      style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+                    >
+                      <Lock className="w-4 h-4" />
+                      Fechar {new Date(2000, currentMonth.month - 1).toLocaleString('pt-BR', { month: 'long' })}/{currentMonth.year}
+                    </button>
+                  </div>
                   <ProfessionalResultsTable
                     columns={settlementColumns}
                     data={settlements}
@@ -701,6 +784,99 @@ export const ProfessionalResultsPage: React.FC = () => {
           </div>
         </Tabs>
       </div>
+
+      {/* Fechamento mensal — sempre passa por prévia antes de confirmar */}
+      {closeModal.open && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !closeModal.confirming && setCloseModal({ open: false, loading: false, confirming: false, preview: null })}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#059669' }}>
+                  <Lock className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Fechar {closeModal.preview ? `${new Date(2000, closeModal.preview.periodMonth - 1).toLocaleString('pt-BR', { month: 'long' })}/${closeModal.preview.periodYear}` : '...'}
+                </h3>
+              </div>
+              <button
+                onClick={() => !closeModal.confirming && setCloseModal({ open: false, loading: false, confirming: false, preview: null })}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {closeModal.loading || !closeModal.preview ? (
+              <div className="flex items-center justify-center py-10 text-gray-400">Carregando prévia...</div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500 mb-4">{closeModal.preview.preview.doctorName}</p>
+
+                {closeModal.preview.alreadyClosed && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3 text-sm text-red-700">
+                    Este período já foi fechado. Cancele o fechamento existente na aba Fechamentos antes de fechar de novo.
+                  </div>
+                )}
+
+                {closeModal.preview.hasFinancialIssues && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-sm text-amber-700">
+                    ⚠️ Foram encontradas {closeModal.preview.financialIssues?.orphanSessions ?? 0} sessão(ões) órfã(s) neste período. Revise antes de fechar, ou force o fechamento por sua conta.
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 mb-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Comissão bruta</span>
+                    <span className="font-semibold text-gray-800">{formatCurrency(closeModal.preview.preview.commission)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Adiantamentos vinculados</span>
+                    <span className="font-semibold text-red-600">− {formatCurrency(closeModal.preview.preview.advances)}</span>
+                  </div>
+                  {closeModal.preview.preview.linkedAdvances.length > 0 && (
+                    <div className="pl-3 space-y-1 border-l-2 border-red-100">
+                      {closeModal.preview.preview.linkedAdvances.map((adv) => (
+                        <div key={adv.advanceId} className="flex justify-between text-xs text-gray-500">
+                          <span>{adv.type === 'advance' ? 'Adiantamento' : adv.type === 'bonus' ? 'Bonificação' : 'Ajuste'} · {new Date(adv.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                          <span>{formatCurrency(adv.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="border-t border-gray-200 pt-2 flex justify-between">
+                    <span className="text-sm font-semibold text-gray-700">Saldo a pagar</span>
+                    <span className="text-lg font-bold text-emerald-700">{formatCurrency(closeModal.preview.preview.balance)}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-400 mb-4">
+                  Ao fechar, esse valor é congelado como snapshot e os adiantamentos listados ficam vinculados a este fechamento — não entram de novo em outro mês.
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCloseModal({ open: false, loading: false, confirming: false, preview: null })}
+                    disabled={closeModal.confirming}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmClose}
+                    disabled={closeModal.confirming || !closeModal.preview.canClose}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {closeModal.confirming ? 'Fechando...' : (<><CheckCircle2 className="w-4 h-4" /> Confirmar Fechamento</>)}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </Box>
   );
 };

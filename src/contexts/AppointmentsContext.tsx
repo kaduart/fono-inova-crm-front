@@ -331,7 +331,7 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return result;
     }, [refreshAppointments, markLocalUpdate]);
 
-    const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+    const completeAppointment = useCallback(async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string; excludeFromProfessionalPayment?: boolean; exclusionReason?: string }) => {
         const result = await appointmentService.complete(id, data);
 
         // 🚀 V2: Se for processamento async, aguarda polling completar

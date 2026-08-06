@@ -140,7 +140,7 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
 
   const handleCompleteAppointment = async (
     id: string,
-    data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }
+    data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string; excludeFromProfessionalPayment?: boolean; exclusionReason?: string }
   ) => {
     await completeAppointment(id, data);
     setCloseModalSignal((prev) => prev + 1);

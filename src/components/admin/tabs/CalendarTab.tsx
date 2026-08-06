@@ -128,7 +128,7 @@ export const CalendarTab = ({
         }
     };
 
-    const handleCompleteAppointment = async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => {
+    const handleCompleteAppointment = async (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string; excludeFromProfessionalPayment?: boolean; exclusionReason?: string }) => {
         await onCompleteAppointment(id, data);
         setCloseModalSignal(prev => prev + 1);
         // 🎯 Força refresh para garantir atualização imediata na tela
