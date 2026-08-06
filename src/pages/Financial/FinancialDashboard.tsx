@@ -344,6 +344,8 @@ interface FinancialDashboardProps {
 }
 
 const TAB_PARAM_KEY = 'financialTab';
+const MONTH_PARAM_KEY = 'financialMonth';
+const YEAR_PARAM_KEY = 'financialYear';
 
 const allTabs = [
     { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
@@ -375,9 +377,38 @@ const FinancialDashboard = ({
         return index >= 0 ? index : 0;
     };
 
+    const resolveMonthFromSearchParams = () => {
+        const parsed = Number(searchParams.get(MONTH_PARAM_KEY));
+        return parsed >= 1 && parsed <= 12 ? parsed : new Date().getMonth() + 1;
+    };
+    const resolveYearFromSearchParams = () => {
+        const parsed = Number(searchParams.get(YEAR_PARAM_KEY));
+        return parsed >= 2020 && parsed <= 2100 ? parsed : new Date().getFullYear();
+    };
+
     const [currentTab, setCurrentTab] = useState(resolveTabFromSearchParams());
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    // 🔗 Mês/ano persistidos na URL — sem isso, qualquer reload (ex: durante o polling
+    // de geração de comissões) volta pro mês atual e perde o filtro que o usuário tinha.
+    const [selectedMonth, setSelectedMonthState] = useState(resolveMonthFromSearchParams());
+    const [selectedYear, setSelectedYearState] = useState(resolveYearFromSearchParams());
+
+    const setSelectedMonth = (month: number) => {
+        setSelectedMonthState(month);
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set(MONTH_PARAM_KEY, String(month));
+            return next;
+        }, { replace: true });
+    };
+
+    const setSelectedYear = (year: number) => {
+        setSelectedYearState(year);
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set(YEAR_PARAM_KEY, String(year));
+            return next;
+        }, { replace: true });
+    };
     const [cashflowRange, setCashflowRange] = useState<{ startDate: string; endDate: string; label: string } | undefined>(undefined);
     const [cashflowViewMode, setCashflowViewMode] = useState<'day' | 'month'>('day');
     const [cashflowLoading, setCashflowLoading] = useState(false);
@@ -542,7 +573,12 @@ const FinancialDashboard = ({
             case 'despesas':
                 return (
                     <Suspense fallback={<ExpensesSkeleton />}>
-                        <ExpensesTab month={selectedMonth} year={selectedYear} />
+                        <ExpensesTab
+                            month={selectedMonth}
+                            year={selectedYear}
+                            onMonthChange={setSelectedMonth}
+                            onYearChange={setSelectedYear}
+                        />
                     </Suspense>
                 );
             case 'nfse':

@@ -76,9 +76,11 @@ const ORIGIN_CONFIG: Record<'particular' | 'convenio' | 'liminar', { color: stri
 interface ExpensesTabProps {
   month: number;
   year: number;
+  onMonthChange?: (month: number) => void;
+  onYearChange?: (year: number) => void;
 }
 
-const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
+const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabProps) => {
   const { expenses, loading, generatingCommissions, totals, fetchExpenses, cancelExpense, generateCommissions } = useExpenses();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
@@ -342,7 +344,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             <label className="block text-xs font-medium text-gray-600 mb-1">Mês</label>
             <select
               value={filters.month}
-              onChange={(e) => setFilters({ ...filters, month: Number(e.target.value) })}
+              onChange={(e) => {
+                const newMonth = Number(e.target.value);
+                setFilters({ ...filters, month: newMonth });
+                onMonthChange?.(newMonth);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
             >
               {Array.from({ length: 12 }, (_, i) => (
@@ -356,7 +362,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             <label className="block text-xs font-medium text-gray-600 mb-1">Ano</label>
             <select
               value={filters.year}
-              onChange={(e) => setFilters({ ...filters, year: Number(e.target.value) })}
+              onChange={(e) => {
+                const newYear = Number(e.target.value);
+                setFilters({ ...filters, year: newYear });
+                onYearChange?.(newYear);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
             >
               {[2024, 2025, 2026].map((yr) => (
@@ -479,8 +489,15 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                             <span className="text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold text-red-600">
-                          R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <td className="px-3 py-2 text-right">
+                          <div className="font-semibold text-red-600">
+                            R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </div>
+                          {expense.category === 'commission' && expense.workPeriod?.sessionsCount > 0 && (
+                            <div className="text-xs text-gray-400">
+                              {expense.workPeriod.sessionsCount} sessõe{expense.workPeriod.sessionsCount > 1 ? 's' : ''}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2">
                           {expense.paymentMethod === 'transferencia_bancaria' ? 'Transferência' : expense.paymentMethod}
