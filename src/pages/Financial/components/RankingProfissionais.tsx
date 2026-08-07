@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Typography, Avatar, LinearProgress, Chip } from '@mui/material';
 import { useDoctorsAnalytics } from '../../../hooks/useSpecialtiesAnalytics';
-import { Trophy, Users, TrendingUp, WalletCards } from 'lucide-react';
+import { Trophy, Users, TrendingUp, WalletCards, Lock } from 'lucide-react';
 import { ProfessionalRankingItem } from '../../../services/professionalResultsService';
 import { ProfessionalAdvanceModal } from '../../../components/financial/ProfessionalAdvanceModal';
 import { DashboardSection } from '../../../components/dashboard/DashboardSection';
@@ -43,6 +43,7 @@ interface NormalizedRow {
   balance: number;
   receivablesTotal: number;
   rank?: number;
+  settlement?: ProfessionalRankingItem['settlement'];
 }
 
 const getInitials = (name: string) => {
@@ -124,7 +125,8 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
       advances: doc.advances ?? 0,
       balance: doc.balance ?? 0,
       receivablesTotal: doc.receivables?.total ?? 0,
-      rank: doc.rank ?? index + 1
+      rank: doc.rank ?? index + 1,
+      settlement: doc.settlement ?? null
     }));
   }, [data, doctors]);
 
@@ -147,6 +149,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
       commission: rows.reduce((s, r) => s + r.commission, 0),
       advances: rows.reduce((s, r) => s + r.advances, 0),
       receivables: rows.reduce((s, r) => s + r.receivablesTotal, 0),
+      closed: rows.filter((r) => r.settlement?.status === 'closed').length,
     };
   }, [rows, data]);
 
@@ -181,6 +184,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
     { label: 'Comissão total', sublabel: 'soma de comissões', value: formatCurrency(totals.commission), color: '#8b5cf6' },
     { label: 'Adiantamentos', sublabel: 'valores antecipados', value: formatCurrency(totals.advances), color: '#ef4444' },
     { label: 'A receber', sublabel: 'produção não paga', value: formatCurrency(totals.receivables), color: '#f59e0b' },
+    { label: 'Caixas fechados', sublabel: 'no mês selecionado', value: `${totals.closed}/${rows.length}`, color: '#059669' },
   ];
 
   return (
@@ -194,7 +198,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
 
       {/* Resumo global */}
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
           {summaryItems.map(item => (
             <div
               key={item.label}
@@ -215,6 +219,10 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
           const initials = getInitials(doc.doctorName);
           const avatarColor = getAvatarColor(doc.doctorName);
           const rankColor = getRankColor(doc.rank!);
+          const isClosed = doc.settlement?.status === 'closed';
+          const closedPeriodLabel = doc.settlement
+            ? `${String(doc.settlement.periodMonth).padStart(2, '0')}/${doc.settlement.periodYear}`
+            : '';
 
           return (
             <DataCard
@@ -249,6 +257,20 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                       {doc.specialty}
                     </Typography>
                   </div>
+
+                  {isClosed && (
+                    <span
+                      title={
+                        doc.settlement?.closedAt
+                          ? `Fechado em ${new Date(doc.settlement.closedAt).toLocaleString('pt-BR')}`
+                          : 'Caixa fechado'
+                      }
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0"
+                    >
+                      <Lock className="w-3 h-3" />
+                      Caixa fechado {closedPeriodLabel}
+                    </span>
+                  )}
 
                   <button
                     onClick={(e) => {

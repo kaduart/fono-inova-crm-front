@@ -95,7 +95,15 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     items: Array<{ sessionId: string; date: string; time: string | null; patientName: string; value: number; commissionValue: number; isPackage: boolean; packageSessionType: string | null; origin: 'particular' | 'convenio' | 'liminar' }>;
   } | null>(null);
   const [commissionSessionsPage, setCommissionSessionsPage] = useState(1);
+  const [commissionSessionFilters, setCommissionSessionFilters] = useState<{
+    origin: 'all' | 'particular' | 'convenio' | 'liminar';
+    patient: string;
+  }>({ origin: 'all', patient: '' });
   const COMMISSION_SESSIONS_PAGE_SIZE = 5;
+
+  useEffect(() => {
+    setCommissionSessionsPage(1);
+  }, [commissionSessionFilters.origin, commissionSessionFilters.patient]);
 
   const openCommissionSessions = async (expense: any) => {
     const doctorId = expense.relatedDoctor?._id || expense.relatedDoctor?.id;
@@ -107,6 +115,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     setCommissionSessionsLoading(true);
     setCommissionSessionsData(null);
     setCommissionSessionsPage(1);
+    setCommissionSessionFilters({ origin: 'all', patient: '' });
     try {
       const res = await API.get(`/v2/professionals/${doctorId}/commission-sessions`, {
         params: { startDate: start, endDate: end }
@@ -161,6 +170,15 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     }
   };
 
+  // Comissão nasce com description = "{Nome do profissional} - {Mês/Ano}" — nome repete a
+  // coluna Profissional e a competência repete a coluna Data (e o filtro de mês). Não sobra
+  // nada de útil, então a célula fica vazia. Despesas operacionais (aluguel, água...) mantêm
+  // a descrição, que ali é o único identificador da linha.
+  const getDisplayDescription = (expense: any): string => {
+    if (expense.category === 'commission' && expense.relatedDoctor) return '';
+    return expense.description || '';
+  };
+
   const safeFormat = (dateValue: any, formatStr: string): string => {
     try {
       if (!dateValue) return '-';
@@ -173,6 +191,15 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       return '-';
     }
   };
+
+  const filteredCommissionItems = commissionSessionsData
+    ? commissionSessionsData.items.filter((item) => {
+        const matchesOrigin = commissionSessionFilters.origin === 'all' || item.origin === commissionSessionFilters.origin;
+        const normalizedPatient = commissionSessionFilters.patient.trim().toLowerCase();
+        const matchesPatient = !normalizedPatient || item.patientName.toLowerCase().includes(normalizedPatient);
+        return matchesOrigin && matchesPatient;
+      })
+    : [];
 
   if (loading && expenses.length === 0) {
     return (
@@ -464,12 +491,9 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                           {safeFormat(expense.date, 'dd/MM/yyyy')}
                         </td>
                         <td className="px-3 py-2">
-                          <div className="font-medium">{expense.description}</div>
-                          {expense.workPeriod?.start && expense.workPeriod?.end && (
-                            <div className="text-xs text-gray-400">
-                              Período: {safeFormat(expense.workPeriod.start, 'dd/MM')} - {safeFormat(expense.workPeriod.end, 'dd/MM/yyyy')}
-                            </div>
-                          )}
+                          {getDisplayDescription(expense)
+                            ? <div className="font-medium">{getDisplayDescription(expense)}</div>
+                            : <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: categoryConfig.bgColor, color: categoryConfig.color, borderColor: categoryConfig.color }}>
@@ -740,10 +764,39 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
             </div>
           ) : !commissionSessionsData || commissionSessionsData.items.length === 0 ? (
             <Alert severity="info">Nenhum atendimento encontrado para este período.</Alert>
+          ) : filteredCommissionItems.length === 0 ? (
+            <>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                <div className="sm:w-52">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de atendimento</label>
+                  <select
+                    value={commissionSessionFilters.origin}
+                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="particular">Particular</option>
+                    <option value="convenio">Convênio</option>
+                    <option value="liminar">Liminar</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Paciente</label>
+                  <input
+                    type="text"
+                    value={commissionSessionFilters.patient}
+                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, patient: e.target.value }))}
+                    placeholder="Buscar paciente..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+              <Alert severity="info">Nenhum atendimento encontrado para os filtros selecionados.</Alert>
+            </>
           ) : (
             <>
               {(() => {
-                const items = commissionSessionsData.items;
+                const items = filteredCommissionItems;
                 const totalAtendido = items.reduce((s, i) => s + (i.value || 0), 0);
                 const totalComissao = items.reduce((s, i) => s + (i.commissionValue || 0), 0);
                 return (
@@ -776,8 +829,35 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                   </div>
                 );
               })()}
+              
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                <div className="sm:w-52">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de atendimento</label>
+                  <select
+                    value={commissionSessionFilters.origin}
+                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="particular">Particular</option>
+                    <option value="convenio">Convênio</option>
+                    <option value="liminar">Liminar</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Paciente</label>
+                  <input
+                    type="text"
+                    value={commissionSessionFilters.patient}
+                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, patient: e.target.value }))}
+                    placeholder="Buscar paciente..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
               {(() => {
-                const items = commissionSessionsData.items;
+                const items = filteredCommissionItems;
                 const totalPages = Math.max(1, Math.ceil(items.length / COMMISSION_SESSIONS_PAGE_SIZE));
                 const currentPage = Math.min(commissionSessionsPage, totalPages);
                 const startIdx = (currentPage - 1) * COMMISSION_SESSIONS_PAGE_SIZE;

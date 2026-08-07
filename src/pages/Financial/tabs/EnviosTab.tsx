@@ -217,6 +217,7 @@ export default function EnviosTab() {
                         const sentAt = formatDateTime(log.sentAt);
                         const accent = log.status === 'success' ? '#059669' : log.status === 'pending' ? '#D97706' : '#E11D48';
                         const typeLabel = log.type ? CommunicationEmailTypeLabels[log.type] : undefined;
+                        const channelLabel = log.channel === 'external' ? 'Externo' : log.channel === 'portal' ? 'Portal' : 'E-mail';
                         return (
                             <div
                                 key={log._id}
@@ -259,6 +260,11 @@ export default function EnviosTab() {
                                                     sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontWeight: 700, fontSize: '0.68rem', height: 22 }}
                                                 />
                                             )}
+                                            <Chip
+                                                size="small"
+                                                label={channelLabel}
+                                                sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 700, fontSize: '0.68rem', height: 22 }}
+                                            />
                                             <Chip
                                                 size="small"
                                                 icon={log.status === 'success' ? <CheckCircle size={13} /> : log.status === 'pending' ? <Clock size={13} /> : <XCircle size={13} />}

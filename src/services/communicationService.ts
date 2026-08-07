@@ -47,6 +47,7 @@ export interface CommunicationRequest {
     lastEmailAttachments?: Array<{ name?: string; mimeType?: string; size?: number }>;
     invoiceNumber?: string | null;
     invoiceDate?: string | null;
+    deliveryMethod?: 'email' | 'external' | 'portal';
     createdAt: string;
     updatedAt: string;
 }
@@ -76,7 +77,8 @@ export const CommunicationEmailType = {
     FIRST_SEND: 'first_send',
     RESEND: 'resend',
     COMPLEMENT: 'complement',
-    MANUAL: 'manual'
+    MANUAL: 'manual',
+    EXTERNAL: 'external'
 } as const;
 export type CommunicationEmailType = typeof CommunicationEmailType[keyof typeof CommunicationEmailType];
 
@@ -86,7 +88,8 @@ export type CommunicationEmailType = typeof CommunicationEmailType[keyof typeof 
 export const CommunicationEmailTypeLabels: Partial<Record<CommunicationEmailType, string>> = {
     [CommunicationEmailType.RESEND]: 'Reenvio',
     [CommunicationEmailType.COMPLEMENT]: 'Complemento',
-    [CommunicationEmailType.MANUAL]: 'Manual'
+    [CommunicationEmailType.MANUAL]: 'Manual',
+    [CommunicationEmailType.EXTERNAL]: 'Envio externo'
 };
 
 export interface CommunicationEmailLog {
@@ -96,6 +99,7 @@ export interface CommunicationEmailLog {
     message?: string | null;
     status: 'success' | 'error' | 'pending';
     type?: CommunicationEmailType;
+    channel?: 'email' | 'external' | 'portal' | null;
     reason?: string | null;
     provider?: string | null;
     sentAt: string;
@@ -212,7 +216,8 @@ export const sendCommunication = (id: string, payload: {
     template?: string;
     sendType?: typeof CommunicationEmailType.RESEND | typeof CommunicationEmailType.COMPLEMENT;
     reason?: string;
-}) => api.post<{ success: boolean; data: { jobId: string; status: string; message: string } }>(`/v2/communications/${id}/send`, payload);
+    deliveryMethod?: 'email' | 'external' | 'portal';
+}) => api.post<{ success: boolean; data: { jobId?: string; status: string; message?: string; log?: CommunicationEmailLog } }>(`/v2/communications/${id}/send`, payload);
 
 export const getCommunicationEmailLogs = (filters: CommunicationEmailLogFilters = {}) =>
     api.get<{ success: boolean; data: CommunicationEmailLogEntry[]; pagination: PaginationResponse }>('/v2/communications/email-logs', { params: filters });

@@ -1,5 +1,13 @@
 import { ptBR } from 'date-fns/locale';
-import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, Wallet, X, XCircle } from 'lucide-react';
+import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, UserCheck, UserX, Wallet, X, XCircle } from 'lucide-react';
+import {
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    TextField,
+} from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
@@ -19,6 +27,7 @@ import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import API from '../../services/api';
+import appointmentService from '../../services/appointmentService';
 import {
     CalendarPermissions,
     getDefaultPermissions,
@@ -387,6 +396,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     // 🏦 CONTROLE DE REMUNERAÇÃO DO PROFISSIONAL (sessão faturada mas não remunerada)
     const [excludeFromProfessionalPayment, setExcludeFromProfessionalPayment] = useState(false);
     const [exclusionReason, setExclusionReason] = useState('');
+
+    // Diálogo de alteração de remuneração na aba Detalhes (sessões já finalizadas)
+    const [professionalPaymentDialogOpen, setProfessionalPaymentDialogOpen] = useState(false);
+    const [professionalPaymentDialogReason, setProfessionalPaymentDialogReason] = useState('');
+    const [professionalPaymentDialogLoading, setProfessionalPaymentDialogLoading] = useState(false);
+    const [professionalPaymentDialogTarget, setProfessionalPaymentDialogTarget] = useState<'payable' | 'non_payable' | null>(null);
 
     // 🎯 Helper: identifica sessões de pacote pago
     const isPackageSession = useCallback(() => {
@@ -981,6 +996,48 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
     };
 
+    // 🏦 Alteração de remuneração do profissional para sessões já finalizadas
+    function handleOpenProfessionalPaymentDialog(target: 'payable' | 'non_payable') {
+        setProfessionalPaymentDialogTarget(target);
+        setProfessionalPaymentDialogReason(exclusionReason || '');
+        setProfessionalPaymentDialogOpen(true);
+    }
+
+    function handleCloseProfessionalPaymentDialog() {
+        setProfessionalPaymentDialogOpen(false);
+        setProfessionalPaymentDialogReason('');
+        setProfessionalPaymentDialogTarget(null);
+    }
+
+    async function handleSaveProfessionalPaymentFromDetails() {
+        if (!event?.id || !professionalPaymentDialogTarget) return;
+        const target = professionalPaymentDialogTarget;
+        if (target === 'non_payable' && !professionalPaymentDialogReason.trim()) {
+            toast.error('Informe o motivo para não remunerar o profissional.');
+            return;
+        }
+
+        setProfessionalPaymentDialogLoading(true);
+        try {
+            await appointmentService.updateProfessionalPaymentStatus(event.id, {
+                status: target,
+                reason: target === 'non_payable' ? professionalPaymentDialogReason.trim() : 'Habilitado pelo usuário'
+            });
+            setExcludeFromProfessionalPayment(target === 'non_payable');
+            setExclusionReason(target === 'non_payable' ? professionalPaymentDialogReason.trim() : '');
+            toast.success(target === 'non_payable'
+                ? 'Profissional não será remunerado por este atendimento.'
+                : 'Profissional voltará a ser remunerado por este atendimento.');
+            handleCloseProfessionalPaymentDialog();
+            onRefreshAppointments?.();
+        } catch (err: any) {
+            console.error('[Modal] Erro ao alterar remuneração:', err);
+            toast.error(err?.response?.data?.error || 'Erro ao alterar remuneração do profissional.');
+        } finally {
+            setProfessionalPaymentDialogLoading(false);
+        }
+    }
+
     // 🔧 TRADUZ OS STATUS DO EVENTO PARA EXIBIÇÃO
     const translatedEvent = event ? {
         ...event,
@@ -1173,6 +1230,57 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </h3>
                             <p className="text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
                         </div>
+
+                        {/* 🏦 REMUNERAÇÃO DO PROFISSIONAL (sessão já finalizada) */}
+                        {permissions.canSeeFinancial && translatedEvent.operationalStatus === 'concluído' && (
+                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="p-1.5 bg-indigo-100 rounded-lg">
+                                        <Wallet className="w-4 h-4 text-indigo-600" />
+                                    </div>
+                                    <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">
+                                        Remuneração do Profissional
+                                    </h3>
+                                </div>
+
+                                {excludeFromProfessionalPayment ? (
+                                    <div className="space-y-3">
+                                        <div className="flex items-start gap-2 text-amber-700">
+                                            <UserX className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <div>
+                                                <span className="text-sm font-semibold block">Profissional não será remunerado por este atendimento</span>
+                                                {exclusionReason && (
+                                                    <span className="text-xs text-gray-600 block mt-0.5">Motivo: {exclusionReason}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenProfessionalPaymentDialog('payable')}
+                                            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors"
+                                        >
+                                            <UserCheck className="w-4 h-4" />
+                                            Voltar a remunerar profissional
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-green-700">
+                                            <UserCheck className="w-4 h-4" />
+                                            <span className="text-sm font-semibold">Profissional será remunerado normalmente</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenProfessionalPaymentDialog('non_payable')}
+                                            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors"
+                                        >
+                                            <UserX className="w-4 h-4" />
+                                            Não remunerar profissional
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {event.advancedSessions?.length > 0 && (
                             <div className="mt-6 border-t border-gray-200 pt-6">
@@ -2352,6 +2460,54 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 patientName={event?.patient?.fullName || 'Paciente'}
                 onRefresh={onRefreshAppointments}
             />
+
+            {/* 🏦 DIÁLOGO DE ALTERAÇÃO DE REMUNERAÇÃO DO PROFISSIONAL */}
+            <Dialog open={professionalPaymentDialogOpen} onClose={() => !professionalPaymentDialogLoading && setProfessionalPaymentDialogOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                    {professionalPaymentDialogTarget === 'non_payable'
+                        ? 'Desabilitar remuneração do profissional'
+                        : 'Habilitar remuneração do profissional'}
+                </DialogTitle>
+                <DialogContent sx={{ pb: 1 }}>
+                    <p className="text-sm text-gray-600 mb-4">
+                        {professionalPaymentDialogTarget === 'non_payable'
+                            ? 'O atendimento continuará faturado/recebido pela clínica, mas não gerará comissão ao profissional.'
+                            : 'O profissional voltará a receber comissão por este atendimento.'}
+                    </p>
+                    {professionalPaymentDialogTarget === 'non_payable' && (
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            label="Motivo *"
+                            placeholder="Ex: Paciente avisou com antecedência"
+                            value={professionalPaymentDialogReason}
+                            onChange={(e) => setProfessionalPaymentDialogReason(e.target.value)}
+                            size="small"
+                            sx={{ '& .MuiInputBase-root': { fontSize: '0.85rem' } }}
+                        />
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button
+                        onClick={handleCloseProfessionalPaymentDialog}
+                        disabled={professionalPaymentDialogLoading}
+                        size="small"
+                        sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleSaveProfessionalPaymentFromDetails}
+                        disabled={professionalPaymentDialogLoading || (professionalPaymentDialogTarget === 'non_payable' && !professionalPaymentDialogReason.trim())}
+                        size="small"
+                        variant="contained"
+                        sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                    >
+                        {professionalPaymentDialogLoading ? 'Salvando...' : 'Confirmar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* ⚠️ CONFIRMAÇÃO DE DÍVIDA */}
             {showDebtConfirm && (

@@ -63,7 +63,8 @@ import {
     receiveInsuranceSession,
     faturarConvenioLote,
     receberConvenioLote,
-    getPendingBillingGuides,
+    getInsuranceGuidesView,
+    InsuranceGuideView,
     encerrarGuia,
     CompetenceBreakdown
 } from '../../../services/paymentService';
@@ -73,6 +74,70 @@ import { AutorizacoesTab } from './AutorizacoesTab';
 import EnviosTab from './EnviosTab';
 import { useConvenios } from '../../../hooks/useConvenios';
 import BillingCommunicationWizard from '../components/BillingCommunicationWizard';
+
+/**
+ * ReadView V2 → shape que GuidePendingBillingSection já consome.
+ *
+ * Adapter deliberado: mantém o componente de card inalterado enquanto a flag
+ * está em observação. `pendingSessions`/`pendingValue` continuam significando
+ * "o que falta faturar" — agora vindos do contador da fase, não de um estado
+ * escalar. Os contadores completos seguem em `phaseCounters` para a UI mostrar
+ * a composição quando `hasMixedStates` é true.
+ */
+const PHASE_AMOUNT_KEY = {
+    pendingBilling: 'pendingAmount',
+    documentationSent: 'documentationSentAmount',
+    billed: 'billedAmount',
+    received: 'receivedAmount'
+} as const;
+
+export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: InsuranceSessionPhase): PendingGuide {
+    // Numa aba de fase, o card mostra SOMENTE a parcela daquela fase — nunca o
+    // total da guia. Uma guia 4 a faturar + 8 faturadas + 4 recebidas aparece nas
+    // três abas, cada uma com o seu pedaço; exibir o total nas três seria dupla
+    // contagem visual. Os valores vêm somados do backend, não recalculados aqui.
+    const phaseSessions = phase ? g.sessions[phase] : g.sessions.pendingBilling + g.sessions.documentationSent;
+    const phaseValue = phase
+        ? g.financialSummary[PHASE_AMOUNT_KEY[phase]]
+        : g.financialSummary.pendingAmount + g.financialSummary.documentationSentAmount;
+
+    return {
+        guideId: g.guideId,
+        number: g.number,
+        insurance: g.insurance,
+        specialty: g.specialty,
+        patient: g.patient as PendingGuide['patient'],
+        billingMode: g.billingMode,
+        totalSessions: g.totalSessions,
+        usedSessions: g.usedSessions,
+        sessionValue: g.sessionValue,
+        totalAuthorizedValue: g.totalAuthorizedValue,
+        pendingSessions: phaseSessions,
+        pendingValue: phaseValue,
+        sessionsThisMonth: g.sessions.total,
+        firstSessionDate: g.sessionDetails[0]?.date ?? null,
+        lastSessionDate: g.sessionDetails[g.sessionDetails.length - 1]?.date ?? null,
+        documentationSentAt: g.documentationSentAt,
+        documentationSentAtIsProxy: g.documentationSentAtIsProxy,
+        invoiceNumber: g.invoiceNumber,
+        alreadyBilledSessions: g.sessions.billed,
+        lastBatchSentAt: null,
+        guideStatus: g.guideStatus,
+        billingState: g.billingState,
+        hasMixedStates: g.hasMixedStates,
+        phaseCounters: g.sessions,
+        phaseAmounts: g.financialSummary,
+        sessions: g.sessionDetails.map(s => ({
+            sessionId: s.sessionId,
+            date: s.date,
+            time: s.time,
+            doctorName: s.doctorName,
+            specialty: s.specialty,
+            value: s.value,
+            phase: s.phase
+        }))
+    };
+}
 
 const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
     pending_billing: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Aguardando Faturamento' },
@@ -138,7 +203,27 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // Estados para seleção em lote
     const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
     const [selectedGuides, setSelectedGuides] = useState<Set<string>>(new Set());
-    const [pendingGuides, setPendingGuides] = useState<PendingGuide[]>([]);
+    // ReadView V2 — um bucket por fase. A MESMA guia pode estar em vários: uma
+    // guia com 4 a faturar + 8 faturadas + 4 recebidas aparece nas três abas,
+    // cada uma exibindo só a sua parcela. Totais vêm somados do backend.
+    const [guidesByPhase, setGuidesByPhase] = useState<Record<InsuranceSessionPhase, PendingGuide[]>>({
+        pendingBilling: [], documentationSent: [], billed: [], received: []
+    });
+    const [totalsByPhase, setTotalsByPhase] = useState<Record<InsuranceSessionPhase, number>>({
+        pendingBilling: 0, documentationSent: 0, billed: 0, received: 0
+    });
+
+    // União deduplicada dos buckets. É o que resolve `selectedGuides` (Set de ids)
+    // → objetos de guia no wizard de faturamento. Precisa ser derivado: como
+    // estado próprio, ficava vazio depois que as abas viraram buckets de fase e
+    // a seleção não encontrava a guia ("Guias selecionadas não encontradas").
+    const pendingGuides = useMemo(() => {
+        const porId = new Map<string, PendingGuide>();
+        for (const fase of ['pendingBilling', 'documentationSent', 'billed', 'received'] as const) {
+            for (const g of guidesByPhase[fase]) if (!porId.has(g.guideId)) porId.set(g.guideId, g);
+        }
+        return [...porId.values()];
+    }, [guidesByPhase]);
     const [orphanSessions, setOrphanSessions] = useState<Array<{ sessionId: string; date?: string | Date | null; patient?: { fullName?: string } | null; specialty?: string; sessionValue?: number; insuranceProvider?: string }>>([]);
     const [loadingGuides, setLoadingGuides] = useState(false);
     // Quebra do total pendente entre mês corrente e competências anteriores —
@@ -227,11 +312,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // Frontend não deve refiltrar por paymentDate
     const paymentMatchesMonth = () => true;
 
-    const { pendingStateGuides, waitingBillingGuides } = useMemo(() => {
-        const pending = pendingGuides.filter(g => g.billingState === 'pending' || !g.billingState);
-        const waiting = pendingGuides.filter(g => g.billingState === 'documentation_sent');
-        return { pendingStateGuides: pending, waitingBillingGuides: waiting };
-    }, [pendingGuides]);
+    // A aba é o bucket da fase (`pendingBilling.sessions > 0`), não um estado
+    // escalar da guia. Uma guia parcialmente faturada continua em "A Faturar"
+    // pela parcela que falta, e também aparece em "Faturados".
+    const { pendingStateGuides, waitingBillingGuides } = useMemo(() => ({
+        pendingStateGuides: guidesByPhase.pendingBilling,
+        waitingBillingGuides: guidesByPhase.documentationSent
+    }), [guidesByPhase]);
 
     // Detalha QUAIS guias compõem o "atrasado" do competenceBreakdown (que só vem
     // como valor agregado do backend) — sem isso o usuário via um total vermelho
@@ -280,10 +367,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         return { billedPaymentsDetailed: billed, receivedPaymentsDetailed: received };
     }, [allReceivables]);
 
+    const getGuidePendingTotal = (guide: PendingGuide) => {
+        const fromSessions = (guide.sessions || []).reduce((s: number, session: any) => s + (Number(session.value) || 0), 0);
+        if (fromSessions > 0) return fromSessions;
+        return Number(guide.pendingValue || 0);
+    };
+
     const getMonthSummary = () => {
         // Aba "A Faturar" usa modelo guide-based (guias + sessões sem guia)
-        const guidePendingTotal = pendingStateGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingValue || 0), 0);
-        const waitingTotal = waitingBillingGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingValue || 0), 0);
+        const guidePendingTotal = pendingStateGuides.reduce((s: number, g: PendingGuide) => s + getGuidePendingTotal(g), 0);
+        const waitingTotal = waitingBillingGuides.reduce((s: number, g: PendingGuide) => s + getGuidePendingTotal(g), 0);
         const orphanTotal = orphanSessions.reduce((s: number, os) => s + (os.sessionValue || 0), 0);
         const totalAFaturar = guidePendingTotal + orphanTotal;
         const pendingCount = pendingStateGuides.reduce((s: number, g: PendingGuide) => s + (g.pendingSessions || 0), 0) + orphanSessions.length;
@@ -356,38 +449,46 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const loadAllCounts = async (month?: string) => {
         setLoadingGuides(true);
         try {
-            const [pendingResponse, allResponse] = await Promise.all([
-                // A Faturar não é escopado por mês: pendência de convênio não tem "mês", só data de quando foi feita.
-                // Sem o param `month`, o backend não filtra por período e traz TODAS as sessões pendentes de cada guia.
-                getPendingBillingGuides({ limit: 100 }),
+            // Um bucket por fase. Acumulado por padrão: sem `from`/`to` a view
+            // não recorta período — o filtro de competência é opcional e, quando
+            // vem, o backend aplica o eixo de data próprio de cada fase.
+            const phases: InsuranceSessionPhase[] = ['pendingBilling', 'documentationSent', 'billed', 'received'];
+            const [pending, docSent, billed, received, allResponse] = await Promise.all([
+                ...phases.map(p => getInsuranceGuidesView({ phase: p })),
+                // FinancialDashboardTab ainda depende deste endpoint — mantido.
                 getInsuranceReceivables({ month })
             ]);
-            setPendingGuides(pendingResponse.data.data || []);
-            setOrphanSessions(pendingResponse.data.orphanSessions || []);
-            setCompetenceBreakdown(pendingResponse.data.competenceBreakdown || null);
+
+            const byPhase = { pendingBilling: pending, documentationSent: docSent, billed, received };
+            setGuidesByPhase({
+                pendingBilling: (pending.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'pendingBilling')),
+                documentationSent: (docSent.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'documentationSent')),
+                billed: (billed.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'billed')),
+                received: (received.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'received'))
+            });
+            setTotalsByPhase({
+                pendingBilling: byPhase.pendingBilling.data.totals.financialSummary.pendingAmount,
+                documentationSent: byPhase.documentationSent.data.totals.financialSummary.documentationSentAmount,
+                billed: byPhase.billed.data.totals.financialSummary.billedAmount,
+                received: byPhase.received.data.totals.financialSummary.receivedAmount
+            });
+            setOrphanSessions(pending.data.orphanSessions || []);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
+            // Falha da leitura precisa ser visível: sem o toast, ela fica
+            // indistinguível de "não há nada a faturar" — aba vazia, nenhum aviso.
+            toast.error('Falha ao carregar convênios. Os dados exibidos podem estar incompletos.');
         } finally {
             setLoadingGuides(false);
         }
     };
 
     const loadReceivables = async (month?: string) => {
-        // Abas guide-based (A Faturar e Aguardando Faturamento) usam pendingGuides,
-        // já carregadas por loadAllCounts. Apenas garantimos o loading state.
-        if (subTab === 0 || subTab === 1) {
-            setLoadingGuides(true);
-            try {
-                const response = await getPendingBillingGuides({ limit: 100 });
-                setPendingGuides(response.data.data || []);
-                setOrphanSessions(response.data.orphanSessions || []);
-            } catch (error) {
-                console.error('Erro ao carregar guias pendentes:', error);
-                toast.error('Erro ao carregar guias pendentes');
-            } finally {
-                setLoadingGuides(false);
-            }
+        // Todas as abas de guia (A Faturar, Aguardando, Faturados, Recebidos) são
+        // buckets de fase carregados juntos — recarregar uma é recarregar todas.
+        if (subTab === 0 || subTab === 1 || subTab === 2 || subTab === 3) {
+            await loadAllCounts(month);
             return;
         }
 
@@ -445,20 +546,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         }
     };
 
-    // 🆕 Guide-based: carregar guias pendentes de faturamento (aba A Faturar)
-    const loadPendingGuides = async (month?: string) => {
-        setLoadingGuides(true);
-        try {
-            const response = await getPendingBillingGuides({ month, limit: 100 });
-            setPendingGuides(response.data.data || []);
-            setOrphanSessions(response.data.orphanSessions || []);
-        } catch (error) {
-            console.error('Erro ao carregar guias pendentes:', error);
-            toast.error('Erro ao carregar guias pendentes');
-        } finally {
-            setLoadingGuides(false);
-        }
-    };
 
     const toggleGuideSelection = (guideId: string) => {
         const newSelected = new Set(selectedGuides);
@@ -575,24 +662,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             ...prev,
             [groupId]: !prev[groupId]
         }));
-    };
-
-    const countByStatus = (status: string) => {
-        // Contador por GUIA: número de guias distintas com ao menos um payment no status.
-        // Payments sem guia (legado/sessão avulsa) são contados individualmente.
-        const guideIds = new Set<string>();
-        let orphanCount = 0;
-        allReceivables.forEach(group => {
-            (group.patients || []).forEach(patient => {
-                (patient.payments || []).forEach((p: any) => {
-                    if (p.status === status && paymentMatchesMonth()) {
-                        if (p.guideId) guideIds.add(p.guideId);
-                        else orphanCount += 1;
-                    }
-                });
-            });
-        });
-        return guideIds.size + orphanCount;
     };
 
     // Funções para seleção em lote
@@ -715,7 +784,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         // e a secretária pode faturar quando quiser pela aba "Aguardando faturamento".
         // Não abrimos mais o modal de faturamento automaticamente para evitar popup
         // persistente a cada reload e para respeitar o fluxo por estados visíveis.
-        loadPendingGuides();
+        loadAllCounts(selectedMonthYear);
         toast.success('Documentação enviada. As guias aparecem em "Aguardando faturamento".');
     };
 
@@ -1044,11 +1113,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 const start = fmtDateShort(g.firstSessionDate);
                                                 const end = fmtDateShort(g.lastSessionDate);
                                                 const period = start && end ? (start === end ? start : `${start} a ${end}`) : null;
+                                                const value = (g.sessions || []).reduce((s: number, session: any) => s + (Number(session.value) || 0), 0) || Number(g.pendingValue || 0);
                                                 return {
                                                     id: g.guideId,
                                                     label: g.patient?.fullName || 'Paciente',
                                                     sublabel: `guia ${g.number}${period ? ` · ${period}` : ''} · ${g.pendingSessions} sessão${g.pendingSessions !== 1 ? 'ões' : ''}`,
-                                                    value: g.pendingValue,
+                                                    value,
                                                     highlight: overdueValueByGuideId.has(g.guideId),
                                                     highlightLabel: 'atrasado',
                                                 };
@@ -1094,7 +1164,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 id: g.guideId,
                                                 label: g.patient?.fullName || 'Paciente',
                                                 sublabel: `guia ${g.number} · ${g.pendingSessions} sessão${g.pendingSessions !== 1 ? 'ões' : ''}`,
-                                                value: g.pendingValue,
+                                                value: (g.sessions || []).reduce((s: number, session: any) => s + (Number(session.value) || 0), 0) || Number(g.pendingValue || 0),
                                             }))
                                             .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value)
                                     )}
@@ -1164,8 +1234,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         {[
                             { label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
                             { label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
-                            { label: 'Faturados', count: countByStatus('billed'),     icon: <Send size={15} />, amber: false },
-                            { label: 'Recebidos', count: countByStatus('received'),   icon: <CheckCircle size={15} />, amber: false },
+                            // Contagem por bucket de fase. A contagem anterior lia
+                            // `allReceivables`, que nunca traz 'received' (RECEIVABLE_STATUSES
+                            // só tem pending_billing/billed) — por isso o badge vivia zerado.
+                            { label: 'Faturados', count: guidesByPhase.billed.length, icon: <Send size={15} />, amber: false },
+                            { label: 'Recebidos', count: guidesByPhase.received.length, icon: <CheckCircle size={15} />, amber: false },
                             { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
                             { label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
                             { label: 'Envios', count: 0,                             icon: <Mail size={15} />, amber: false },
@@ -1297,6 +1370,21 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             onToggleGuide={toggleGuideSelection}
                             onRefresh={() => loadReceivables(selectedMonthYear)}
                             month={selectedMonthYear}
+                        />
+                    ) : subTab === 2 || subTab === 3 ? (
+                        // Faturados/Recebidos derivam da ReadView pelo bucket da fase.
+                        // `readOnly` porque não há ação de faturar sobre o que já foi
+                        // faturado/recebido — a aba aqui é conferência, não operação.
+                        <GuidePendingBillingSection
+                            guides={subTab === 2 ? guidesByPhase.billed : guidesByPhase.received}
+                            selectedGuides={selectedGuides}
+                            orphanSessions={[]}
+                            loading={loadingGuides}
+                            onToggleGuide={toggleGuideSelection}
+                            onRefresh={() => loadReceivables(selectedMonthYear)}
+                            month={selectedMonthYear}
+                            readOnly
+                            phaseLabel={subTab === 2 ? 'faturada(s)' : 'recebida(s)'}
                         />
                     ) : loading ? (
                         Array.from({ length: 4 }).map((_, i) => (

@@ -13,9 +13,12 @@ import {
     DialogContent,
     DialogTitle,
     Divider,
+    FormControlLabel,
     IconButton,
     InputAdornment,
     LinearProgress,
+    Radio,
+    RadioGroup,
     Stack,
     TextField,
     Typography
@@ -121,6 +124,8 @@ export function BillingCommunicationWizard({
     const [failedCount, setFailedCount] = useState(0);
     const [uploadingSlot, setUploadingSlot] = useState<{ patientKey: string; type: string } | null>(null);
     const [convenioEmails, setConvenioEmails] = useState<{ label: string; email: string }[]>([]);
+    const [deliveryMethod, setDeliveryMethod] = useState<'email' | 'external'>('email');
+    const [externalReason, setExternalReason] = useState('');
 
     useEffect(() => {
         if (!open || selectedGuides.length === 0) return;
@@ -130,6 +135,8 @@ export function BillingCommunicationWizard({
         setConvenioEmails([]);
         setInvoiceNumber('');
         setInvoiceDate('');
+        setDeliveryMethod('email');
+        setExternalReason('');
 
         // Tenta montar assunto e corpo padrão com base na primeira guia/paciente
         const firstGuide = selectedGuides[0];
@@ -262,53 +269,61 @@ export function BillingCommunicationWizard({
             }
 
             const sendRes = await sendCommunication(communicationId, {
-                to: to.trim(),
+                to: deliveryMethod === 'email' ? to.trim() : undefined,
                 subject: subject.trim() || 'Documentação para Faturamento',
-                message: message.trim()
+                message: message.trim(),
+                deliveryMethod,
+                reason: deliveryMethod === 'external' ? externalReason.trim() : undefined
             });
 
+            // Envios por e-mail são assíncronos: aguarda o job BullMQ completar.
+            // Envios externos são síncronos: o backend já registrou o log e a comunicação
+            // está em status 'sent', então pulamos o polling.
+            const isAsync = sendRes.data.data.status !== 'sent';
             const jobId = sendRes.data.data.jobId;
 
-            await new Promise<void>((resolve, reject) => {
-                let attempts = 0;
-                const maxAttempts = 30;
-                const elapsedLimitMs = 30000;
-                const startedAt = Date.now();
+            if (isAsync && jobId) {
+                await new Promise<void>((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = 30;
+                    const elapsedLimitMs = 30000;
+                    const startedAt = Date.now();
 
-                const poll = async () => {
-                    attempts++;
-                    try {
-                        const statusRes = await getCommunicationJobStatus(communicationId!, jobId);
-                        const state = statusRes.data.data.state;
+                    const poll = async () => {
+                        attempts++;
+                        try {
+                            const statusRes = await getCommunicationJobStatus(communicationId!, jobId);
+                            const state = statusRes.data.data.state;
 
-                        if (state === 'completed') {
-                            resolve();
-                            return;
+                            if (state === 'completed') {
+                                resolve();
+                                return;
+                            }
+                            if (state === 'failed') {
+                                reject(new Error(statusRes.data.data.failedReason || 'Falha no envio'));
+                                return;
+                            }
+                            if (attempts >= maxAttempts || Date.now() - startedAt >= elapsedLimitMs) {
+                                // Timeout de polling NUNCA pode virar sucesso — o job pode estar
+                                // travado (ex.: fila sem worker consumindo) e isso precisa aparecer
+                                // como falha visível, não como "Enviado" (achado em produção 2026-07-27).
+                                reject(new Error('Envio ainda em processamento após 30s — verifique o histórico antes de tentar novamente'));
+                                return;
+                            }
+
+                            // Job ainda na fila: consulta a cada 1s. Já em processamento (worker pegou
+                            // o job): consulta a cada 500ms — fecha o modal mais rápido assim que
+                            // completar, sem aumentar muito a carga de polling.
+                            const nextDelay = state === 'active' ? 500 : 1000;
+                            setTimeout(poll, nextDelay);
+                        } catch (pollError) {
+                            reject(pollError);
                         }
-                        if (state === 'failed') {
-                            reject(new Error(statusRes.data.data.failedReason || 'Falha no envio'));
-                            return;
-                        }
-                        if (attempts >= maxAttempts || Date.now() - startedAt >= elapsedLimitMs) {
-                            // Timeout de polling NUNCA pode virar sucesso — o job pode estar
-                            // travado (ex.: fila sem worker consumindo) e isso precisa aparecer
-                            // como falha visível, não como "Enviado" (achado em produção 2026-07-27).
-                            reject(new Error('Envio ainda em processamento após 30s — verifique o histórico antes de tentar novamente'));
-                            return;
-                        }
+                    };
 
-                        // Job ainda na fila: consulta a cada 1s. Já em processamento (worker pegou
-                        // o job): consulta a cada 500ms — fecha o modal mais rápido assim que
-                        // completar, sem aumentar muito a carga de polling.
-                        const nextDelay = state === 'active' ? 500 : 1000;
-                        setTimeout(poll, nextDelay);
-                    } catch (pollError) {
-                        reject(pollError);
-                    }
-                };
-
-                setTimeout(poll, 1000);
-            });
+                    setTimeout(poll, 1000);
+                });
+            }
 
             setGroups(prev => prev.map(g => g.patientKey === group.patientKey ? {
                 ...g,
@@ -330,12 +345,16 @@ export function BillingCommunicationWizard({
     };
 
     const handleSendAll = async () => {
-        if (!to.trim()) {
+        if (deliveryMethod === 'email' && !to.trim()) {
             toast.warn('Informe o e-mail do destinatário');
             return;
         }
-        if (!hasAnyDoc) {
+        if (deliveryMethod === 'email' && !hasAnyDoc) {
             toast.warn('Anexe pelo menos um documento');
+            return;
+        }
+        if (deliveryMethod === 'external' && !externalReason.trim()) {
+            toast.warn('Informe o motivo do envio externo');
             return;
         }
         if (!invoiceNumber.trim()) {
@@ -353,7 +372,10 @@ export function BillingCommunicationWizard({
 
         for (const group of groups) {
             const documentIds = group.slots.map(s => s.documentId).filter(Boolean) as string[];
-            if (group.sendStatus !== 'idle' || documentIds.length === 0) continue;
+            const hasDocs = documentIds.length > 0;
+            // Envio externo não exige documentos; envio por e-mail exige.
+            if (group.sendStatus !== 'idle') continue;
+            if (deliveryMethod === 'email' && !hasDocs) continue;
             await sendGroup(group);
         }
 
@@ -460,6 +482,34 @@ export function BillingCommunicationWizard({
                     </Typography>
                 </Box>
 
+                <Box sx={{
+                    display: 'flex', alignItems: 'flex-start', gap: 1.25,
+                    bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 2,
+                    p: 1.5, mb: 2.5
+                }}>
+                    <Stack spacing={1} sx={{ width: '100%' }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ color: '#166534' }}>
+                            Canal de envio
+                        </Typography>
+                        <RadioGroup
+                            row
+                            value={deliveryMethod}
+                            onChange={(e) => setDeliveryMethod(e.target.value as 'email' | 'external')}
+                        >
+                            <FormControlLabel
+                                value="email"
+                                control={<Radio size="small" disabled={overallSending} />}
+                                label={<Typography variant="body2">E-mail pela aplicação</Typography>}
+                            />
+                            <FormControlLabel
+                                value="external"
+                                control={<Radio size="small" disabled={overallSending} />}
+                                label={<Typography variant="body2">Já enviado externamente (Outlook, portal, etc.)</Typography>}
+                            />
+                        </RadioGroup>
+                    </Stack>
+                </Box>
+
                 <Stack spacing={2} sx={{ mb: 3 }}>
                     <Box>
                         <TextField
@@ -499,13 +549,28 @@ export function BillingCommunicationWizard({
                             </Stack>
                         )}
                     </Box>
+
+                    {deliveryMethod === 'external' && (
+                        <TextField
+                            fullWidth
+                            label="Motivo do envio externo *"
+                            value={externalReason}
+                            onChange={(e) => setExternalReason(e.target.value)}
+                            size="small"
+                            disabled={overallSending}
+                            placeholder="Ex: enviado pelo portal do convênio"
+                            multiline
+                            rows={2}
+                        />
+                    )}
+
                     <TextField
                         fullWidth
                         label="Assunto"
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
                         size="small"
-                        disabled={overallSending}
+                        disabled={overallSending || deliveryMethod === 'external'}
                     />
                     <TextField
                         fullWidth
@@ -515,7 +580,7 @@ export function BillingCommunicationWizard({
                         multiline
                         rows={4}
                         size="small"
-                        disabled={overallSending}
+                        disabled={overallSending || deliveryMethod === 'external'}
                     />
                     <Box sx={{ display: 'flex', gap: 2 }}>
                         <TextField
@@ -726,12 +791,23 @@ export function BillingCommunicationWizard({
                 ) : (
                     <Button
                         onClick={handleSendAll}
-                        disabled={!to.trim() || overallSending || !hasAnyDoc || !invoiceNumber.trim() || !invoiceDate.trim()}
+                        disabled={
+                            overallSending ||
+                            !invoiceNumber.trim() ||
+                            !invoiceDate.trim() ||
+                            (deliveryMethod === 'email' && !to.trim()) ||
+                            (deliveryMethod === 'email' && !hasAnyDoc) ||
+                            (deliveryMethod === 'external' && !externalReason.trim())
+                        }
                         variant="contained"
                         startIcon={overallSending ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
                         sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
                     >
-                        {overallSending ? 'Enviando...' : `Enviar ${groups.length} e-mail(s)`}
+                        {overallSending
+                            ? 'Enviando...'
+                            : deliveryMethod === 'external'
+                                ? `Registrar ${groups.length} envio(s) externo(s)`
+                                : `Enviar ${groups.length} e-mail(s)`}
                     </Button>
                 )}
             </DialogActions>

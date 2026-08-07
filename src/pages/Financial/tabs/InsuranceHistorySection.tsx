@@ -217,6 +217,14 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     const [dialogReason, setDialogReason] = useState('');
     const [dialogLoading, setDialogLoading] = useState(false);
 
+    // Menu de ações por GUIA (não remunerar/reabilitar todas as sessões)
+    const [guideMenuAnchor, setGuideMenuAnchor] = useState<HTMLElement | null>(null);
+    const [guideMenuGroup, setGuideMenuGroup] = useState<import('../../../services/paymentService').InsurancePatientSessionGroup | null>(null);
+    const guideMenuGroupRef = useRef<import('../../../services/paymentService').InsurancePatientSessionGroup | null>(null);
+    const [guideDialogOpen, setGuideDialogOpen] = useState(false);
+    const [guideDialogReason, setGuideDialogReason] = useState('');
+    const [guideDialogLoading, setGuideDialogLoading] = useState(false);
+
     const activeRow = useMemo(
         () => specialtyTabs.find(r => r.specialty === activeSpecialty),
         [specialtyTabs, activeSpecialty]
@@ -293,6 +301,112 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
         setDialogReason('');
         setMenuSession(null);
         menuSessionRef.current = null;
+    }
+
+    // ── Ações por GUIA ───────────────────────────────────────────────────────
+
+    function handleOpenGuideMenu(event: React.MouseEvent<HTMLElement>, group: import('../../../services/paymentService').InsurancePatientSessionGroup) {
+        event.stopPropagation();
+        setGuideMenuAnchor(event.currentTarget);
+        setGuideMenuGroup(group);
+        guideMenuGroupRef.current = group;
+    }
+
+    function handleCloseGuideMenu() {
+        setGuideMenuAnchor(null);
+    }
+
+    function handleToggleGuideDialog() {
+        const g = guideMenuGroupRef.current;
+        if (!g) return;
+        setGuideDialogReason('');
+        setGuideDialogOpen(true);
+        handleCloseGuideMenu();
+    }
+
+    function handleCloseGuideDialog() {
+        setGuideDialogOpen(false);
+        setGuideDialogReason('');
+        setGuideMenuGroup(null);
+        guideMenuGroupRef.current = null;
+    }
+
+    async function handleSaveGuideProfessionalPaymentStatus() {
+        const g = guideMenuGroupRef.current;
+        console.log('[PPS-GUIA] handleSave chamado', { group: g, reason: guideDialogReason });
+        if (!g || g.sessions.length === 0) {
+            toast.error('Guia não identificada. Tente novamente.');
+            return;
+        }
+        const targetStatus: 'payable' | 'non_payable' = g.sessions.every(s => s.professionalPaymentStatus === 'non_payable') ? 'payable' : 'non_payable';
+        if (targetStatus === 'non_payable' && !guideDialogReason.trim()) {
+            toast.error('Informe o motivo para não remunerar o profissional.');
+            return;
+        }
+
+        setGuideDialogLoading(true);
+        const reason = guideDialogReason.trim();
+        const successList: string[] = [];
+        const errorList: string[] = [];
+
+        try {
+            await Promise.all(g.sessions.map(async (s) => {
+                if (!s.appointmentId) return;
+                try {
+                    await appointmentService.updateProfessionalPaymentStatus(s.appointmentId, {
+                        status: targetStatus,
+                        reason: targetStatus === 'non_payable' ? reason : 'Habilitado pelo usuário'
+                    });
+                    successList.push(s.sessionId);
+                } catch (err: any) {
+                    console.error('[PPS-GUIA] Erro em sessão', s.sessionId, err);
+                    errorList.push(s.sessionId);
+                }
+            }));
+
+            if (errorList.length > 0) {
+                toast.warning(`${successList.length} sessão(ões) alterada(s), ${errorList.length} com erro.`);
+            } else {
+                toast.success(targetStatus === 'non_payable'
+                    ? 'Profissional não será remunerado pelas sessões desta guia.'
+                    : 'Profissional voltará a ser remunerado pelas sessões desta guia.');
+            }
+
+            // Atualiza o cache local
+            setCacheByKey(prev => {
+                const next = { ...prev };
+                if (!next[key]) return prev;
+                next[key] = {
+                    ...next[key],
+                    groups: next[key].groups.map(gr => {
+                        const sameGuide = g.type === 'guide' && gr.guideNumber === g.guideNumber;
+                        const sameBatch = g.type === 'batch' && gr.batchId === g.batchId;
+                        if (!sameGuide && !sameBatch) return gr;
+                        return {
+                            ...gr,
+                            sessions: gr.sessions.map(sess =>
+                                successList.includes(sess.sessionId)
+                                    ? {
+                                        ...sess,
+                                        professionalPaymentStatus: targetStatus,
+                                        professionalPaymentOverride: targetStatus === 'non_payable'
+                                            ? { excluded: true, reason, excludedAt: new Date().toISOString(), excludedBy: '' }
+                                            : null
+                                    }
+                                    : sess
+                            )
+                        };
+                    })
+                };
+                return next;
+            });
+            handleCloseGuideDialog();
+        } catch (err: any) {
+            console.error('[PPS-GUIA] Erro ao alterar remuneração da guia:', err);
+            toast.error('Erro ao alterar remuneração das sessões da guia.');
+        } finally {
+            setGuideDialogLoading(false);
+        }
     }
 
     async function handleSaveProfessionalPaymentStatus() {
@@ -451,6 +565,15 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textAlign: 'right' }}>
                                 <StatusBadge status={group.summary?.status || computeGuideStatus(group.sessions)} />
                                 <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(group.summary?.grossAmount ?? group.total ?? 0)}</Typography>
+                                {group.sessions.some(s => s.appointmentId) && (
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => handleOpenGuideMenu(e, group)}
+                                        sx={{ p: 0.5 }}
+                                    >
+                                        <MoreVertical size={14} color="#64748B" />
+                                    </IconButton>
+                                )}
                             </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
@@ -569,6 +692,27 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                 )}
             </Menu>
 
+            <Menu
+                anchorEl={guideMenuAnchor}
+                open={Boolean(guideMenuAnchor)}
+                onClose={handleCloseGuideMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ sx: { minWidth: 260, borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } }}
+            >
+                {guideMenuGroup?.sessions.every(s => s.professionalPaymentStatus === 'non_payable') ? (
+                    <MenuItem onClick={handleToggleGuideDialog} sx={{ gap: 1.5, fontSize: '0.85rem', py: 1 }}>
+                        <UserCheck size={16} color="#059669" />
+                        Voltar a remunerar profissional (guia)
+                    </MenuItem>
+                ) : (
+                    <MenuItem onClick={handleToggleGuideDialog} sx={{ gap: 1.5, fontSize: '0.85rem', py: 1 }}>
+                        <UserX size={16} color="#92400E" />
+                        Não remunerar profissional (guia)
+                    </MenuItem>
+                )}
+            </Menu>
+
             <Dialog open={dialogOpen} onClose={() => !dialogLoading && setDialogOpen(false)} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>
                     {menuSession?.professionalPaymentStatus === 'non_payable'
@@ -599,13 +743,62 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         Cancelar
                     </Button>
                     <Button
-                        onClick={handleSaveProfessionalPaymentStatus}
+                        type="button"
+                        onClick={() => {
+                            console.log('[PPS] Botão Confirmar clicado');
+                            handleSaveProfessionalPaymentStatus();
+                        }}
                         disabled={dialogLoading || (menuSession?.professionalPaymentStatus !== 'non_payable' && !dialogReason.trim())}
                         size="small"
                         variant="contained"
                         sx={{ textTransform: 'none', fontSize: '0.8rem' }}
                     >
                         {dialogLoading ? 'Salvando...' : 'Confirmar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={guideDialogOpen} onClose={() => !guideDialogLoading && setGuideDialogOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                    {guideMenuGroup?.sessions.every(s => s.professionalPaymentStatus === 'non_payable')
+                        ? 'Habilitar remuneração do profissional (guia)'
+                        : 'Desabilitar remuneração do profissional (guia)'}
+                </DialogTitle>
+                <DialogContent sx={{ pb: 1 }}>
+                    <Typography fontSize="0.85rem" color="#475569" sx={{ mb: 2 }}>
+                        {guideMenuGroup?.sessions.every(s => s.professionalPaymentStatus === 'non_payable')
+                            ? 'Todas as sessões desta guia voltarão a gerar comissão ao profissional no fechamento.'
+                            : 'Todas as sessões desta guia continuarão faturadas/recebidas pela clínica, mas não gerarão comissão ao profissional.'}
+                    </Typography>
+                    {!(guideMenuGroup?.sessions.every(s => s.professionalPaymentStatus === 'non_payable')) && (
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            label="Motivo *"
+                            placeholder="Ex: Paciente avisou com antecedência"
+                            value={guideDialogReason}
+                            onChange={(e) => setGuideDialogReason(e.target.value)}
+                            size="small"
+                            sx={{ '& .MuiInputBase-root': { fontSize: '0.85rem' } }}
+                        />
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleCloseGuideDialog} disabled={guideDialogLoading} size="small" sx={{ textTransform: 'none', fontSize: '0.8rem' }}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={() => {
+                            console.log('[PPS-GUIA] Botão Confirmar clicado');
+                            handleSaveGuideProfessionalPaymentStatus();
+                        }}
+                        disabled={guideDialogLoading || (!(guideMenuGroup?.sessions.every(s => s.professionalPaymentStatus === 'non_payable')) && !guideDialogReason.trim())}
+                        size="small"
+                        variant="contained"
+                        sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                    >
+                        {guideDialogLoading ? 'Salvando...' : 'Confirmar'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1163,11 +1356,23 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                             patientName={drawerPatient.name}
                             provider={drawerPatient.provider}
                             headerColor="#EFF6FF"
-                            subtitle={
-                                <span className="text-xs text-gray-500">
-                                    {drawerPatient.rows.length} registro(s) · {fmtBRL(drawerPatient.rows.reduce((s, r) => s + r.value, 0))}
-                                </span>
-                            }
+                            stats={[
+                                {
+                                    label: 'Sessões',
+                                    value: String(drawerPatient.rows.reduce((s, r) => s + (r.sessions || 0), 0)),
+                                    color: '#6B7280'
+                                },
+                                {
+                                    label: 'Especialidades',
+                                    value: String(new Set(drawerPatient.rows.map(r => r.specialty).filter(Boolean)).size),
+                                    color: '#8B5CF6'
+                                },
+                                {
+                                    label: 'Total',
+                                    value: fmtBRL(drawerPatient.rows.reduce((s, r) => s + r.value, 0)),
+                                    color: '#2563EB'
+                                }
+                            ]}
                         >
                             <PatientSessionDetails
                                 rows={drawerPatient.rows}

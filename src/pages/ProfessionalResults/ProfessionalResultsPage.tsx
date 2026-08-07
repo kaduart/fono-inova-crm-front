@@ -152,16 +152,26 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
     if (!selectedDoctorId) return;
     setCloseModal((prev) => ({ ...prev, confirming: true }));
     try {
+      // O backend exige `force` quando há pendência financeira no período. O modal
+      // já exibe o aviso detalhado acima, então confirmar aqui é a ciência explícita
+      // do usuário — sem isso o fechamento ficava travado sem saída pela tela.
+      const temPendencia = !!closeModal.preview?.hasFinancialIssues;
       await professionalResultsService.closeSettlement(
         selectedDoctorId,
         currentMonth.month,
-        currentMonth.year
+        currentMonth.year,
+        { force: temPendencia }
       );
       toast.success('Mês fechado com sucesso!');
       setCloseModal({ open: false, loading: false, confirming: false, preview: null });
       refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao fechar o mês');
+    } catch (err: any) {
+      // Mensagem do servidor primeiro — `err.message` do axios é sempre o genérico
+      // "Request failed with status code XXX", que não diz nada ao usuário.
+      const msg = err?.response?.data?.message
+        || (err instanceof Error ? err.message : null)
+        || 'Erro ao fechar o mês';
+      toast.error(msg);
       setCloseModal((prev) => ({ ...prev, confirming: false }));
     }
   };
@@ -822,8 +832,31 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                 )}
 
                 {closeModal.preview.hasFinancialIssues && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-sm text-amber-700">
-                    ⚠️ Foram encontradas {closeModal.preview.financialIssues?.orphanSessions ?? 0} sessão(ões) órfã(s) neste período. Revise antes de fechar, ou force o fechamento por sua conta.
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+                    <p className="text-sm text-amber-800 font-semibold mb-1">
+                      {closeModal.preview.financialIssues?.orphanSessions ?? 0} atendimento(s) sem pagamento registrado
+                    </p>
+                    <p className="text-xs text-amber-700 mb-2">
+                      Não é erro do sistema: estes atendimentos foram concluídos e <strong>entram normalmente na comissão</strong>,
+                      mas não têm pagamento vinculado — ou seja, a clínica pode não ter recebido por eles.
+                      Confira se o recebimento ficou pendente de lançamento.
+                    </p>
+                    {(closeModal.preview.financialIssues?.orphanSessionsList || []).length > 0 && (
+                      <ul className="space-y-1 border-l-2 border-amber-300 pl-3">
+                        {closeModal.preview.financialIssues!.orphanSessionsList!.slice(0, 5).map((s) => (
+                          <li key={s.sessionId} className="text-xs text-amber-800 flex justify-between gap-2">
+                            <span>
+                              {new Date(s.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                              {s.time ? ` ${s.time}` : ''} · {s.patientName}
+                            </span>
+                            <span className="font-medium whitespace-nowrap">{formatCurrency(s.value)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="text-xs text-amber-600 mt-2">
+                      Feche esses atendimentos na agenda, ou confirme assim mesmo — nesse caso o valor não entra depois.
+                    </p>
                   </div>
                 )}
 
@@ -869,7 +902,11 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                     disabled={closeModal.confirming || !closeModal.preview.canClose}
                     className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    {closeModal.confirming ? 'Fechando...' : (<><CheckCircle2 className="w-4 h-4" /> Confirmar Fechamento</>)}
+                    {closeModal.confirming
+                      ? 'Fechando...'
+                      : closeModal.preview.hasFinancialIssues
+                        ? (<><AlertTriangle className="w-4 h-4" /> Fechar mesmo assim</>)
+                        : (<><CheckCircle2 className="w-4 h-4" /> Confirmar Fechamento</>)}
                   </button>
                 </div>
               </>

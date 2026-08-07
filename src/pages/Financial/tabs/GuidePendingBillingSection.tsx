@@ -49,6 +49,8 @@ export interface PendingGuideSession {
     specialty?: string | null;
     value?: number;
     doctorName?: string | null;
+    /** ReadView V2: fase do ciclo desta sessão. null = fora do ciclo (não concluída) */
+    phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received' | null;
 }
 
 export interface PendingGuide {
@@ -77,8 +79,34 @@ export interface PendingGuide {
     lastBatchSentAt?: string | Date | null;
     /** Status atual da guia no InsuranceGuide (active/expired/cancelled/exhausted/...) */
     guideStatus?: string;
-    /** Status derivado de faturamento (pending | documentation_sent | billed | received | closed) */
-    billingState?: 'pending' | 'documentation_sent' | 'billed' | 'received' | 'closed';
+    /**
+     * Rótulo visual do faturamento. NÃO é fonte de verdade e NÃO tem valor 'mixed':
+     * quando a guia tem sessões em várias fases, isto mostra a MENOS avançada (a
+     * próxima ação) e `hasMixedStates` sinaliza que os contadores contam o resto.
+     * 'no_sessions' = guia sem nenhuma sessão concluída (ReadView V2).
+     */
+    billingState?: 'no_sessions' | 'pending' | 'documentation_sent' | 'billed' | 'received' | 'closed';
+    /** ReadView V2: true quando há sessões em mais de uma fase ao mesmo tempo */
+    hasMixedStates?: boolean;
+    /** ReadView V2: contadores por fase — a verdade do ciclo financeiro */
+    phaseCounters?: {
+        total: number;
+        pendingBilling: number;
+        documentationSent: number;
+        billed: number;
+        received: number;
+        outOfCycle: number;
+    };
+    /** ReadView V2: valores por fase */
+    phaseAmounts?: {
+        pendingAmount: number;
+        documentationSentAmount: number;
+        billedAmount: number;
+        receivedAmount: number;
+        totalAmount: number;
+    };
+    /** ReadView V2: true = documentationSentAt veio de updatedAt (proxy), não de campo de envio real */
+    documentationSentAtIsProxy?: boolean;
     sessions?: PendingGuideSession[];
 }
 
@@ -102,12 +130,35 @@ interface GuidePendingBillingSectionProps {
     onToggleGuide: (guideId: string) => void;
     onRefresh?: () => void;
     month?: string;
+    /**
+     * Abas de conferência (Faturados/Recebidos): esconde seleção e ações de
+     * faturamento. Não há o que faturar sobre o que já foi faturado/recebido.
+     */
+    readOnly?: boolean;
+    /** Substantivo da fase exibida, ex.: "faturada(s)". Default: "para faturar". */
+    phaseLabel?: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const formatCurrency = (v: number | undefined) =>
     (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const resolveGuidePendingTotal = (guide: PendingGuide) => {
+    const fromSessions = (guide.sessions || []).reduce((sum, s) => sum + (Number(s.value) || 0), 0);
+    if (fromSessions > 0) return fromSessions;
+    return Number(guide.pendingValue || 0);
+};
+
+const resolveGuideSessionValue = (guide: PendingGuide) => {
+    const sessionValues = (guide.sessions || [])
+        .map(s => Number(s.value) || 0)
+        .filter(v => v > 0);
+    if (sessionValues.length > 0) {
+        return sessionValues.reduce((sum, v) => sum + v, 0) / sessionValues.length;
+    }
+    return Number(guide.sessionValue || 0);
+};
 
 const formatDate = (date: string | Date | null | undefined) => {
     if (!date) return '-';
@@ -177,6 +228,8 @@ function getGuideBillingState(guide: PendingGuide): { emoji: string; label: stri
     }
 
     switch (state) {
+        case 'no_sessions':
+            return { emoji: '⚪', label: 'Sem sessões concluídas', bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' };
         case 'closed':
             return { emoji: '🔒', label: 'Guia finalizada', bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' };
         case 'received':
@@ -204,6 +257,8 @@ interface PatientDrawerProps {
     guides: PendingGuide[];
     selectedGuides: Set<string>;
     convenios: Convenio[];
+    readOnly?: boolean;
+    phaseLabel?: string;
     onToggleGuide: (guideId: string) => void;
     onEditGuide: (guide: PendingGuide) => void;
     onCloseGuide: (guide: PendingGuide) => void;
@@ -235,9 +290,17 @@ function getBillingCycleReason(convenio: Convenio | undefined): string | null {
     }
 }
 
-function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose }: PatientDrawerProps) {
-    const total    = guides.reduce((s, g) => s + (g.pendingValue || 0), 0);
-    const sessions = guides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
+function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar' }: PatientDrawerProps) {
+    const total = guides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
+    const sessions = guides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
+    const sessionAverage = (() => {
+        const values = guides.flatMap(g => (g.sessions || []).map(s => Number(s.value) || 0)).filter(v => v > 0);
+        if (values.length > 0) {
+            return values.reduce((sum, v) => sum + v, 0) / values.length;
+        }
+        const first = guides.find(g => Number(g.sessionValue) > 0)?.sessionValue ?? 0;
+        return Number(first || 0);
+    })();
     const allSelected  = guides.every(g => selectedGuides.has(g.guideId));
     const someSelected = guides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
 
@@ -290,10 +353,11 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                 </Box>
 
                 {/* Stats chips */}
-                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                     {[
                         { label: 'guias', value: guides.length },
                         { label: isPerGuide ? 'sessões pendentes' : 'sessões no mês', value: sessions, blue: true },
+                        { label: 'valor/sessão', value: formatCurrency(sessionAverage), blue: true },
                         { label: 'a faturar', value: formatCurrency(total), green: true },
                     ].map(stat => (
                         <Box key={stat.label} sx={{
@@ -322,15 +386,19 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                 borderBottom: '1px solid #E2E8F0',
                 display: 'flex', alignItems: 'center', gap: 1
             }}>
-                <Checkbox
-                    checked={allSelected}
-                    indeterminate={someSelected}
-                    onChange={() => guides.forEach(g => onToggleGuide(g.guideId))}
-                    size="small"
-                    sx={{ p: 0.5 }}
-                />
+                {!readOnly && (
+                    <Checkbox
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onChange={() => guides.forEach(g => onToggleGuide(g.guideId))}
+                        size="small"
+                        sx={{ p: 0.5 }}
+                    />
+                )}
                 <Typography fontSize="0.8rem" color="#475569" fontWeight={500}>
-                    {allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${guides.length})`}
+                    {readOnly
+                        ? `${guides.length} guia${guides.length !== 1 ? 's' : ''} nesta fase`
+                        : allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${guides.length})`}
                 </Typography>
             </Box>
 
@@ -366,12 +434,14 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                 {/* Row 1: checkbox + número + badge + valor */}
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.25 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                                        <Checkbox
-                                            checked={isSelected}
-                                            onChange={() => onToggleGuide(guide.guideId)}
-                                            size="small"
-                                            sx={{ p: 0.25, mt: 0.1 }}
-                                        />
+                                        {!readOnly && (
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onChange={() => onToggleGuide(guide.guideId)}
+                                                size="small"
+                                                sx={{ p: 0.25, mt: 0.1 }}
+                                            />
+                                        )}
                                         <Box>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                                                 <Typography fontWeight="700" fontSize="0.9rem" color="#0F172A">
@@ -408,10 +478,10 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                     {/* Valor + sessões a faturar */}
                                     <Box sx={{ textAlign: 'right' }}>
                                         <Typography fontWeight="800" fontSize="1.0rem" color="#0F172A">
-                                            {formatCurrency(guide.pendingValue)}
+                                            {formatCurrency(resolveGuidePendingTotal(guide))}
                                         </Typography>
                                         <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
-                                            {guide.pendingSessions} sessõe{guide.pendingSessions !== 1 ? 's' : ''} para faturar
+                                            {guide.pendingSessions} sessõe{guide.pendingSessions !== 1 ? 's' : ''} {phaseLabel} · {formatCurrency(resolveGuideSessionValue(guide))}/sessão
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -432,6 +502,31 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                             {billingState.label}
                                         </Typography>
                                     </Box>
+                                    {/* Composição por fase. O rótulo acima mostra só a próxima ação; numa guia
+                                        per_month faturada mês a mês, ele sozinho esconderia o que já foi faturado
+                                        e recebido. Aqui a guia conta a história inteira. */}
+                                    {guide.hasMixedStates && guide.phaseCounters && (
+                                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                            {([
+                                                { n: guide.phaseCounters.pendingBilling, label: 'a faturar', color: '#9A3412', bg: '#FFF7ED', border: '#FED7AA' },
+                                                { n: guide.phaseCounters.documentationSent, label: 'doc. enviada', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+                                                { n: guide.phaseCounters.billed, label: 'faturada(s)', color: '#854D0E', bg: '#FEFCE8', border: '#FDE68A' },
+                                                { n: guide.phaseCounters.received, label: 'recebida(s)', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0' },
+                                            ] as const).filter(p => p.n > 0).map(p => (
+                                                <Box
+                                                    key={p.label}
+                                                    sx={{
+                                                        px: 0.85, py: 0.3, borderRadius: 20,
+                                                        bgcolor: p.bg, border: `1px solid ${p.border}`,
+                                                    }}
+                                                >
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color={p.color}>
+                                                        {p.n} {p.label}
+                                                    </Typography>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    )}
                                     {cycleReason && (
                                         <Typography fontSize="0.7rem" color="#94A3B8" fontStyle="italic">
                                             {cycleReason}
@@ -537,6 +632,8 @@ const GuidePendingBillingSection = ({
     onToggleGuide,
     onRefresh,
     month,
+    readOnly = false,
+    phaseLabel = 'para faturar',
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
@@ -558,6 +655,12 @@ const GuidePendingBillingSection = ({
 
     const openDrawer = (name: string, provider: string, patientGuides: PendingGuide[]) =>
         setDrawerPatient({ name, provider, guides: patientGuides });
+
+    const deriveProviderSummary = (providerGuides: PendingGuide[]) => {
+        const total = providerGuides.reduce((sum, guide) => sum + resolveGuidePendingTotal(guide), 0);
+        const sessions = providerGuides.reduce((sum, guide) => sum + ((guide.pendingSessions && guide.pendingSessions > 0) ? guide.pendingSessions : (guide.sessions || []).length), 0);
+        return { total, sessions };
+    };
 
     const openEditGuide = (guide: PendingGuide) => {
         setEditGuideModal(guide);
@@ -715,8 +818,8 @@ const GuidePendingBillingSection = ({
 
     // Ordenar convênios por maior valor total
     const sortedProviders = Object.entries(groupedGuides).sort(([, a], [, b]) => {
-        const aT = Object.values(a).flat().reduce((s, g) => s + (g.pendingValue || 0), 0);
-        const bT = Object.values(b).flat().reduce((s, g) => s + (g.pendingValue || 0), 0);
+        const aT = Object.values(a).flat().reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
+        const bT = Object.values(b).flat().reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
         return bT - aT;
     });
 
@@ -734,8 +837,8 @@ const GuidePendingBillingSection = ({
                 {/* ── Resumo por convênio ─────────────────────────────────── */}
                 {(() => {
                     const allFlat = Object.values(groupedGuides).flatMap(p => Object.values(p).flat());
-                    const grandTotal = allFlat.reduce((s, g) => s + (g.pendingValue || 0), 0);
-                    const grandSess  = allFlat.reduce((s, g) => s + (g.pendingSessions || 0), 0);
+                    const grandTotal = allFlat.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
+                    const grandSess  = allFlat.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
                     const grandPats  = new Set(guides.map(g => g.patient?.fullName)).size;
                     return (
                         <Card elevation={0} sx={{ border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden', mb: 0.5 }}>
@@ -751,8 +854,8 @@ const GuidePendingBillingSection = ({
                             {/* Linhas */}
                             {sortedProviders.map(([provider, providerPatients], idx) => {
                                 const allGuides    = Object.values(providerPatients).flat();
-                                const total        = allGuides.reduce((s, g) => s + (g.pendingValue || 0), 0);
-                                const sessions     = allGuides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
+                                const total        = allGuides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
+                                const sessions     = allGuides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
                                 const patients     = Object.keys(providerPatients).length;
                                 const isExpanded   = !!expandedProviders[provider];
                                 const providerMode = allGuides[0]?.billingMode;
@@ -810,8 +913,8 @@ const GuidePendingBillingSection = ({
                 {/* ── Cards por convênio ──────────────────────────────────── */}
                 {sortedProviders.map(([provider, providerPatients]) => {
                     const allGuides     = Object.values(providerPatients).flat();
-                    const providerTotal = allGuides.reduce((s, g) => s + (g.pendingValue || 0), 0);
-                    const providerSess  = allGuides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
+                    const providerTotal = allGuides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
+                    const providerSess  = allGuides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
                     const patientCount  = Object.keys(providerPatients).length;
                     const allSelected   = allGuides.every(g => selectedGuides.has(g.guideId));
                     const someSelected  = allGuides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
@@ -854,13 +957,15 @@ const GuidePendingBillingSection = ({
                                 }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Checkbox
-                                        checked={allSelected}
-                                        indeterminate={someSelected}
-                                        onChange={() => allGuides.forEach(g => onToggleGuide(g.guideId))}
-                                        onClick={e => e.stopPropagation()}
-                                        size="small" sx={{ p: 0.5 }}
-                                    />
+                                    {!readOnly && (
+                                        <Checkbox
+                                            checked={allSelected}
+                                            indeterminate={someSelected}
+                                            onChange={() => allGuides.forEach(g => onToggleGuide(g.guideId))}
+                                            onClick={e => e.stopPropagation()}
+                                            size="small" sx={{ p: 0.5 }}
+                                        />
+                                    )}
                                     <Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
                                             <Typography fontWeight="800" fontSize="0.95rem" color="#0F172A">
@@ -903,8 +1008,8 @@ const GuidePendingBillingSection = ({
                                 </Box>
 
                                 {sortedPatients.map(([patientName, patientGuides], pidx) => {
-                                    const total   = patientGuides.reduce((s, g) => s + (g.pendingValue || 0), 0);
-                                    const sessions = patientGuides.reduce((s, g) => s + (g.pendingSessions || 0), 0);
+                                    const total   = patientGuides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
+                                    const sessions = patientGuides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
                                     const allPat  = patientGuides.every(g => selectedGuides.has(g.guideId));
                                     const somePat = patientGuides.some(g => selectedGuides.has(g.guideId)) && !allPat;
                                     const oldest  = patientGuides.map(g => g.firstSessionDate).filter(Boolean).sort()[0];
@@ -925,13 +1030,15 @@ const GuidePendingBillingSection = ({
                                                 transition: 'background 0.1s',
                                             }}
                                         >
-                                            <Checkbox
-                                                checked={allPat}
-                                                indeterminate={somePat}
-                                                onChange={() => patientGuides.forEach(g => onToggleGuide(g.guideId))}
-                                                onClick={e => e.stopPropagation()}
-                                                size="small" sx={{ p: 0.5, mr: 0.5, flexShrink: 0 }}
-                                            />
+                                            {!readOnly && (
+                                                <Checkbox
+                                                    checked={allPat}
+                                                    indeterminate={somePat}
+                                                    onChange={() => patientGuides.forEach(g => onToggleGuide(g.guideId))}
+                                                    onClick={e => e.stopPropagation()}
+                                                    size="small" sx={{ p: 0.5, mr: 0.5, flexShrink: 0 }}
+                                                />
+                                            )}
 
                                             {/* Avatar + nome */}
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1, minWidth: 0 }}>
@@ -1119,6 +1226,8 @@ const GuidePendingBillingSection = ({
                     onEditGuide={openEditGuide}
                     onCloseGuide={(guide) => setCloseGuideModal(guide)}
                     onClose={() => setDrawerPatient(null)}
+                    readOnly={readOnly}
+                    phaseLabel={phaseLabel}
                 />
             )}
 

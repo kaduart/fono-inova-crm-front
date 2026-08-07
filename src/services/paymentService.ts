@@ -220,6 +220,101 @@ export interface CompetenceBreakdown {
 export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; month?: string; page?: number; limit?: number; includeOverdue?: boolean }) =>
     API.get<{ success: boolean; data: any[]; orphanSessions: any[]; overdue: OverdueBillingBucket[] | null; overdueSummary: OverdueBillingSummary | null; competenceBreakdown: CompetenceBreakdown | null; pagination: any }>('/v2/insurance/guides/pending-billing', { params });
 
+// ── ReadView V2 (2026-08-07) ────────────────────────────────────────────────
+// Fonte composta a partir da GUIA. Toda guia do banco aparece; a verdade do
+// ciclo financeiro vive nos contadores por fase, não num estado escalar.
+// Fonte de leitura única e oficial da aba Convênios.
+
+/** Fases do ciclo financeiro. Vivem na SESSÃO, não na guia. */
+export type InsuranceSessionPhase = 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
+
+/** Rótulo visual da guia. NÃO existe 'mixed' — mistura é `hasMixedStates`. */
+export type InsuranceGuideBillingLabel =
+    | 'no_sessions' | 'pending' | 'documentation_sent' | 'billed' | 'received' | 'closed';
+
+export interface InsuranceGuidePhaseCounters {
+    /** soma das 4 fases (invariante garantida pelo backend) */
+    total: number;
+    pendingBilling: number;
+    documentationSent: number;
+    billed: number;
+    received: number;
+    /** sessões não-completed: fora do ciclo, não entram em `total` nem em valor */
+    outOfCycle: number;
+}
+
+export interface InsuranceGuideFinancialSummary {
+    pendingAmount: number;
+    documentationSentAmount: number;
+    billedAmount: number;
+    receivedAmount: number;
+    totalAmount: number;
+}
+
+export interface InsuranceGuideViewSession {
+    sessionId: string;
+    date: string | Date;
+    time: string | null;
+    doctorName: string | null;
+    specialty: string | null;
+    status: string;
+    phase: InsuranceSessionPhase | null;
+    value: number;
+    paymentId: string | null;
+    paymentStatus: string | null;
+    batchId: string | null;
+    batchStatus: string | null;
+    competenceDate: string | Date | null;
+}
+
+export interface InsuranceGuideView {
+    guideId: string;
+    number: string;
+    insurance: string;
+    specialty: string;
+    patient?: { _id?: string; fullName?: string; phone?: string } | null;
+    /** ciclo de vida da autorização — nunca faturamento */
+    guideStatus: string;
+    expiresAt: string | Date | null;
+    closedAt: string | Date | null;
+    billingMode: 'per_month' | 'per_guide';
+    totalSessions: number;
+    usedSessions: number;
+    remaining: number;
+    sessionValue: number | null;
+    totalAuthorizedValue: number | null;
+    /** a verdade do ciclo financeiro */
+    sessions: InsuranceGuidePhaseCounters;
+    financialSummary: InsuranceGuideFinancialSummary;
+    /** rótulo visual apenas */
+    billingState: InsuranceGuideBillingLabel;
+    /** true quando há sessões em mais de uma fase — a UI deve mostrar os contadores */
+    hasMixedStates: boolean;
+    documentationSentAt: string | Date | null;
+    /** true = data derivada de updatedAt, não de um campo de envio real (débito técnico) */
+    documentationSentAtIsProxy: boolean;
+    invoiceNumber: string | null;
+    sessionDetails: InsuranceGuideViewSession[];
+}
+
+export const getInsuranceGuidesView = (params?: {
+    insurance?: string;
+    patientId?: string;
+    guideStatus?: string;
+    phase?: InsuranceSessionPhase | 'all';
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+}) =>
+    API.get<{
+        success: boolean;
+        data: InsuranceGuideView[];
+        orphanSessions: any[];
+        totals: { sessions: InsuranceGuidePhaseCounters; financialSummary: InsuranceGuideFinancialSummary };
+        pagination: any;
+    }>('/v2/insurance/guides/view', { params });
+
 // Receber em lote (V2)
 export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
     API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/receber-lote', data);

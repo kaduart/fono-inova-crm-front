@@ -42,6 +42,20 @@ export interface ProfessionalRankingItem {
   rank?: number;
   clinicPatientsThisPeriod?: number;
   clinicSessionsThisPeriod?: number;
+  /**
+   * Fechamento mensal do período consultado. `null` quando o profissional ainda
+   * não teve o mês fechado ou quando o período não é um mês civil completo.
+   */
+  settlement?: {
+    settlementId: string;
+    status: 'open' | 'closed' | 'cancelled';
+    periodMonth: number;
+    periodYear: number;
+    closedAt: string | null;
+    cancelledAt: string | null;
+    commission: number | null;
+    balance: number | null;
+  } | null;
 }
 
 export interface ProfessionalSummary {
@@ -140,6 +154,14 @@ export interface SettlementPreview {
   hasFinancialIssues: boolean;
   financialIssues: {
     orphanSessions: number;
+    orphanSessionsList?: Array<{
+      sessionId: string;
+      date: string;
+      time: string | null;
+      patientName: string;
+      specialty: string | null;
+      value: number;
+    }>;
     orphanPayments: number;
     hasCommissionData: boolean;
   } | null;
