@@ -18,7 +18,7 @@
 
 export interface RawHealth {
     status: string;
-    memory: { heapUsedMB: number; heapTotalMB: number; heapPercent: string; rssMB: number; status: string };
+    memory: { heapUsedMB: number; heapTotalMB: number; heapLimitMB?: number; heapPercent: number; rssMB: number; rssLimitMB?: number; rssPercent?: number; status: string };
     queues: Record<string, { waiting: number; active: number; completed: number; failed: number; delayed: number }>;
     node: { version: string; uptimeSeconds: number; pid: number };
     packageV2?: { status: string; summary: { avgResponseTime: number; grade: string } };
@@ -189,13 +189,23 @@ export function resolveSystemHealth(
     // ── Infra ────────────────────────────────────────────────────────────────
     // Usa RSS como métrica principal (mais representativa do uso real de RAM)
     const rssMB = health?.memory.rssMB ?? 0;
-    const rssPercent = health?.memory.heapTotalMB
-        ? Math.round((rssMB / (health.memory.heapTotalMB * 2 + 512)) * 100) // heurística visual
-        : 0;
 
+    // Cota de RAM do container (Render) — é ela que causa OOM kill, não o heap do V8.
+    // Fallback em cascata para backends antigos: heapLimitMB → heurística original.
+    const memTotalMB = health?.memory.rssLimitMB
+        ?? health?.memory.heapLimitMB
+        ?? (health?.memory.heapTotalMB ? health.memory.heapTotalMB * 2 + 512 : 0);
+
+    const rssPercent = health?.memory.rssPercent
+        ?? (memTotalMB ? Math.round((rssMB / memTotalMB) * 100) : 0);
+
+    // Status vem do backend, que conhece a cota real. Fallback: percentual.
     const memStatus: InfraHealth['memory']['status'] =
-        rssMB >= 2048 ? 'critical' :
-        rssMB >= 1024 ? 'warning' : 'ok';
+        health?.memory.status === 'critical' ? 'critical' :
+        health?.memory.status === 'warning' ? 'warning' :
+        health?.memory.status === 'healthy' ? 'ok' :
+        rssPercent >= 92 ? 'critical' :
+        rssPercent >= 80 ? 'warning' : 'ok';
 
     const queueBacklog = health
         ? Object.values(health.queues).reduce((sum, q) => sum + (q.waiting ?? 0) + (q.delayed ?? 0), 0)
@@ -204,7 +214,7 @@ export function resolveSystemHealth(
     const infra: InfraHealth = {
         memory: {
             usedMB: rssMB,
-            totalMB: health?.memory.heapTotalMB ? health.memory.heapTotalMB * 2 + 512 : 0,
+            totalMB: memTotalMB,
             percent: Math.min(100, rssPercent),
             status: memStatus,
         },
