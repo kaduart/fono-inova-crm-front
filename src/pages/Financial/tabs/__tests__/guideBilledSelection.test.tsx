@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import GuidePendingBillingSection, { type PendingGuide } from '../GuidePendingBillingSection';
+import GuidePendingBillingSection, { PatientDrawer, type PendingGuide } from '../GuidePendingBillingSection';
 
 vi.mock('../../../../hooks/useConvenios', () => ({
     useConvenios: () => ({ convenios: [], isLoading: false })
@@ -44,5 +44,34 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
     it('não exibe checkbox quando a aba é somente leitura', () => {
         render(<GuidePendingBillingSection {...baseProps} onToggleGuide={vi.fn()} readOnly />);
         expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    });
+
+    it('mostra resumo correto e executa recebimento dentro do drawer', () => {
+        const onReceiveSelectedGuides = vi.fn();
+        render(
+            <PatientDrawer
+                open
+                patientName="Paciente Teste"
+                provider="unimed-anapolis"
+                guides={[billedGuide]}
+                selectedGuides={new Set(['guide-billed'])}
+                convenios={[]}
+                onToggleGuide={vi.fn()}
+                onEditGuide={vi.fn()}
+                onCloseGuide={vi.fn()}
+                onClose={vi.fn()}
+                receiveMode
+                phaseLabel="faturada(s)"
+                onReceiveSelectedGuides={onReceiveSelectedGuides}
+            />
+        );
+
+        expect(screen.getByText('sessões faturadas')).toBeInTheDocument();
+        expect(screen.getByText('a receber')).toBeInTheDocument();
+        expect(screen.getByText('Aguardando recebimento')).toBeInTheDocument();
+        expect(screen.queryByText(/não aparece.*na lista abaixo/i)).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /marcar como recebido/i }));
+        expect(onReceiveSelectedGuides).toHaveBeenCalledWith(['guide-billed']);
     });
 });

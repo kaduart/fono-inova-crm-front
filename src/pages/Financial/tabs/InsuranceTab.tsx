@@ -319,6 +319,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [receberLoteData, setReceberLoteData] = useState({
         dataRecebimento: new Date().toISOString().split('T')[0]
     });
+    const [paymentIdsToReceive, setPaymentIdsToReceive] = useState<string[]>([]);
     
     // Estado para modal de gerenciamento de convênios
     const [convenioManagerOpen, setConvenioManagerOpen] = useState(false);
@@ -923,11 +924,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedCloseGuides(new Set(guides.map(g => g.guideId)));
     };
 
-    const handleOpenReceberLoteModal = () => {
-        if (selectedBilledPaymentIds.length === 0) {
+    const handleOpenReceberLoteModal = (guideIds?: string[]) => {
+        const paymentIds = guideIds
+            ? billedPaymentIdsFromSelectedGuides(guidesByPhase.billed, new Set(guideIds))
+            : selectedBilledPaymentIds;
+        if (paymentIds.length === 0) {
             toast.warn('Selecione pelo menos uma guia faturada com pagamentos elegíveis');
             return;
         }
+        setPaymentIdsToReceive(paymentIds);
         setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
         setReceberLoteModalOpen(true);
     };
@@ -936,7 +941,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setReceberLoteLoading(true);
         try {
             const result = await receberConvenioLote({
-                paymentIds: selectedBilledPaymentIds,
+                paymentIds: paymentIdsToReceive,
                 dataRecebimento: receberLoteData.dataRecebimento
             });
 
@@ -948,6 +953,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     : `${recebidos} recebimento(s) registrado(s) com sucesso!`;
                 toast.success(message);
                 setReceberLoteModalOpen(false);
+                setPaymentIdsToReceive([]);
                 clearAllSelection();
                 clearGuideSelection();
                 loadReceivables(selectedMonthYear);
@@ -1372,7 +1378,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             variant="contained"
                                             size="small"
                                             startIcon={<CheckCircle size={16} />}
-                                            onClick={handleOpenReceberLoteModal}
+                                            onClick={() => handleOpenReceberLoteModal()}
                                             sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2 }}
                                         >
                                             Receber Selecionados
@@ -1417,6 +1423,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             month={selectedMonthYear}
                             readOnly={subTab === 3}
                             phaseLabel={subTab === 2 ? 'faturada(s)' : 'recebida(s)'}
+                            receiveMode={subTab === 2}
+                            onReceiveSelectedGuides={handleOpenReceberLoteModal}
                         />
                     ) : loading ? (
                         Array.from({ length: 4 }).map((_, i) => (
@@ -1852,7 +1860,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             </Dialog>
 
             {/* Modal: Receber em Lote */}
-            <Dialog open={receberLoteModalOpen} onClose={() => !receberLoteLoading && setReceberLoteModalOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={receberLoteModalOpen} onClose={() => {
+                if (!receberLoteLoading) {
+                    setReceberLoteModalOpen(false);
+                    setPaymentIdsToReceive([]);
+                }
+            }} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar sx={{ bgcolor: '#10B981', width: 32, height: 32 }}>
@@ -1864,7 +1877,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            {selectedBilledPaymentIds.length} atendimento(s) das guias faturadas selecionadas serão marcados como recebidos.
+                            {paymentIdsToReceive.length} atendimento(s) das guias faturadas selecionadas serão marcados como recebidos.
                             O valor entra no caixa na data informada abaixo.
                         </Typography>
                         <TextField
@@ -1879,7 +1892,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setReceberLoteModalOpen(false)} disabled={receberLoteLoading}>
+                    <Button onClick={() => { setReceberLoteModalOpen(false); setPaymentIdsToReceive([]); }} disabled={receberLoteLoading}>
                         Cancelar
                     </Button>
                     <Button

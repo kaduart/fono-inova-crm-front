@@ -30,8 +30,8 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Calendar, ChevronDown, ChevronUp, Lock, Pencil, Send, X, Link2, Plus, Wand2 } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Calendar, CheckCircle, ChevronDown, ChevronUp, Lock, Pencil, Send, X, Link2, Plus, Wand2 } from 'lucide-react';
+import { Fragment, useEffect, useState } from 'react';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 import { autoLinkOrphanSessions, createGuideFromOrphan, encerrarGuia, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
 import { updateGuide } from '../../../services/insuranceGuideApi';
@@ -145,6 +145,9 @@ interface GuidePendingBillingSectionProps {
     readOnly?: boolean;
     /** Substantivo da fase exibida, ex.: "faturada(s)". Default: "para faturar". */
     phaseLabel?: string;
+    /** Contexto da aba Faturados: adapta linguagem e oferece baixa no drawer. */
+    receiveMode?: boolean;
+    onReceiveSelectedGuides?: (guideIds: string[]) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -267,6 +270,8 @@ interface PatientDrawerProps {
     convenios: Convenio[];
     readOnly?: boolean;
     phaseLabel?: string;
+    receiveMode?: boolean;
+    onReceiveSelectedGuides?: (guideIds: string[]) => void;
     onToggleGuide: (guideId: string) => void;
     onEditGuide: (guide: PendingGuide) => void;
     onCloseGuide: (guide: PendingGuide) => void;
@@ -298,7 +303,7 @@ function getBillingCycleReason(convenio: Convenio | undefined): string | null {
     }
 }
 
-function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar' }: PatientDrawerProps) {
+export function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar', receiveMode = false, onReceiveSelectedGuides }: PatientDrawerProps) {
     const total = guides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
     const sessions = guides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
     const sessionAverage = (() => {
@@ -311,6 +316,17 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
     })();
     const allSelected  = guides.every(g => selectedGuides.has(g.guideId));
     const someSelected = guides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
+    const selectedHere = guides.filter(g => selectedGuides.has(g.guideId));
+    const selectedSessions = selectedHere.reduce((sum, guide) => sum + (guide.pendingSessions || 0), 0);
+    const selectedValue = selectedHere.reduce((sum, guide) => sum + resolveGuidePendingTotal(guide), 0);
+
+    const toggleAllGuides = () => {
+        if (allSelected) {
+            guides.forEach(g => onToggleGuide(g.guideId));
+            return;
+        }
+        guides.filter(g => !selectedGuides.has(g.guideId)).forEach(g => onToggleGuide(g.guideId));
+    };
 
     const [expandedGuides, setExpandedGuides] = useState<Set<string>>(new Set());
 
@@ -364,9 +380,9 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                     {[
                         { label: 'guias', value: guides.length },
-                        { label: isPerGuide ? 'sessões pendentes' : 'sessões no mês', value: sessions, blue: true },
+                        { label: receiveMode ? 'sessões faturadas' : isPerGuide ? 'sessões pendentes' : 'sessões no mês', value: sessions, blue: true },
                         { label: 'valor/sessão', value: formatCurrency(sessionAverage), blue: true },
-                        { label: 'a faturar', value: formatCurrency(total), green: true },
+                        { label: receiveMode ? 'a receber' : 'a faturar', value: formatCurrency(total), green: true },
                     ].map(stat => (
                         <Box key={stat.label} sx={{
                             px: 1.5, py: 0.75,
@@ -398,7 +414,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                     <Checkbox
                         checked={allSelected}
                         indeterminate={someSelected}
-                        onChange={() => guides.forEach(g => onToggleGuide(g.guideId))}
+                        onChange={toggleAllGuides}
                         size="small"
                         sx={{ p: 0.5 }}
                     />
@@ -535,7 +551,12 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                             ))}
                                         </Box>
                                     )}
-                                    {cycleReason && (
+                                    {receiveMode && (
+                                        <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
+                                            Aguardando recebimento
+                                        </Typography>
+                                    )}
+                                    {!receiveMode && cycleReason && (
                                         <Typography fontSize="0.7rem" color="#94A3B8" fontStyle="italic">
                                             {cycleReason}
                                         </Typography>
@@ -573,7 +594,7 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                                     reaparecer num lote novo. Essa linha existe só pra deixar visível que
                                     a guia tem mais sessões do que a lista de pendentes mostra, sem precisar
                                     ir atrás do lote antigo pra confirmar. */}
-                                {!!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
+                                {!receiveMode && !!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: '#94A3B8', fontSize: '0.7rem', fontStyle: 'italic' }}>
                                         + {guide.alreadyBilledSessions} sessõe{guide.alreadyBilledSessions !== 1 ? 's' : ''} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
                                         {guide.lastBatchSentAt ? ` em ${formatDate(guide.lastBatchSentAt)}` : ''} (não aparece{guide.alreadyBilledSessions !== 1 ? 'm' : ''} na lista abaixo)
@@ -626,6 +647,43 @@ function PatientDrawer({ open, patientName, provider, guides, selectedGuides, co
                     );
                 })}
             </Box>
+
+            {/* Ação contextual: conclui a baixa sem obrigar o usuário a voltar à tela. */}
+            {receiveMode && !readOnly && (
+                <Box sx={{
+                    px: 2.5, py: 1.75,
+                    bgcolor: 'white',
+                    borderTop: '1px solid #CBD5E1',
+                    boxShadow: '0 -6px 18px rgba(15,23,42,0.08)'
+                }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                        <Box>
+                            <Typography fontSize="0.82rem" fontWeight={800} color="#0F172A">
+                                {selectedHere.length} guia{selectedHere.length !== 1 ? 's' : ''} · {selectedSessions} sessão{selectedSessions !== 1 ? 'ões' : ''}
+                            </Typography>
+                            <Typography fontSize="0.78rem" color="#047857" fontWeight={700}>
+                                {formatCurrency(selectedValue)} a receber
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            {selectedHere.length > 0 && (
+                                <Button size="small" variant="text" onClick={() => selectedHere.forEach(g => onToggleGuide(g.guideId))}>
+                                    Limpar
+                                </Button>
+                            )}
+                            <Button
+                                variant="contained"
+                                startIcon={<CheckCircle size={16} />}
+                                disabled={selectedHere.length === 0}
+                                onClick={() => onReceiveSelectedGuides?.(selectedHere.map(g => g.guideId))}
+                                sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, whiteSpace: 'nowrap' }}
+                            >
+                                Marcar como recebido
+                            </Button>
+                        </Box>
+                    </Box>
+                </Box>
+            )}
         </Drawer>
     );
 }
@@ -642,6 +700,8 @@ const GuidePendingBillingSection = ({
     month,
     readOnly = false,
     phaseLabel = 'para faturar',
+    receiveMode = false,
+    onReceiveSelectedGuides,
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
@@ -663,6 +723,21 @@ const GuidePendingBillingSection = ({
 
     const openDrawer = (name: string, provider: string, patientGuides: PendingGuide[]) =>
         setDrawerPatient({ name, provider, guides: patientGuides });
+
+    // Mantém o drawer sincronizado após uma baixa/refresh. Se todas as guias
+    // saírem do bucket billed, fecha o drawer em vez de exibir dados obsoletos.
+    useEffect(() => {
+        if (!drawerPatient) return;
+        const currentGuides = guides.filter(g =>
+            (g.insurance || 'outros') === drawerPatient.provider &&
+            (g.patient?.fullName || 'Paciente não identificado') === drawerPatient.name
+        );
+        if (currentGuides.length === 0) {
+            setDrawerPatient(null);
+        } else if (currentGuides !== drawerPatient.guides) {
+            setDrawerPatient(prev => prev ? { ...prev, guides: currentGuides } : null);
+        }
+    }, [guides]);
 
     const deriveProviderSummary = (providerGuides: PendingGuide[]) => {
         const total = providerGuides.reduce((sum, guide) => sum + resolveGuidePendingTotal(guide), 0);
@@ -1236,6 +1311,8 @@ const GuidePendingBillingSection = ({
                     onClose={() => setDrawerPatient(null)}
                     readOnly={readOnly}
                     phaseLabel={phaseLabel}
+                    receiveMode={receiveMode}
+                    onReceiveSelectedGuides={onReceiveSelectedGuides}
                 />
             )}
 
