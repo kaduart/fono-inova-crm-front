@@ -129,7 +129,13 @@ export function FiscalInvoiceHistory() {
     try {
       const response = await fiscalService.retryInvoice(id);
       if (response.success) {
-        toast.success('NFSe reenviada com sucesso');
+        if (response.data?.outcome === 'authorized') {
+          toast.success('NFS-e autorizada com sucesso');
+        } else if (response.data?.outcome === 'rejected') {
+          toast.error('A NFS-e foi rejeitada pelo provedor fiscal');
+        } else {
+          toast.warning('A tentativa continua pendente; a NFS-e ainda não foi autorizada');
+        }
         load();
       } else {
         toast.error(response.data?.message || 'Erro ao reenviar NFSe');
@@ -158,7 +164,7 @@ export function FiscalInvoiceHistory() {
   return (
     <Paper elevation={1} className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <Typography variant="h6" className="font-semibold">NFSe Emitidas</Typography>
+        <Typography variant="h6" className="font-semibold">Emissões de NFS-e</Typography>
         <Tooltip title="Atualizar">
           <IconButton onClick={load} size="small">
             <RefreshCw size={18} />
@@ -210,32 +216,24 @@ export function FiscalInvoiceHistory() {
                         </IconButton>
                       </Tooltip>
                     )}
-                    <Tooltip title="Baixar XML">
-                      <IconButton
-                        size="small"
-                        onClick={() => downloadFile(`/v2/fiscal/nfse/${invoice._id}/xml`, `nfse-${invoice.nNFSe || invoice._id}.xml`, 'xml')}
-                      >
-                        <FileDown size={18} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Baixar PDF">
-                      <IconButton
-                        size="small"
-                        onClick={() => downloadFile(`/v2/fiscal/nfse/${invoice._id}/pdf`, `nfse-${invoice.nNFSe || invoice._id}.pdf`, 'pdf')}
-                      >
-                        <FileText size={18} />
-                      </IconButton>
-                    </Tooltip>
                     {invoice.status === 'authorized' && (
-                      <Tooltip title="Cancelar NFSe">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => setCancelModal({ open: true, invoice })}
-                        >
-                          <Ban size={18} />
-                        </IconButton>
-                      </Tooltip>
+                      <>
+                        <Tooltip title="Baixar XML oficial">
+                          <IconButton size="small" onClick={() => downloadFile(`/v2/fiscal/nfse/${invoice._id}/xml`, `nfse-${invoice.nNFSe || invoice._id}.xml`, 'xml')}>
+                            <FileDown size={18} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Baixar DANFSe">
+                          <IconButton size="small" onClick={() => downloadFile(`/v2/fiscal/nfse/${invoice._id}/pdf`, `nfse-${invoice.nNFSe || invoice._id}.pdf`, 'pdf')}>
+                            <FileText size={18} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Cancelar NFSe">
+                          <IconButton size="small" color="error" onClick={() => setCancelModal({ open: true, invoice })}>
+                            <Ban size={18} />
+                          </IconButton>
+                        </Tooltip>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>

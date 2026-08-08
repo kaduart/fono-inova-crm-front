@@ -189,6 +189,45 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (!formData.date) baseErrors.date = "Data é obrigatória";
         if (!formData.time) baseErrors.time = "Hora é obrigatória";
 
+        if (formData.appointmentId) {
+            if (!selectedExistingAppointment) {
+                baseErrors.appointmentId = 'O agendamento selecionado não está mais disponível';
+            } else {
+                const appointmentPatientId = selectedExistingAppointment.patient?._id
+                    || selectedExistingAppointment.patientId;
+                const appointmentDoctorId = selectedExistingAppointment.doctor?._id
+                    || selectedExistingAppointment.doctorId;
+                const appointmentDate = selectedExistingAppointment.date instanceof Date
+                    ? selectedExistingAppointment.date.toISOString().split('T')[0]
+                    : String(selectedExistingAppointment.date).split('T')[0];
+
+                if (String(appointmentPatientId || '') !== String(realPatientId || '')) {
+                    baseErrors.appointmentId = 'O agendamento não pertence a este paciente';
+                } else if (String(appointmentDoctorId || '') !== String(formData.doctorId || '')) {
+                    baseErrors.appointmentId = 'O profissional deve ser o mesmo do agendamento selecionado';
+                } else if (normSpec(selectedExistingAppointment.specialty || '') !== normSpec(formData.sessionType || '')) {
+                    baseErrors.appointmentId = 'A especialidade deve ser a mesma do agendamento selecionado';
+                } else if (appointmentDate !== String(formData.date).split('T')[0]
+                    || selectedExistingAppointment.time !== formData.time) {
+                    baseErrors.appointmentId = 'A data e a hora devem corresponder ao agendamento selecionado';
+                }
+
+            }
+        }
+
+        const alreadyPaid = selectedExistingAppointment?.payment?.status === 'paid'
+            ? Number(selectedExistingAppointment.payment.amount || 0)
+            : 0;
+        const futureSessions = calculationMode === 'sessions'
+            ? toNumber(formData.totalSessions)
+            : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
+        const contractualSessions = futureSessions + selectedDebtIds.size;
+        const contractualValue = contractualSessions * Number(formData.sessionValue || 0);
+        const newPaymentTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        if (newPaymentTotal > Math.max(0, contractualValue - alreadyPaid) + 0.009) {
+            baseErrors.payments = `O valor informado ultrapassa o saldo do pacote. Máximo permitido agora: R$ ${Math.max(0, contractualValue - alreadyPaid).toFixed(2)}.`;
+        }
+
         // Validação de sessões por semana
         const sessionsPerWeek = Number(formData.sessionsPerWeek);
 
@@ -460,12 +499,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (name === 'appointmentId') {
             selectedAppointmentIdRef.current = value; // 🔗 ref sempre atualizado
             const selectedAppointment = appointments.find(a => (a._id || a.id) === value);
+            const selectedAppointmentDate = selectedAppointment?.date
+                ? (selectedAppointment.date instanceof Date
+                    ? selectedAppointment.date.toISOString().split('T')[0]
+                    : String(selectedAppointment.date).split('T')[0])
+                : undefined;
             setFormData(prev => ({
                 ...prev,
                 appointmentId: value,
                 ...(selectedAppointment && {
                     doctorId: selectedAppointment.doctor?._id || selectedAppointment.doctorId,
-                    date: selectedAppointment.date,
+                    date: selectedAppointmentDate,
                     time: selectedAppointment.time,
                     sessionType: selectedAppointment.specialty
                 })
@@ -607,7 +651,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!validateAll()) return;
         setIsLoading(true);
 
         // No handleSave, antes de gerar as datas:
@@ -774,37 +818,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
-    const validate = () => {
-        const newErrors: any = {};
-
-        if (isEditing) {
-            if (formData.totalSessions < 1 || formData.totalSessions > 100) {
-                newErrors.totalSessions = 'Número de sessões inválido';
-            }
-            setErrors(newErrors);
-            return Object.keys(newErrors).length === 0;
-        }
-
-        if (calculationMode === 'duration') {
-            if (formData.durationMonths < 1 || formData.durationMonths > 12) {
-                newErrors.durationMonths = 'Duração inválida';
-            }
-            if (formData.sessionsPerWeek < 1 || formData.sessionsPerWeek > 5) {
-                newErrors.sessionsPerWeek = 'Frequência inválida';
-            }
-        } else {
-            if (formData.totalSessions < 1 || formData.totalSessions > 100) {
-                newErrors.totalSessions = 'Número de sessões inválido';
-            }
-            if (formData.sessionsPerWeek < 1 || formData.sessionsPerWeek > 5) {
-                newErrors.sessionsPerWeek = 'Frequência inválida';
-            }
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
     const formatAppointmentDate = (dateString: string) => {
         if (!dateString) return 'Data inválida';
         const datePart = dateString.includes('T') ? dateString.split('T')[0] : dateString;
@@ -822,6 +835,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             description: ''
         }
     ]);
+    const lastSuggestedPaymentAmountRef = useRef(0);
 
     useEffect(() => {
         const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
@@ -927,11 +941,46 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         selectedDebtIds,
     ]);
 
+    const selectedExistingAppointment = useMemo(
+        () => appointments.find((appointment) =>
+            String(appointment._id || appointment.id) === String(formData.appointmentId)
+        ),
+        [appointments, formData.appointmentId]
+    );
+
+    const existingAppointmentPaidAmount = selectedExistingAppointment?.payment?.status === 'paid'
+        ? Number(selectedExistingAppointment.payment.amount || 0)
+        : 0;
+    const suggestedPaymentAmount = Math.max(0, totalValuePackage - existingAppointmentPaidAmount);
+    const newPaymentsTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const overpaymentAmount = Math.max(0, newPaymentsTotal - suggestedPaymentAmount);
+    const canSubmitForm = isFormValid && overpaymentAmount <= 0.009;
+
+    useEffect(() => {
+        if (formData.paymentType === 'per-session' || payments.length !== 1) return;
+
+        const currentAmount = Number(payments[0]?.amount || 0);
+        const wasAutomaticallySuggested = currentAmount === lastSuggestedPaymentAmountRef.current;
+        const canSuggest = currentAmount === 0 || wasAutomaticallySuggested;
+
+        if (canSuggest && currentAmount !== suggestedPaymentAmount) {
+            setPayments(previous => previous.map((payment, index) =>
+                index === 0 ? { ...payment, amount: suggestedPaymentAmount } : payment
+            ));
+        }
+        lastSuggestedPaymentAmountRef.current = suggestedPaymentAmount;
+    }, [formData.paymentType, payments, suggestedPaymentAmount]);
+
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-hidden">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden transition-all duration-300 flex flex-col">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 overflow-hidden">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="therapy-package-modal-title"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-all duration-300 flex flex-col"
+            >
                 {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-4 sm:p-6 text-white relative flex-shrink-0">
+                <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-4 py-3.5 sm:px-5 sm:py-4 text-white relative flex-shrink-0">
                     <button
                         onClick={onClose}
                         className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white hover:text-gray-200 transition-colors p-1"
@@ -944,23 +993,23 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             {initialData ? <Save className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
                         </div>
                         <div className="min-w-0">
-                            <h2 className="text-lg sm:text-2xl font-bold truncate">
+                            <h2 id="therapy-package-modal-title" className="text-lg sm:text-xl font-bold truncate">
                                 {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
                             </h2>
-                            <p className="text-emerald-100 mt-0.5 sm:mt-1 text-sm sm:text-base truncate">
+                            <p className="text-emerald-100 mt-0.5 text-sm truncate">
                                 {initialData ? 'Atualize as informações do pacote' : <>Criar pacote para <span className="font-bold uppercase">{patient.fullName}</span></>}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-4 sm:p-6 flex-1 overflow-y-auto min-h-0">
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div className="p-3 sm:p-5 flex-1 overflow-y-auto overscroll-contain min-h-0 text-sm [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:text-sm [&_select]:text-sm">
+                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                         {/* Coluna 1 - Configuração do Pacote */}
-                        <div className="xl:col-span-2 space-y-6">
+                        <div className="lg:col-span-3 space-y-4">
                             {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando (criação apenas) */}
                             {!isEditing && (v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
-                                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-2">
+                                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <TrendingUp className="w-4 h-4 text-rose-500" />
@@ -1058,10 +1107,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             )}
 
                             {/* Agendamento Existente — oculto quando há débitos selecionados ou em edição */}
-                            {!isEditing && selectedDebtIds.size === 0 && <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <Calendar className="w-5 h-5 text-blue-600" />
-                                    Agendamento Existente (Opcional)
+                            {!isEditing && selectedDebtIds.size === 0 && <div className={`p-4 rounded-xl border transition-colors ${selectedExistingAppointment ? 'bg-blue-50 border-blue-300' : 'bg-slate-50 border-slate-200'}`}>
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <span className={`w-7 h-7 rounded-full flex items-center justify-center ${selectedExistingAppointment ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>
+                                        <Calendar className="w-4 h-4" />
+                                    </span>
+                                    <span>
+                                        {selectedExistingAppointment ? 'Sessão existente incorporada' : 'Incorporar sessão existente'}
+                                        <span className="block text-xs font-normal text-slate-500">
+                                            {selectedExistingAppointment
+                                                ? 'Esta sessão será vinculada ao novo pacote.'
+                                                : 'Opcional — selecione uma sessão avulsa já agendada.'}
+                                        </span>
+                                    </span>
                                     <button
                                         type="button"
                                         onClick={() => { const pid = patient?.patientId || patient?._id; if (pid) fetchAppointmentsByPatient(pid); }}
@@ -1075,7 +1133,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     name="appointmentId"
                                     value={formData.appointmentId}
                                     onChange={handleChange}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                                 >
                                     <option value="">Selecione um agendamento</option>
                                     {appointments
@@ -1106,13 +1164,28 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     {appt.specialty || 'Tipo não especificado'}
                                                 </option>
                                             );
-                                        })}
+                                    })}
                                 </Select>
+                                {errors.appointmentId && (
+                                    <p className="mt-2 text-xs font-medium text-red-600">{errors.appointmentId}</p>
+                                )}
+                                {selectedExistingAppointment && (
+                                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-xs text-slate-600">
+                                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">1</span>
+                                        <div>
+                                            <p className="font-semibold text-slate-800">Sessão inicial do pacote</p>
+                                            <p className="mt-0.5">
+                                                {formatAppointmentDate(selectedExistingAppointment.date)} às {selectedExistingAppointment.time || 'horário não definido'}
+                                                {' · '}{selectedExistingAppointment.doctor?.fullName || 'Profissional não especificado'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>}
 
                             {/* Configuração do Pacote */}
-                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200">
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <Calculator className="w-5 h-5 text-emerald-600" />
                                     Configuração do Pacote
                                 </h3>
@@ -1130,7 +1203,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 max="100"
                                                 value={formData.totalSessions}
                                                 onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                             />
                                             {errors.totalSessions && (
                                                 <span className="text-red-500 text-sm">{errors.totalSessions}</span>
@@ -1140,7 +1213,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             <label className="form-label">
                                                 Frequência
                                             </label>
-                                            <div className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
+                                            <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
                                                 {frequencyInterval === 'biweekly' ? 'Quinzenal (a cada 15 dias)' : 'Semanal'}
                                             </div>
                                             <p className="text-xs text-gray-400 mt-1">Definida na criação do pacote, não editável.</p>
@@ -1156,7 +1229,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 <Select
                                                     value={calculationMode}
                                                     onChange={(e) => setCalculationMode(e.target.value)}
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                 >
                                                     <option value="sessions">Por número de sessões</option>
                                                     <option value="duration">Por duração (meses/semanas)</option>
@@ -1170,7 +1243,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 <Select
                                                     value={frequencyInterval}
                                                     onChange={(e) => setFrequencyInterval(e.target.value as 'weekly' | 'biweekly')}
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                 >
                                                     <option value="weekly">Semanal</option>
                                                     <option value="biweekly">Quinzenal (a cada 15 dias)</option>
@@ -1190,7 +1263,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                         max="100"
                                                         value={formData.totalSessions}
                                                         onChange={handleChange}
-                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                                     />
                                                     {errors.totalSessions && (
                                                         <span className="text-red-500 text-sm">{errors.totalSessions}</span>
@@ -1205,7 +1278,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                         name="sessionsPerWeek"
                                                         value={formData.sessionsPerWeek}
                                                         onChange={handleChange}
-                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                     >
                                                         <option value="">Selecione a frequência</option>
                                                         {FREQUENCY_OPTIONS.map(opt => (
@@ -1232,7 +1305,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                         name="durationMonths"
                                                         value={formData.durationMonths}
                                                         onChange={handleChange}
-                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                     >
                                                         <option value="">Escolha duração do pacote</option>
                                                         {DURATION_OPTIONS.map(opt => (
@@ -1254,7 +1327,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 name="sessionsPerWeek"
                                                 value={formData.sessionsPerWeek}
                                                 onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                             >
                                                 <option value="">Escolha quantidade de vez na {occurrenceLabel}</option>
                                                 {FREQUENCY_OPTIONS.map(opt => (
@@ -1275,16 +1348,26 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                     {/* Data e Hora da Primeira Sessão — apenas na criação */}
                     {!isEditing && (
-                        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border border-purple-100">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-purple-600" />
-                                Primeira Sessão
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="text-base font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                                <span className={`w-7 h-7 rounded-full flex items-center justify-center ${selectedExistingAppointment ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    <Clock className="w-4 h-4" />
+                                </span>
+                                {selectedExistingAppointment ? 'Sessão inicial selecionada' : 'Sessão inicial do pacote'}
                             </h3>
+                            <p className="mb-3 ml-9 text-xs text-slate-500">
+                                {selectedExistingAppointment
+                                    ? 'Os dados abaixo pertencem ao agendamento existente e serão usados como a primeira sessão do pacote.'
+                                    : 'Defina quando o acompanhamento será iniciado.'}
+                            </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="form-label">Data *</label>
+                                        <label className="form-label">
+                                            {selectedExistingAppointment ? 'Data do agendamento selecionado' : 'Data *'}
+                                        </label>
                                         <DatePicker
                                             selected={formData.date ? buildLocalDateOnly(formData.date) : null}
+                                            disabled={Boolean(selectedExistingAppointment)}
                                             onChange={(date: Date | null) => {
                                                 if (!date) return;
                                                 const formattedDate = date.toISOString().split('T')[0];
@@ -1293,7 +1376,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             customInput={
                                                 <ReactInputMask
                                                     mask="99/99/9999"
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                                    className={`w-full p-2 border rounded-lg ${selectedExistingAppointment
+                                                        ? 'border-blue-200 bg-blue-50 text-blue-900 cursor-not-allowed'
+                                                        : 'border-gray-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
+                                                        }`}
                                                 />
                                             }
                                             placeholderText="dd/MM/yyyy"
@@ -1303,9 +1389,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     </div>
 
                                     <div>
-                                        <label className="form-label">Hora *</label>
+                                        <label className="form-label">
+                                            {selectedExistingAppointment ? 'Hora do agendamento selecionado' : 'Hora *'}
+                                        </label>
                                         <DatePicker
                                             selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
+                                            disabled={Boolean(selectedExistingAppointment)}
                                             onChange={(date: Date | null) => {
                                                 if (!date) return;
                                                 const formattedTime = date.toTimeString().slice(0, 5);
@@ -1320,14 +1409,23 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             customInput={
                                                 <ReactInputMask
                                                     mask="99:99"
-                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                                    className={`w-full p-2 border rounded-lg ${selectedExistingAppointment
+                                                        ? 'border-blue-200 bg-blue-50 text-blue-900 cursor-not-allowed'
+                                                        : 'border-gray-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
+                                                        }`}
                                                 />
                                             }
                                         />
                                     </div>
                                 </div>
+                            {selectedExistingAppointment && (
+                                <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">1</span>
+                                    Esta é a primeira sessão do pacote. As próximas serão calculadas pela frequência escolhida.
+                                </p>
+                            )}
                                 {/* Checkbox Sessões no Mesmo Dia */}
-                                <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
+                                <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
@@ -1346,7 +1444,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                 {sameDaySessions && (
                                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-100 mt-4">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                             <Clock className="w-5 h-5 text-orange-600" />
                                             Horários do Dia
                                         </h3>
@@ -1374,7 +1472,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             customInput={
                                                                 <ReactInputMask
                                                                     mask="99:99"
-                                                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
                                                                 />
                                                             }
                                                         />
@@ -1397,7 +1495,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 <button
                                                     type="button"
                                                     onClick={() => setDailySessionTimes([...dailySessionTimes, ''])}
-                                                    className="w-full py-3 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:bg-orange-50 transition-colors flex items-center justify-center gap-2 font-medium"
+                                                    className="w-full py-2 border-2 border-dashed border-orange-300 rounded-lg text-sm text-orange-600 hover:bg-orange-50 transition-colors flex items-center justify-center gap-2 font-medium"
                                                 >
                                                     <Plus className="w-5 h-5" />
                                                     Adicionar Horário
@@ -1412,7 +1510,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                 {!sameDaySessions && formData.sessionsPerWeek > 1 && (
                                     <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100 mt-4">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                             <Calendar className="w-5 h-5 text-emerald-600" />
                                             Dias e Horários Adicionais da Semana
                                         </h3>
@@ -1428,7 +1526,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     <Select
                                                         value={slot.day}
                                                         onChange={(e) => updateSlot(index, 'day', e.target.value)}
-                                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                     >
                                                         <option value="">Selecione o dia</option>
                                                         <option value="monday">Segunda-feira</option>
@@ -1458,7 +1556,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                         customInput={
                                                             <ReactInputMask
                                                                 mask="99:99"
-                                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                                             />
                                                         }
                                                     />
@@ -1494,9 +1592,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
                     )}
 
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-xl border border-amber-100">
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
 
-                                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
                                     <User className="w-5 h-5 text-blue-600" />
                                     Profissional e Sessão
                                 </h3>
@@ -1510,7 +1608,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             name="doctorId"
                                             value={formData.doctorId}
                                             onChange={handleChange}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
                                         >
                                             <option value="">Escolha um profissional</option>
                                             {doctors.map((doc) => (
@@ -1531,7 +1629,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 name="sessionType"
                                                 value={formData.sessionType}
                                                 onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
                                             >
                                                 <option value="">Escolha um tipo de terapia</option>
                                                 {THERAPY_TYPES.map((option) => (
@@ -1550,7 +1648,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 name="paymentType"
                                                 value={formData.paymentType}
                                                 onChange={handleChange}
-                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
                                             >
                                                 {PAYMENT_TYPES.map((option) => (
                                                     <option key={option.value} value={option.value}>
@@ -1565,11 +1663,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </div>
 
                         {/* Coluna 2 - Informações e Resumo */}
-                        <div className="space-y-6">
+                        <div className="lg:col-span-2 space-y-4">
 
                             {/* Informações Financeiras */}
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-green-600" />
                                     Informações Financeiras
                                 </h3>
@@ -1582,7 +1680,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             onChange={handleChange}
                                             min="0"
                                             step="0.01"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
                                         />
 
                                         {/* 🔥 AVISO para per-session */}
@@ -1631,13 +1729,18 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                         {/* Valor */}
                                                         <div>
                                                             <label className="block text-xs font-medium text-gray-600 mb-1">
-                                                                Valor (R$)*
+                                                                Valor pago agora (R$) *
                                                             </label>
                                                             <InputCurrency
                                                                 value={payment.amount}
                                                                 onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
                                                                 className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                             />
+                                                            {index === 0 && payments.length === 1 && (
+                                                                <p className="mt-1 text-[10px] leading-tight text-slate-400">
+                                                                    Saldo sugerido do pacote; altere se for dividir o pagamento.
+                                                                </p>
+                                                            )}
                                                         </div>
 
                                                         {/* Data */}
@@ -1686,6 +1789,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 </div>
                                             ))}
 
+                                            {errors.payments && (
+                                                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                                                    {errors.payments}
+                                                </p>
+                                            )}
+                                            {overpaymentAmount > 0.009 && (
+                                                <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                                    <p className="font-semibold">Valor acima do permitido</p>
+                                                    <p className="mt-0.5">
+                                                        Reduza R$ {overpaymentAmount.toFixed(2)}. O máximo para pagar agora é R$ {suggestedPaymentAmount.toFixed(2)}.
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             {/* Total Pago */}
                                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                                                 <div className="flex justify-between items-center">
@@ -1701,8 +1818,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
 
                             {/* Resumo do Pacote */}
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <Package className="w-5 h-5 text-blue-600" />
                                     Resumo do Pacote
                                 </h3>
@@ -1740,8 +1857,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
 
                             {/* Resumo de Pagamento */}
-                            <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-5 rounded-xl border border-gray-200">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <TrendingUp className="w-5 h-5 text-gray-600" />
                                     {formData.paymentType === 'per-session' ? 'Forma de Pagamento' : 'Resumo de Pagamento'}
                                 </h3>
@@ -1774,6 +1891,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     </span>
                                                 </div>
                                             </div>
+                                            {overpaymentAmount > 0.009 && (
+                                                <div className="flex justify-between items-center border-t border-red-200 pt-2 text-red-600">
+                                                    <span className="text-sm font-semibold">Valor excedente:</span>
+                                                    <span className="text-sm font-bold">R$ {overpaymentAmount.toFixed(2)}</span>
+                                                </div>
+                                            )}
                                         </>
                                     )}
                                 </div>
@@ -1783,9 +1906,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center border-t border-gray-200 flex-shrink-0">
+                <div className="bg-gray-50 px-4 sm:px-5 py-3 flex justify-between items-center border-t border-gray-200 flex-shrink-0">
                     <div className="text-sm text-gray-500">
-                        {!isFormValid && "Preencha todos os campos obrigatórios (*)"}
+                        {!isFormValid
+                            ? "Preencha todos os campos obrigatórios (*)"
+                            : overpaymentAmount > 0.009
+                                ? `Pagamento excede o pacote em R$ ${overpaymentAmount.toFixed(2)}`
+                                : null}
                     </div>
 
                     <div className="flex gap-3">
@@ -1798,8 +1925,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={!isFormValid || isLoading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!isFormValid || isLoading
+                            disabled={!canSubmitForm || isLoading}
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!canSubmitForm || isLoading
                                 ? 'bg-gray-400 cursor-not-allowed text-white'
                                 : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
                                 }`}

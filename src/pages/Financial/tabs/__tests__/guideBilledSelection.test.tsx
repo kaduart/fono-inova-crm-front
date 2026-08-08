@@ -60,9 +60,10 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
                 onEditGuide={vi.fn()}
                 onCloseGuide={vi.fn()}
                 onClose={vi.fn()}
-                receiveMode
+                drawerAction="receive"
+                phase="billed"
                 phaseLabel="faturada(s)"
-                onReceiveSelectedGuides={onReceiveSelectedGuides}
+                onDrawerAction={onReceiveSelectedGuides}
             />
         );
 
@@ -73,5 +74,60 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /marcar como recebido/i }));
         expect(onReceiveSelectedGuides).toHaveBeenCalledWith(['guide-billed']);
+    });
+
+    it('oferece envio de documentos dentro do drawer A Faturar', () => {
+        const onSendDocuments = vi.fn();
+        render(
+            <PatientDrawer
+                open
+                patientName="Paciente Teste"
+                provider="unimed-anapolis"
+                guides={[billedGuide]}
+                selectedGuides={new Set(['guide-billed'])}
+                convenios={[]}
+                onToggleGuide={vi.fn()}
+                onEditGuide={vi.fn()}
+                onCloseGuide={vi.fn()}
+                onClose={vi.fn()}
+                drawerAction="send_documents"
+                phase="pendingBilling"
+                phaseLabel="para faturar"
+                onDrawerAction={onSendDocuments}
+            />
+        );
+
+        expect(screen.getByText('A faturar · documentos pendentes')).toBeInTheDocument();
+        expect(screen.getByText('sessões a faturar')).toBeInTheDocument();
+        expect(screen.getByText('Próxima ação: enviar documentos')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /enviar documentos/i }));
+        expect(onSendDocuments).toHaveBeenCalledWith(['guide-billed']);
+    });
+
+    it('padroniza Aguardando Faturamento com cards completos e ação no drawer', () => {
+        const onBill = vi.fn();
+        render(
+            <PatientDrawer
+                open
+                patientName="Paciente Teste"
+                provider="unimed-anapolis"
+                guides={[billedGuide]}
+                selectedGuides={new Set(['guide-billed'])}
+                convenios={[]}
+                onToggleGuide={vi.fn()}
+                onEditGuide={vi.fn()}
+                onCloseGuide={vi.fn()}
+                onClose={vi.fn()}
+                drawerAction="bill"
+                phase="documentationSent"
+                phaseLabel="documentada(s)"
+                onDrawerAction={onBill}
+            />
+        );
+
+        expect(screen.getByText('Documentos enviados · pronto para faturar')).toBeInTheDocument();
+        expect(screen.getByText('Próxima ação: criar faturamento')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /faturar guias/i }));
+        expect(onBill).toHaveBeenCalledWith(['guide-billed']);
     });
 });

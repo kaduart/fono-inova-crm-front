@@ -14,6 +14,29 @@ export interface FiscalInvoiceEmitPayload {
   valorLiquido?: number;
   vISSQN?: number;
   dCompet?: string;
+  fiscalTaker?: FiscalTakerPayload;
+}
+
+export interface FiscalTakerPayload {
+  type: 'patient' | 'responsible' | 'company';
+  name: string;
+  cpf?: string;
+  cnpj?: string;
+  address: {
+    street: string;
+    number: string;
+    complement?: string;
+    district: string;
+    municipioIBGE: string;
+    zipCode: string;
+  };
+}
+
+export interface FiscalServiceOption {
+  key: string;
+  label: string;
+  serviceCode: string;
+  description: string;
 }
 
 export interface FiscalProfilePayload {
@@ -94,6 +117,11 @@ export const fiscalService = {
 
   async emitFromPayment(paymentId: string, payload?: Partial<FiscalInvoiceEmitPayload>): Promise<FiscalInvoiceResponse> {
     const { data } = await API.post('/v2/fiscal/nfse/emit-from-payment', { paymentId, ...payload });
+    return data;
+  },
+
+  async getPaymentContext(paymentId: string): Promise<any> {
+    const { data } = await API.get(`/v2/fiscal/nfse/payment/${paymentId}/context`);
     return data;
   },
 

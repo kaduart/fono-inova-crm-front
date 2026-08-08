@@ -1082,7 +1082,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         switch (activeTab) {
             case 'details':
                 return (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         {/* 🔔 AVISO DE PRÉ-AGENDAMENTO */}
                         {event?.__isPreAgendamento && (
                             <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border-2 border-orange-200">
@@ -1158,47 +1158,47 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <div className="flex justify-end">
                                 <button
                                     onClick={() => setIsBalanceModalOpen(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-md"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors text-sm font-medium"
                                 >
-                                    <DollarSign size={18} />
+                                    <DollarSign size={15} />
                                     <span>Ver Conta Corrente</span>
                                 </button>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl border border-green-100">
                                 <div className="flex items-center gap-3 mb-2">
                                     <div className="p-2 bg-green-100 rounded-lg">
                                         <User className="w-4 h-4 text-green-600" />
                                     </div>
                                     <h3 className="text-sm font-medium text-gray-700">Paciente</h3>
                                 </div>
-                                <p className="text-lg font-semibold text-gray-900">{translatedEvent.patient?.fullName || 'Não informado'}</p>
+                                <p className="text-base font-semibold text-gray-900">{translatedEvent.patient?.fullName || 'Não informado'}</p>
                             </div>
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-3 rounded-xl border border-blue-100">
                                 <div className="flex items-center gap-3 mb-2">
                                     <div className="p-2 bg-blue-100 rounded-lg">
                                         <Stethoscope className="w-4 h-4 text-blue-600" />
                                     </div>
                                     <h3 className="text-sm font-medium text-gray-700">Profissional</h3>
                                 </div>
-                                <p className="text-lg font-semibold text-gray-900">{translatedEvent.doctor?.fullName || 'Não informado'}</p>
+                                <p className="text-base font-semibold text-gray-900">{translatedEvent.doctor?.fullName || 'Não informado'}</p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-100">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-3 rounded-xl border border-purple-100">
                                 <div className="flex items-center gap-3 mb-2">
                                     <div className="p-2 bg-purple-100 rounded-lg">
                                         <Calendar className="w-4 h-4 text-purple-600" />
                                     </div>
                                     <h3 className="text-sm font-medium text-gray-700">Data e Hora</h3>
                                 </div>
-                                <p className="text-lg font-semibold text-gray-900">{translatedEvent.formattedDate}</p>
+                                <p className="text-base font-semibold text-gray-900">{translatedEvent.formattedDate}</p>
                             </div>
 
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-xl border border-amber-100">
                                 <div className="flex items-center gap-3 mb-2">
                                     <div className="p-2 bg-amber-100 rounded-lg">
                                         <Clock className="w-4 h-4 text-amber-600" />
@@ -1210,7 +1210,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </span>
                             </div>
 
-                            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-4 rounded-xl border border-teal-100">
+                            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-3 rounded-xl border border-teal-100">
                                 <div className="flex items-center gap-3 mb-2">
                                     <div className="p-2 bg-teal-100 rounded-lg">
                                         <ClipboardCheck className="w-4 h-4 text-teal-600" />
@@ -1223,7 +1223,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
+                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-3 rounded-xl border border-gray-200">
                             <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                                 <ClipboardCheck className="w-4 h-4 text-gray-600" />
                                 Motivo da Consulta
@@ -1338,7 +1338,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
             case 'confirm':
                 return (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                         {/* Toda transição desta aba completa o atendimento direto — ver nota
                             "UNIFICADO (2026-07-10)" no topo do arquivo. */}
                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
@@ -1413,6 +1413,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
 
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-3 rounded-xl border border-gray-200">
                             <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1.5 flex items-center gap-2">
                                 <ClipboardCheck className="w-4 h-4 text-gray-600" />
@@ -1445,22 +1446,24 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </div>
                             </div>
                         )}
+                        </div>
 
                         {/* 🏦 TIPO DE COBRANÇA */}
                         {permissions.canSeeFinancial && (
                             <div className="bg-white rounded-xl border border-gray-200 p-3">
                                 <div className="flex items-center gap-1.5 mb-3">
                                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cobrança</span>
+                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Forma de faturamento</span>
                                 </div>
-                                <div className="bg-gray-50 rounded-lg border border-gray-200 p-1 flex gap-1 mb-3">
+                                <div className="bg-slate-100 rounded-xl border border-slate-200 p-1 flex gap-1 mb-3">
                                     <button
                                         type="button"
                                         onClick={() => setBillingType('particular')}
-                                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                        aria-pressed={billingType === 'particular'}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
                                             billingType === 'particular'
-                                                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                                                : 'text-gray-500 hover:text-gray-700'
+                                                ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-700/20'
+                                                : 'text-slate-500 hover:bg-white hover:text-slate-700'
                                         }`}
                                     >
                                         Particular
@@ -1468,10 +1471,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setBillingType('convenio')}
-                                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                        aria-pressed={billingType === 'convenio'}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
                                             billingType === 'convenio'
-                                                ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700'
+                                                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-700/20'
+                                                : 'text-slate-500 hover:bg-white hover:text-slate-700'
                                         }`}
                                     >
                                         Convênio
@@ -1480,10 +1484,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => setBillingType('liminar')}
-                                            className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                            aria-pressed={billingType === 'liminar'}
+                                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
                                                 billingType === 'liminar'
-                                                    ? 'bg-purple-600 text-white shadow-sm'
-                                                    : 'text-gray-500 hover:text-gray-700'
+                                                    ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-700/20'
+                                                    : 'text-slate-500 hover:bg-white hover:text-slate-700'
                                             }`}
                                         >
                                             Liminar
@@ -1604,8 +1609,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 </button>
                                             )}
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <div>
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                            <div className="md:col-span-4">
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Valor (R$) *</label>
                                                 <InputCurrency
                                                     name={`payment-amount-${payment.id}`}
@@ -1614,7 +1619,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     className="w-full p-2 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                 />
                                             </div>
-                                            <div>
+                                            <div className="md:col-span-3">
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Data *</label>
                                                 <DatePicker
                                                     selected={payment.date ? buildLocalDateOnly(payment.date) : null}
@@ -1632,7 +1637,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     dateFormat="dd/MM/yyyy"
                                                 />
                                             </div>
-                                            <div className="md:col-span-2">
+                                            <div className="md:col-span-5">
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pagamento *</label>
                                                 <select
                                                     value={payment.method}
@@ -1664,6 +1669,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         )}
 
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                         {/* 💰 SEÇÃO DE SALDO DEVEDOR — oculta para convênio/liminar e sem permission */}
                         {permissions.canSeeDebt && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
@@ -1673,33 +1679,30 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             !!(event?.insuranceProvider) ||
                             !!(insuranceProvider)
                         ) && (
-                            <div className="bg-white rounded-xl border border-gray-200 p-3">
-                                <div className="flex items-center gap-2 mb-3">
+                            <div className={`rounded-xl border p-3 transition-colors ${addToBalance ? 'bg-amber-50/60 border-amber-200' : 'bg-white border-gray-200'}`}>
+                                <div className="flex items-center gap-2">
                                     <div className="p-1.5 bg-amber-100 rounded-lg">
                                         <DollarSign className="w-4 h-4 text-amber-600" />
                                     </div>
-                                    <div>
+                                    <div className="min-w-0 flex-1">
                                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conta Corrente do Paciente</h3>
-                                        <p className="text-xs text-gray-500">Registre se o paciente usará a sessão mas pagará depois</p>
+                                        <p className="text-[11px] text-gray-500">Adicionar esta sessão ao saldo devedor</p>
                                     </div>
-                                </div>
-                                
-                                <div className="flex items-center p-2.5 bg-gray-50 rounded-lg border border-gray-200 mb-3">
-                                    <input
+                                    <label className="relative inline-flex cursor-pointer items-center shrink-0">
+                                      <input
                                         id="add-to-balance"
                                         type="checkbox"
-                                        className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
+                                        className="peer sr-only"
                                         checked={addToBalance}
                                         onChange={(e) => setAddToBalance(e.target.checked)}
-                                    />
-                                    <label htmlFor="add-to-balance" className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
-                                        <span className="font-semibold text-amber-700">Adicionar ao Saldo Devedor</span>
-                                        <span className="block text-xs text-gray-500">Paciente usará a sessão agora e pagará posteriormente</span>
+                                      />
+                                      <span className="h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-amber-500 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
                                     </label>
                                 </div>
                                 
                                 {addToBalance && (
-                                    <div className="space-y-3 animate-fadeIn">
+                                    <div className="mt-3 space-y-3 animate-fadeIn rounded-lg border border-amber-200 bg-white p-3">
+                                        <p className="text-xs text-amber-800">O paciente será atendido agora e pagará esta sessão posteriormente.</p>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1737,35 +1740,29 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                         {/* 🏦 REMUNERAÇÃO DO PROFISSIONAL */}
                         {permissions.canSeeFinancial && !event?.__isPreAgendamento && (
-                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-4">
-                                <div className="flex items-center gap-2 mb-3">
+                            <div className={`rounded-xl border p-3 transition-colors ${excludeFromProfessionalPayment ? 'bg-indigo-50/70 border-indigo-200' : 'bg-white border-gray-200'}`}>
+                                <div className="flex items-center gap-2">
                                     <div className="p-1.5 bg-indigo-100 rounded-lg">
                                         <Wallet className="w-4 h-4 text-indigo-600" />
                                     </div>
-                                    <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">
-                                        Remuneração do Profissional
-                                    </h3>
-                                </div>
-
-                                <label className="flex items-start gap-3 cursor-pointer p-3 bg-white/60 rounded-lg border border-indigo-100 hover:bg-white/80 transition-colors">
-                                    <input
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">Não remunerar profissional</h3>
+                                        <p className="text-[11px] text-gray-500">Desativar comissão somente neste atendimento</p>
+                                    </div>
+                                    <label className="relative inline-flex cursor-pointer items-center shrink-0">
+                                      <input
                                         type="checkbox"
                                         checked={excludeFromProfessionalPayment}
                                         onChange={(e) => setExcludeFromProfessionalPayment(e.target.checked)}
-                                        className="mt-0.5 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded shrink-0"
-                                    />
-                                    <div className="flex-1">
-                                        <span className="text-sm font-semibold text-gray-800 block">
-                                            Não remunerar o profissional por este atendimento
-                                        </span>
-                                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                                            O atendimento continua faturado e recebido pela clínica, mas não gera comissão ao profissional.
-                                        </p>
-                                    </div>
+                                        className="peer sr-only"
+                                      />
+                                      <span className="h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-indigo-600 peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400 peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
                                 </label>
+                                </div>
 
                                 {excludeFromProfessionalPayment && (
-                                    <div className="mt-3">
+                                    <div className="mt-3 rounded-lg border border-indigo-200 bg-white p-3">
+                                        <p className="mb-2 text-xs text-indigo-800">A clínica mantém o faturamento, mas este atendimento não gerará comissão.</p>
                                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
                                             Motivo *
                                         </label>
@@ -1780,6 +1777,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 )}
                             </div>
                         )}
+                        </div>
                     </div>
                 );
 
@@ -1840,29 +1838,20 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
             case 'edit':
                 return (
-                    <div className="space-y-6">
-                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-400 p-4 rounded-xl">
-                            <div className="flex items-start gap-3">
-                                <PencilIcon className="h-5 w-5 text-amber-600 mt-0.5" />
-                                <div>
-                                    <p className="text-sm text-amber-800 font-medium">
-                                        Edite os detalhes deste agendamento.
-                                    </p>
-                                    <p className="text-xs text-amber-600 mt-1">
-                                        As alterações serão salvas imediatamente.
-                                    </p>
-                                </div>
-                            </div>
+                    <div className="space-y-4 [&_label]:text-xs [&_label]:font-medium [&_label]:text-slate-600 [&_input]:p-2.5 [&_select]:p-2.5 [&_textarea]:p-2.5 [&_.react-datepicker-wrapper]:w-full">
+                        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            <PencilIcon className="h-4 w-4 shrink-0 text-amber-600" />
+                            <span><strong>Modo de edição:</strong> revise os campos e confirme em “Salvar alterações”.</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-4">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <User className="w-4 h-4 text-green-600" />
                                     Paciente <span className="text-red-500">(não pode ser alterado)</span>
                                 </label>
                                 {/* 🚫 BLOQUEADO: Paciente não pode ser alterado em agendamento existente */}
-                                <div className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 flex items-center gap-3">
+                                <div className="w-full min-h-[42px] px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 flex items-center gap-2">
                                     <i className="fas fa-user-lock text-gray-500"></i>
                                     <span className="font-medium">
                                         {patients.find(p => p._id === editedAppointment.patientId)?.fullName || 
@@ -1870,13 +1859,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                          'Paciente não encontrado'}
                                     </span>
                                 </div>
-                                <p className="text-xs text-amber-600 mt-1">
-                                    <i className="fas fa-exclamation-triangle mr-1"></i>
-                                    Para trocar de paciente, cancele este agendamento e crie um novo.
+                                <p className="text-[11px] text-slate-500 mt-1">
+                                    Para trocar o paciente, é necessário criar outro agendamento.
                                 </p>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Stethoscope className="w-4 h-4 text-green-600" />
                                     Profissional *
@@ -1884,7 +1872,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <Select
                                     value={editedAppointment.doctorId || ''}
                                     onChange={(e) => handleFieldChange('doctorId', e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                     disabled={loadingDoctors}
                                 >
                                     <option value="">
@@ -1909,7 +1897,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 ) : null}
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-green-600" />
                                     Data *
@@ -1923,7 +1911,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     customInput={
                                         <ReactInputMask
                                             mask="99/99/9999"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                            className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                         />
                                     }
                                     placeholderText='dd/MM/yyyy'
@@ -1932,7 +1920,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 />
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-green-600" />
                                     Hora *
@@ -1951,7 +1939,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     customInput={
                                         <ReactInputMask
                                             mask="99:99"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                            className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                         />
                                     }
                                 />
@@ -1959,15 +1947,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </div>
 
                         {/* 🆕 NOVO: Tipo de Serviço e Especialidade */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Tipo de Serviço
                                 </label>
                                 <Select
                                     value={serviceType}
                                     onChange={(e) => setServiceType(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
                                 >
                                     <option value="alignment">Alinhamento</option>
                                     <option value="consultation">Consulta</option>
@@ -1981,14 +1969,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </Select>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Especialidade
                                 </label>
                                 <Select
                                     value={editedAppointment.sessionType}
                                     onChange={(e) => handleFieldChange('sessionType', e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
                                 >
                                     <option value="fonoaudiologia">Fonoaudiologia</option>
                                     <option value="psicologia">Psicologia</option>
@@ -2003,7 +1991,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                 <ClipboardCheck className="w-4 h-4 text-green-600" />
                                 Motivo da Consulta
@@ -2011,21 +1999,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <textarea
                                 value={editedAppointment.reason}
                                 onChange={(e) => handleFieldChange('reason', e.target.value)}
-                                rows={3}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                rows={2}
+                                className="w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200 resize-y"
                                 placeholder="Descreva o motivo da consulta..."
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Status Operacional
                                 </label>
                                 <select
                                     value={editedAppointment.operationalStatus}
                                     onChange={(e) => handleFieldChange('operationalStatus', e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
                                     {Object.entries(STATUS_VISUAL_CONFIG.operational).map(([key, config]) => (
                                         <option key={key} value={key}>
@@ -2035,14 +2023,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </select>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Status Clínico
                                 </label>
                                 <select
                                     value={editedAppointment.clinicalStatus}
                                     onChange={(e) => handleFieldChange('clinicalStatus', e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
                                     {Object.entries(STATUS_VISUAL_CONFIG.clinical).map(([key, config]) => (
                                         <option key={key} value={key}>
@@ -2054,15 +2042,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </div>
 
                         {permissions.canSeeFinancial && (
-                            <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 p-4 space-y-3">
-                                {/* Header */}
-                                <div className="flex items-center gap-1.5">
+                            <div className="bg-emerald-50/50 rounded-xl border border-emerald-100 p-3 space-y-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="flex items-center gap-1.5 sm:w-40 shrink-0">
                                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cobrança</span>
+                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Faturamento</span>
                                 </div>
 
-                                {/* Toggle segmentado */}
-                                <div className="bg-white rounded-xl border border-gray-200 p-1 flex gap-1">
+                                <div className="flex-1 bg-white rounded-lg border border-gray-200 p-1 flex gap-1">
                                     <button type="button" onClick={() => setBillingType('particular')}
                                         className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                             billingType === 'particular'
@@ -2079,6 +2066,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         }`}>
                                         Convênio
                                     </button>
+                                </div>
                                 </div>
 
                                 {billingType === 'particular' ? (
@@ -2327,8 +2315,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const tabConfig = getTabConfig(activeTab);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row md:min-h-[600px] max-h-[90vh] overflow-hidden border-2 border-gray-200 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full flex flex-col md:flex-row max-h-[88vh] overflow-hidden border border-gray-200 relative text-sm">
                 
                 {/* 🔄 OVERLAY DE PROCESSAMENTO */}
                 {processingState?.isProcessing && (
@@ -2378,8 +2366,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Abas laterais - Desktop */}
-                <div className="hidden md:flex w-1/4 bg-gradient-to-b from-green-50 via-emerald-50 to-cyan-50 rounded-l-3xl p-6 flex-col border-r-2 border-green-100">
-                    <div className="space-y-3">
+                <div className="hidden md:flex w-52 shrink-0 bg-gradient-to-b from-green-50 via-emerald-50 to-cyan-50 rounded-l-2xl p-4 flex-col border-r border-green-100">
+                    <div className="space-y-2">
                         {availableTabs.map((tab) => {
                             const config = getTabConfig(tab);
                             const Icon = config.icon;
@@ -2387,9 +2375,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`w-full text-left p-4 rounded-xl transition-all duration-200 flex items-center gap-3 font-semibold ${activeTab === tab
-                                            ? 'bg-gradient-to-r from-green-600 to-cyan-500 text-white shadow-lg scale-105'
-                                            : 'hover:bg-white/70 text-gray-700 hover:text-gray-900 hover:scale-102'
+                                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-2.5 font-semibold ${activeTab === tab
+                                            ? 'bg-gradient-to-r from-green-600 to-cyan-500 text-white shadow-md'
+                                            : 'hover:bg-white/70 text-gray-700 hover:text-gray-900'
                                         }`}
                                 >
                                     <Icon size={20} />
@@ -2424,27 +2412,27 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Conteúdo principal */}
-                <div className="flex-1 p-4 md:p-8 flex flex-col overflow-hidden">
+                <div className="flex-1 p-4 md:p-5 flex flex-col overflow-hidden min-w-0">
                     {/* Header Desktop */}
-                    <div className="hidden md:flex items-center gap-4 mb-6 pb-6 border-b-2 border-gray-200">
-                        <div className="p-3 bg-gradient-to-br from-green-100 to-cyan-100 rounded-2xl shadow-lg">
-                            <tabConfig.icon className="w-7 h-7 text-green-600" />
+                    <div className="hidden md:flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
+                        <div className="p-2.5 bg-gradient-to-br from-green-100 to-cyan-100 rounded-xl shadow-sm">
+                            <tabConfig.icon className="w-6 h-6 text-green-600" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-900">{tabConfig.title}</h2>
-                            <p className="text-gray-600">{tabConfig.description}</p>
+                            <h2 className="text-xl font-bold text-gray-900">{tabConfig.title}</h2>
+                            <p className="text-sm text-gray-600">{tabConfig.description}</p>
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto">
+                    <div className="flex-1 overflow-y-auto overscroll-contain pr-1">
                         {renderTabContent()}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-6 border-t-2 border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
                         {renderActionButton()}
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-bold"
+                            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
                         >
                             Fechar
                         </button>

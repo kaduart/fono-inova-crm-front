@@ -241,6 +241,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // Estados para seleção em lote
     const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
     const [selectedGuides, setSelectedGuides] = useState<Set<string>>(new Set());
+
+    // Seleção é contextual à fase. Carregar IDs entre abas deixa a barra e o
+    // command side divergirem sobre quais guias estão sendo operadas.
+    useEffect(() => {
+        setSelectedGuides(new Set());
+        setSelectedPayments(new Set());
+    }, [subTab]);
     // ReadView V2 — um bucket por fase. A MESMA guia pode estar em vários: uma
     // guia com 4 a faturar + 8 faturadas + 4 recebidas aparece nas três abas,
     // cada uma exibindo só a sua parcela. Totais vêm somados do backend.
@@ -760,13 +767,33 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         : guidesByPhase.billed.length;
 
     const isGuideMode = usesGuideSelection(subTab);
+    const currentSelectableGuides = useMemo(() => (
+        subTab === 0
+            ? pendingStateGuides
+            : subTab === 1
+            ? waitingBillingGuides
+            : subTab === 2
+            ? guidesByPhase.billed
+            : []
+    ), [subTab, pendingStateGuides, waitingBillingGuides, guidesByPhase.billed]);
+    const selectedGuideSummary = useMemo(() => {
+        const selected = currentSelectableGuides.filter(guide => selectedGuides.has(guide.guideId));
+        return {
+            guides: selected.length,
+            sessions: selected.reduce((sum, guide) => sum + Number(guide.pendingSessions || 0), 0),
+            value: selected.reduce((sum, guide) => sum + Number(guide.pendingValue || 0), 0),
+        };
+    }, [currentSelectableGuides, selectedGuides]);
+    const activeSelectionCount = isGuideMode ? selectedGuideSummary.guides : selectedPayments.size;
 
-    const handleOpenFaturarLoteModal = () => {
-        const hasSelection = isGuideMode ? selectedGuides.size > 0 : selectedPayments.size > 0;
+    const handleOpenFaturarLoteModal = (guideIds?: string[]) => {
+        const guideSelection = guideIds ? new Set(guideIds) : selectedGuides;
+        const hasSelection = isGuideMode ? guideSelection.size > 0 : selectedPayments.size > 0;
         if (!hasSelection) {
             toast.warn(isGuideMode ? 'Selecione pelo menos uma guia' : 'Selecione pelo menos um atendimento');
             return;
         }
+        if (guideIds) setSelectedGuides(guideSelection);
         setFaturarLoteData({
             dataFaturamento: new Date().toISOString().split('T')[0],
             notaFiscal: ''
@@ -775,15 +802,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setFaturarLoteModalOpen(true);
     };
 
-    const handleOpenBillingWizard = () => {
-        if (selectedGuides.size === 0) {
+    const handleOpenBillingWizard = (guideIds?: string[]) => {
+        const guideSelection = guideIds ? new Set(guideIds) : selectedGuides;
+        if (guideSelection.size === 0) {
             toast.warn('Selecione pelo menos uma guia');
             return;
         }
 
         setBillingWizardLoading(true);
         try {
-            const selected = pendingGuides.filter(g => selectedGuides.has(g.guideId));
+            const selected = pendingStateGuides.filter(g => guideSelection.has(g.guideId));
             if (selected.length === 0) {
                 toast.error('Guias selecionadas não encontradas');
                 return;
@@ -1304,10 +1332,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
                 {/* Barra de Ações em Lote — sempre visível quando há itens na aba */}
                 {totalSelectable > 0 && (
-                    <Paper elevation={(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 ? 2 : 0} sx={{
-                        p: 1.5, mx: 2, mt: 1.5,
-                        bgcolor: (isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 ? '#F0F9FF' : '#F9FAFB',
-                        border: `1px solid ${(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 ? '#3B82F6' : '#E5E7EB'}`,
+                    <Paper elevation={activeSelectionCount > 0 ? 2 : 0} sx={{
+                        px: 1.5, py: 1, mx: 2, mt: 1.5,
+                        width: activeSelectionCount > 0 ? 'auto' : 'fit-content',
+                        maxWidth: 'calc(100% - 32px)',
+                        bgcolor: activeSelectionCount > 0 ? '#F0F9FF' : '#F9FAFB',
+                        border: `1px solid ${activeSelectionCount > 0 ? '#3B82F6' : '#E5E7EB'}`,
                         borderRadius: 2
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
@@ -1315,14 +1345,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 {isGuideMode ? (
                                     <Button
                                         size="small"
-                                        variant={selectedGuides.size === totalSelectable ? 'contained' : 'outlined'}
+                                        variant={selectedGuideSummary.guides === totalSelectable ? 'contained' : 'outlined'}
                                         startIcon={<Check size={15} />}
-                                        onClick={selectedGuides.size === totalSelectable ? clearGuideSelection : selectAllGuides}
+                                        onClick={selectedGuideSummary.guides === totalSelectable ? clearGuideSelection : selectAllGuides}
                                         sx={{ borderRadius: 2, fontSize: '0.8rem' }}
                                     >
-                                        {selectedGuides.size === totalSelectable
-                                            ? 'Desmarcar Todos'
-                                            : `Selecionar Todos (${totalSelectable})`}
+                                        {selectedGuideSummary.guides === totalSelectable
+                                            ? `Desmarcar todas as ${totalSelectable} guias`
+                                            : `Selecionar todas as ${totalSelectable} guias`}
                                     </Button>
                                 ) : (
                                     <Button
@@ -1337,10 +1367,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             : `Selecionar Todos (${totalSelectable})`}
                                     </Button>
                                 )}
-                                {(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 && (
+                                {activeSelectionCount > 0 && (
                                     <>
                                         <Typography variant="body2" fontWeight={600} color="#3B82F6">
-                                            {isGuideMode ? selectedGuides.size : selectedPayments.size} selecionado(s)
+                                            {isGuideMode
+                                                ? `${selectedGuideSummary.guides} guia${selectedGuideSummary.guides !== 1 ? 's' : ''} · ${selectedGuideSummary.sessions} sessão${selectedGuideSummary.sessions !== 1 ? 'ões' : ''} · ${selectedGuideSummary.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                                                : `${selectedPayments.size} atendimento${selectedPayments.size !== 1 ? 's' : ''}`}
                                         </Typography>
                                         <Button size="small" variant="text" onClick={isGuideMode ? clearGuideSelection : clearAllSelection} sx={{ fontSize: '0.75rem' }}>
                                             Limpar
@@ -1348,14 +1380,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                     </>
                                 )}
                             </Box>
-                            {(isGuideMode ? selectedGuides.size : selectedPayments.size) > 0 && (
+                            {activeSelectionCount > 0 && (
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     {subTab === 0 && (
                                         <Button
                                             variant="contained"
                                             size="small"
                                             startIcon={<Send size={16} />}
-                                            onClick={handleOpenBillingWizard}
+                                            onClick={() => handleOpenBillingWizard()}
                                             disabled={billingWizardLoading}
                                             sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2 }}
                                         >
@@ -1367,7 +1399,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             variant="contained"
                                             size="small"
                                             startIcon={<Send size={16} />}
-                                            onClick={handleOpenFaturarLoteModal}
+                                            onClick={() => handleOpenFaturarLoteModal()}
                                             sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' }, borderRadius: 2 }}
                                         >
                                             Faturar Guias Selecionadas
@@ -1408,6 +1440,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             onToggleGuide={toggleGuideSelection}
                             onRefresh={() => loadReceivables(selectedMonthYear)}
                             month={selectedMonthYear}
+                            drawerAction={subTab === 0 ? 'send_documents' : 'bill'}
+                            onDrawerAction={subTab === 0 ? handleOpenBillingWizard : handleOpenFaturarLoteModal}
+                            phase={subTab === 0 ? 'pendingBilling' : 'documentationSent'}
                         />
                     ) : subTab === 2 || subTab === 3 ? (
                         // Faturados/Recebidos derivam da ReadView pelo bucket da fase.
@@ -1423,8 +1458,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             month={selectedMonthYear}
                             readOnly={subTab === 3}
                             phaseLabel={subTab === 2 ? 'faturada(s)' : 'recebida(s)'}
-                            receiveMode={subTab === 2}
-                            onReceiveSelectedGuides={handleOpenReceberLoteModal}
+                            drawerAction={subTab === 2 ? 'receive' : undefined}
+                            onDrawerAction={subTab === 2 ? handleOpenReceberLoteModal : undefined}
+                            phase={subTab === 2 ? 'billed' : 'received'}
                         />
                     ) : loading ? (
                         Array.from({ length: 4 }).map((_, i) => (
