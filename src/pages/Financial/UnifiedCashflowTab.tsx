@@ -1366,6 +1366,64 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           );
                         };
 
+                        // O modal de recebimentos agrupados é mais estreito que a tabela.
+                        // Não reutilizar renderSingle aqui: suas colunas fixas exigem mais de
+                        // 900px e criavam overflow horizontal, cortando valor e ações.
+                        const renderReceiptDetail = (t: any) => {
+                          const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                              : t.tipo === 'Liminar' && t.kind === 'liminar_contract_receipt' ? 'Crédito'
+                              : t.tipo === 'Liminar' ? 'Judicial'
+                              : t.isPackageSale ? 'Pré-antecipado'
+                              : t.tipo === 'Pacote' && t.paymentModel === 'prepaid' ? 'Pré-pago'
+                              : t.isPrepago ? 'Pré-pago'
+                              : 'Pago na Sessão';
+                          const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
+                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
+                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Crédito' ? 'bg-amber-100 text-amber-700'
+                              : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-100 text-gray-600';
+                          const tipoCls = t.tipo === 'Pacote' ? 'bg-green-100 text-green-800'
+                              : t.tipo === 'Convênio' ? 'bg-amber-100 text-amber-800'
+                              : t.tipo === 'Liminar' ? 'bg-orange-100 text-orange-800'
+                              : 'bg-blue-100 text-blue-800';
+                          const prazo = t.metodo === 'Pix' || t.metodo === 'Dinheiro' ? 'Imediato'
+                              : t.metodo === 'Cartão' ? 'D+30'
+                              : t.metodo === 'Transferência Bancária' ? 'D+1'
+                              : t.metodo === 'Convênio' ? 'D+60'
+                              : null;
+
+                          return (
+                              <div key={t.id} className="grid grid-cols-2 sm:grid-cols-[82px_minmax(0,1fr)_90px_125px_100px] items-center gap-x-3 gap-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+                                  <div>
+                                      <div className="text-[11px] text-gray-400">{t.data}</div>
+                                      <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
+                                  </div>
+
+                                  <div className="min-w-0">
+                                      <div className="truncate text-sm font-semibold text-gray-800">{t.servico || 'Sessão'}</div>
+                                      <div className="truncate text-[11px] text-gray-400">
+                                          {[t.profissional, t.especialidade].filter(Boolean).join(' · ') || 'Sem profissional informado'}
+                                      </div>
+                                  </div>
+
+                                  <div className="text-left sm:text-center">
+                                      <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
+                                      {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-1 sm:flex-col sm:items-start">
+                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tipoCls}`}>{t.tipo}</span>
+                                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${situacaoCls}`}>{situacao}</span>
+                                  </div>
+
+                                  <div className="col-span-2 text-right text-sm font-bold text-emerald-600 sm:col-span-1">
+                                      {formatCurrency(t.valor)}
+                                  </div>
+                              </div>
+                          );
+                        };
+
                         const renderGroup = (g: any) => {
                           const first = g.items[0];
                           const subTipo = (first as any).isPackageSale ? 'Venda de Pacote' : (first.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
@@ -1580,17 +1638,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {groupDetailItems && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                                     <div className="fixed inset-0 bg-black/50" onClick={() => setGroupDetailItems(null)} />
-                                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl z-10 max-h-[85vh] overflow-y-auto p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h3 className="text-base font-semibold">
+                                    <div className="relative z-10 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                                        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                                            <h3 className="min-w-0 truncate pr-4 text-base font-semibold text-gray-900">
                                                 {groupDetailItems[0]?.paciente} — {groupDetailItems.length} recebimentos
                                             </h3>
-                                            <button onClick={() => setGroupDetailItems(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">×</button>
+                                            <button onClick={() => setGroupDetailItems(null)} className="shrink-0 rounded-lg px-2 py-1 text-xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600">×</button>
                                         </div>
-                                        <div className="space-y-1">
-                                            {groupDetailItems.map((t: any) => renderSingle(t))}
+                                        <div className="space-y-2 overflow-y-auto p-4">
+                                            {groupDetailItems.map((t: any) => renderReceiptDetail(t))}
                                         </div>
-                                        <div className="flex justify-between items-center px-3 py-2 mt-2 rounded-lg bg-gray-100 border border-gray-200">
+                                        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3">
                                             <span className="text-sm font-bold text-gray-700">Total</span>
                                             <span className="text-sm font-bold text-emerald-600">{formatCurrency(groupDetailItems.reduce((s: number, t: any) => s + t.valor, 0))}</span>
                                         </div>
