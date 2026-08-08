@@ -214,7 +214,7 @@ export interface OverdueBillingSummary {
 export interface CompetenceBreakdown {
     referenceMonth: string;
     current: { value: number; sessions: number };
-    previous: { value: number; sessions: number };
+    previous: { value: number; sessions: number; oldestCompetence?: string | null };
 }
 
 export const getPendingBillingGuides = (params?: { insurance?: string; patientId?: string; month?: string; page?: number; limit?: number; includeOverdue?: boolean }) =>
@@ -286,6 +286,8 @@ export interface InsuranceGuideView {
     /** a verdade do ciclo financeiro */
     sessions: InsuranceGuidePhaseCounters;
     financialSummary: InsuranceGuideFinancialSummary;
+    /** Somente pendingBilling, usando Session.date como competência. */
+    competenceBreakdown: CompetenceBreakdown;
     /** rótulo visual apenas */
     billingState: InsuranceGuideBillingLabel;
     /** true quando há sessões em mais de uma fase — a UI deve mostrar os contadores */
@@ -312,6 +314,7 @@ export const getInsuranceGuidesView = (params?: {
         data: InsuranceGuideView[];
         orphanSessions: any[];
         totals: { sessions: InsuranceGuidePhaseCounters; financialSummary: InsuranceGuideFinancialSummary };
+        competenceBreakdown: CompetenceBreakdown;
         pagination: any;
     }>('/v2/insurance/guides/view', { params });
 

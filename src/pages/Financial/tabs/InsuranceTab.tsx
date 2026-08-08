@@ -65,6 +65,7 @@ import {
     receberConvenioLote,
     getInsuranceGuidesView,
     InsuranceGuideView,
+    InsuranceSessionPhase,
     encerrarGuia,
     CompetenceBreakdown
 } from '../../../services/paymentService';
@@ -78,8 +79,8 @@ import BillingCommunicationWizard from '../components/BillingCommunicationWizard
 /**
  * ReadView V2 → shape que GuidePendingBillingSection já consome.
  *
- * Adapter deliberado: mantém o componente de card inalterado enquanto a flag
- * está em observação. `pendingSessions`/`pendingValue` continuam significando
+ * Adapter deliberado: mantém o componente de card inalterado enquanto a
+ * ReadView é a fonte oficial. `pendingSessions`/`pendingValue` continuam significando
  * "o que falta faturar" — agora vindos do contador da fase, não de um estado
  * escalar. Os contadores completos seguem em `phaseCounters` para a UI mostrar
  * a composição quando `hasMixedStates` é true.
@@ -127,6 +128,7 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
         hasMixedStates: g.hasMixedStates,
         phaseCounters: g.sessions,
         phaseAmounts: g.financialSummary,
+        competenceBreakdown: g.competenceBreakdown,
         sessions: g.sessionDetails.map(s => ({
             sessionId: s.sessionId,
             date: s.date,
@@ -137,6 +139,20 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
             phase: s.phase
         }))
     };
+}
+
+export function buildOverdueGuidesList(guides: PendingGuide[]) {
+    return guides
+        .map(g => ({
+            guideId: g.guideId,
+            number: g.number,
+            patientName: g.patient?.fullName || 'Paciente',
+            overdueValue: g.competenceBreakdown?.previous.value || 0,
+            overdueCount: g.competenceBreakdown?.previous.sessions || 0,
+            oldestCompetence: g.competenceBreakdown?.previous.oldestCompetence || null
+        }))
+        .filter(g => g.overdueValue > 0)
+        .sort((a, b) => b.overdueValue - a.overdueValue);
 }
 
 const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string }> = {
@@ -320,21 +336,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         waitingBillingGuides: guidesByPhase.documentationSent
     }), [guidesByPhase]);
 
-    // Detalha QUAIS guias compõem o "atrasado" do competenceBreakdown (que só vem
-    // como valor agregado do backend) — sem isso o usuário via um total vermelho
-    // sem conseguir identificar/monitorar qual guia agir primeiro.
+    // Detalha QUAIS guias compõem o atraso usando exclusivamente o breakdown da
+    // ReadView. O frontend não interpreta datas nem recompõe competência.
     const overdueGuidesList = useMemo(() => {
         if (!competenceBreakdown || !competenceBreakdown.previous.value) return [];
-        const [refY, refM] = competenceBreakdown.referenceMonth.split('-').map(Number);
-        const cutoff = new Date(refY, refM - 1, 1);
-        return pendingStateGuides
-            .map(g => {
-                const overdueSessions = (g.sessions || []).filter(s => s.date && new Date(s.date) < cutoff);
-                const overdueValue = overdueSessions.reduce((sum, s) => sum + (s.value || 0), 0);
-                return { guideId: g.guideId, number: g.number, patientName: g.patient?.fullName || 'Paciente', overdueValue, overdueCount: overdueSessions.length };
-            })
-            .filter(g => g.overdueValue > 0)
-            .sort((a, b) => b.overdueValue - a.overdueValue);
+        return buildOverdueGuidesList(pendingStateGuides);
     }, [pendingStateGuides, competenceBreakdown]);
 
     const overdueValueByGuideId = useMemo(
@@ -473,6 +479,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 received: byPhase.received.data.totals.financialSummary.receivedAmount
             });
             setOrphanSessions(pending.data.orphanSessions || []);
+            setCompetenceBreakdown(pending.data.competenceBreakdown || null);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);

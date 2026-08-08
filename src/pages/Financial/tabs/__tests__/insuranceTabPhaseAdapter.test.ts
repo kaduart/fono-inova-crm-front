@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { adaptGuideViewToPendingGuide } from '../InsuranceTab';
+import { adaptGuideViewToPendingGuide, buildOverdueGuidesList } from '../InsuranceTab';
 import type { InsuranceGuideView } from '../../../../services/paymentService';
 
 // Caso do enunciado: 16 sessões — 4 a faturar (R$560), 8 faturadas (R$1.120), 4 recebidas (R$560)
@@ -40,6 +40,11 @@ const guiaMista: InsuranceGuideView = {
         billedAmount: 1120,
         receivedAmount: 560,
         totalAmount: 2240
+    },
+    competenceBreakdown: {
+        referenceMonth: '2026-08',
+        current: { value: 280, sessions: 2 },
+        previous: { value: 280, sessions: 2, oldestCompetence: '2026-06' }
     },
     billingState: 'pending',
     hasMixedStates: true,
@@ -97,5 +102,28 @@ describe('adaptGuideViewToPendingGuide — fatia por fase', () => {
         const adaptada = adaptGuideViewToPendingGuide(guiaMista, 'documentationSent');
         expect(adaptada.pendingSessions).toBe(0);
         expect(adaptada.pendingValue).toBe(0);
+    });
+
+    it('preserva o breakdown do backend sem reconstruir competência', () => {
+        expect(adaptGuideViewToPendingGuide(guiaMista, 'pendingBilling').competenceBreakdown)
+            .toEqual(guiaMista.competenceBreakdown);
+    });
+
+    it('destaca atraso pelo breakdown do backend, sem reinterpretar datas', () => {
+        const adaptada = adaptGuideViewToPendingGuide({
+            ...guiaMista,
+            // Datas atuais de propósito: se o frontend recalculasse, daria zero.
+            sessionDetails: [{
+                sessionId: 's1', date: '2026-08-05', time: null, doctorName: null,
+                specialty: null, status: 'completed', phase: 'pendingBilling', value: 560,
+                paymentId: null, paymentStatus: null, batchId: null, batchStatus: null,
+                competenceDate: '2026-08-05'
+            }]
+        }, 'pendingBilling');
+
+        expect(buildOverdueGuidesList([adaptada])).toEqual([expect.objectContaining({
+            guideId: 'g1', overdueValue: 280, overdueCount: 2,
+            oldestCompetence: '2026-06'
+        })]);
     });
 });

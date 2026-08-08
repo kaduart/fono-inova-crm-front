@@ -105,6 +105,12 @@ export interface PendingGuide {
         receivedAmount: number;
         totalAmount: number;
     };
+    /** ReadView: breakdown calculado no backend, exclusivamente de pendingBilling. */
+    competenceBreakdown?: {
+        referenceMonth: string;
+        current: { value: number; sessions: number };
+        previous: { value: number; sessions: number; oldestCompetence?: string | null };
+    };
     /** ReadView V2: true = documentationSentAt veio de updatedAt (proxy), não de campo de envio real */
     documentationSentAtIsProxy?: boolean;
     sessions?: PendingGuideSession[];
