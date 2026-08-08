@@ -10,7 +10,7 @@ import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { PatientBalanceModal } from './PatientBalanceModal';
-import { extractScheduleConflictMessage } from '../../utils/errorUtils';
+import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
 import InactivateEntityModal from '../common/InactivateEntityModal';
 
 /**
@@ -237,11 +237,9 @@ export default function TherapyPackageCard({
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Erro:", err);
-      // 🎯 Mensagem detalhada para conflitos de agenda (horário já ocupado)
-      const conflictMsg = extractScheduleConflictMessage(err);
-      if (conflictMsg) {
-        toast.error(conflictMsg, { autoClose: 8000, style: { maxWidth: '420px', borderLeft: '4px solid #ef4444' } });
-      } else {
+      // Mesmo helper do modal de edição e do AdminDashboard: destaque em negrito
+      // e id fixo, para o conflito aparecer igual em toda tela.
+      if (!showScheduleConflictToast(err)) {
         const apiMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message;
         toast.error(apiMessage || "Erro ao salvar sessão");
       }

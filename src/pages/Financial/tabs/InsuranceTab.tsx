@@ -42,7 +42,6 @@ import {
     History,
     X,
     FileText,
-    Receipt,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -61,10 +60,9 @@ import {
     InsuranceReceivableGroup,
     billInsuranceSession,
     receiveInsuranceSession,
-    faturarConvenioLote,
-    receberConvenioLote,
     getInsuranceGuidesView,
     InsuranceGuideView,
+    InsurancePaymentIntegrityConflict,
     InsuranceSessionPhase,
     encerrarGuia,
     CompetenceBreakdown
@@ -74,7 +72,11 @@ import { Shield } from 'lucide-react';
 import { AutorizacoesTab } from './AutorizacoesTab';
 import EnviosTab from './EnviosTab';
 import { useConvenios } from '../../../hooks/useConvenios';
+import { getConvenio } from '../../../services/insuranceService';
 import BillingCommunicationWizard from '../components/BillingCommunicationWizard';
+import { createBillingSubmission } from '../../../services/billingSubmissionService';
+import InvoiceReceivablesSection from './InvoiceReceivablesSection';
+import { receiveInvoiceBatch } from '../../../services/insuranceBatchReceiptService';
 
 /**
  * ReadView V2 → shape que GuidePendingBillingSection já consome.
@@ -93,6 +95,9 @@ const PHASE_AMOUNT_KEY = {
 } as const;
 
 export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: InsuranceSessionPhase): PendingGuide {
+    const sessionDetails = phase
+        ? g.sessionDetails.filter(session => session.phase === phase)
+        : g.sessionDetails;
     // Numa aba de fase, o card mostra SOMENTE a parcela daquela fase — nunca o
     // total da guia. Uma guia 4 a faturar + 8 faturadas + 4 recebidas aparece nas
     // três abas, cada uma com o seu pedaço; exibir o total nas três seria dupla
@@ -116,10 +121,11 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
         pendingSessions: phaseSessions,
         pendingValue: phaseValue,
         sessionsThisMonth: g.sessions.total,
-        firstSessionDate: g.sessionDetails[0]?.date ?? null,
-        lastSessionDate: g.sessionDetails[g.sessionDetails.length - 1]?.date ?? null,
+        firstSessionDate: sessionDetails[0]?.date ?? null,
+        lastSessionDate: sessionDetails[sessionDetails.length - 1]?.date ?? null,
         documentationSentAt: g.documentationSentAt,
         documentationSentAtIsProxy: g.documentationSentAtIsProxy,
+        invoices: g.invoices,
         invoiceNumber: g.invoiceNumber,
         alreadyBilledSessions: g.sessions.billed,
         lastBatchSentAt: null,
@@ -129,7 +135,7 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
         phaseCounters: g.sessions,
         phaseAmounts: g.financialSummary,
         competenceBreakdown: g.competenceBreakdown,
-        sessions: g.sessionDetails.map(s => ({
+        sessions: sessionDetails.map(s => ({
             sessionId: s.sessionId,
             paymentId: s.paymentId,
             date: s.date,
@@ -215,7 +221,7 @@ interface InsuranceTabProps {
 // e todo reload da página voltava pra "A Faturar", perdendo onde o usuário estava
 // (achado 2026-08-04). Usa id estável (não o índice) pra não quebrar se a ordem das abas mudar.
 const CONVENIO_SUBTAB_PARAM = 'convenioSubTab';
-const SUB_TAB_IDS = ['a-faturar', 'aguardando', 'faturados', 'recebidos', 'historico', 'autorizacoes', 'envios', 'cadastrados'];
+const SUB_TAB_IDS = ['a-faturar', 'aguardando', 'faturados', 'recebidos', 'historico', 'autorizacoes', 'envios', 'cadastrados', 'notas-fiscais'];
 
 const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -271,6 +277,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     }, [guidesByPhase]);
     const [orphanSessions, setOrphanSessions] = useState<Array<{ sessionId: string; date?: string | Date | null; patient?: { fullName?: string } | null; specialty?: string; sessionValue?: number; insuranceProvider?: string }>>([]);
     const [loadingGuides, setLoadingGuides] = useState(false);
+    const [paymentIntegrityConflicts, setPaymentIntegrityConflicts] = useState<InsurancePaymentIntegrityConflict[]>([]);
     // Quebra do total pendente entre mês corrente e competências anteriores —
     // computada no backend (ver CompetenceBreakdown), nunca no frontend.
     const [competenceBreakdown, setCompetenceBreakdown] = useState<CompetenceBreakdown | null>(null);
@@ -304,17 +311,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedMonthYear(`${year}-${String(month).padStart(2, '0')}`);
     }, [month, year]);
 
-    // Estados para modal de faturamento em lote
-    const [faturarLoteModalOpen, setFaturarLoteModalOpen] = useState(false);
-    const [faturarLoteLoading, setFaturarLoteLoading] = useState(false);
-    const [faturarLoteData, setFaturarLoteData] = useState({
-        dataFaturamento: new Date().toISOString().split('T')[0],
-        notaFiscal: ''
-    });
-    // true quando este modal abriu logo após o wizard de documentação (não como ação avulsa) —
-    // muda o texto pra deixar claro que "documentos enviados" ainda não é "faturado"
-    const [faturarLoteFromWizard, setFaturarLoteFromWizard] = useState(false);
-
     // Estado para modal de finalização de guias após faturamento
     const [postFaturamentoCloseModal, setPostFaturamentoCloseModal] = useState<{ open: boolean; guides: Array<{ guideId: string; number: string; sessionsCount: number }> }>({ open: false, guides: [] });
     const [postFaturamentoCloseLoading, setPostFaturamentoCloseLoading] = useState(false);
@@ -326,7 +322,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [receberLoteData, setReceberLoteData] = useState({
         dataRecebimento: new Date().toISOString().split('T')[0]
     });
-    const [paymentIdsToReceive, setPaymentIdsToReceive] = useState<string[]>([]);
+    const [receiptTargets, setReceiptTargets] = useState<Array<{ batchId: string; guideIds: string[] }>>([]);
+    const [receiptSessionsCount, setReceiptSessionsCount] = useState(0);
+    const [invoiceReceivableCount, setInvoiceReceivableCount] = useState(0);
     
     // Estado para modal de gerenciamento de convênios
     const [convenioManagerOpen, setConvenioManagerOpen] = useState(false);
@@ -334,7 +332,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // Estado para wizard de envio de documentos de faturamento em massa
     const [billingWizardOpen, setBillingWizardOpen] = useState(false);
     const [billingWizardLoading, setBillingWizardLoading] = useState(false);
-    const [wizardSelectedGuides, setWizardSelectedGuides] = useState<PendingGuide[]>([]);
+    const [billingSubmissionId, setBillingSubmissionId] = useState<string | null>(null);
 
     // Modal reutilizável de detalhamento — aberto pelos cards do Painel de Convênios
     // (A Faturar, Aguardando Faturamento, Faturado, Recebido) pra mostrar quais
@@ -365,11 +363,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         pendingStateGuides: guidesByPhase.pendingBilling,
         waitingBillingGuides: guidesByPhase.documentationSent
     }), [guidesByPhase]);
-
-    const selectedBilledPaymentIds = useMemo(
-        () => billedPaymentIdsFromSelectedGuides(guidesByPhase.billed, selectedGuides),
-        [guidesByPhase.billed, selectedGuides]
-    );
 
     // Detalha QUAIS guias compõem o atraso usando exclusivamente o breakdown da
     // ReadView. O frontend não interpreta datas nem recompõe competência.
@@ -469,6 +462,10 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     // de novo se subTab===0). loadAllCounts já popula pendingGuides/orphanSessions —
     // loadReceivables só precisa rodar por conta própria para as abas Faturados/Recebidos.
     useEffect(() => {
+        // Notas Fiscais possui read model e ciclo de loading próprios. Carregar
+        // aqui as quatro fases de guia desmontava o componente filho e repetia
+        // `insurance-batches/receivables` até quatro vezes.
+        if (subTab === 8) return;
         loadAllCounts(selectedMonthYear);
         if (subTab !== 0 && subTab !== 1) {
             loadReceivables(selectedMonthYear);
@@ -477,6 +474,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     useEffect(() => {
         const handleRefresh = () => {
+            if (subTab === 8) return;
             loadAllCounts(selectedMonthYear);
             if (subTab !== 0 && subTab !== 1) {
                 loadReceivables(selectedMonthYear);
@@ -515,6 +513,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             });
             setOrphanSessions(pending.data.orphanSessions || []);
             setCompetenceBreakdown(pending.data.competenceBreakdown || null);
+            setPaymentIntegrityConflicts(pending.data.paymentIntegrityConflicts || []);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
@@ -527,6 +526,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const loadReceivables = async (month?: string) => {
+        if (subTab === 8) return;
         // Todas as abas de guia (A Faturar, Aguardando, Faturados, Recebidos) são
         // buckets de fase carregados juntos — recarregar uma é recarregar todas.
         if (subTab === 0 || subTab === 1 || subTab === 2 || subTab === 3) {
@@ -758,7 +758,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedPayments(newSelected);
     };
 
-    const totalSelectable = subTab === 3 || subTab === 4 || subTab === 5 || subTab === 6 || subTab === 7
+    const totalSelectable = subTab === 3 || subTab === 4 || subTab === 5 || subTab === 6 || subTab === 7 || subTab === 8
         ? 0 // Recebidos e abas de conferência/cadastro: sem seleção em lote
         : subTab === 0
         ? pendingStateGuides.length
@@ -786,23 +786,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     }, [currentSelectableGuides, selectedGuides]);
     const activeSelectionCount = isGuideMode ? selectedGuideSummary.guides : selectedPayments.size;
 
-    const handleOpenFaturarLoteModal = (guideIds?: string[]) => {
-        const guideSelection = guideIds ? new Set(guideIds) : selectedGuides;
-        const hasSelection = isGuideMode ? guideSelection.size > 0 : selectedPayments.size > 0;
-        if (!hasSelection) {
-            toast.warn(isGuideMode ? 'Selecione pelo menos uma guia' : 'Selecione pelo menos um atendimento');
-            return;
-        }
-        if (guideIds) setSelectedGuides(guideSelection);
-        setFaturarLoteData({
-            dataFaturamento: new Date().toISOString().split('T')[0],
-            notaFiscal: ''
-        });
-        setFaturarLoteFromWizard(false);
-        setFaturarLoteModalOpen(true);
-    };
-
-    const handleOpenBillingWizard = (guideIds?: string[]) => {
+    const handleOpenBillingWizard = async (guideIds?: string[], competenceOverride?: string) => {
         const guideSelection = guideIds ? new Set(guideIds) : selectedGuides;
         if (guideSelection.size === 0) {
             toast.warn('Selecione pelo menos uma guia');
@@ -811,7 +795,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
         setBillingWizardLoading(true);
         try {
-            const selected = pendingStateGuides.filter(g => guideSelection.has(g.guideId));
+            const sourceGuides = subTab === 1 ? waitingBillingGuides : pendingStateGuides;
+            const expectedPhase: InsuranceSessionPhase = subTab === 1 ? 'documentationSent' : 'pendingBilling';
+            const selected = sourceGuides.filter(g => guideSelection.has(g.guideId));
             if (selected.length === 0) {
                 toast.error('Guias selecionadas não encontradas');
                 return;
@@ -823,7 +809,37 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 return;
             }
 
-            setWizardSelectedGuides(selected);
+            const patientIds = new Set(selected.map(guide => guide.patient?._id).filter(Boolean));
+            if (patientIds.size !== 1) {
+                toast.error('Cada envio precisa pertencer a exatamente um paciente');
+                return;
+            }
+
+            const isMonthlyBilling = selected.every(guide => guide.billingMode === 'per_month');
+            const billingCompetence = competenceOverride || selectedMonthYear;
+            const sessionIds = [...new Set(selected.flatMap(guide =>
+                (guide.sessions || [])
+                    // POR MÊS: a competência clínica define automaticamente o
+                    // conjunto. POR GUIA: a guia acumula sessões de qualquer
+                    // data até ser faturada. Em ambos os casos persistimos os
+                    // sessionIds exatos no submission.
+                    .filter(session => session.phase === expectedPhase
+                        && (!isMonthlyBilling || String(session.date).slice(0, 7) === billingCompetence))
+                    .map(session => session.sessionId)
+            ))];
+            if (sessionIds.length === 0) {
+                toast.error('Nenhuma sessão pendente encontrada nas guias selecionadas');
+                return;
+            }
+
+            const convenio = await getConvenio(selected[0].insurance);
+            const response = await createBillingSubmission({
+                patientId: [...patientIds][0]!,
+                insuranceProviderId: convenio._id,
+                billingCompetence,
+                sessionIds
+            });
+            setBillingSubmissionId(response.data.data._id);
             setBillingWizardOpen(true);
         } catch (error) {
             toast.error(extractErrorMessage(error, 'Erro ao preparar envio de documentos'));
@@ -834,81 +850,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     const handleBillingWizardClose = () => {
         setBillingWizardOpen(false);
-        setWizardSelectedGuides([]);
+        setBillingSubmissionId(null);
     };
 
-    const handleBillingWizardAllSent = () => {
-        setBillingWizardOpen(false);
-        setWizardSelectedGuides([]);
-        // Após envio dos documentos, a guia fica marcada como "Documentação enviada"
-        // e a secretária pode faturar quando quiser pela aba "Aguardando faturamento".
-        // Não abrimos mais o modal de faturamento automaticamente para evitar popup
-        // persistente a cada reload e para respeitar o fluxo por estados visíveis.
+    const handleBillingSubmissionChanged = () => {
         loadAllCounts(selectedMonthYear);
-        toast.success('Documentação enviada. As guias aparecem em "Aguardando faturamento".');
-    };
-
-    const handleOpenBillingDrawer = async () => {
-        // LEGADO: agora usamos o wizard em massa
-        handleOpenBillingWizard();
-    };
-
-    const handleFaturarLote = async () => {
-        setFaturarLoteLoading(true);
-        try {
-            const result = await faturarConvenioLote({
-                ...(isGuideMode
-                    ? { guideIds: Array.from(selectedGuides) }
-                    : { paymentIds: Array.from(selectedPayments) }),
-                dataFaturamento: faturarLoteData.dataFaturamento,
-                notaFiscal: faturarLoteData.notaFiscal || undefined
-            });
-
-            if (result.data.success) {
-                const data = result.data.data;
-                if (isGuideMode) {
-                    toast.success(`${data.sessionsFaturadas} atendimentos faturados a partir de ${data.guidesFaturadas} guia(s)!`);
-                    const totalCanceled = data.totalAppointmentsCanceledOnClosure || 0;
-                    if (totalCanceled > 0) {
-                        const closedGuidesCount = (data.guideClosures || []).filter((c: any) => !c.skipped && c.canceled > 0).length;
-                        toast.info(`${totalCanceled} agendamento(s) pendente(s) foram cancelados automaticamente em ${closedGuidesCount} guia(s) mensal(is) encerrada(s) pelo faturamento.`);
-                    }
-                    const failedClosures = (data.guideClosures || []).filter((c: any) => c.error);
-                    if (failedClosures.length > 0) {
-                        toast.warn(`${failedClosures.length} guia(s) tiveram falha ao tentar encerrar agendamentos pendentes — verifique manualmente.`);
-                    }
-
-                    // Oferece finalização manual explícita das guias faturadas (nunca automático)
-                    // Só guias per_month têm período de faturamento a encerrar.
-                    const guides = (data.guides || []).filter((g: any) => g.guideId && (g.billingMode === 'per_month' || !g.billingMode));
-                    if (guides.length > 0) {
-                        setFaturarLoteModalOpen(false);
-                        setPostFaturamentoCloseModal({ open: true, guides });
-                        setSelectedCloseGuides(new Set(guides.map((g: any) => g.guideId)));
-                        clearAllSelection();
-                        clearGuideSelection();
-                        loadReceivables(selectedMonthYear);
-                        return;
-                    }
-                } else {
-                    const { faturados, ignorados } = data;
-                    toast.success(`${faturados} atendimentos faturados!`);
-                    if (ignorados > 0) {
-                        toast.warn(`${ignorados} atendimento(s) sem sessão vinculada foram ignorados — verifique o cadastro.`);
-                    }
-                }
-                setFaturarLoteModalOpen(false);
-                clearAllSelection();
-                clearGuideSelection();
-                loadReceivables(selectedMonthYear);
-            } else {
-                toast.error(result.data.error || 'Erro ao faturar');
-            }
-        } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao faturar em lote'));
-        } finally {
-            setFaturarLoteLoading(false);
-        }
     };
 
     const handleFinalizarGuiasAposFaturamento = async () => {
@@ -953,14 +899,23 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const handleOpenReceberLoteModal = (guideIds?: string[]) => {
-        const paymentIds = guideIds
-            ? billedPaymentIdsFromSelectedGuides(guidesByPhase.billed, new Set(guideIds))
-            : selectedBilledPaymentIds;
-        if (paymentIds.length === 0) {
-            toast.warn('Selecione pelo menos uma guia faturada com pagamentos elegíveis');
+        const selectedIds = new Set(guideIds || [...selectedGuides]);
+        const selected = guidesByPhase.billed.filter(guide => selectedIds.has(guide.guideId));
+        const byBatch = new Map<string, Set<string>>();
+        for (const guide of selected) {
+            for (const invoice of guide.invoices || []) {
+                if (!invoice.batchId || !invoice.invoiceNumber || invoice.batchStatus === 'received') continue;
+                if (!byBatch.has(invoice.batchId)) byBatch.set(invoice.batchId, new Set());
+                byBatch.get(invoice.batchId)?.add(guide.guideId);
+            }
+        }
+        const targets = [...byBatch.entries()].map(([batchId, ids]) => ({ batchId, guideIds: [...ids] }));
+        if (targets.length === 0) {
+            toast.warn('As guias selecionadas não possuem NF pendente vinculada');
             return;
         }
-        setPaymentIdsToReceive(paymentIds);
+        setReceiptTargets(targets);
+        setReceiptSessionsCount(selected.reduce((sum, guide) => sum + guide.pendingSessions, 0));
         setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
         setReceberLoteModalOpen(true);
     };
@@ -968,28 +923,23 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const handleReceberLote = async () => {
         setReceberLoteLoading(true);
         try {
-            const result = await receberConvenioLote({
-                paymentIds: paymentIdsToReceive,
-                dataRecebimento: receberLoteData.dataRecebimento
-            });
-
-            if (result.data.success) {
-                const { recebidos, totalValor, totalIss, totalLiquido } = result.data.data;
-                const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                const message = totalIss > 0
-                    ? `${recebidos} recebimento(s) registrado(s)! Bruto: ${fmt(totalValor)} · ISS retido: ${fmt(totalIss)} · Líquido: ${fmt(totalLiquido)}`
-                    : `${recebidos} recebimento(s) registrado(s) com sucesso!`;
-                toast.success(message);
-                setReceberLoteModalOpen(false);
-                setPaymentIdsToReceive([]);
-                clearAllSelection();
-                clearGuideSelection();
-                loadReceivables(selectedMonthYear);
-            } else {
-                toast.error(result.data.error || 'Erro ao receber');
+            let paymentsReceived = 0;
+            for (const target of receiptTargets) {
+                const result = await receiveInvoiceBatch(target.batchId, {
+                    guideIds: target.guideIds,
+                    receivedDate: receberLoteData.dataRecebimento
+                });
+                paymentsReceived += result.paymentsReceived || 0;
             }
+            toast.success(`${paymentsReceived} pagamento(s) recebido(s) e refletido(s) no financeiro.`);
+            setReceberLoteModalOpen(false);
+            setReceiptTargets([]);
+            clearAllSelection();
+            clearGuideSelection();
+            loadAllCounts(selectedMonthYear);
+            loadReceivables(selectedMonthYear);
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao receber em lote'));
+            toast.error(extractErrorMessage(error, 'Erro ao registrar baixa das guias'));
         } finally {
             setReceberLoteLoading(false);
         }
@@ -1079,7 +1029,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             </div>
 
             {/* Filtro de Mês — oculto no Histórico, Autorizações, Envios e Convênios Cadastrados (não são escopados por mês) */}
-            {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && (
+            {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1 text-gray-500">
                         <Calendar size={16} />
@@ -1298,31 +1248,32 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <div className="px-3 pt-3 pb-3 border-b border-gray-100">
                     <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
                         {[
-                            { label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
-                            { label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
+                            { value: 0, label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
+                            { value: 1, label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
                             // Contagem por bucket de fase. A contagem anterior lia
                             // `allReceivables`, que nunca traz 'received' (RECEIVABLE_STATUSES
                             // só tem pending_billing/billed) — por isso o badge vivia zerado.
-                            { label: 'Faturados', count: guidesByPhase.billed.length, icon: <Send size={15} />, amber: false },
-                            { label: 'Recebidos', count: guidesByPhase.received.length, icon: <CheckCircle size={15} />, amber: false },
-                            { label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
-                            { label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
-                            { label: 'Envios', count: 0,                             icon: <Mail size={15} />, amber: false },
-                            { label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
-                        ].map((tab, i) => (
-                            <button key={i} onClick={() => setSubTab(i)}
+                            { value: 2, label: 'Faturados', count: guidesByPhase.billed.length, icon: <Send size={15} />, amber: false },
+                            { value: 8, label: 'Notas Fiscais', count: invoiceReceivableCount, icon: <FileText size={15} />, amber: false },
+                            { value: 3, label: 'Recebidos', count: guidesByPhase.received.length, icon: <CheckCircle size={15} />, amber: false },
+                            { value: 4, label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
+                            { value: 5, label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
+                            { value: 6, label: 'Envios', count: 0,                             icon: <Mail size={15} />, amber: false },
+                            { value: 7, label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
+                        ].map(tab => (
+                            <button key={tab.value} onClick={() => setSubTab(tab.value)}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
-                                    subTab === i
+                                    subTab === tab.value
                                         ? 'bg-white text-gray-900 shadow-sm font-semibold'
                                         : 'text-gray-500 hover:text-gray-700'
                                 }`}>
                                 {tab.icon}
                                 <span>{tab.label}</span>
-                                {i < 4 && tab.count > 0 && (
+                                {tab.count > 0 && (
                                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                                         tab.amber
-                                            ? (subTab === i ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
-                                            : (subTab === i ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500')
+                                            ? (subTab === tab.value ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
+                                            : (subTab === tab.value ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500')
                                     }`}>{tab.count}</span>
                                 )}
                             </button>
@@ -1330,8 +1281,25 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     </div>
                 </div>
 
-                {/* Barra de Ações em Lote — sempre visível quando há itens na aba */}
-                {totalSelectable > 0 && (
+                {subTab === 0 && paymentIntegrityConflicts.length > 0 && (
+                    <Paper elevation={0} sx={{
+                        mx: 2, mt: 1.5, px: 2, py: 1.25,
+                        display: 'flex', alignItems: 'center', gap: 1,
+                        bgcolor: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 2
+                    }}>
+                        <AlertCircle size={18} color="#C2410C" />
+                        <Typography fontSize="0.8rem" color="#9A3412" fontWeight={600}>
+                            {paymentIntegrityConflicts.length} sessão{paymentIntegrityConflicts.length !== 1 ? 'ões' : ''}
+                            {' '}não {paymentIntegrityConflicts.length !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
+                            porque não {paymentIntegrityConflicts.length !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
+                        </Typography>
+                    </Paper>
+                )}
+
+                {/* No faturamento novo a seleção acontece exclusivamente dentro
+                    do drawer do paciente. A barra global permanece apenas para
+                    registrar recebimentos de lotes já faturados. */}
+                {totalSelectable > 0 && subTab === 2 && (
                     <Paper elevation={activeSelectionCount > 0 ? 2 : 0} sx={{
                         px: 1.5, py: 1, mx: 2, mt: 1.5,
                         width: activeSelectionCount > 0 ? 'auto' : 'fit-content',
@@ -1382,27 +1350,18 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             </Box>
                             {activeSelectionCount > 0 && (
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                    {subTab === 0 && (
+                                    {(subTab === 0 || subTab === 1) && (
                                         <Button
                                             variant="contained"
                                             size="small"
                                             startIcon={<Send size={16} />}
                                             onClick={() => handleOpenBillingWizard()}
                                             disabled={billingWizardLoading}
-                                            sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2 }}
-                                        >
-                                            {billingWizardLoading ? 'Abrindo...' : 'Enviar Documentos'}
-                                        </Button>
-                                    )}
-                                    {(subTab === 0 || subTab === 1) && (
-                                        <Button
-                                            variant="contained"
-                                            size="small"
-                                            startIcon={<Send size={16} />}
-                                            onClick={() => handleOpenFaturarLoteModal()}
                                             sx={{ bgcolor: '#F59E0B', '&:hover': { bgcolor: '#D97706' }, borderRadius: 2 }}
                                         >
-                                            Faturar Guias Selecionadas
+                                            {billingWizardLoading
+                                                ? 'Abrindo...'
+                                                : (subTab === 0 ? 'Preparar faturamento' : 'Continuar faturamento')}
                                         </Button>
                                     )}
                                     {subTab === 2 && (
@@ -1423,7 +1382,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 )}
 
                 <Box sx={{ p: 3 }}>
-                    {subTab === 7 ? (
+                    {subTab === 8 ? (
+                        <InvoiceReceivablesSection
+                            onCountChange={setInvoiceReceivableCount}
+                            onChanged={() => {
+                                // Após uma baixa, atualiza os badges de guias.
+                                // A própria seção já recarregou as NFs.
+                                loadAllCounts(selectedMonthYear);
+                            }}
+                        />
+                    ) : subTab === 7 ? (
                         <ConvenioManagerModal open onClose={() => {}} embedded />
                     ) : subTab === 6 ? (
                         <EnviosTab />
@@ -1441,7 +1409,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             onRefresh={() => loadReceivables(selectedMonthYear)}
                             month={selectedMonthYear}
                             drawerAction={subTab === 0 ? 'send_documents' : 'bill'}
-                            onDrawerAction={subTab === 0 ? handleOpenBillingWizard : handleOpenFaturarLoteModal}
+                            onDrawerAction={handleOpenBillingWizard}
                             phase={subTab === 0 ? 'pendingBilling' : 'documentationSent'}
                         />
                     ) : subTab === 2 || subTab === 3 ? (
@@ -1604,205 +1572,6 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </Box>
             </div>
 
-            {/* Modal: Faturar em Lote */}
-            {(() => {
-                const headerAccent = faturarLoteFromWizard ? '#10B981' : '#F59E0B';
-                const HeaderIcon = faturarLoteFromWizard ? CheckCircle : Send;
-                const modalTitle = faturarLoteFromWizard
-                    ? 'Documentos enviados com sucesso'
-                    : (isGuideMode ? 'Faturar guias selecionadas' : 'Faturar atendimentos selecionados');
-                const modalSubtitle = faturarLoteFromWizard ? 'Deseja faturar esta(s) guia(s) agora?' : null;
-                const closeModal = () => !faturarLoteLoading && setFaturarLoteModalOpen(false);
-                return (
-                    <Dialog
-                        open={faturarLoteModalOpen}
-                        onClose={closeModal}
-                        maxWidth="sm"
-                        fullWidth
-                        PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
-                    >
-                        <Box sx={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 1.5,
-                            px: 3,
-                            py: 2.5,
-                            background: faturarLoteFromWizard
-                                ? 'linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%)'
-                                : 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
-                            borderBottom: '1px solid',
-                            borderColor: faturarLoteFromWizard ? '#A7F3D0' : '#FDE68A',
-                        }}>
-                            <Avatar sx={{
-                                bgcolor: headerAccent,
-                                width: 40,
-                                height: 40,
-                                boxShadow: `0 4px 12px ${headerAccent}4D`,
-                            }}>
-                                <HeaderIcon className="w-5 h-5 text-white" />
-                            </Avatar>
-                            <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
-                                <Typography variant="subtitle1" fontWeight={800} sx={{ lineHeight: 1.3, color: '#0F172A' }}>
-                                    {modalTitle}
-                                </Typography>
-                                {modalSubtitle && (
-                                    <Typography variant="body2" sx={{ color: '#475569', mt: 0.25 }}>
-                                        {modalSubtitle}
-                                    </Typography>
-                                )}
-                            </Box>
-                            <IconButton size="small" onClick={closeModal} disabled={faturarLoteLoading} sx={{ mt: -0.5, mr: -0.5 }}>
-                                <X size={18} />
-                            </IconButton>
-                        </Box>
-                        <DialogContent sx={{ px: 3, py: 3 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-                                {faturarLoteFromWizard && (
-                                    <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2.5, bgcolor: '#EFF6FF', border: '1px solid #DBEAFE' }}>
-                                        <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <Mail size={14} color="#1D4ED8" />
-                                        </Box>
-                                        <Typography variant="body2" sx={{ color: '#1E40AF' }}>
-                                            Os documentos já foram enviados por e-mail ao convênio — isso ainda <strong>não</strong> fatura as guias. Elas continuam em "A Faturar" até o lote ser criado. Você pode criar agora ou deixar para depois (a guia ficará marcada como "Documentação enviada").
-                                        </Typography>
-                                    </Box>
-                                )}
-
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.75, borderRadius: 2.5, bgcolor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                                    <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <FileText size={18} color="#4F46E5" />
-                                    </Box>
-                                    <Typography variant="body2" sx={{ color: '#334155' }}>
-                                        {isGuideMode
-                                            ? <><strong>{selectedGuides.size} guia(s)</strong> serão faturadas. Todas as sessões pendentes de cada guia serão incluídas, independentemente do mês.</>
-                                            : <><strong>{selectedPayments.size} atendimento(s)</strong> serão faturados.</>}
-                                    </Typography>
-                                </Box>
-
-                                <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2.5, bgcolor: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                                    <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <AlertCircle size={14} color="#B45309" />
-                                    </Box>
-                                    <Typography variant="body2" sx={{ color: '#92400E' }}>
-                                        Faturar uma guia <strong>não encerra automaticamente a guia</strong>. Ela continua ativa e poderá receber novos faturamentos enquanto houver sessões concluídas pendentes.
-                                        Para impedir novos agendamentos/faturamentos, use <strong>Finalizar guia</strong> no drawer da guia.
-                                    </Typography>
-                                </Box>
-
-                                <TextField
-                                    fullWidth
-                                    type="date"
-                                    label="Data do Faturamento *"
-                                    value={faturarLoteData.dataFaturamento}
-                                    onChange={(e) => setFaturarLoteData({ ...faturarLoteData, dataFaturamento: e.target.value })}
-                                    InputLabelProps={{ shrink: true }}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <Calendar size={16} color="#64748B" />
-                                            </InputAdornment>
-                                        ),
-                                    }}
-                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                                    required
-                                />
-
-                                {isGuideMode ? (
-                                    <Box>
-                                        {(() => {
-                                            const selectedGuideList = Array.from(selectedGuides)
-                                                .map(id => pendingGuides.find(g => g.guideId === id))
-                                                .filter(Boolean);
-                                            const firstGuideWithInvoice = selectedGuideList.find(g => g?.invoiceNumber);
-                                            if (firstGuideWithInvoice?.invoiceNumber) {
-                                                return (
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, p: 1.5, borderRadius: 2.5, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                                                        <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            <Check size={14} color="#15803D" />
-                                                        </Box>
-                                                        <Typography variant="body2" sx={{ color: '#166534' }}>
-                                                            <strong>Nota Fiscal:</strong> {firstGuideWithInvoice.invoiceNumber}
-                                                        </Typography>
-                                                    </Box>
-                                                );
-                                            }
-                                            return (
-                                                <TextField
-                                                    fullWidth
-                                                    label="Nota Fiscal *"
-                                                    placeholder="Informe o número da NF para criar o lote"
-                                                    value={faturarLoteData.notaFiscal}
-                                                    onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <Receipt size={16} color="#64748B" />
-                                                            </InputAdornment>
-                                                        ),
-                                                    }}
-                                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                                                    required
-                                                />
-                                            );
-                                        })()}
-                                    </Box>
-                                ) : (
-                                    <TextField
-                                        fullWidth
-                                        label="Nota Fiscal (opcional)"
-                                        placeholder="Número da NF"
-                                        value={faturarLoteData.notaFiscal}
-                                        onChange={(e) => setFaturarLoteData({ ...faturarLoteData, notaFiscal: e.target.value })}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Receipt size={16} color="#64748B" />
-                                                </InputAdornment>
-                                            ),
-                                        }}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                                    />
-                                )}
-                            </Box>
-                        </DialogContent>
-                        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9', bgcolor: '#FAFAFA' }}>
-                            <Button
-                                onClick={closeModal}
-                                disabled={faturarLoteLoading}
-                                variant="outlined"
-                                sx={{ borderRadius: 2, borderColor: '#E2E8F0', color: '#475569', '&:hover': { borderColor: '#CBD5E1', bgcolor: '#F8FAFC' } }}
-                            >
-                                {faturarLoteFromWizard ? 'Deixar para depois' : 'Cancelar'}
-                            </Button>
-                            {(() => {
-                                const selectedGuideList = isGuideMode
-                                    ? Array.from(selectedGuides).map(id => pendingGuides.find(g => g.guideId === id)).filter(Boolean)
-                                    : [];
-                                const hasInvoiceFromCommunication = selectedGuideList.some(g => g?.invoiceNumber);
-                                const canSubmit = !isGuideMode || hasInvoiceFromCommunication || faturarLoteData.notaFiscal.trim().length > 0;
-                                return (
-                                    <Button
-                                        variant="contained"
-                                        onClick={handleFaturarLote}
-                                        disabled={faturarLoteLoading || !canSubmit}
-                                        startIcon={faturarLoteLoading ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
-                                        sx={{
-                                            bgcolor: '#F59E0B',
-                                            borderRadius: 2,
-                                            px: 2.5,
-                                            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.35)',
-                                            '&:hover': { bgcolor: '#D97706' },
-                                        }}
-                                    >
-                                        {faturarLoteLoading ? 'Faturando...' : (faturarLoteFromWizard ? 'Criar lote agora' : 'Confirmar faturamento')}
-                                    </Button>
-                                );
-                            })()}
-                        </DialogActions>
-                    </Dialog>
-                );
-            })()}
-
             {/* Modal: Finalizar guias após faturamento */}
             <Dialog
                 open={postFaturamentoCloseModal.open}
@@ -1899,7 +1668,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             <Dialog open={receberLoteModalOpen} onClose={() => {
                 if (!receberLoteLoading) {
                     setReceberLoteModalOpen(false);
-                    setPaymentIdsToReceive([]);
+                    setReceiptTargets([]);
                 }
             }} maxWidth="sm" fullWidth>
                 <DialogTitle>
@@ -1913,8 +1682,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            {paymentIdsToReceive.length} atendimento(s) das guias faturadas selecionadas serão marcados como recebidos.
-                            O valor entra no caixa na data informada abaixo.
+                            {receiptSessionsCount} sessão(ões), distribuída(s) em {receiptTargets.length} NF(s), será(ão) marcada(s) como recebida(s).
+                            Os Payments entram no caixa na data informada; as demais guias da mesma NF continuam pendentes.
                         </Typography>
                         <TextField
                             fullWidth
@@ -1928,7 +1697,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => { setReceberLoteModalOpen(false); setPaymentIdsToReceive([]); }} disabled={receberLoteLoading}>
+                    <Button onClick={() => { setReceberLoteModalOpen(false); setReceiptTargets([]); }} disabled={receberLoteLoading}>
                         Cancelar
                     </Button>
                     <Button
@@ -2102,9 +1871,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
             <BillingCommunicationWizard
                 open={billingWizardOpen}
-                selectedGuides={wizardSelectedGuides}
+                submissionId={billingSubmissionId}
                 onClose={handleBillingWizardClose}
-                onAllSent={handleBillingWizardAllSent}
+                onChanged={handleBillingSubmissionChanged}
             />
 
             {/* Modal: Gerenciamento de Convênios */}

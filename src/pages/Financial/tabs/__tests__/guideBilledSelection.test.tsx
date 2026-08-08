@@ -46,6 +46,24 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
         expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     });
 
+    it('deixa a seleção de faturamento somente dentro do drawer do paciente', () => {
+        render(
+            <GuidePendingBillingSection
+                {...baseProps}
+                onToggleGuide={vi.fn()}
+                drawerAction="send_documents"
+                phase="pendingBilling"
+                onDrawerAction={vi.fn()}
+            />
+        );
+
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByText('Unimed Anápolis'));
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByText('Paciente Teste'));
+        expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+    });
+
     it('mostra resumo correto e executa recebimento dentro do drawer', () => {
         const onReceiveSelectedGuides = vi.fn();
         render(
@@ -76,8 +94,8 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
         expect(onReceiveSelectedGuides).toHaveBeenCalledWith(['guide-billed']);
     });
 
-    it('oferece envio de documentos dentro do drawer A Faturar', () => {
-        const onSendDocuments = vi.fn();
+    it('prepara o faturamento pelas guias escolhidas dentro do drawer A Faturar', () => {
+        const onPrepareBilling = vi.fn();
         render(
             <PatientDrawer
                 open
@@ -93,15 +111,83 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
                 drawerAction="send_documents"
                 phase="pendingBilling"
                 phaseLabel="para faturar"
-                onDrawerAction={onSendDocuments}
+                onDrawerAction={onPrepareBilling}
             />
         );
 
         expect(screen.getByText('A faturar · documentos pendentes')).toBeInTheDocument();
         expect(screen.getByText('sessões a faturar')).toBeInTheDocument();
-        expect(screen.getByText('Próxima ação: enviar documentos')).toBeInTheDocument();
-        fireEvent.click(screen.getByRole('button', { name: /enviar documentos/i }));
-        expect(onSendDocuments).toHaveBeenCalledWith(['guide-billed']);
+        expect(screen.getByText('Próxima ação: preparar faturamento')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /preparar faturamento/i }));
+        expect(onPrepareBilling).toHaveBeenCalledWith(['guide-billed']);
+    });
+
+    it('inclui automaticamente todas as guias do mês no modo mensal', () => {
+        const onPrepareBilling = vi.fn();
+        const monthlyGuides: PendingGuide[] = [
+            { ...billedGuide, guideId: 'guide-month-1', number: '3001', billingMode: 'per_month' },
+            { ...billedGuide, guideId: 'guide-month-2', number: '3002', billingMode: 'per_month' }
+        ];
+
+        render(
+            <PatientDrawer
+                open
+                patientName="Paciente Teste"
+                provider="unimed-anapolis"
+                guides={monthlyGuides}
+                selectedGuides={new Set()}
+                convenios={[]}
+                onToggleGuide={vi.fn()}
+                onEditGuide={vi.fn()}
+                onCloseGuide={vi.fn()}
+                onClose={vi.fn()}
+                drawerAction="send_documents"
+                phase="pendingBilling"
+                phaseLabel="para faturar"
+                onDrawerAction={onPrepareBilling}
+            />
+        );
+
+        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        expect(screen.getByText(/todas as sessões do mês serão incluídas automaticamente/i)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /preparar faturamento/i }));
+        expect(onPrepareBilling).toHaveBeenCalledWith(['guide-month-1', 'guide-month-2']);
+    });
+
+    it('abre a competência pendente mais antiga quando o mês selecionado não possui sessões', () => {
+        const onPrepareBilling = vi.fn();
+        const overdueGuide: PendingGuide = {
+            ...billedGuide,
+            guideId: 'guide-overdue',
+            insurance: 'bradesco-saude',
+            billingMode: 'per_month',
+            patient: { fullName: 'Paciente Atrasado' },
+            sessions: [{
+                sessionId: 'session-overdue',
+                paymentId: 'payment-overdue',
+                phase: 'pendingBilling',
+                value: 150,
+                date: '2026-06-10'
+            }]
+        };
+
+        render(
+            <GuidePendingBillingSection
+                {...baseProps}
+                guides={[overdueGuide]}
+                month="2026-08"
+                onToggleGuide={vi.fn()}
+                drawerAction="send_documents"
+                phase="pendingBilling"
+                onDrawerAction={onPrepareBilling}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Bradesco Saúde'));
+        fireEvent.click(screen.getByText('Paciente Atrasado'));
+        expect(screen.getByText('Competência 2026-06')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /preparar faturamento/i }));
+        expect(onPrepareBilling).toHaveBeenCalledWith(['guide-overdue'], '2026-06');
     });
 
     it('padroniza Aguardando Faturamento com cards completos e ação no drawer', () => {
@@ -126,8 +212,8 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
         );
 
         expect(screen.getByText('Documentos enviados · pronto para faturar')).toBeInTheDocument();
-        expect(screen.getByText('Próxima ação: criar faturamento')).toBeInTheDocument();
-        fireEvent.click(screen.getByRole('button', { name: /faturar guias/i }));
+        expect(screen.getByText('Próxima ação: continuar faturamento')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /continuar faturamento/i }));
         expect(onBill).toHaveBeenCalledWith(['guide-billed']);
     });
 });

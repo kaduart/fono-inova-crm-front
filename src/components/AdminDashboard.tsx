@@ -66,7 +66,8 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { confirmToast } from '../utils/confirmToast';
-import { extractErrorMessage, extractScheduleConflictMessage, isCriticalError } from '../utils/errorUtils';
+import { extractErrorMessage, isCriticalError } from '../utils/errorUtils';
+import { showScheduleConflictToast } from '../utils/scheduleConflictToast';
 import { TabErrorBoundary } from './error/TabErrorBoundary';
 import { IPatient, ScheduleAppointment } from '../../utils/types/types';
 import { useAppointmentsContext } from '../contexts/AppointmentsContext';
@@ -735,18 +736,9 @@ export default function AdminDashboard() {
 
             // Conflito (write conflict ou slot taken)
             if (error.response?.status === 409) {
-                const conflictDetail = extractScheduleConflictMessage(error);
-                if (conflictDetail) {
-                    toast.error((t) => (
-                        <div className="flex flex-col gap-1">
-                            <div className="font-semibold text-sm">⚠️ Conflito de agenda</div>
-                            <div className="text-sm leading-snug">{conflictDetail}</div>
-                        </div>
-                    ), {
-                        id: `slot-conflict-${appointmentId}`,
-                        autoClose: 8000,
-                        style: { maxWidth: '420px', borderLeft: '4px solid #ef4444' }
-                    });
+                // Id fixo dentro do helper: se o modal de edição já mostrou este
+                // mesmo 409, o toast é substituído em vez de duplicado.
+                if (showScheduleConflictToast(error)) {
                     throw error;
                 }
                 if (errorData.code === 'APPOINTMENT_SLOT_CONFLICT') {

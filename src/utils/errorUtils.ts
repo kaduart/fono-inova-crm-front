@@ -161,14 +161,18 @@ export function extractScheduleConflictMessage(error: unknown): string | null {
         : null;
       const time = existing?.time;
 
+      // Só complementa o que ainda não está na frase. O backend atual já monta
+      // "Horário ocupado: Fulano atende Beltrano às 08:00" — concatenar
+      // "Paciente: Beltrano. Horário ocupado: 08/08 às 08:00." repetia tudo.
+      // Respostas antigas trazem `message` genérica e precisam do complemento.
       let message = data.message || 'Já existe um compromisso neste horário.';
-      if (patientName) {
+      if (patientName && !message.includes(patientName)) {
         message += ` Paciente: ${patientName}.`;
       }
-      if (date && time) {
+      if (date && time && !message.includes(time)) {
         message += ` Horário ocupado: ${date} às ${time}.`;
       }
-      if (data.suggestion) {
+      if (data.suggestion && !message.includes(data.suggestion)) {
         message += ` ${data.suggestion}`;
       }
       return message;

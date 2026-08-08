@@ -1,6 +1,6 @@
-import React from "react";
 import toast from "react-hot-toast";
-import { extractErrorMessage, extractScheduleConflictMessage } from "../utils/errorUtils";
+import { extractErrorMessage } from "../utils/errorUtils";
+import { showScheduleConflictToast } from "../utils/scheduleConflictToast";
 
 export const useErrorHandler = () => {
     const handleError = (error: any) => {
@@ -12,23 +12,9 @@ export const useErrorHandler = () => {
             return;
         }
 
-        // 🎯 Toast customizado para conflito de agenda com destaque
-        const conflictDetail = extractScheduleConflictMessage(error);
-        if (conflictDetail) {
-            toast.error((t) => (
-                <div className="flex flex-col gap-1">
-                    <div className="font-semibold text-sm">
-                        ⚠️ Conflito de agenda
-                    </div>
-                    <div className="text-sm leading-snug">{conflictDetail}</div>
-                </div>
-            ), {
-                duration: 8000,
-                style: {
-                    maxWidth: '420px',
-                    borderLeft: '4px solid #ef4444',
-                },
-            });
+        // Conflito de agenda: helper compartilhado, com id fixo para não empilhar
+        // toast quando mais de uma camada tratar o mesmo 409.
+        if (showScheduleConflictToast(error)) {
             return;
         }
 

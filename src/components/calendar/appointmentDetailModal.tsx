@@ -11,7 +11,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
-import { extractScheduleConflictMessage } from '../../utils/errorUtils';
+import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
+import BillingTypeSelector from '../ui/BillingTypeSelector';
+import LiminarBillingFields from '../ui/LiminarBillingFields';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -915,20 +917,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         } catch (err: any) {
             console.error('❌ [Modal] Erro ao editar:', err);
 
-            // 🎯 Mensagem detalhada para conflitos de agenda (horário já ocupado)
-            const conflictMsg = extractScheduleConflictMessage(err);
-            if (conflictMsg) {
-                toast.error((t) => (
-                    <div className="flex flex-col gap-1">
-                        <div className="font-semibold text-sm">⚠️ Conflito de agenda</div>
-                        <div className="text-sm leading-snug">{conflictMsg}</div>
-                    </div>
-                ), {
-                    id: `edit-conflict-${event.id}`,
-                    autoClose: 8000,
-                    style: { maxWidth: '420px', borderLeft: '4px solid #ef4444' }
-                });
-            } else {
+            // Helper compartilhado com id fixo: o `throw err` abaixo faz o caller
+            // também tratar o erro, e antes cada um abria seu próprio toast.
+            if (!showScheduleConflictToast(err)) {
                 const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Erro ao atualizar agendamento';
                 toast.error(errMsg, { id: `edit-error-${event.id}` });
             }
@@ -1451,71 +1442,25 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         {/* 🏦 TIPO DE COBRANÇA */}
                         {permissions.canSeeFinancial && (
                             <div className="bg-white rounded-xl border border-gray-200 p-3">
-                                <div className="flex items-center gap-1.5 mb-3">
-                                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Forma de faturamento</span>
-                                </div>
-                                <div className="bg-slate-100 rounded-xl border border-slate-200 p-1 flex gap-1 mb-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setBillingType('particular')}
-                                        aria-pressed={billingType === 'particular'}
-                                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                                            billingType === 'particular'
-                                                ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-700/20'
-                                                : 'text-slate-500 hover:bg-white hover:text-slate-700'
-                                        }`}
-                                    >
-                                        Particular
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setBillingType('convenio')}
-                                        aria-pressed={billingType === 'convenio'}
-                                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                                            billingType === 'convenio'
-                                                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-700/20'
-                                                : 'text-slate-500 hover:bg-white hover:text-slate-700'
-                                        }`}
-                                    >
-                                        Convênio
-                                    </button>
-                                    {(event?.billingType === 'liminar' || !!event?.liminarContract) && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setBillingType('liminar')}
-                                            aria-pressed={billingType === 'liminar'}
-                                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                                                billingType === 'liminar'
-                                                    ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-700/20'
-                                                    : 'text-slate-500 hover:bg-white hover:text-slate-700'
-                                            }`}
-                                        >
-                                            Liminar
-                                        </button>
-                                    )}
+                                <div className="flex flex-wrap items-center gap-3 mb-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Faturamento</span>
+                                    </div>
+                                    <BillingTypeSelector
+                                        value={billingType}
+                                        onChange={setBillingType}
+                                        showLiminar={event?.billingType === 'liminar' || !!event?.liminarContract}
+                                    />
                                 </div>
 
                                 {billingType === 'liminar' && (
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                Valor da Sessão Judicial *
-                                            </label>
-                                            <InputCurrency
-                                                name="paymentAmount"
-                                                value={paymentAmount}
-                                                onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                                                className="w-full p-2 bg-white border border-gray-300 rounded-lg"
-                                            />
-                                        </div>
-                                        {event?.liminarContract && (
-                                            <div className="bg-purple-50 p-2.5 rounded-lg text-xs text-purple-800">
-                                                ⚖️ Saldo judicial disponível: R$ {((event.liminarContract as any).creditBalance ?? 0).toFixed(2)}
-                                                {(event.liminarContract as any).processNumber && ` — Processo: ${(event.liminarContract as any).processNumber}`}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <LiminarBillingFields
+                                        value={paymentAmount}
+                                        onChange={setPaymentAmount}
+                                        creditBalance={(event?.liminarContract as any)?.creditBalance}
+                                        processNumber={(event?.liminarContract as any)?.processNumber}
+                                    />
                                 )}
 
                                 {billingType === 'convenio' && (
@@ -1525,7 +1470,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 ⚠️ <strong>Convênio não identificado.</strong> Selecione o convênio abaixo antes de confirmar.
                                             </div>
                                         )}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-[minmax(220px,300px)_minmax(160px,220px)] gap-3 justify-start">
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                                     Convênio *
@@ -1838,14 +1783,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
             case 'edit':
                 return (
-                    <div className="space-y-4 [&_label]:text-xs [&_label]:font-medium [&_label]:text-slate-600 [&_input]:p-2.5 [&_select]:p-2.5 [&_textarea]:p-2.5 [&_.react-datepicker-wrapper]:w-full">
+                    <div className="space-y-3 [&_label]:text-xs [&_label]:font-medium [&_label]:text-slate-600 [&_input]:p-2 [&_select]:p-2 [&_textarea]:p-2 [&_.react-datepicker-wrapper]:w-full">
                         <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                             <PencilIcon className="h-4 w-4 shrink-0 text-amber-600" />
                             <span><strong>Modo de edição:</strong> revise os campos e confirme em “Salvar alterações”.</span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-4">
-                            <div className="space-y-1">
+                        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                            <div className="space-y-1 md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <User className="w-4 h-4 text-green-600" />
                                     Paciente <span className="text-red-500">(não pode ser alterado)</span>
@@ -1864,7 +1809,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </p>
                             </div>
 
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Stethoscope className="w-4 h-4 text-green-600" />
                                     Profissional *
@@ -1897,7 +1842,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 ) : null}
                             </div>
 
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-green-600" />
                                     Data *
@@ -1920,7 +1865,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 />
                             </div>
 
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-green-600" />
                                     Hora *
@@ -1944,11 +1889,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     }
                                 />
                             </div>
-                        </div>
-
                         {/* 🆕 NOVO: Tipo de Serviço e Especialidade */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Tipo de Serviço
                                 </label>
@@ -1969,7 +1911,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </Select>
                             </div>
 
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Especialidade
                                 </label>
@@ -1989,9 +1931,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     <option value="psicopedagogia">Psicopedagogia</option>
                                 </Select>
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
+                        <div className="space-y-1 md:col-span-6 md:order-2">
                             <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                 <ClipboardCheck className="w-4 h-4 text-green-600" />
                                 Motivo da Consulta
@@ -2005,8 +1945,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Status Operacional
                                 </label>
@@ -2023,7 +1962,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </select>
                             </div>
 
-                            <div className="space-y-1">
+                            <div className="space-y-1 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Status Clínico
                                 </label>
@@ -2043,37 +1982,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                         {permissions.canSeeFinancial && (
                             <div className="bg-emerald-50/50 rounded-xl border border-emerald-100 p-3 space-y-3">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                                <div className="flex items-center gap-1.5 sm:w-40 shrink-0">
-                                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Faturamento</span>
-                                </div>
-
-                                <div className="flex-1 bg-white rounded-lg border border-gray-200 p-1 flex gap-1">
-                                    <button type="button" onClick={() => setBillingType('particular')}
-                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                            billingType === 'particular'
-                                                ? 'bg-green-600 text-white shadow-sm'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
-                                        }`}>
-                                        Particular
-                                    </button>
-                                    <button type="button" onClick={() => setBillingType('convenio')}
-                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                            billingType === 'convenio'
-                                                ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
-                                        }`}>
-                                        Convênio
-                                    </button>
-                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Faturamento</span>
+                                    </div>
+                                    <BillingTypeSelector value={billingType} onChange={setBillingType} />
                                 </div>
 
                                 {billingType === 'particular' ? (
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-[minmax(180px,240px)_minmax(200px,260px)] gap-3 justify-start">
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-gray-500">Valor (R$)</label>
-                                            <InputCurrency value={paymentAmount} onChange={setPaymentAmount}
+                                            <InputCurrency name="paymentAmount" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)}
                                                 className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-400 bg-white" />
                                         </div>
                                         <div className="space-y-1">
@@ -2090,9 +2011,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             </select>
                                         </div>
                                     </div>
-                                ) : (
+                                ) : billingType === 'convenio' ? (
                                     <div className="space-y-3">
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-[minmax(220px,300px)_minmax(160px,220px)] gap-3 justify-start">
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-gray-500">Convênio</label>
                                                 <input type="text" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
@@ -2106,6 +2027,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             </div>
                                         </div>
                                     </div>
+                                ) : (
+                                    <LiminarBillingFields
+                                        value={paymentAmount}
+                                        onChange={setPaymentAmount}
+                                        creditBalance={(event?.liminarContract as any)?.creditBalance}
+                                        processNumber={(event?.liminarContract as any)?.processNumber}
+                                    />
                                 )}
                             </div>
                         )}

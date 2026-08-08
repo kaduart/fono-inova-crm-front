@@ -32,6 +32,8 @@ export interface CommunicationRequest {
     insuranceName?: string;
     guideId?: string;
     guideNumber?: string | null;
+    billingSubmissionId?: string | null;
+    billingAllocationIds?: string[];
     specialty?: string;
     requestedSessions?: number;
     purpose: CommunicationPurpose;
@@ -198,6 +200,8 @@ export const createCommunication = (data: {
     notes?: string;
     invoiceNumber?: string;
     invoiceDate?: string;
+    billingSubmissionId?: string;
+    billingAllocationIds?: string[];
 }) => api.post<{ success: boolean; data: CommunicationRequest }>('/v2/communications', {
     ...data,
     purpose: data.purpose || 'authorization'

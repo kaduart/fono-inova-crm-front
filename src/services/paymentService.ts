@@ -152,30 +152,6 @@ export const getInsurancePayments = (filters?: { provider?: string; status?: str
         { params: { ...filters, billingType: 'convenio' } }
     );
 
-// Faturar em lote (V2) - guide-based ou legacy payment-based
-export interface GuideBillingClosure {
-    guideId: string;
-    skipped: boolean;
-    reason?: string; // 'not_per_month' | 'guide_not_found' quando skipped=true
-    canceled?: number;
-    canceledIds?: string[];
-    errors?: Array<{ id: string; error: string }>;
-    error?: string; // presente se o fechamento falhou (best-effort, faturamento já foi enviado)
-}
-
-export const faturarConvenioLote = (data: {
-    paymentIds?: string[];
-    guideIds?: string[];
-    dataFaturamento?: string;
-    notaFiscal?: string;
-}) => API.post<{
-    success: boolean;
-    // data.guideClosures / data.totalAppointmentsCanceledOnClosure: fechamento
-    // automático de guias per_month faturadas nesse lote (ver GuideBillingClosure)
-    data: any;
-    error?: string;
-}>('/v2/financial/convenio/faturar-lote', data);
-
 // Listar guias pendentes de faturamento (guide-based)
 export interface OverdueBillingBucket {
     competence: string; // YYYY-MM
@@ -262,9 +238,38 @@ export interface InsuranceGuideViewSession {
     value: number;
     paymentId: string | null;
     paymentStatus: string | null;
+    paymentIntegrityConflict: boolean;
+    activePaymentCount: number;
     batchId: string | null;
     batchStatus: string | null;
+    /** NF sob a qual ESTA sessão foi faturada — a nota é do lote, não da guia */
+    batchInvoiceNumber: string | null;
+    batchInvoiceDate: string | Date | null;
+    batchOrigin: 'current_billing' | 'legacy_reconciliation' | null;
     competenceDate: string | Date | null;
+}
+
+export interface InsurancePaymentIntegrityConflict {
+    sessionId: string;
+    guideId: string;
+    patientId: string | null;
+    activePayments: number;
+    paymentStatuses: Array<{
+        paymentId: string;
+        status: string;
+        insuranceStatus: string | null;
+    }>;
+}
+
+/** Uma nota fiscal que cobriu parte das sessões da guia. */
+export interface InsuranceGuideInvoice {
+    batchId: string;
+    invoiceNumber: string | null;
+    invoiceDate: string | Date | null;
+    origin: 'current_billing' | 'legacy_reconciliation' | null;
+    batchStatus: string | null;
+    sessions: number;
+    amount: number;
 }
 
 export interface InsuranceGuideView {
@@ -296,6 +301,8 @@ export interface InsuranceGuideView {
     /** true = data derivada de updatedAt, não de um campo de envio real (débito técnico) */
     documentationSentAtIsProxy: boolean;
     invoiceNumber: string | null;
+    /** Notas que cobrem as sessões desta guia. Faturamento mês a mês gera várias. */
+    invoices: InsuranceGuideInvoice[];
     sessionDetails: InsuranceGuideViewSession[];
 }
 
@@ -315,12 +322,9 @@ export const getInsuranceGuidesView = (params?: {
         orphanSessions: any[];
         totals: { sessions: InsuranceGuidePhaseCounters; financialSummary: InsuranceGuideFinancialSummary };
         competenceBreakdown: CompetenceBreakdown;
+        paymentIntegrityConflicts: InsurancePaymentIntegrityConflict[];
         pagination: any;
     }>('/v2/insurance/guides/view', { params });
-
-// Receber em lote (V2)
-export const receberConvenioLote = (data: { paymentIds: string[]; dataRecebimento: string }) =>
-    API.post<{ success: boolean; data: any; error?: string }>('/v2/financial/convenio/receber-lote', data);
 
 // Encerrar período de guia per_month manualmente (cancela agendamentos pendentes)
 export const encerrarGuia = (data: { guideId: string }) =>
