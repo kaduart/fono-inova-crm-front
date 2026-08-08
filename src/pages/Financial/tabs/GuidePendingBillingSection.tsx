@@ -41,6 +41,8 @@ import { toast } from 'react-toastify';
 
 export interface PendingGuideSession {
     sessionId: string;
+    /** Payment que o command side deve receber; nulo em sessões sem Payment elegível. */
+    paymentId?: string | null;
     date?: string | Date | null;
     // Horário real do atendimento (Appointment.time, "HH:mm") — Session.date
     // carrega só o dia de forma confiável; a hora embutida nele não bate com
@@ -137,8 +139,8 @@ interface GuidePendingBillingSectionProps {
     onRefresh?: () => void;
     month?: string;
     /**
-     * Abas de conferência (Faturados/Recebidos): esconde seleção e ações de
-     * faturamento. Não há o que faturar sobre o que já foi faturado/recebido.
+     * Abas estritamente de conferência (ex.: Recebidos): esconde seleção.
+     * Faturados não é read-only porque permite comandar o recebimento.
      */
     readOnly?: boolean;
     /** Substantivo da fase exibida, ex.: "faturada(s)". Default: "para faturar". */

@@ -131,6 +131,7 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
         competenceBreakdown: g.competenceBreakdown,
         sessions: g.sessionDetails.map(s => ({
             sessionId: s.sessionId,
+            paymentId: s.paymentId,
             date: s.date,
             time: s.time,
             doctorName: s.doctorName,
@@ -140,6 +141,27 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
         }))
     };
 }
+
+/**
+ * Traduz seleção visual por guia para o contrato antigo do command side.
+ * Deliberadamente aceita apenas Payments do bucket billed: numa guia mista,
+ * pendingBilling e received nunca entram na baixa.
+ */
+export function billedPaymentIdsFromSelectedGuides(
+    guides: PendingGuide[],
+    selectedGuideIds: Set<string>
+): string[] {
+    const paymentIds = new Set<string>();
+    for (const guide of guides) {
+        if (!selectedGuideIds.has(guide.guideId)) continue;
+        for (const session of guide.sessions || []) {
+            if (session.phase === 'billed' && session.paymentId) paymentIds.add(session.paymentId);
+        }
+    }
+    return [...paymentIds];
+}
+
+export const usesGuideSelection = (subTab: number) => subTab === 0 || subTab === 1 || subTab === 2;
 
 export function buildOverdueGuidesList(guides: PendingGuide[]) {
     return guides
@@ -335,6 +357,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         pendingStateGuides: guidesByPhase.pendingBilling,
         waitingBillingGuides: guidesByPhase.documentationSent
     }), [guidesByPhase]);
+
+    const selectedBilledPaymentIds = useMemo(
+        () => billedPaymentIdsFromSelectedGuides(guidesByPhase.billed, selectedGuides),
+        [guidesByPhase.billed, selectedGuides]
+    );
 
     // Detalha QUAIS guias compõem o atraso usando exclusivamente o breakdown da
     // ReadView. O frontend não interpreta datas nem recompõe competência.
@@ -567,7 +594,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const clearGuideSelection = () => setSelectedGuides(new Set());
 
     const selectAllGuides = () => {
-        const source = subTab === 0 ? pendingStateGuides : waitingBillingGuides;
+        const source = subTab === 0
+            ? pendingStateGuides
+            : subTab === 1
+            ? waitingBillingGuides
+            : guidesByPhase.billed;
         setSelectedGuides(new Set(source.map(g => g.guideId)));
     };
 
@@ -719,22 +750,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedPayments(newSelected);
     };
 
-    const totalSelectable = subTab === 5 || subTab === 6 || subTab === 7
-        ? 0 // Histórico, Autorizações, Envios e Convênios Cadastrados: sem seleção em lote
+    const totalSelectable = subTab === 3 || subTab === 4 || subTab === 5 || subTab === 6 || subTab === 7
+        ? 0 // Recebidos e abas de conferência/cadastro: sem seleção em lote
         : subTab === 0
         ? pendingStateGuides.length
         : subTab === 1
         ? waitingBillingGuides.length
-        : receivables.reduce((sum, group) =>
-            sum + (group.patients || []).reduce((pSum: number, patient: any) =>
-                pSum + (patient.payments || []).filter((p: any) =>
-                    subTab === 2 ? p.status === 'billed'
-                    : ['received', 'partial', 'glosa'].includes(p.status)
-                ).length, 0
-            ), 0
-        );
+        : guidesByPhase.billed.length;
 
-    const isGuideMode = subTab === 0 || subTab === 1;
+    const isGuideMode = usesGuideSelection(subTab);
 
     const handleOpenFaturarLoteModal = () => {
         const hasSelection = isGuideMode ? selectedGuides.size > 0 : selectedPayments.size > 0;
@@ -900,8 +924,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const handleOpenReceberLoteModal = () => {
-        if (selectedPayments.size === 0) {
-            toast.warn('Selecione pelo menos um atendimento');
+        if (selectedBilledPaymentIds.length === 0) {
+            toast.warn('Selecione pelo menos uma guia faturada com pagamentos elegíveis');
             return;
         }
         setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
@@ -912,7 +936,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setReceberLoteLoading(true);
         try {
             const result = await receberConvenioLote({
-                paymentIds: Array.from(selectedPayments),
+                paymentIds: selectedBilledPaymentIds,
                 dataRecebimento: receberLoteData.dataRecebimento
             });
 
@@ -925,6 +949,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 toast.success(message);
                 setReceberLoteModalOpen(false);
                 clearAllSelection();
+                clearGuideSelection();
                 loadReceivables(selectedMonthYear);
             } else {
                 toast.error(result.data.error || 'Erro ao receber');
@@ -1380,8 +1405,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         />
                     ) : subTab === 2 || subTab === 3 ? (
                         // Faturados/Recebidos derivam da ReadView pelo bucket da fase.
-                        // `readOnly` porque não há ação de faturar sobre o que já foi
-                        // faturado/recebido — a aba aqui é conferência, não operação.
+                        // Faturados preserva o command de recebimento; somente Recebidos
+                        // é read-only. A fonte de leitura não remove ação existente.
                         <GuidePendingBillingSection
                             guides={subTab === 2 ? guidesByPhase.billed : guidesByPhase.received}
                             selectedGuides={selectedGuides}
@@ -1390,7 +1415,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             onToggleGuide={toggleGuideSelection}
                             onRefresh={() => loadReceivables(selectedMonthYear)}
                             month={selectedMonthYear}
-                            readOnly
+                            readOnly={subTab === 3}
                             phaseLabel={subTab === 2 ? 'faturada(s)' : 'recebida(s)'}
                         />
                     ) : loading ? (
@@ -1839,7 +1864,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 <DialogContent dividers>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            {selectedPayments.size} atendimento(s) serão marcados como recebidos.
+                            {selectedBilledPaymentIds.length} atendimento(s) das guias faturadas selecionadas serão marcados como recebidos.
                             O valor entra no caixa na data informada abaixo.
                         </Typography>
                         <TextField

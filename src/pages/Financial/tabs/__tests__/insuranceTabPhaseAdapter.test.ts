@@ -7,7 +7,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { adaptGuideViewToPendingGuide, buildOverdueGuidesList } from '../InsuranceTab';
+import {
+    adaptGuideViewToPendingGuide,
+    billedPaymentIdsFromSelectedGuides,
+    buildOverdueGuidesList,
+    usesGuideSelection
+} from '../InsuranceTab';
 import type { InsuranceGuideView } from '../../../../services/paymentService';
 
 // Caso do enunciado: 16 sessões — 4 a faturar (R$560), 8 faturadas (R$1.120), 4 recebidas (R$560)
@@ -125,5 +130,39 @@ describe('adaptGuideViewToPendingGuide — fatia por fase', () => {
             guideId: 'g1', overdueValue: 280, overdueCount: 2,
             oldestCompetence: '2026-06'
         })]);
+    });
+
+    it('Faturados mantém seleção visível; Recebidos continua somente leitura', () => {
+        expect(usesGuideSelection(2)).toBe(true);
+        expect(usesGuideSelection(3)).toBe(false);
+    });
+
+    it('guia faturada selecionada envia somente seus Payment IDs billed', () => {
+        const guia = adaptGuideViewToPendingGuide({
+            ...guiaMista,
+            sessionDetails: [
+                { sessionId: 's1', paymentId: 'pay-b1', date: '2026-06-01', time: null, doctorName: null, specialty: null, status: 'completed', phase: 'billed', value: 140, paymentStatus: 'billed', batchId: 'batch1', batchStatus: 'sent', competenceDate: '2026-06-10' },
+                { sessionId: 's2', paymentId: 'pay-b2', date: '2026-06-02', time: null, doctorName: null, specialty: null, status: 'completed', phase: 'billed', value: 140, paymentStatus: 'billed', batchId: 'batch1', batchStatus: 'sent', competenceDate: '2026-06-10' }
+            ]
+        }, 'billed');
+
+        expect(billedPaymentIdsFromSelectedGuides([guia], new Set(['g1'])))
+            .toEqual(['pay-b1', 'pay-b2']);
+        expect(billedPaymentIdsFromSelectedGuides([guia], new Set())).toEqual([]);
+    });
+
+    it('guia mista baixa somente billed; pending e received permanecem fora do command', () => {
+        const guiaMistaAdaptada = adaptGuideViewToPendingGuide({
+            ...guiaMista,
+            sessionDetails: [
+                { sessionId: 'sp', paymentId: 'pay-pending', date: '2026-08-01', time: null, doctorName: null, specialty: null, status: 'completed', phase: 'pendingBilling', value: 140, paymentStatus: 'pending_billing', batchId: null, batchStatus: null, competenceDate: '2026-08-01' },
+                { sessionId: 'sb1', paymentId: 'pay-billed-1', date: '2026-06-01', time: null, doctorName: null, specialty: null, status: 'completed', phase: 'billed', value: 140, paymentStatus: 'billed', batchId: 'batch1', batchStatus: 'sent', competenceDate: '2026-06-10' },
+                { sessionId: 'sb2', paymentId: 'pay-billed-2', date: '2026-06-02', time: null, doctorName: null, specialty: null, status: 'completed', phase: 'billed', value: 140, paymentStatus: 'billed', batchId: 'batch1', batchStatus: 'sent', competenceDate: '2026-06-10' },
+                { sessionId: 'sr', paymentId: 'pay-received', date: '2026-05-01', time: null, doctorName: null, specialty: null, status: 'completed', phase: 'received', value: 140, paymentStatus: 'received', batchId: 'batch0', batchStatus: 'received', competenceDate: '2026-07-01' }
+            ]
+        }, 'billed');
+
+        expect(billedPaymentIdsFromSelectedGuides([guiaMistaAdaptada], new Set(['g1'])))
+            .toEqual(['pay-billed-1', 'pay-billed-2']);
     });
 });
