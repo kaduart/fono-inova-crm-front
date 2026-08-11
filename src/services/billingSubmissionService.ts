@@ -90,3 +90,27 @@ export const finalizeBillingSubmission = (id: string) =>
 
 export const cancelBillingSubmission = (id: string) =>
     api.post<{ success: boolean; data: BillingSubmission }>(`/v2/billing-submissions/${id}/cancel`);
+
+export interface BillingSubmissionPagination {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+}
+
+// Um submission em `draft` reserva as sessões dele: nenhuma outra tentativa de
+// faturamento pode usá-las até ele ser finalizado ou cancelado (guard
+// BILLING_SUBMISSION_SESSION_RESERVED). Sem esta listagem, um preparo abandonado
+// travava as sessões de forma invisível e o único sintoma era um 409 na próxima
+// tentativa, sem dizer quem estava segurando.
+export const listBillingSubmissions = (params: {
+    status?: 'draft' | 'finalized' | 'cancelled';
+    patientId?: string;
+    insuranceProviderId?: string;
+    billingCompetence?: string;
+    page?: number;
+    limit?: number;
+} = {}) => api.get<{ success: boolean; data: BillingSubmission[]; pagination: BillingSubmissionPagination }>(
+    '/v2/billing-submissions',
+    { params }
+);

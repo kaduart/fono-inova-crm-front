@@ -99,7 +99,9 @@ export interface CommunicationEmailLog {
     to: string;
     subject: string;
     message?: string | null;
-    status: 'success' | 'error' | 'pending';
+    // 'not_sent' só existe na leitura da aba "Envios": comunicação pronta que nunca
+    // teve tentativa de envio, portanto não tem log real por trás.
+    status: 'success' | 'error' | 'pending' | 'not_sent';
     type?: CommunicationEmailType;
     channel?: 'email' | 'external' | 'portal' | null;
     reason?: string | null;
@@ -138,6 +140,14 @@ export interface CommunicationEmailLogFilters {
     purpose?: CommunicationPurpose;
     insurance?: string;
     patientId?: string;
+    // 'unsent' = tudo que não chegou ao convênio (falhou + nunca enviado); os demais
+    // são o status exato do log. 'not_sent' não é filtrável direto de propósito —
+    // quem opera pergunta "o que falta enviar?", não "o que nunca teve tentativa?".
+    status?: 'success' | 'error' | 'pending' | 'unsent';
+    // Nome do paciente. Filtrado no backend porque o nome vem da comunicação, não do
+    // log — buscar no cliente só alcançaria a página carregada.
+    search?: string;
+    month?: string; // 'YYYY-MM'
     page?: number;
     limit?: number;
 }
@@ -163,6 +173,7 @@ export interface CommunicationFilters {
     insurance?: string;
     patientId?: string;
     purpose?: CommunicationPurpose;
+    guideId?: string;
     month?: string;
     page?: number;
     limit?: number;

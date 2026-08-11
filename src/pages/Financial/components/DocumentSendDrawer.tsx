@@ -44,6 +44,10 @@ interface DocumentSendDrawerProps {
     onClose: () => void;
     onSent: () => void;
     purpose?: CommunicationPurpose;
+    // Aba em que o drawer abre. Permite que quem chama diferencie "quero enviar" de
+    // "quero ver o que já aconteceu" — sem isto, todo ponto de entrada caía no mesmo
+    // formulário de envio e os botões da lista viravam ações redundantes.
+    initialTab?: 'send' | 'history';
 }
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
@@ -89,7 +93,8 @@ export function DocumentSendDrawer({
     communication,
     onClose,
     onSent,
-    purpose: purposeProp
+    purpose: purposeProp,
+    initialTab = 'send'
 }: DocumentSendDrawerProps) {
     const [detail, setDetail] = useState<CommunicationDetail | null>(null);
     const [documents, setDocuments] = useState<PatientDocument[]>([]);
@@ -100,7 +105,7 @@ export function DocumentSendDrawer({
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [reasonText, setReasonText] = useState('');
-    const [drawerTab, setDrawerTab] = useState<'send' | 'history'>('send');
+    const [drawerTab, setDrawerTab] = useState<'send' | 'history'>(initialTab);
     // Snapshot do último envio real, capturado no load() — usado só pra decidir se um
     // clique em "Reenviar" conta como RESEND (nada mudou) ou COMPLEMENT (mudou algo),
     // sem expor essa escolha como dois botões separados pro usuário.
@@ -145,7 +150,7 @@ export function DocumentSendDrawer({
             setSubject(initialSubject);
             setMessage(initialMessage);
             setReasonText('');
-            setDrawerTab('send');
+            setDrawerTab(initialTab);
             setOriginalSnapshot({
                 to: initialTo,
                 subject: initialSubject,
@@ -157,7 +162,7 @@ export function DocumentSendDrawer({
         } finally {
             setLoading(false);
         }
-    }, [communication, purposeLabels.defaultSubject]);
+    }, [communication, purposeLabels.defaultSubject, initialTab]);
 
     useEffect(() => {
         if (open) load();
@@ -258,6 +263,9 @@ export function DocumentSendDrawer({
         }
     };
 
+    // Uma entrega que falhou volta para 'ready' (CommunicationStateMachine: FAIL -> READY),
+    // nunca para um status 'failed' — que não existe no enum. Então falha não conta como
+    // "já enviada": o botão certo é "Enviar", porque nada chegou ao convênio.
     const isAlreadySent = communication?.status === 'sent' || communication?.status === 'approved';
 
     const handleSend = async (
@@ -279,7 +287,7 @@ export function DocumentSendDrawer({
                 sendType,
                 reason: sendType ? (reasonText.trim() || undefined) : undefined
             });
-            jobId = res.data.data.jobId;
+            jobId = res.data.data.jobId ?? null;
             toast.info('Comunicação enfileirada. Aguardando confirmação de envio...');
 
             // Polling: aguarda até 30s o job terminar

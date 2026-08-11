@@ -24,13 +24,15 @@ import {
 } from '@mui/material';
 import { AlertCircle, CheckCircle, FileText, Mail, Send, Upload, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { DocumentSendDrawer } from '../DocumentSendDrawer';
 import {
     createCommunication,
     getCommunication,
     getCommunicationJobStatus,
     sendCommunication,
     setCommunicationPackage,
-    uploadPatientDocument
+    uploadPatientDocument,
+    CommunicationRequest
 } from '../../../../services/communicationService';
 import {
     BillingAllocationInput,
@@ -153,6 +155,8 @@ export function BillingCommunicationWizard({
     const [saving, setSaving] = useState(false);
     const [sending, setSending] = useState(false);
     const [finalizing, setFinalizing] = useState(false);
+    const [sendErrorModal, setSendErrorModal] = useState<{ open: boolean; message: string; communicationId: string | null }>({ open: false, message: '', communicationId: null });
+    const [resendDrawer, setResendDrawer] = useState<{ open: boolean; communication: CommunicationRequest | null }>({ open: false, communication: null });
     const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
     const sessions = useMemo(() => populatedSessions(submission), [submission]);
@@ -438,12 +442,42 @@ export function BillingCommunicationWizard({
                 try {
                     await sendDocuments({ skipPersist: true, submissionOverride: finalizedSubmission });
                 } catch (sendError) {
-                    toast.error(`Faturamento concluído, mas o envio falhou: ${extractErrorMessage(sendError, 'erro no envio')}`);
+                    const errorMessage = extractErrorMessage(sendError, 'erro no envio');
+                    setSendErrorModal({
+                        open: true,
+                        message: `Faturamento concluído, mas o envio do email ao convênio falhou: ${errorMessage}`,
+                        communicationId: communicationId || null
+                    });
                 }
             }
         } catch (error) {
             toast.error(extractErrorMessage(error, 'Não foi possível concluir a operação'));
         }
+    };
+
+    const handleOpenResendDrawer = async () => {
+        if (!sendErrorModal.communicationId || !submission) return;
+        setSendErrorModal(prev => ({ ...prev, open: false }));
+        let patientId = '';
+        let patientName = '';
+        if (typeof submission.patientId === 'string') {
+            patientId = submission.patientId;
+        } else if (submission.patientId) {
+            patientId = submission.patientId._id || '';
+            patientName = submission.patientId.fullName || '';
+        }
+        const communication: CommunicationRequest = {
+            _id: sendErrorModal.communicationId,
+            patientId,
+            patientName,
+            insuranceProvider: providerInfo?.code || '',
+            insuranceName: providerInfo?.name || '',
+            purpose: 'billing',
+            status: 'sent',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        setResendDrawer({ open: true, communication });
     };
 
     const busy = loading || saving || sending || finalizing;
@@ -462,6 +496,7 @@ export function BillingCommunicationWizard({
     };
 
     return (
+        <>
         <Dialog
             open={open}
             onClose={handleClose}
@@ -667,6 +702,55 @@ export function BillingCommunicationWizard({
                 )}
             </DialogActions>
         </Dialog>
+        <Dialog open={sendErrorModal.open} onClose={() => setSendErrorModal(prev => ({ ...prev, open: false }))} maxWidth="sm" fullWidth>
+            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, color: "#B45309", bgcolor: "#FFFBEB" }}>
+                <AlertCircle size={22} />
+                Atenção: email não enviado
+            </DialogTitle>
+            <DialogContent dividers>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    O faturamento foi concluído e os lotes foram criados, mas o envio do email ao convênio <strong>não foi confirmado</strong>. O parceiro pode não ter recebido a documentação.
+                </Typography>
+                <Box sx={{ bgcolor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 2, p: 1.5 }}>
+                    <Typography variant="body2" color="#991B1B" fontWeight={600}>
+                        {sendErrorModal.message}
+                    </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                    Não feche esta tela sem verificar. Você pode tentar reenviar agora ou acompanhar o status na aba <strong>Envios</strong>.
+                </Typography>
+            </DialogContent>
+            <DialogActions sx={{ p: 2, gap: 1 }}>
+                <Button onClick={() => setSendErrorModal(prev => ({ ...prev, open: false }))} sx={{ textTransform: "none" }}>
+                    Entendi, fechar
+                </Button>
+                <Box sx={{ flex: 1 }} />
+                {sendErrorModal.communicationId && (
+                    <Button
+                        variant="outlined"
+                        onClick={handleOpenResendDrawer}
+                        startIcon={<Send size={16} />}
+                        sx={{ textTransform: "none", fontWeight: 600, borderColor: "#7C3AED", color: "#7C3AED" }}
+                    >
+                        Reenviar documentação
+                    </Button>
+                )}
+            </DialogActions>
+        </Dialog>
+
+        {/* Drawer de reenvio/ajuste da comunicação que falhou */}
+        <DocumentSendDrawer
+            open={resendDrawer.open}
+            communication={resendDrawer.communication}
+            onClose={() => setResendDrawer({ open: false, communication: null })}
+            onSent={() => {
+                setResendDrawer({ open: false, communication: null });
+                setSendErrorModal(prev => ({ ...prev, open: false }));
+                onChanged();
+            }}
+            purpose="billing"
+        />
+        </>
     );
 }
 

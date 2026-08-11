@@ -58,3 +58,15 @@ export async function receiveInvoiceBatch(
     return response.data.data;
 }
 
+export async function updateInvoiceNumber(
+    batchId: string,
+    invoiceNumber: string
+) {
+    const response = await API.patch<{ success: boolean; data: {
+        batchId: string;
+        invoiceNumber: string;
+        previousInvoiceNumber: string | null;
+    } }>(`/v2/insurance-batches/${batchId}/invoice-number`, { invoiceNumber });
+    return response.data.data;
+}
+

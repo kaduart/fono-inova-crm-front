@@ -73,6 +73,8 @@ export interface PendingGuide {
     documentationSentAt?: string | Date | null;
     /** Número da Nota Fiscal informada no envio de documentação (se houver) */
     invoiceNumber?: string | null;
+    /** ID da comunicação de faturamento/documentação vinculada à guia (para reenvio) */
+    communicationId?: string | null;
     /** Quantas sessões desta guia já entraram em algum InsuranceBatch (faturadas antes) — o que aparece pendente aqui é só a sobra */
     alreadyBilledSessions?: number;
     /** Data de criação do lote mais recente que já pegou sessão desta guia */
@@ -1645,6 +1647,10 @@ const GuidePendingBillingSection = ({
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Reenvio NÃO mora aqui: o ponto único de envio/reenvio é a aba "Envios",
+                que lista tanto o que já saiu quanto o que nunca foi enviado. Esta seção
+                só informa o estado da guia. */}
         </>
     );
 };

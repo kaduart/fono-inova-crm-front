@@ -7,6 +7,7 @@ import {
     Dialog,
     DialogActions,
     DialogContent,
+    DialogContentText,
     DialogTitle,
     FormControl,
     InputLabel,
@@ -42,6 +43,7 @@ import {
     History,
     X,
     FileText,
+    FileClock,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -71,10 +73,11 @@ import { extractErrorMessage } from '../../../utils/errorUtils';
 import { Shield } from 'lucide-react';
 import { AutorizacoesTab } from './AutorizacoesTab';
 import EnviosTab from './EnviosTab';
+import RascunhosTab from './RascunhosTab';
 import { useConvenios } from '../../../hooks/useConvenios';
 import { getConvenio } from '../../../services/insuranceService';
 import BillingCommunicationWizard from '../components/BillingCommunicationWizard';
-import { createBillingSubmission } from '../../../services/billingSubmissionService';
+import { createBillingSubmission, cancelBillingSubmission, listBillingSubmissions, getBillingSubmission } from '../../../services/billingSubmissionService';
 import InvoiceReceivablesSection from './InvoiceReceivablesSection';
 import { receiveInvoiceBatch } from '../../../services/insuranceBatchReceiptService';
 
@@ -325,6 +328,12 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [receiptTargets, setReceiptTargets] = useState<Array<{ batchId: string; guideIds: string[] }>>([]);
     const [receiptSessionsCount, setReceiptSessionsCount] = useState(0);
     const [invoiceReceivableCount, setInvoiceReceivableCount] = useState(0);
+    // Contado à parte da aba: o badge precisa avisar que existem sessões travadas
+    // ANTES de alguém pensar em abrir "Rascunhos" — quem está travado normalmente
+    // nem sabe que a aba existe.
+    const [draftSubmissionCount, setDraftSubmissionCount] = useState(0);
+    const [discardDraftId, setDiscardDraftId] = useState<string | null>(null);
+    const [discardingDraft, setDiscardingDraft] = useState(false);
     
     // Estado para modal de gerenciamento de convênios
     const [convenioManagerOpen, setConvenioManagerOpen] = useState(false);
@@ -524,6 +533,21 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             setLoadingGuides(false);
         }
     };
+
+    // Contagem de preparos em aberto. Roda fora de loadAllCounts porque não é
+    // escopada por mês nem por fase de guia: um rascunho de junho trava sessões
+    // independentemente do mês que estiver selecionado na tela.
+    const loadDraftCount = async () => {
+        try {
+            const res = await listBillingSubmissions({ status: 'draft', limit: 100 });
+            setDraftSubmissionCount((res.data.data || []).length);
+        } catch {
+            // Silencioso de propósito: é um badge auxiliar. Um toast de erro aqui
+            // apareceria em toda visita à tela de convênios sem o usuário poder agir.
+        }
+    };
+
+    useEffect(() => { void loadDraftCount(); }, []);
 
     const loadReceivables = async (month?: string) => {
         if (subTab === 8) return;
@@ -848,13 +872,50 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         }
     };
 
-    const handleBillingWizardClose = () => {
+    // Fechar o wizard antes de finalizar deixava o submission em `draft`, e um draft
+    // RESERVA as sessões dele: ninguém mais conseguia faturá-las, sem nenhum aviso.
+    // O sintoma aparecia dias depois, como um 409 BILLING_SUBMISSION_SESSION_RESERVED
+    // que não dizia quem estava segurando (achado 2026-08-11). Agora o fechamento
+    // pergunta — descartar libera as sessões, manter mostra o preparo na aba
+    // "Rascunhos" para ser retomado ou cancelado depois.
+    const handleBillingWizardClose = async () => {
+        const closingId = billingSubmissionId;
         setBillingWizardOpen(false);
         setBillingSubmissionId(null);
+        if (!closingId) return;
+
+        try {
+            const res = await getBillingSubmission(closingId);
+            if (res.data.data.submission.status === 'draft') {
+                setDiscardDraftId(closingId);
+            }
+        } catch {
+            // Não dá para saber o estado: não inventa um prompt de descarte. O preparo,
+            // se ficou em draft, aparece na aba "Rascunhos" de qualquer forma.
+        } finally {
+            void loadDraftCount();
+        }
+    };
+
+    const handleDiscardDraft = async () => {
+        if (!discardDraftId) return;
+        setDiscardingDraft(true);
+        try {
+            await cancelBillingSubmission(discardDraftId);
+            toast.success('Preparo descartado. As sessões foram liberadas.');
+            setDiscardDraftId(null);
+            await loadDraftCount();
+            loadAllCounts(selectedMonthYear);
+        } catch (error) {
+            toast.error(extractErrorMessage(error, 'Erro ao descartar o preparo'));
+        } finally {
+            setDiscardingDraft(false);
+        }
     };
 
     const handleBillingSubmissionChanged = () => {
         loadAllCounts(selectedMonthYear);
+        void loadDraftCount();
     };
 
     const handleFinalizarGuiasAposFaturamento = async () => {
@@ -1028,8 +1089,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 </div>
             </div>
 
-            {/* Filtro de Mês — oculto no Histórico, Autorizações, Envios e Convênios Cadastrados (não são escopados por mês) */}
-            {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && (
+            {/* Filtro de Mês — oculto no Histórico, Autorizações, Envios, Convênios Cadastrados,
+                Notas Fiscais e Rascunhos (não são escopados por mês). Um rascunho de junho trava
+                sessões independentemente do mês selecionado, então filtrá-lo por mês esconderia
+                justamente o que está bloqueando o faturamento. */}
+            {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1 text-gray-500">
                         <Calendar size={16} />
@@ -1259,6 +1323,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { value: 4, label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
                             { value: 5, label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
                             { value: 6, label: 'Envios', count: 0,                             icon: <Mail size={15} />, amber: false },
+                            // Âmbar: cada rascunho aqui é sessão reservada que ninguém consegue faturar.
+                            { value: 9, label: 'Rascunhos', count: draftSubmissionCount,        icon: <FileClock size={15} />, amber: true },
                             { value: 7, label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
                         ].map(tab => (
                             <button key={tab.value} onClick={() => setSubTab(tab.value)}
@@ -1393,6 +1459,17 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         />
                     ) : subTab === 7 ? (
                         <ConvenioManagerModal open onClose={() => {}} embedded />
+                    ) : subTab === 9 ? (
+                        <RascunhosTab
+                            onCountChange={setDraftSubmissionCount}
+                            onChanged={() => {
+                                // Cancelar um rascunho libera sessões: as abas de
+                                // faturamento precisam recontar, senão continuam
+                                // mostrando as sessões como indisponíveis.
+                                loadReceivables(selectedMonthYear);
+                                loadAllCounts(selectedMonthYear);
+                            }}
+                        />
                     ) : subTab === 6 ? (
                         <EnviosTab />
                     ) : subTab === 5 ? (
@@ -1875,6 +1952,35 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 onClose={handleBillingWizardClose}
                 onChanged={handleBillingSubmissionChanged}
             />
+
+            {/* Preparo fechado sem finalizar — oferece liberar as sessões na hora */}
+            <Dialog
+                open={!!discardDraftId}
+                onClose={() => !discardingDraft && setDiscardDraftId(null)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle sx={{ fontWeight: 700 }}>Descartar este preparo?</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ fontSize: '0.9rem' }}>
+                        Você fechou o preparo antes de finalizar. Enquanto ele existir, as sessões
+                        selecionadas ficam <strong>reservadas</strong> e não podem ser faturadas de novo.
+                        <br /><br />
+                        <strong>Descartar</strong> libera as sessões agora.
+                        <br />
+                        <strong>Manter</strong> guarda o preparo na aba <strong>Rascunhos</strong>,
+                        para você retomar ou cancelar depois.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setDiscardDraftId(null)} disabled={discardingDraft}>
+                        Manter
+                    </Button>
+                    <Button onClick={handleDiscardDraft} variant="contained" color="error" disabled={discardingDraft}>
+                        {discardingDraft ? 'Descartando...' : 'Descartar e liberar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Modal: Gerenciamento de Convênios */}
             <ConvenioManagerModal

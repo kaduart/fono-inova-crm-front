@@ -6,6 +6,7 @@ import {
     CircleDollarSign,
     FileText,
     Loader2,
+    Pencil,
     ReceiptText,
     WalletCards,
     X,
@@ -18,6 +19,7 @@ import {
     InvoiceReceivable,
     InvoiceReceivableGuide,
     receiveInvoiceBatch,
+    updateInvoiceNumber,
 } from '../../../services/insuranceBatchReceiptService';
 
 const money = (value: number) => Number(value || 0).toLocaleString('pt-BR', {
@@ -81,6 +83,9 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
     const [target, setTarget] = useState<ReceiptTarget | null>(null);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
+    const [editingInvoice, setEditingInvoice] = useState<InvoiceReceivable | null>(null);
+    const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
+    const [updatingInvoice, setUpdatingInvoice] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -142,6 +147,23 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
             toast.error(extractErrorMessage(error, 'Não foi possível registrar a baixa'));
         } finally {
             setReceiving(false);
+        }
+    };
+
+    const handleUpdateInvoiceNumber = async () => {
+        if (!editingInvoice) return;
+        setUpdatingInvoice(true);
+        try {
+            await updateInvoiceNumber(editingInvoice.batchId, editInvoiceNumber.trim());
+            toast.success(`Número da NF atualizado para ${editInvoiceNumber.trim()}.`);
+            setEditingInvoice(null);
+            setEditInvoiceNumber('');
+            await load();
+            onChanged?.();
+        } catch (error) {
+            toast.error(extractErrorMessage(error, 'Não foi possível atualizar o número da NF'));
+        } finally {
+            setUpdatingInvoice(false);
         }
     };
 
@@ -210,6 +232,18 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                             <div className="min-w-0">
                                 <div className="flex min-w-0 items-center gap-2">
                                     <h3 className="truncate text-sm font-black text-slate-950">NF {invoice.invoiceNumber}</h3>
+                                    <button
+                                        type="button"
+                                        onClick={event => {
+                                            event.stopPropagation();
+                                            setEditingInvoice(invoice);
+                                            setEditInvoiceNumber(invoice.invoiceNumber || '');
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-md p-1 text-[11px] font-bold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                                        title="Editar número da NF"
+                                    >
+                                        <Pencil size={12} />
+                                    </button>
                                     <StatusBadge status={invoice.status} />
                                     {invoice.origin === 'legacy_reconciliation' && <span className="hidden rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700 lg:inline">Legado</span>}
                                 </div>
@@ -280,6 +314,36 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                     </article>
                 );
             })}
+
+            {editingInvoice && (
+                <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="edit-invoice-title">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl">
+                        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+                            <div className="flex gap-3">
+                                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><Pencil size={19} /></div>
+                                <div>
+                                    <h3 id="edit-invoice-title" className="text-base font-black text-slate-950">Editar número da NF</h3>
+                                    <p className="mt-0.5 text-xs text-slate-500">NF {editingInvoice.invoiceNumber}</p>
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => !updatingInvoice && setEditingInvoice(null)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Fechar"><X size={18} /></button>
+                        </div>
+                        <div className="space-y-4 px-5 py-5">
+                            <div>
+                                <label htmlFor="invoice-number-edit" className="mb-1.5 block text-xs font-bold text-slate-700">Número da nota fiscal</label>
+                                <input id="invoice-number-edit" type="text" value={editInvoiceNumber} onChange={event => setEditInvoiceNumber(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Digite o número da NF" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3.5">
+                            <button type="button" onClick={() => setEditingInvoice(null)} disabled={updatingInvoice} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-200 disabled:opacity-50">Cancelar</button>
+                            <button type="button" onClick={handleUpdateInvoiceNumber} disabled={updatingInvoice || !editInvoiceNumber.trim()} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                                {updatingInvoice ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                                {updatingInvoice ? 'Salvando...' : 'Salvar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {target && (
                 <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
