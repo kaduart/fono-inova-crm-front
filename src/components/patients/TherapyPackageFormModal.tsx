@@ -23,6 +23,7 @@ import appointmentService from '../../services/appointmentService';
 import packageService from '../../services/packageService';
 import API from '../../services/api';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
+import { extractErrorMessage } from '../../utils/errorUtils';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
@@ -88,6 +89,7 @@ const initialFormState = {
     durationMonths: 0,
     sessionsPerWeek: 0,
     appointmentId: '',
+    notes: '',
 };
 
 type FormState = typeof initialFormState;
@@ -159,6 +161,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     function validateAll() {
         const baseErrors: any = {};
 
+        // Em edição o único campo gravável é `notes` (ver packageUpdatePolicy.js
+        // no backend). Validar profissional/valor/pagamentos aqui só travaria o
+        // salvamento por causa de dados históricos que nem são enviados.
+        if (isEditing) {
+            if ((formData.notes || '').length > 500) {
+                baseErrors.notes = "Observação deve ter no máximo 500 caracteres";
+            }
+            setErrors(baseErrors);
+            return Object.keys(baseErrors).length === 0;
+        }
+
         // Regras comuns (ambos os modos)
         if (!formData.doctorId) baseErrors.doctorId = "Profissional é obrigatório";
         if (!formData.sessionType) baseErrors.sessionType = "Tipo de sessão é obrigatório";
@@ -173,16 +186,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (formData.paymentType !== 'per-session') {
             const hasValidPayments = payments.every(p => Number(p.amount) > 0 && !!p.method && !!p.date);
             if (!hasValidPayments) baseErrors.payments = "Preencha valor, método e data em todos os pagamentos.";
-        }
-
-        if (isEditing) {
-            // Modo edição: só valida total de sessões
-            const total = Number(formData.totalSessions);
-            if (!total || total < 1 || total > 100) {
-                baseErrors.totalSessions = "Total de sessões deve estar entre 1 e 100";
-            }
-            setErrors(baseErrors);
-            return Object.keys(baseErrors).length === 0;
         }
 
         // Regras exclusivas de criação
@@ -331,6 +334,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             paymentType,
             durationMonths: (initialData as any).durationMonths || 0,
             sessionsPerWeek: (initialData as any).sessionsPerWeek || 0,
+            notes: (initialData as any).notes || '',
         }));
 
         if (Array.isArray(initialData.payments) && initialData.payments.length > 0) {
@@ -458,7 +462,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
 
         const { name, value } = e.target;
         const numericFields = ['durationMonths', 'sessionsPerWeek', 'totalSessions', 'sessionValue', 'totalPaid'];
@@ -665,22 +669,54 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             return;
         }
 
+        // ============================================================
+        // ✏️ EDIÇÃO: só campo cadastral. Valor, quantidade de sessões,
+        // especialidade, profissional e pagamentos são fatos históricos ou
+        // exigem propagação para Appointment/Session/Payment — cada um tem
+        // seu fluxo próprio (troca em lote, inativação, transferência).
+        // Mandar tudo aqui gerava 500 opaco ou gravação silenciosamente
+        // descartada pelo Mongoose.
+        // ============================================================
+        if (isEditing) {
+            const realPackageId = initialData?.packageId || initialData?._id;
+            if (!realPackageId) {
+                toast.error('Pacote não identificado');
+                setIsLoading(false);
+                return;
+            }
+            try {
+                const result: any = await packageService.updatePackage(realPackageId, {
+                    notes: formData.notes,
+                });
+                if (result?.changed === false) {
+                    toast.info(result?.message || 'Nenhuma alteração a salvar.');
+                } else {
+                    toast.success('Pacote atualizado com sucesso! 💚');
+                }
+                onSubmit();
+                onClose();
+            } catch (err: any) {
+                toast.error(extractErrorMessage(err, 'Erro ao salvar pacote.'));
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
         try {
             // ============================================================
-            // 🧩 Cálculo do total de sessões
+            // 🧩 Cálculo do total de sessões (daqui pra baixo: só CRIAÇÃO)
             // ============================================================
-            const totalSessions = isEditing
+            const totalSessions = calculationMode === "sessions"
                 ? formData.totalSessions
-                : (calculationMode === "sessions"
-                    ? formData.totalSessions
-                    : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks));
+                : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
 
             // ============================================================
-            // 📅 Gera as datas reais (apenas na criação)
+            // 📅 Gera as datas reais
             // ============================================================
             let schedule: { date: string; time: string }[] = [];
 
-            if (!isEditing) {
+            {
                 const generatedSlots = generateSessionDates({
                     startDate: formData.date,
                     startTime: formData.time,
@@ -698,26 +734,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 console.log("📅 Slots gerados localmente:", schedule);
             }
 
-            const packageData = isEditing
-                ? {
-                    patientId: realPatientId,
-                    doctorId: formData.doctorId,
-                    sessionType: formData.sessionType,
-                    specialty: formData.sessionType,
-                    sessionValue: formData.sessionValue || 0,
-                    paymentType: formData.paymentType,
-                    totalSessions: formData.totalSessions,
-                    // 🔥 Só envia pagamentos se NÃO for per-session
-                    payments: formData.paymentType === 'per-session'
-                        ? []
-                        : payments.map((p) => ({
-                            amount: Number(p.amount),
-                            method: p.method,
-                            date: p.date,
-                            description: p.description,
-                        })),
-                }
-                : {
+            const packageData = {
                     patientId: realPatientId,
                     doctorId: formData.doctorId,
                     sessionType: formData.sessionType,
@@ -756,63 +773,48 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             console.log("📤 Enviando pacote:", packageData);
 
             // Fluxo particular (therapy/package)
-            const numPreConsumed = isEditing ? 0 : v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
+            const numPreConsumed = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
             const totalContratual = packageData.totalSessions + numPreConsumed;
             const sv = Number(formData.sessionValue) || 0;
-            const therapyData = isEditing
-                ? {
-                    ...packageData,
-                    type: 'package',
-                    model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
-                    patientId: realPatientId,
-                    sessionType: formData.sessionType as any,
-                    totalValue: formData.totalSessions * sv,
-                }
-                : {
-                    ...packageData,
-                    type: 'package',
-                    model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
-                    patientId: realPatientId,
-                    sessionType: formData.sessionType as any,
-                    appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
-                    totalSessions: totalContratual,
-                    totalValue: totalContratual * sv,
-                    preConsumedCount: numPreConsumed
-                };
-            const realPackageId = initialData?.packageId || initialData?._id;
-            if (realPackageId) {
-                await packageService.updatePackage(realPackageId, therapyData);
-                toast.success(`Pacote atualizado com sucesso! 💚`);
-                onSubmit();
-            } else {
-                const response = await packageService.createPackage(therapyData);
-                const newPackageId = response?.data?.packageId
-                    || response?.data?.package?._id
-                    || response?.data?._id;
+            const therapyData = {
+                ...packageData,
+                type: 'package',
+                model: formData.paymentType === 'per-session' ? 'per_session' : 'prepaid',
+                patientId: realPatientId,
+                sessionType: formData.sessionType as any,
+                appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
+                totalSessions: totalContratual,
+                totalValue: totalContratual * sv,
+                preConsumedCount: numPreConsumed
+            };
 
-                // Quita pendências importadas vinculando ao pacote recém-criado
-                const selectedSessions = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId));
-                if (newPackageId && selectedSessions.length > 0) {
-                    const paymentIds = selectedSessions.map(s => s.v2PaymentId).filter(Boolean);
-                    if (paymentIds.length > 0) {
-                        try {
-                            await API.post(`/v2/packages/${newPackageId}/settle-payments`, {
-                                paymentIds,
-                                paymentMethod: payments[0]?.method || 'pix'
-                            });
-                            toast.success(`${paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
-                        } catch (settleErr: any) {
-                            toast.warning(`Pacote criado, mas erro ao quitar pendências: ${settleErr?.response?.data?.error || settleErr.message}`);
-                        }
+            const response = await packageService.createPackage(therapyData);
+            const newPackageId = response?.data?.packageId
+                || response?.data?.package?._id
+                || response?.data?._id;
+
+            // Quita pendências importadas vinculando ao pacote recém-criado
+            const selectedSessions = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId));
+            if (newPackageId && selectedSessions.length > 0) {
+                const paymentIds = selectedSessions.map(s => s.v2PaymentId).filter(Boolean);
+                if (paymentIds.length > 0) {
+                    try {
+                        await API.post(`/v2/packages/${newPackageId}/settle-payments`, {
+                            paymentIds,
+                            paymentMethod: payments[0]?.method || 'pix'
+                        });
+                        toast.success(`${paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
+                    } catch (settleErr: any) {
+                        toast.warning(`Pacote criado, mas erro ao quitar pendências: ${extractErrorMessage(settleErr, 'erro desconhecido')}`);
                     }
                 }
-
-                toast.success(`Pacote criado com sucesso! 💚`);
-                onSubmit(newPackageId);
             }
+
+            toast.success(`Pacote criado com sucesso! 💚`);
+            onSubmit(newPackageId);
             onClose();
         } catch (err: any) {
-            toast.error(err?.message || "Erro ao salvar pacote.");
+            toast.error(extractErrorMessage(err, "Erro ao salvar pacote."));
         } finally {
             setIsLoading(false);
         }
@@ -954,7 +956,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const suggestedPaymentAmount = Math.max(0, totalValuePackage - existingAppointmentPaidAmount);
     const newPaymentsTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const overpaymentAmount = Math.max(0, newPaymentsTotal - suggestedPaymentAmount);
-    const canSubmitForm = isFormValid && overpaymentAmount <= 0.009;
+    // Em edição só há um campo gravável: sem mudança real, nada a enviar.
+    // Evita o "atualizado com sucesso" sobre uma requisição que não muda nada.
+    const notesChanged = isEditing && (formData.notes || '') !== ((initialData as any)?.notes || '');
+    const canSubmitForm = isEditing
+        ? notesChanged
+        : isFormValid && overpaymentAmount <= 0.009;
 
     useEffect(() => {
         if (formData.paymentType === 'per-session' || payments.length !== 1) return;
@@ -1191,32 +1198,41 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </h3>
 
                                 {isEditing ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="form-label">Número de Sessões</label>
+                                                <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
+                                                    {formData.totalSessions}
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Quantidade contratada: fato histórico da venda. Para redirecionar sessões
+                                                    não realizadas, use a transferência de sessões.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="form-label">Frequência</label>
+                                                <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
+                                                    {frequencyInterval === 'biweekly' ? 'Quinzenal (a cada 15 dias)' : 'Semanal'}
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1">Definida na criação do pacote, não editável.</p>
+                                            </div>
+                                        </div>
+
                                         <div>
-                                            <label className="form-label">
-                                                Número de Sessões *
-                                            </label>
-                                            <input
-                                                name="totalSessions"
-                                                type="number"
-                                                min="1"
-                                                max="100"
-                                                value={formData.totalSessions}
+                                            <label className="form-label">Observação</label>
+                                            <textarea
+                                                name="notes"
+                                                rows={3}
+                                                maxLength={500}
+                                                value={formData.notes}
                                                 onChange={handleChange}
+                                                placeholder="Anotação livre da equipe sobre este pacote"
                                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                             />
-                                            {errors.totalSessions && (
-                                                <span className="text-red-500 text-sm">{errors.totalSessions}</span>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="form-label">
-                                                Frequência
-                                            </label>
-                                            <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
-                                                {frequencyInterval === 'biweekly' ? 'Quinzenal (a cada 15 dias)' : 'Semanal'}
-                                            </div>
-                                            <p className="text-xs text-gray-400 mt-1">Definida na criação do pacote, não editável.</p>
+                                            <p className="text-xs text-emerald-700 mt-1">
+                                                Único campo editável por aqui ({formData.notes?.length || 0}/500).
+                                            </p>
                                         </div>
                                     </div>
                                 ) : (
@@ -1598,6 +1614,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     <User className="w-5 h-5 text-blue-600" />
                                     Profissional e Sessão
                                 </h3>
+                                {isEditing && (
+                                    <p className="mb-3 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600">
+                                        Estes campos não são editáveis aqui. Trocar o profissional exige atualizar também
+                                        agendamentos, sessões e pagamentos — use <strong>“Trocar terapeuta das sessões futuras”</strong>
+                                        em Detalhes do pacote. Trocar a especialidade exige transferência de sessões.
+                                    </p>
+                                )}
                                 <div className="space-y-4">
                                     {/* Primeira linha - Profissional */}
                                     <div>
@@ -1608,7 +1631,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             name="doctorId"
                                             value={formData.doctorId}
                                             onChange={handleChange}
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                            disabled={isEditing}
+                                            className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
                                         >
                                             <option value="">Escolha um profissional</option>
                                             {doctors.map((doc) => (
@@ -1629,7 +1653,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 name="sessionType"
                                                 value={formData.sessionType}
                                                 onChange={handleChange}
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                                disabled={isEditing}
+                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
                                             >
                                                 <option value="">Escolha um tipo de terapia</option>
                                                 {THERAPY_TYPES.map((option) => (
@@ -1648,7 +1673,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 name="paymentType"
                                                 value={formData.paymentType}
                                                 onChange={handleChange}
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                                                disabled={isEditing}
+                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
                                             >
                                                 {PAYMENT_TYPES.map((option) => (
                                                     <option key={option.value} value={option.value}>
@@ -1673,15 +1699,23 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </h3>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="form-label">Valor por Sessão (R$) *</label>
-                                        <InputCurrency
-                                            name="sessionValue"
-                                            value={formData.sessionValue || 0}
-                                            onChange={handleChange}
-                                            min="0"
-                                            step="0.01"
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
-                                        />
+                                        <label className="form-label">
+                                            Valor por Sessão (R$) {!isEditing && '*'}
+                                        </label>
+                                        {isEditing ? (
+                                            <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
+                                                R$ {Number(formData.sessionValue || 0).toFixed(2)}
+                                            </div>
+                                        ) : (
+                                            <InputCurrency
+                                                name="sessionValue"
+                                                value={formData.sessionValue || 0}
+                                                onChange={handleChange}
+                                                min="0"
+                                                step="0.01"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
+                                            />
+                                        )}
 
                                         {/* 🔥 AVISO para per-session */}
                                         {formData.paymentType === 'per-session' && (
@@ -1691,8 +1725,21 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         )}
                                     </div>
 
-                                    {/* Múltiplos Pagamentos - NÃO para per-session */}
-                                    {formData.paymentType !== 'per-session' && (
+                                    {/* ✏️ Edição: recebimento é fato consumado — leitura apenas.
+                                        Alterar pagamento aqui reescreveria caixa em data retroativa. */}
+                                    {isEditing && (
+                                        <div className="rounded-lg border border-green-200 bg-white px-3 py-2.5 text-xs text-slate-600">
+                                            <p className="font-semibold text-slate-800">Pagamentos registrados</p>
+                                            <p className="mt-0.5">
+                                                Total recebido: <strong>R$ {getTotalPaid().toFixed(2)}</strong>. O histórico
+                                                financeiro do pacote não é editável — o recebimento já entrou no caixa na data
+                                                original. Ajustes precisam de lançamento próprio no financeiro.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Múltiplos Pagamentos - NÃO para per-session, NÃO em edição */}
+                                    {!isEditing && formData.paymentType !== 'per-session' && (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <label className="block text-sm font-medium text-gray-700">
@@ -1908,11 +1955,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 {/* Footer */}
                 <div className="bg-gray-50 px-4 sm:px-5 py-3 flex justify-between items-center border-t border-gray-200 flex-shrink-0">
                     <div className="text-sm text-gray-500">
-                        {!isFormValid
-                            ? "Preencha todos os campos obrigatórios (*)"
-                            : overpaymentAmount > 0.009
-                                ? `Pagamento excede o pacote em R$ ${overpaymentAmount.toFixed(2)}`
-                                : null}
+                        {isEditing
+                            ? (notesChanged ? null : "Nenhuma alteração a salvar")
+                            : !isFormValid
+                                ? "Preencha todos os campos obrigatórios (*)"
+                                : overpaymentAmount > 0.009
+                                    ? `Pagamento excede o pacote em R$ ${overpaymentAmount.toFixed(2)}`
+                                    : null}
                     </div>
 
                     <div className="flex gap-3">

@@ -264,27 +264,30 @@ export const packageService = {
     return extractV2Data(response);
   },
 
-  updatePackage: async (id: string, data: UpdatePackageParams & { type?: string; paymentType?: string }) => {
-    // 🔥 MAPEAMENTO V2 para update
-    let v2Payload: any = { ...data };
-    
-    if (data.type === 'therapy') {
-      v2Payload = {
-        ...v2Payload,
-        type: 'package',
-        model: data.paymentType === 'per-session' ? 'per_session' : 'prepaid',
-      };
-    } else if (data.type === 'convenio') {
-      v2Payload.type = 'convenio';
+  /**
+   * Edição cadastral do pacote.
+   *
+   * ⚠️ Só envia o que o backend aceita no PUT comum (ver packageUpdatePolicy.js).
+   * Valor, quantidade de sessões, especialidade, profissional, paciente e
+   * pagamentos são fatos históricos ou exigem propagação para
+   * Appointment/Session/Payment — cada um tem seu próprio fluxo:
+   *   - profissional/horário das futuras → bulkUpdateAppointments()
+   *   - encerrar pacote                  → inactivatePackage()
+   *   - converter sessões p/ outra especialidade → transferência (Fase 3)
+   *
+   * Mandar esses campos aqui devolvia 200 com a alteração descartada em
+   * silêncio pelo Mongoose — ou 500 opaco. Hoje o backend responde 422.
+   */
+  updatePackage: async (id: string, data: { notes?: string }) => {
+    const payload: Record<string, unknown> = {};
+    if (data.notes !== undefined) payload.notes = data.notes;
+
+    try {
+      const response = await API.put<ITherapyPackage>(`/v2/packages/${id}`, payload);
+      return extractV2Data(response);
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Erro ao atualizar pacote'));
     }
-    // ⚠️ LEGADO — LIMINAR NÃO USA MAIS PACKAGE
-    // } else if (data.type === 'liminar') {
-    //   v2Payload.type = 'liminar';
-    // }
-    
-    const sanitized = sanitizeV2Payload(v2Payload);
-    const response = await API.put<ITherapyPackage>(`/v2/packages/${id}`, sanitized);
-    return extractV2Data(response);
   },
 
   deletePackage: async (id: string) => {
