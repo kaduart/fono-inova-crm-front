@@ -60,6 +60,16 @@ const guiaMista: InsuranceGuideView = {
 };
 
 describe('adaptGuideViewToPendingGuide — fatia por fase', () => {
+    it('aceita summary sem sessionDetails e preserva datas e totais agregados', () => {
+        const summary = { ...guiaMista, sessionDetails: undefined, firstSessionDate: '2026-06-01', lastSessionDate: '2026-08-05' };
+        const adaptada = adaptGuideViewToPendingGuide(summary, 'pendingBilling');
+        expect(adaptada.sessions).toEqual([]);
+        expect(adaptada.pendingSessions).toBe(4);
+        expect(adaptada.pendingValue).toBe(560);
+        expect(adaptada.firstSessionDate).toBe('2026-06-01');
+        expect(adaptada.lastSessionDate).toBe('2026-08-05');
+    });
+
     it('cada aba recebe somente a sua parcela', () => {
         expect(adaptGuideViewToPendingGuide(guiaMista, 'pendingBilling')).toMatchObject({
             pendingSessions: 4, pendingValue: 560

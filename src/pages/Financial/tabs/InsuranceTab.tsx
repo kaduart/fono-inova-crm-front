@@ -45,7 +45,7 @@ import {
     FileText,
     FileClock,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
@@ -64,7 +64,6 @@ import {
     receiveInsuranceSession,
     getInsuranceGuidesView,
     InsuranceGuideView,
-    InsurancePaymentIntegrityConflict,
     InsuranceSessionPhase,
     encerrarGuia,
     CompetenceBreakdown
@@ -80,6 +79,8 @@ import BillingCommunicationWizard from '../components/BillingCommunicationWizard
 import { createBillingSubmission, cancelBillingSubmission, listBillingSubmissions, getBillingSubmission } from '../../../services/billingSubmissionService';
 import InvoiceReceivablesSection from './InvoiceReceivablesSection';
 import { receiveInvoiceBatch } from '../../../services/insuranceBatchReceiptService';
+import { waitForCashflowLoad } from '../../../services/financialLoadCoordinator';
+import { GuideDetailLoadCache } from '../../../services/guideDetailLoadCache';
 
 /**
  * ReadView V2 → shape que GuidePendingBillingSection já consome.
@@ -98,9 +99,10 @@ const PHASE_AMOUNT_KEY = {
 } as const;
 
 export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: InsuranceSessionPhase): PendingGuide {
+    const allSessionDetails = g.sessionDetails || [];
     const sessionDetails = phase
-        ? g.sessionDetails.filter(session => session.phase === phase)
-        : g.sessionDetails;
+        ? allSessionDetails.filter(session => session.phase === phase)
+        : allSessionDetails;
     // Numa aba de fase, o card mostra SOMENTE a parcela daquela fase — nunca o
     // total da guia. Uma guia 4 a faturar + 8 faturadas + 4 recebidas aparece nas
     // três abas, cada uma com o seu pedaço; exibir o total nas três seria dupla
@@ -124,8 +126,8 @@ export function adaptGuideViewToPendingGuide(g: InsuranceGuideView, phase?: Insu
         pendingSessions: phaseSessions,
         pendingValue: phaseValue,
         sessionsThisMonth: g.sessions.total,
-        firstSessionDate: sessionDetails[0]?.date ?? null,
-        lastSessionDate: sessionDetails[sessionDetails.length - 1]?.date ?? null,
+        firstSessionDate: g.firstSessionDate ?? sessionDetails[0]?.date ?? null,
+        lastSessionDate: g.lastSessionDate ?? sessionDetails[sessionDetails.length - 1]?.date ?? null,
         documentationSentAt: g.documentationSentAt,
         documentationSentAtIsProxy: g.documentationSentAtIsProxy,
         invoices: g.invoices,
@@ -279,8 +281,18 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         return [...porId.values()];
     }, [guidesByPhase]);
     const [orphanSessions, setOrphanSessions] = useState<Array<{ sessionId: string; date?: string | Date | null; patient?: { fullName?: string } | null; specialty?: string; sessionValue?: number; insuranceProvider?: string }>>([]);
+    const [orphanSessionsCount, setOrphanSessionsCount] = useState(0);
+    const [orphanSessionsLoading, setOrphanSessionsLoading] = useState(false);
+    const [orphanSessionsError, setOrphanSessionsError] = useState<string | null>(null);
+    const orphanSessionsInflight = useRef<Promise<void> | null>(null);
     const [loadingGuides, setLoadingGuides] = useState(false);
-    const [paymentIntegrityConflicts, setPaymentIntegrityConflicts] = useState<InsurancePaymentIntegrityConflict[]>([]);
+    const [paymentIntegrityConflictCount, setPaymentIntegrityConflictCount] = useState(0);
+    const [loadingGuideDetails, setLoadingGuideDetails] = useState<Set<string>>(new Set());
+    const [guideDetailsActionLoading, setGuideDetailsActionLoading] = useState(false);
+    const guideDetailLoader = useRef(new GuideDetailLoadCache<PendingGuide>());
+    const invalidateGuideDetails = () => {
+        guideDetailLoader.current.invalidate();
+    };
     // Quebra do total pendente entre mês corrente e competências anteriores —
     // computada no backend (ver CompetenceBreakdown), nunca no frontend.
     const [competenceBreakdown, setCompetenceBreakdown] = useState<CompetenceBreakdown | null>(null);
@@ -495,14 +507,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
     // Carrega counts de todas as abas (A Faturar, Faturados, Recebidos) antecipadamente
     const loadAllCounts = async (month?: string) => {
+        invalidateGuideDetails();
         setLoadingGuides(true);
         try {
+            await waitForCashflowLoad();
             // Um bucket por fase. Acumulado por padrão: sem `from`/`to` a view
             // não recorta período — o filtro de competência é opcional e, quando
             // vem, o backend aplica o eixo de data próprio de cada fase.
             const phases: InsuranceSessionPhase[] = ['pendingBilling', 'documentationSent', 'billed', 'received'];
             const [guideResponse, allResponse] = await Promise.all([
-                getInsuranceGuidesView({ phases }),
+                getInsuranceGuidesView({ phases, detail: 'summary' }),
                 // FinancialDashboardTab ainda depende deste endpoint — mantido.
                 getInsuranceReceivables({ month })
             ]);
@@ -536,8 +550,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 received: byPhase.received.totals.financialSummary.receivedAmount
             });
             setOrphanSessions(guideResponse.data.orphanSessions || []);
+            setOrphanSessionsCount(guideResponse.data.orphanSessionsCount || 0);
             setCompetenceBreakdown(buckets.pendingBilling.competenceBreakdown || null);
-            setPaymentIntegrityConflicts(guideResponse.data.paymentIntegrityConflicts || []);
+            setPaymentIntegrityConflictCount(guideResponse.data.paymentIntegrityConflictCount || 0);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
@@ -549,6 +564,63 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         } finally {
             setLoadingGuides(false);
         }
+    };
+
+    const ensureGuideDetails = async (guideIds: string[], phase: InsuranceSessionPhase): Promise<PendingGuide[]> => {
+        const uniqueIds = [...new Set(guideIds)];
+        const current = new Map(guidesByPhase[phase].map(guide => [guide.guideId, guide]));
+        const missing = uniqueIds.filter(id => (current.get(id)?.sessions || []).length === 0);
+        if (missing.length === 0) return uniqueIds.map(id => current.get(id)).filter(Boolean) as PendingGuide[];
+
+        setLoadingGuideDetails(previous => new Set([...previous, ...missing]));
+        try {
+            const loaded = await Promise.all(missing.map(async guideId => {
+                const key = `${guideId}:${phase}`;
+                return guideDetailLoader.current.load(key, async () => {
+                    const response = await getInsuranceGuidesView({ guideId, phase, detail: 'full' });
+                    const guide = response.data.data?.[0];
+                    if (!guide) throw new Error(`Detalhes da guia ${guideId} não encontrados`);
+                    if (!Array.isArray(guide.sessionDetails)) throw new Error(`Detalhes incompletos da guia ${guideId}`);
+                    return adaptGuideViewToPendingGuide(guide, phase);
+                });
+            }));
+            const loadedById = new Map(loaded.map(guide => [guide.guideId, guide]));
+            setGuidesByPhase(previous => ({
+                ...previous,
+                [phase]: previous[phase].map(guide => loadedById.get(guide.guideId) || guide)
+            }));
+            loaded.forEach(guide => current.set(guide.guideId, guide));
+            return uniqueIds.map(id => current.get(id)).filter(Boolean) as PendingGuide[];
+        } finally {
+            setLoadingGuideDetails(previous => {
+                const next = new Set(previous);
+                missing.forEach(id => next.delete(id));
+                return next;
+            });
+        }
+    };
+
+    const loadOrphanSessions = async () => {
+        if (orphanSessionsInflight.current) return orphanSessionsInflight.current;
+        const request = (async () => {
+            setOrphanSessionsLoading(true);
+            setOrphanSessionsError(null);
+            try {
+                const response = await getInsuranceGuidesView({ detail: 'orphans' });
+                setOrphanSessions(response.data.orphanSessions || []);
+                setOrphanSessionsCount(response.data.orphanSessionsCount || 0);
+            } catch (error) {
+                setOrphanSessionsError(extractErrorMessage(error, 'Erro ao carregar sessões órfãs'));
+                throw error;
+            } finally {
+                setOrphanSessionsLoading(false);
+            }
+        })();
+        orphanSessionsInflight.current = request;
+        void request.finally(() => {
+            if (orphanSessionsInflight.current === request) orphanSessionsInflight.current = null;
+        }).catch(() => undefined);
+        return request;
     };
 
     // Contagem de preparos em aberto. Roda fora de loadAllCounts porque não é
@@ -838,7 +910,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         try {
             const sourceGuides = subTab === 1 ? waitingBillingGuides : pendingStateGuides;
             const expectedPhase: InsuranceSessionPhase = subTab === 1 ? 'documentationSent' : 'pendingBilling';
-            const selected = sourceGuides.filter(g => guideSelection.has(g.guideId));
+            let selected = sourceGuides.filter(g => guideSelection.has(g.guideId));
             if (selected.length === 0) {
                 toast.error('Guias selecionadas não encontradas');
                 return;
@@ -858,6 +930,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
             const isMonthlyBilling = selected.every(guide => guide.billingMode === 'per_month');
             const billingCompetence = competenceOverride || selectedMonthYear;
+            selected = await ensureGuideDetails(selected.map(guide => guide.guideId), expectedPhase);
             const sessionIds = [...new Set(selected.flatMap(guide =>
                 (guide.sessions || [])
                     // POR MÊS: a competência clínica define automaticamente o
@@ -931,6 +1004,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     };
 
     const handleBillingSubmissionChanged = () => {
+        invalidateGuideDetails();
         loadAllCounts(selectedMonthYear);
         void loadDraftCount();
     };
@@ -963,6 +1037,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         }
         setPostFaturamentoCloseModal({ open: false, guides: [] });
         setSelectedCloseGuides(new Set());
+        invalidateGuideDetails();
+        loadAllCounts(selectedMonthYear);
         loadReceivables(selectedMonthYear);
         setPostFaturamentoCloseLoading(false);
     };
@@ -976,26 +1052,36 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedCloseGuides(new Set(guides.map(g => g.guideId)));
     };
 
-    const handleOpenReceberLoteModal = (guideIds?: string[]) => {
+    const handleOpenReceberLoteModal = async (guideIds?: string[]) => {
         const selectedIds = new Set(guideIds || [...selectedGuides]);
-        const selected = guidesByPhase.billed.filter(guide => selectedIds.has(guide.guideId));
-        const byBatch = new Map<string, Set<string>>();
-        for (const guide of selected) {
-            for (const invoice of guide.invoices || []) {
-                if (!invoice.batchId || !invoice.invoiceNumber || invoice.batchStatus === 'received') continue;
-                if (!byBatch.has(invoice.batchId)) byBatch.set(invoice.batchId, new Set());
-                byBatch.get(invoice.batchId)?.add(guide.guideId);
+        setGuideDetailsActionLoading(true);
+        try {
+            const selected = await ensureGuideDetails(
+                guidesByPhase.billed.filter(guide => selectedIds.has(guide.guideId)).map(guide => guide.guideId),
+                'billed'
+            );
+            const byBatch = new Map<string, Set<string>>();
+            for (const guide of selected) {
+                for (const invoice of guide.invoices || []) {
+                    if (!invoice.batchId || !invoice.invoiceNumber || invoice.batchStatus === 'received') continue;
+                    if (!byBatch.has(invoice.batchId)) byBatch.set(invoice.batchId, new Set());
+                    byBatch.get(invoice.batchId)?.add(guide.guideId);
+                }
             }
+            const targets = [...byBatch.entries()].map(([batchId, ids]) => ({ batchId, guideIds: [...ids] }));
+            if (targets.length === 0) {
+                toast.warn('As guias selecionadas não possuem NF pendente vinculada');
+                return;
+            }
+            setReceiptTargets(targets);
+            setReceiptSessionsCount(selected.reduce((sum, guide) => sum + guide.pendingSessions, 0));
+            setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
+            setReceberLoteModalOpen(true);
+        } catch (error) {
+            toast.error(extractErrorMessage(error, 'Erro ao carregar detalhes para recebimento'));
+        } finally {
+            setGuideDetailsActionLoading(false);
         }
-        const targets = [...byBatch.entries()].map(([batchId, ids]) => ({ batchId, guideIds: [...ids] }));
-        if (targets.length === 0) {
-            toast.warn('As guias selecionadas não possuem NF pendente vinculada');
-            return;
-        }
-        setReceiptTargets(targets);
-        setReceiptSessionsCount(selected.reduce((sum, guide) => sum + guide.pendingSessions, 0));
-        setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
-        setReceberLoteModalOpen(true);
     };
 
     const handleReceberLote = async () => {
@@ -1014,6 +1100,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             setReceiptTargets([]);
             clearAllSelection();
             clearGuideSelection();
+            invalidateGuideDetails();
             loadAllCounts(selectedMonthYear);
             loadReceivables(selectedMonthYear);
         } catch (error: any) {
@@ -1364,7 +1451,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     </div>
                 </div>
 
-                {subTab === 0 && paymentIntegrityConflicts.length > 0 && (
+                {subTab === 0 && paymentIntegrityConflictCount > 0 && (
                     <Paper elevation={0} sx={{
                         mx: 2, mt: 1.5, px: 2, py: 1.25,
                         display: 'flex', alignItems: 'center', gap: 1,
@@ -1372,9 +1459,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     }}>
                         <AlertCircle size={18} color="#C2410C" />
                         <Typography fontSize="0.8rem" color="#9A3412" fontWeight={600}>
-                            {paymentIntegrityConflicts.length} sessão{paymentIntegrityConflicts.length !== 1 ? 'ões' : ''}
-                            {' '}não {paymentIntegrityConflicts.length !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
-                            porque não {paymentIntegrityConflicts.length !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
+                            {paymentIntegrityConflictCount} sessão{paymentIntegrityConflictCount !== 1 ? 'ões' : ''}
+                            {' '}não {paymentIntegrityConflictCount !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
+                            porque não {paymentIntegrityConflictCount !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
                         </Typography>
                     </Paper>
                 )}
@@ -1498,9 +1585,19 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             guides={subTab === 0 ? pendingStateGuides : waitingBillingGuides}
                             selectedGuides={selectedGuides}
                             orphanSessions={subTab === 0 ? orphanSessions : []}
+                            orphanSessionsCount={subTab === 0 ? orphanSessionsCount : 0}
+                            orphanSessionsLoading={orphanSessionsLoading}
+                            orphanSessionsError={orphanSessionsError}
+                            onLoadOrphanSessions={loadOrphanSessions}
                             loading={loadingGuides}
+                            detailsLoading={guideDetailsActionLoading || loadingGuideDetails.size > 0}
+                            onLoadGuideDetails={(guideIds) => ensureGuideDetails(guideIds, subTab === 0 ? 'pendingBilling' : 'documentationSent')}
                             onToggleGuide={toggleGuideSelection}
-                            onRefresh={() => loadReceivables(selectedMonthYear)}
+                            onRefresh={() => {
+                                invalidateGuideDetails();
+                                loadAllCounts(selectedMonthYear);
+                                loadReceivables(selectedMonthYear);
+                            }}
                             month={selectedMonthYear}
                             drawerAction={subTab === 0 ? 'send_documents' : 'bill'}
                             onDrawerAction={handleOpenBillingWizard}
@@ -1514,9 +1611,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             guides={subTab === 2 ? guidesByPhase.billed : guidesByPhase.received}
                             selectedGuides={selectedGuides}
                             orphanSessions={[]}
+                            orphanSessionsCount={0}
                             loading={loadingGuides}
+                            detailsLoading={guideDetailsActionLoading || loadingGuideDetails.size > 0}
+                            onLoadGuideDetails={(guideIds) => ensureGuideDetails(guideIds, subTab === 2 ? 'billed' : 'received')}
                             onToggleGuide={toggleGuideSelection}
-                            onRefresh={() => loadReceivables(selectedMonthYear)}
+                            onRefresh={() => {
+                                invalidateGuideDetails();
+                                loadAllCounts(selectedMonthYear);
+                                loadReceivables(selectedMonthYear);
+                            }}
                             month={selectedMonthYear}
                             readOnly={subTab === 3}
                             phaseLabel={subTab === 2 ? 'faturada(s)' : 'recebida(s)'}

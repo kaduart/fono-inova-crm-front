@@ -302,13 +302,16 @@ export interface InsuranceGuideView {
     documentationSentAtIsProxy: boolean;
     invoiceNumber: string | null;
     /** Notas que cobrem as sessões desta guia. Faturamento mês a mês gera várias. */
-    invoices: InsuranceGuideInvoice[];
-    sessionDetails: InsuranceGuideViewSession[];
+    invoices?: InsuranceGuideInvoice[];
+    sessionDetails?: InsuranceGuideViewSession[];
+    firstSessionDate?: string | Date | null;
+    lastSessionDate?: string | Date | null;
 }
 
 export const getInsuranceGuidesView = (params?: {
     insurance?: string;
     patientId?: string;
+    guideId?: string;
     guideStatus?: string;
     phase?: InsuranceSessionPhase | 'all';
     phases?: InsuranceSessionPhase[] | string;
@@ -316,6 +319,7 @@ export const getInsuranceGuidesView = (params?: {
     to?: string;
     page?: number;
     limit?: number;
+    detail?: 'full' | 'summary' | 'orphans';
 }) => {
     const normalizedParams = {
         ...params,
@@ -329,6 +333,8 @@ export const getInsuranceGuidesView = (params?: {
         totals: { sessions: InsuranceGuidePhaseCounters; financialSummary: InsuranceGuideFinancialSummary };
         competenceBreakdown: CompetenceBreakdown;
         paymentIntegrityConflicts: InsurancePaymentIntegrityConflict[];
+        paymentIntegrityConflictCount?: number;
+        orphanSessionsCount?: number;
     pagination: any;
     buckets?: Partial<Record<InsuranceSessionPhase, {
         data: InsuranceGuideView[];

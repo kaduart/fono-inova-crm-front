@@ -147,6 +147,10 @@ interface GuidePendingBillingSectionProps {
     guides: PendingGuide[];
     selectedGuides: Set<string>;
     orphanSessions: OrphanSession[];
+    orphanSessionsCount?: number;
+    onLoadOrphanSessions?: () => Promise<void>;
+    orphanSessionsLoading?: boolean;
+    orphanSessionsError?: string | null;
     loading: boolean;
     onToggleGuide: (guideId: string) => void;
     onRefresh?: () => void;
@@ -161,6 +165,8 @@ interface GuidePendingBillingSectionProps {
     /** Ação operacional exibida no rodapé fixo do drawer. */
     drawerAction?: 'send_documents' | 'bill' | 'receive';
     onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void;
+    onLoadGuideDetails?: (guideIds: string[]) => Promise<PendingGuide[]>;
+    detailsLoading?: boolean;
     phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
 }
 
@@ -793,6 +799,10 @@ const GuidePendingBillingSection = ({
     guides,
     selectedGuides,
     orphanSessions,
+    orphanSessionsCount = orphanSessions.length,
+    onLoadOrphanSessions,
+    orphanSessionsLoading = false,
+    orphanSessionsError = null,
     loading,
     onToggleGuide,
     onRefresh,
@@ -801,6 +811,8 @@ const GuidePendingBillingSection = ({
     phaseLabel = 'para faturar',
     drawerAction,
     onDrawerAction,
+    onLoadGuideDetails,
+    detailsLoading = false,
     phase = 'pendingBilling',
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
@@ -821,9 +833,24 @@ const GuidePendingBillingSection = ({
     const toggleProvider = (provider: string) => setExpandedProviders(prev => (
         prev[provider] ? {} : { [provider]: true }
     ));
-    const toggleOrphanProvider = (p: string) => setExpandedOrphanProviders(prev => ({ ...prev, [p]: !prev[p] }));
+    const toggleOrphanProvider = async (p: string) => {
+        if (orphanSessionsLoading) return;
+        if (orphanSessions.length === 0 && orphanSessionsCount > 0 && onLoadOrphanSessions) {
+            try { await onLoadOrphanSessions(); } catch { return; }
+        }
+        setExpandedOrphanProviders(prev => ({ ...prev, [p]: !prev[p] }));
+    };
 
-    const openDrawer = (name: string, provider: string, patientGuides: PendingGuide[]) => {
+    const openDrawer = async (name: string, provider: string, patientGuides: PendingGuide[]) => {
+        if (detailsLoading) return;
+        if (onLoadGuideDetails && patientGuides.some(guide => (guide.sessions || []).length === 0)) {
+            try {
+                patientGuides = await onLoadGuideDetails(patientGuides.map(guide => guide.guideId));
+            } catch {
+                toast.error('Não foi possível carregar os detalhes das guias');
+                return;
+            }
+        }
         // No faturamento novo, paciente e convênio são apenas navegação. A
         // seleção canônica acontece nas guias exibidas dentro deste drawer.
         if (selectionInsideDrawer) {
@@ -1018,7 +1045,7 @@ const GuidePendingBillingSection = ({
         );
     }
 
-    if (guides.length === 0 && orphanSessions.length === 0) {
+    if (guides.length === 0 && orphanSessionsCount === 0) {
         return (
             <div className="text-center py-12 text-gray-500">
                 <Send className="w-16 h-16 mx-auto mb-4 opacity-20" />
@@ -1222,7 +1249,7 @@ const GuidePendingBillingSection = ({
                 })()}
 
                 {/* ── Sessões órfãs ───────────────────────────────────────── */}
-                {orphanSessions.length > 0 && (
+                {orphanSessionsCount > 0 && (
                     <Card variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #FDE68A' }}>
                         <Box sx={{
                             px: 2.5, py: 1.75,
@@ -1235,16 +1262,21 @@ const GuidePendingBillingSection = ({
                                     ⚠️ Atendimentos sem guia vinculada
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                    {orphanSessions.length} sessão{orphanSessions.length !== 1 ? 's' : ''} · sem seleção em lote disponível
+                                    {orphanSessionsCount} sessão{orphanSessionsCount !== 1 ? 's' : ''} · sem seleção em lote disponível
                                 </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                {orphanSessions.length === 0 && (
+                                    <Button size="small" variant="outlined" onClick={() => onLoadOrphanSessions?.()} disabled={orphanSessionsLoading}>
+                                        {orphanSessionsLoading ? 'Carregando...' : orphanSessionsError ? 'Tentar novamente' : 'Ver atendimentos'}
+                                    </Button>
+                                )}
                                 <Button
                                     size="small"
                                     variant="outlined"
                                     startIcon={<Wand2 size={14} />}
                                     onClick={handleAutoLinkPreview}
-                                    disabled={linking}
+                                    disabled={linking || orphanSessionsLoading || orphanSessions.length === 0}
                                     sx={{ borderColor: '#D97706', color: '#D97706', fontSize: '0.75rem' }}
                                 >
                                     {linking ? 'Analisando...' : 'Vincular automaticamente'}
@@ -1256,6 +1288,7 @@ const GuidePendingBillingSection = ({
                                 />
                             </Box>
                         </Box>
+                        {orphanSessionsError && <Typography sx={{ px: 2.5, py: 1 }} color="error" fontSize="0.8rem">{orphanSessionsError}</Typography>}
 
                         {Object.entries(groupedOrphans).map(([provider, sessions]) => {
                             const isExpanded = !!expandedOrphanProviders[provider];
@@ -1372,6 +1405,7 @@ const GuidePendingBillingSection = ({
                     drawerAction={drawerAction}
                     billingCompetence={drawerPatient.competence}
                     onDrawerAction={(guideIds) => {
+                        if (detailsLoading) return;
                         setDrawerPatient(null);
                         if (drawerPatient.competence) onDrawerAction?.(guideIds, drawerPatient.competence);
                         else onDrawerAction?.(guideIds);

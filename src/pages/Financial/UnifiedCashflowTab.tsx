@@ -11,6 +11,7 @@ import { useChatNavigation } from '../../contexts/ChatNavigationContext';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
+import { beginCashflowLoad } from '../../services/financialLoadCoordinator';
 import { operationalService } from '../../services/operationalService';
 import API from '../../services/api';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -275,6 +276,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     useEffect(() => { setTxPage(0); }, [txMetodoFilter, txTipoFilter, txMultiFilter, txPerPage, selectedDate]);
 
     const loadDayData = async (guard = { active: true }) => {
+        const finishPriorityLoad = beginCashflowLoad();
         if (!dailyCashflow) setLoading(true);
         onLoadingChange?.(true);
         try {
@@ -290,6 +292,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
             if (!guard.active) return;
             console.error('Erro ao carregar dados do dia:', error);
         } finally {
+            finishPriorityLoad();
             if (guard.active) setLoading(false);
             onLoadingChange?.(false);
         }
