@@ -39,8 +39,10 @@ import {
     BillingSubmission,
     BillingSubmissionAllocation,
     BillingSubmissionSession,
+    confirmFinalizeOutcome,
     finalizeBillingSubmission,
     getBillingSubmission,
+    isInconclusiveError,
     updateBillingSubmission
 } from '../../../../services/billingSubmissionService';
 import { getConvenio } from '../../../../services/insuranceService';
@@ -414,16 +416,56 @@ export function BillingCommunicationWizard({
         }
     };
 
+    /**
+     * Erro inconclusivo (timeout / queda de rede) NÃO é falha do backend: o
+     * servidor segue processando e commita mesmo depois do socket cair. Antes de
+     * dizer qualquer coisa ao usuário, releia o submission e deixe o servidor
+     * responder o que realmente aconteceu.
+     */
     const finalize = async (): Promise<BillingSubmission> => {
         if (!submission) throw new Error('Submission não carregado');
         setFinalizing(true);
         try {
             await persistAllocations();
-            const response = await finalizeBillingSubmission(submission._id);
-            const finalizedSubmission = response.data.data.submission;
+
+            // Envio externo representa entrega já feita fora do sistema, então
+            // ele é gravado na mesma transação do faturamento. E-mail não: é
+            // enfileirado depois do commit, em sendDocuments().
+            const externalDeliveryReason = deliveryMethod === 'external' ? externalReason.trim() : undefined;
+            if (deliveryMethod === 'external' && !externalDeliveryReason) {
+                throw new Error('Informe o motivo do envio externo');
+            }
+
+            let finalizedSubmission: BillingSubmission;
+            try {
+                const response = await finalizeBillingSubmission(submission._id, { externalDeliveryReason });
+                finalizedSubmission = response.data.data.submission;
+            } catch (error) {
+                if (!isInconclusiveError(error)) throw error;
+
+                const confirmation = await confirmFinalizeOutcome(submission._id);
+                if (confirmation.outcome === 'finalized') {
+                    // Commitou. Reportar erro aqui seria mentir sobre o banco.
+                    finalizedSubmission = confirmation.detail.submission;
+                } else if (confirmation.outcome === 'draft') {
+                    // Não commitou. O retry usa a mesma chave (o id do submission)
+                    // e o backend é idempotente, então não há risco de duplicar.
+                    throw new Error('A finalização não foi concluída e nada foi gravado. Tente novamente.');
+                } else {
+                    throw new Error(
+                        'Perdemos a conexão antes de confirmar o resultado. O faturamento pode ter sido concluído — '
+                        + 'reabra este rascunho em alguns instantes para verificar antes de tentar de novo.'
+                    );
+                }
+            }
+
             setSubmission(finalizedSubmission);
             setAllocations(finalizedSubmission.billingAllocations);
-            toast.success('Faturamento concluído e lotes criados');
+            toast.success(
+                externalDeliveryReason
+                    ? 'Faturamento concluído, lotes criados e envio externo registrado'
+                    : 'Faturamento concluído e lotes criados'
+            );
             onChanged();
             return finalizedSubmission;
         } finally {
@@ -439,10 +481,16 @@ export function BillingCommunicationWizard({
                 await finalize();
             } else {
                 const finalizedSubmission = await finalize();
+                // No envio externo a comunicação já foi registrada dentro da
+                // transação da finalização; chamar sendDocuments aqui criaria um
+                // segundo registro para a mesma entrega.
+                if (deliveryMethod === 'external') return;
                 try {
                     await sendDocuments({ skipPersist: true, submissionOverride: finalizedSubmission });
                 } catch (sendError) {
                     const errorMessage = extractErrorMessage(sendError, 'erro no envio');
+                    // Faturamento e entrega são estados separados: a falha do
+                    // provedor de e-mail não desfaz o faturamento já commitado.
                     setSendErrorModal({
                         open: true,
                         message: `Faturamento concluído, mas o envio do email ao convênio falhou: ${errorMessage}`,
