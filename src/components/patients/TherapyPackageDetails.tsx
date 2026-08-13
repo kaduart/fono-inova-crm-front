@@ -57,7 +57,12 @@ const normalizeStatus = (status: string): string => {
 
 const formatDate = (dateStr: string) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    // "2026-08-18" sem hora é interpretado pelo JS como meia-noite UTC, o que
+    // em Brasília (−03) exibia o dia ANTERIOR. Ancorar no horário local resolve.
+    const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr))
+        ? `${dateStr}T00:00:00`
+        : dateStr;
+    const d = new Date(normalized);
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString('pt-BR');
 };
@@ -1136,14 +1141,23 @@ export default function TherapyPackageDetails({
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">4. Motivo</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                                4. Motivo <span className="text-red-500">*</span>
+                            </label>
                             <textarea
                                 rows={2} maxLength={500}
                                 value={transferReason}
                                 onChange={(e) => setTransferReason(e.target.value)}
                                 placeholder="Ex.: mudança terapêutica definida pela equipe"
-                                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                                className={`w-full p-2.5 border rounded-lg text-sm ${transferPreview && !transferReason.trim()
+                                    ? 'border-amber-400 bg-amber-50'
+                                    : 'border-gray-300'}`}
                             />
+                            {transferPreview && !transferReason.trim() && (
+                                <p className="text-xs text-amber-700 mt-1 font-medium">
+                                    Obrigatório para confirmar — fica registrado na transferência.
+                                </p>
+                            )}
                         </div>
                         </div>
 
@@ -1278,7 +1292,18 @@ export default function TherapyPackageDetails({
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 px-7 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
+                    <div className="bg-gray-50 px-7 py-4 border-t border-gray-200 flex items-center justify-between gap-3">
+                        {/* Diz o que falta, em vez de só desabilitar o botão em silêncio */}
+                        <p className="text-xs text-amber-700 font-medium min-h-[1rem]">
+                            {!transferPreview
+                                ? (transferIds.length === 0 ? 'Selecione ao menos uma sessão'
+                                    : !transferSpecialty ? 'Escolha a especialidade de destino'
+                                        : !transferDoctorId ? 'Escolha o profissional'
+                                            : !scheduleComplete ? 'Preencha data e horário de todas as sessões'
+                                                : null)
+                                : (!transferReason.trim() ? 'Informe o motivo para poder confirmar' : null)}
+                        </p>
+                        <div className="flex items-center gap-2">
                         <button onClick={closeTransferDialog} className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 text-sm font-medium">
                             Cancelar
                         </button>
@@ -1303,6 +1328,7 @@ export default function TherapyPackageDetails({
                                 {!transferLoading && <CheckCircle className="w-4 h-4" />}
                             </button>
                         )}
+                        </div>
                     </div>
                 </div>
             </div>
