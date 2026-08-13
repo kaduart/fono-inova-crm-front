@@ -22,6 +22,9 @@ import {
     updateInvoiceNumber,
 } from '../../../services/insuranceBatchReceiptService';
 
+// Cada NF é um card expansível com as guias dentro — 10 já ocupa a tela inteira.
+const PER_PAGE = 10;
+
 const money = (value: number) => Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -83,6 +86,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
     const [target, setTarget] = useState<ReceiptTarget | null>(null);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
+    const [page, setPage] = useState(1);
     const [editingInvoice, setEditingInvoice] = useState<InvoiceReceivable | null>(null);
     const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
     const [updatingInvoice, setUpdatingInvoice] = useState(false);
@@ -116,7 +120,21 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
         () => invoices.filter(invoice => invoice.status === 'received'),
         [invoices]
     );
-    const visibleInvoices = view === 'pending' ? pendingInvoices : receivedInvoices;
+    const allVisibleInvoices = view === 'pending' ? pendingInvoices : receivedInvoices;
+
+    // Paginação no cliente: a lista já vem inteira do backend (é ela que alimenta
+    // os totais do topo — Saldo e Recebido precisam somar TODAS as notas, não só
+    // a página aberta). O que estava faltando era só não despejar tudo na tela:
+    // cada NF renderiza um card expansível com guias dentro, e a lista cresce a
+    // cada faturamento.
+    const totalPages = Math.max(1, Math.ceil(allVisibleInvoices.length / PER_PAGE));
+    const currentPage = Math.min(page, totalPages);
+    const visibleInvoices = allVisibleInvoices.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+    // Trocar Pendentes/Baixadas volta para a primeira página — continuar na
+    // página 3 de uma lista que agora tem uma só deixaria a tela vazia.
+    useEffect(() => { setPage(1); }, [view]);
+
     const summary = useMemo(() => ({
         partial: pendingInvoices.filter(invoice => invoice.status === 'partial').length,
         pending: pendingInvoices.reduce((sum, invoice) => sum + invoice.pendingAmount, 0),
@@ -314,6 +332,47 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                     </article>
                 );
             })}
+
+            {totalPages > 1 && (
+                <nav className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3" aria-label="Paginação das notas fiscais">
+                    <p className="text-xs font-semibold text-slate-500">
+                        {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, allVisibleInvoices.length)} de {allVisibleInvoices.length} nota{allVisibleInvoices.length !== 1 ? 's' : ''}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            Anterior
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                            <button
+                                key={n}
+                                type="button"
+                                onClick={() => setPage(n)}
+                                aria-current={n === currentPage ? 'page' : undefined}
+                                className={`min-w-[2rem] rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                                    n === currentPage
+                                        ? 'bg-slate-900 text-white'
+                                        : 'border border-slate-200 text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                                }`}
+                            >
+                                {n}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                </nav>
+            )}
 
             {editingInvoice && (
                 <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="edit-invoice-title">

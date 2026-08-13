@@ -476,7 +476,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         // `insurance-batches/receivables` até quatro vezes.
         if (subTab === 8) return;
         loadAllCounts(selectedMonthYear);
-        if (subTab !== 0 && subTab !== 1) {
+        if (subTab > 3) {
             loadReceivables(selectedMonthYear);
         }
     }, [selectedMonthYear, subTab]);
@@ -485,7 +485,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         const handleRefresh = () => {
             if (subTab === 8) return;
             loadAllCounts(selectedMonthYear);
-            if (subTab !== 0 && subTab !== 1) {
+            if (subTab > 3) {
                 loadReceivables(selectedMonthYear);
             }
         };
@@ -501,34 +501,51 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             // não recorta período — o filtro de competência é opcional e, quando
             // vem, o backend aplica o eixo de data próprio de cada fase.
             const phases: InsuranceSessionPhase[] = ['pendingBilling', 'documentationSent', 'billed', 'received'];
-            const [pending, docSent, billed, received, allResponse] = await Promise.all([
-                ...phases.map(p => getInsuranceGuidesView({ phase: p })),
+            const [guideResponse, allResponse] = await Promise.all([
+                getInsuranceGuidesView({ phases }),
                 // FinancialDashboardTab ainda depende deste endpoint — mantido.
                 getInsuranceReceivables({ month })
             ]);
 
-            const byPhase = { pendingBilling: pending, documentationSent: docSent, billed, received };
+            // Compatibilidade durante rollout/restart: um backend ainda no contrato
+            // anterior ignora `phases` e não devolve `buckets`. Nesse caso usamos as
+            // quatro leituras antigas, sem esvaziar a tela nem mostrar falso erro.
+            let buckets = guideResponse.data.buckets;
+            if (!buckets?.pendingBilling || !buckets.documentationSent || !buckets.billed || !buckets.received) {
+                const [pending, documentationSent, billed, received] = await Promise.all(
+                    phases.map(phase => getInsuranceGuidesView({ phase }))
+                );
+                buckets = {
+                    pendingBilling: pending.data,
+                    documentationSent: documentationSent.data,
+                    billed: billed.data,
+                    received: received.data
+                };
+            }
+            const byPhase = buckets;
             setGuidesByPhase({
-                pendingBilling: (pending.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'pendingBilling')),
-                documentationSent: (docSent.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'documentationSent')),
-                billed: (billed.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'billed')),
-                received: (received.data.data || []).map(g => adaptGuideViewToPendingGuide(g, 'received'))
+                pendingBilling: (buckets.pendingBilling.data || []).map(g => adaptGuideViewToPendingGuide(g, 'pendingBilling')),
+                documentationSent: (buckets.documentationSent.data || []).map(g => adaptGuideViewToPendingGuide(g, 'documentationSent')),
+                billed: (buckets.billed.data || []).map(g => adaptGuideViewToPendingGuide(g, 'billed')),
+                received: (buckets.received.data || []).map(g => adaptGuideViewToPendingGuide(g, 'received'))
             });
             setTotalsByPhase({
-                pendingBilling: byPhase.pendingBilling.data.totals.financialSummary.pendingAmount,
-                documentationSent: byPhase.documentationSent.data.totals.financialSummary.documentationSentAmount,
-                billed: byPhase.billed.data.totals.financialSummary.billedAmount,
-                received: byPhase.received.data.totals.financialSummary.receivedAmount
+                pendingBilling: byPhase.pendingBilling.totals.financialSummary.pendingAmount,
+                documentationSent: byPhase.documentationSent.totals.financialSummary.documentationSentAmount,
+                billed: byPhase.billed.totals.financialSummary.billedAmount,
+                received: byPhase.received.totals.financialSummary.receivedAmount
             });
-            setOrphanSessions(pending.data.orphanSessions || []);
-            setCompetenceBreakdown(pending.data.competenceBreakdown || null);
-            setPaymentIntegrityConflicts(pending.data.paymentIntegrityConflicts || []);
+            setOrphanSessions(guideResponse.data.orphanSessions || []);
+            setCompetenceBreakdown(buckets.pendingBilling.competenceBreakdown || null);
+            setPaymentIntegrityConflicts(guideResponse.data.paymentIntegrityConflicts || []);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
             // Falha da leitura precisa ser visível: sem o toast, ela fica
             // indistinguível de "não há nada a faturar" — aba vazia, nenhum aviso.
-            toast.error('Falha ao carregar convênios. Os dados exibidos podem estar incompletos.');
+            toast.error('Falha ao carregar convênios. Os dados exibidos podem estar incompletos.', {
+                id: 'insurance-guides-load-error'
+            });
         } finally {
             setLoadingGuides(false);
         }
