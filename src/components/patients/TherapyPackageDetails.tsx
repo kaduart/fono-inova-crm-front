@@ -143,6 +143,24 @@ export default function TherapyPackageDetails({
     // profissional pode não estar livre no horário antigo.
     const [transferSchedule, setTransferSchedule] = useState<Record<string, { date: string; time: string }>>({});
 
+    /**
+     * <input type="date"> só aceita yyyy-MM-dd. A data da sessão pode vir como
+     * ISO, como Date serializado ou já no formato curto — `slice(0,10)` cru
+     * falhava silenciosamente e o campo aparecia vazio.
+     */
+    const toDateInputValue = (value: any): string => {
+        if (!value) return '';
+        const raw = String(value);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10);
+        const d = new Date(raw);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+
+    const todayInputValue = toDateInputValue(new Date());
+
     const toggleTransferSession = (appointmentId: string, session?: any) => {
         setTransferPreview(null);
         setTransferIds(prev => {
@@ -154,8 +172,10 @@ export default function TherapyPackageDetails({
                 });
                 return prev.filter(id => id !== appointmentId);
             }
-            // Sugestão inicial: mesma data/hora da sessão de origem
-            const suggestedDate = session?.date ? String(session.date).slice(0, 10) : '';
+            // Sugestão: mesma data/hora da origem — mas só se ainda for futura.
+            // Sugerir data passada seria sugerir algo que o backend recusa.
+            const originDate = toDateInputValue(session?.date);
+            const suggestedDate = originDate && originDate >= todayInputValue ? originDate : '';
             setTransferSchedule(s => ({
                 ...s,
                 [appointmentId]: { date: suggestedDate, time: session?.time || '' },
@@ -1005,14 +1025,14 @@ export default function TherapyPackageDetails({
         {/* Dialog: Transferir sessões para outro pacote */}
         {transferOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
-                    <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-5 text-white flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh]">
+                    <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-7 py-5 text-white flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="p-3 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
                                 <ArrowRight className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
-                                <h3 className="font-bold text-base truncate">Transferir sessões</h3>
+                                <h3 className="font-bold text-lg truncate">Transferir sessões</h3>
                                 <p className="text-xs text-violet-100 opacity-90 mt-0.5">
                                     Sessões já pagas e não realizadas mudam de especialidade
                                 </p>
@@ -1023,13 +1043,16 @@ export default function TherapyPackageDetails({
                         </button>
                     </div>
 
-                    <div className="px-6 py-5 overflow-y-auto space-y-5">
-                        <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-900">
+                    <div className="px-7 py-6 overflow-y-auto">
+                        <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-900 mb-6">
                             O pacote atual continua com <strong>{pack.totalSessions} sessões</strong> e{' '}
                             <strong>R$ {Number(pack.totalPaid ?? 0).toFixed(2)}</strong> recebidos, na data original.
                             Nada é cobrado de novo e <strong>nenhum valor entra no caixa</strong>.
                         </div>
 
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                        {/* ─── Coluna esquerda: origem e destino ─── */}
+                        <div className="space-y-5">
                         {/* 1. Sessões */}
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1112,61 +1135,6 @@ export default function TherapyPackageDetails({
                             </p>
                         </div>
 
-                        {/* 3. Agenda das sessões destino */}
-                        {transferIds.length > 0 && transferSpecialty && transferDoctorId && (
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                    3. Agendar sessões no novo pacote
-                                </label>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    A data e o horário antigos vêm preenchidos como sugestão — ajuste conforme a
-                                    disponibilidade do novo profissional.
-                                </p>
-                                <div className="space-y-2">
-                                    {transferIds.map((apptId) => {
-                                        const origin = transferableSessions.find((s: any) => String(s.appointmentId) === apptId);
-                                        const slot = transferSchedule[apptId] || { date: '', time: '' };
-                                        const incomplete = !slot.date || !slot.time;
-                                        return (
-                                            <div
-                                                key={apptId}
-                                                className={`rounded-lg border px-3 py-2.5 ${incomplete ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}
-                                            >
-                                                <p className="text-[11px] text-gray-500 mb-1.5">
-                                                    Origem: {formatDate(origin?.date)} {origin?.time ? `às ${origin.time}` : ''}
-                                                    {' — '}{String(pack.sessionType || '').replace(/_/g, ' ')}
-                                                    {' — '}cancelada
-                                                </p>
-                                                <div className="flex flex-col sm:flex-row gap-2">
-                                                    <div className="flex-1">
-                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Nova data</span>
-                                                        <input
-                                                            type="date"
-                                                            value={slot.date}
-                                                            onChange={(e) => updateTransferSlot(apptId, 'date', e.target.value)}
-                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                                                        />
-                                                    </div>
-                                                    <div className="w-full sm:w-32">
-                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Horário</span>
-                                                        <input
-                                                            type="time"
-                                                            value={slot.time}
-                                                            onChange={(e) => updateTransferSlot(apptId, 'time', e.target.value)}
-                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <p className="text-[11px] text-gray-400 mt-1">
-                                                    {transferSpecialty.replace(/_/g, ' ')} · {doctors.find(d => d._id === transferDoctorId)?.fullName || '—'}
-                                                </p>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">4. Motivo</label>
                             <textarea
@@ -1177,6 +1145,86 @@ export default function TherapyPackageDetails({
                                 className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
                             />
                         </div>
+                        </div>
+
+                        {/* ─── Coluna direita: agenda das novas sessões ─── */}
+                        <div className="space-y-5">
+                        {transferIds.length === 0 || !transferSpecialty || !transferDoctorId ? (
+                            <div className="rounded-xl border-2 border-dashed border-gray-200 px-5 py-10 text-center">
+                                <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500 font-medium">Agenda do novo pacote</p>
+                                <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+                                    Selecione as sessões, a especialidade e o profissional para definir as novas datas.
+                                </p>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-baseline justify-between mb-1">
+                                    <label className="text-sm font-semibold text-gray-700">
+                                        3. Agendar sessões no novo pacote
+                                    </label>
+                                    <span className={`text-xs font-medium ${scheduleComplete ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {transferIds.filter(id => transferSchedule[id]?.date && transferSchedule[id]?.time).length}/{transferIds.length} preenchidas
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mb-3">
+                                    Ajuste conforme a disponibilidade de {doctors.find(d => d._id === transferDoctorId)?.fullName || 'o profissional'}.
+                                </p>
+
+                                <div className="space-y-2">
+                                    {transferIds.map((apptId) => {
+                                        const origin = transferableSessions.find((s: any) => String(s.appointmentId) === apptId);
+                                        const slot = transferSchedule[apptId] || { date: '', time: '' };
+                                        const incomplete = !slot.date || !slot.time;
+                                        const originPassed = origin?.date && toDateInputValue(origin.date) < todayInputValue;
+                                        return (
+                                            <div
+                                                key={apptId}
+                                                className={`rounded-xl border px-3.5 py-3 transition-colors ${incomplete ? 'border-amber-300 bg-amber-50/60' : 'border-emerald-200 bg-emerald-50/40'}`}
+                                            >
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-[11px] text-gray-500 truncate">
+                                                        Origem: <strong className="text-gray-700">{formatDate(origin?.date)}</strong>
+                                                        {origin?.time ? ` às ${origin.time}` : ''}
+                                                    </span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
+                                                        cancelada
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-[1fr,7.5rem] gap-2">
+                                                    <div>
+                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Nova data</span>
+                                                        <input
+                                                            type="date"
+                                                            min={todayInputValue}
+                                                            value={slot.date}
+                                                            onChange={(e) => updateTransferSlot(apptId, 'date', e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Horário</span>
+                                                        <input
+                                                            type="time"
+                                                            value={slot.time}
+                                                            onChange={(e) => updateTransferSlot(apptId, 'time', e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {originPassed && !slot.date && (
+                                                    <p className="text-[11px] text-amber-700 mt-1.5">
+                                                        A data original já passou — escolha uma nova.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Preview */}
                         {transferPreview && (
@@ -1226,9 +1274,11 @@ export default function TherapyPackageDetails({
                                 )}
                             </div>
                         )}
+                        </div>
+                        </div>
                     </div>
 
-                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
+                    <div className="bg-gray-50 px-7 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
                         <button onClick={closeTransferDialog} className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 text-sm font-medium">
                             Cancelar
                         </button>
