@@ -511,7 +511,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             // anterior ignora `phases` e não devolve `buckets`. Nesse caso usamos as
             // quatro leituras antigas, sem esvaziar a tela nem mostrar falso erro.
             let buckets = guideResponse.data.buckets;
-            if (!buckets?.pendingBilling || !buckets.documentationSent || !buckets.billed || !buckets.received) {
+            if (!Array.isArray(buckets?.pendingBilling?.data) || !Array.isArray(buckets?.documentationSent?.data) || !Array.isArray(buckets?.billed?.data) || !Array.isArray(buckets?.received?.data)) {
                 const [pending, documentationSent, billed, received] = await Promise.all(
                     phases.map(phase => getInsuranceGuidesView({ phase }))
                 );
