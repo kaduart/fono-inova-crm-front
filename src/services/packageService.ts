@@ -544,7 +544,13 @@ export const packageService = {
    */
   previewTransfer: async (packageId: string, payload: {
     appointmentIds: string[];
-    target: { specialty: string; doctorId: string; sessionValue?: number };
+    target: {
+      specialty: string;
+      doctorId: string;
+      sessionValue?: number;
+      /** Data/hora de cada sessão do novo pacote, uma por sessão convertida. */
+      schedule: { sourceAppointmentId: string; date: string; time: string }[];
+    };
   }) => {
     try {
       const response = await API.post(`/v2/packages/${packageId}/transfer/preview`, payload);
@@ -562,7 +568,13 @@ export const packageService = {
    */
   transferSessions: async (packageId: string, payload: {
     appointmentIds: string[];
-    target: { specialty: string; doctorId: string; sessionValue?: number };
+    target: {
+      specialty: string;
+      doctorId: string;
+      sessionValue?: number;
+      /** Data/hora de cada sessão do novo pacote, uma por sessão convertida. */
+      schedule: { sourceAppointmentId: string; date: string; time: string }[];
+    };
     reason: string;
     idempotencyKey: string;
   }) => {

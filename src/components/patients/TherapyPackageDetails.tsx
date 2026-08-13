@@ -129,6 +129,7 @@ export default function TherapyPackageDetails({
         setTransferReason('');
         setTransferPreview(null);
         setTransferKey('');
+        setTransferSchedule({});
     };
 
     const openTransferDialog = () => {
@@ -137,12 +138,48 @@ export default function TherapyPackageDetails({
         setTransferOpen(true);
     };
 
-    const toggleTransferSession = (appointmentId: string) => {
+    // Agenda das sessões DESTINO: uma linha por sessão convertida.
+    // A data/hora da origem entra como sugestão, mas é editável — o novo
+    // profissional pode não estar livre no horário antigo.
+    const [transferSchedule, setTransferSchedule] = useState<Record<string, { date: string; time: string }>>({});
+
+    const toggleTransferSession = (appointmentId: string, session?: any) => {
         setTransferPreview(null);
-        setTransferIds(prev => prev.includes(appointmentId)
-            ? prev.filter(id => id !== appointmentId)
-            : [...prev, appointmentId]);
+        setTransferIds(prev => {
+            if (prev.includes(appointmentId)) {
+                setTransferSchedule(s => {
+                    const next = { ...s };
+                    delete next[appointmentId];
+                    return next;
+                });
+                return prev.filter(id => id !== appointmentId);
+            }
+            // Sugestão inicial: mesma data/hora da sessão de origem
+            const suggestedDate = session?.date ? String(session.date).slice(0, 10) : '';
+            setTransferSchedule(s => ({
+                ...s,
+                [appointmentId]: { date: suggestedDate, time: session?.time || '' },
+            }));
+            return [...prev, appointmentId];
+        });
     };
+
+    const updateTransferSlot = (appointmentId: string, field: 'date' | 'time', value: string) => {
+        setTransferPreview(null);
+        setTransferSchedule(prev => ({
+            ...prev,
+            [appointmentId]: { ...(prev[appointmentId] || { date: '', time: '' }), [field]: value },
+        }));
+    };
+
+    const buildSchedulePayload = () => transferIds.map(id => ({
+        sourceAppointmentId: id,
+        date: transferSchedule[id]?.date || '',
+        time: transferSchedule[id]?.time || '',
+    }));
+
+    const scheduleComplete = transferIds.length > 0
+        && transferIds.every(id => transferSchedule[id]?.date && transferSchedule[id]?.time);
 
     const handleTransferPreview = async () => {
         setTransferLoading(true);
@@ -153,6 +190,7 @@ export default function TherapyPackageDetails({
                     specialty: transferSpecialty,
                     doctorId: transferDoctorId,
                     sessionValue: Number(transferValue) || undefined,
+                    schedule: buildSchedulePayload(),
                 },
             });
             setTransferPreview(data);
@@ -172,6 +210,7 @@ export default function TherapyPackageDetails({
                     specialty: transferSpecialty,
                     doctorId: transferDoctorId,
                     sessionValue: Number(transferValue) || undefined,
+                    schedule: buildSchedulePayload(),
                 },
                 reason: transferReason.trim(),
                 idempotencyKey: transferKey,
@@ -1007,7 +1046,7 @@ export default function TherapyPackageDetails({
                                             <input
                                                 type="checkbox"
                                                 checked={checked}
-                                                onChange={() => toggleTransferSession(apptId)}
+                                                onChange={() => toggleTransferSession(apptId, s)}
                                                 className="w-4 h-4 accent-violet-600"
                                             />
                                             <span className="text-sm text-gray-800 flex-1">
@@ -1073,8 +1112,63 @@ export default function TherapyPackageDetails({
                             </p>
                         </div>
 
+                        {/* 3. Agenda das sessões destino */}
+                        {transferIds.length > 0 && transferSpecialty && transferDoctorId && (
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                                    3. Agendar sessões no novo pacote
+                                </label>
+                                <p className="text-xs text-gray-500 mb-2">
+                                    A data e o horário antigos vêm preenchidos como sugestão — ajuste conforme a
+                                    disponibilidade do novo profissional.
+                                </p>
+                                <div className="space-y-2">
+                                    {transferIds.map((apptId) => {
+                                        const origin = transferableSessions.find((s: any) => String(s.appointmentId) === apptId);
+                                        const slot = transferSchedule[apptId] || { date: '', time: '' };
+                                        const incomplete = !slot.date || !slot.time;
+                                        return (
+                                            <div
+                                                key={apptId}
+                                                className={`rounded-lg border px-3 py-2.5 ${incomplete ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}
+                                            >
+                                                <p className="text-[11px] text-gray-500 mb-1.5">
+                                                    Origem: {formatDate(origin?.date)} {origin?.time ? `às ${origin.time}` : ''}
+                                                    {' — '}{String(pack.sessionType || '').replace(/_/g, ' ')}
+                                                    {' — '}cancelada
+                                                </p>
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    <div className="flex-1">
+                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Nova data</span>
+                                                        <input
+                                                            type="date"
+                                                            value={slot.date}
+                                                            onChange={(e) => updateTransferSlot(apptId, 'date', e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="w-full sm:w-32">
+                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Horário</span>
+                                                        <input
+                                                            type="time"
+                                                            value={slot.time}
+                                                            onChange={(e) => updateTransferSlot(apptId, 'time', e.target.value)}
+                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[11px] text-gray-400 mt-1">
+                                                    {transferSpecialty.replace(/_/g, ' ')} · {doctors.find(d => d._id === transferDoctorId)?.fullName || '—'}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">3. Motivo</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">4. Motivo</label>
                             <textarea
                                 rows={2} maxLength={500}
                                 value={transferReason}
@@ -1088,7 +1182,15 @@ export default function TherapyPackageDetails({
                         {transferPreview && (
                             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 space-y-1.5 text-sm">
                                 <p className="font-semibold text-emerald-900">Confira antes de confirmar</p>
-                                <p className="text-emerald-800">{transferPreview.sessionCount} sessão(ões) serão transferidas</p>
+                                <p className="text-emerald-800">
+                                    {transferPreview.sessionCount} sessão(ões) de {String(pack.sessionType || '').replace(/_/g, ' ')} serão convertidas
+                                </p>
+                                <p className="text-emerald-800">
+                                    {transferPreview.targetPackagesToCreate ?? 1} pacote de {transferSpecialty.replace(/_/g, ' ')} será criado
+                                </p>
+                                <p className="text-emerald-800">
+                                    {transferPreview.newAppointmentsCount ?? 0} novo(s) agendamento(s) serão criados
+                                </p>
                                 <p className="text-emerald-800">
                                     R$ {Number(transferPreview.amount).toFixed(2)} de cobertura já paga
                                 </p>
@@ -1096,6 +1198,17 @@ export default function TherapyPackageDetails({
                                 <p className="text-emerald-800">
                                     {transferPreview.completedUntouched} sessão(ões) realizada(s) não serão alteradas
                                 </p>
+
+                                {Array.isArray(transferPreview.newAppointments) && transferPreview.newAppointments.length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-emerald-200 space-y-1">
+                                        <p className="font-semibold text-emerald-900 text-xs">Novos agendamentos</p>
+                                        {transferPreview.newAppointments.map((a: any, idx: number) => (
+                                            <p key={idx} className="text-emerald-800 text-xs">
+                                                {formatDate(a.date)} às {a.time} — {String(a.specialty || '').replace(/_/g, ' ')} — {doctors.find(d => d._id === a.doctorId)?.fullName || '—'}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                                 {transferPreview.willRestamp > 0 && (
                                     <p className="text-emerald-800">
                                         {transferPreview.willRestamp} já cancelada(s) serão reaproveitadas e deixarão de constar como falta
@@ -1122,7 +1235,8 @@ export default function TherapyPackageDetails({
                         {!transferPreview ? (
                             <button
                                 onClick={handleTransferPreview}
-                                disabled={transferLoading || transferIds.length === 0 || !transferSpecialty || !transferDoctorId}
+                                title={!scheduleComplete ? 'Preencha data e horário de todas as sessões' : ''}
+                                disabled={transferLoading || transferIds.length === 0 || !transferSpecialty || !transferDoctorId || !scheduleComplete}
                                 className="px-5 py-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-700 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {transferLoading ? 'Simulando...' : 'Revisar transferência'}
