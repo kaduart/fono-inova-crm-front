@@ -311,20 +311,33 @@ export const getInsuranceGuidesView = (params?: {
     patientId?: string;
     guideStatus?: string;
     phase?: InsuranceSessionPhase | 'all';
+    phases?: InsuranceSessionPhase[] | string;
     from?: string;
     to?: string;
     page?: number;
     limit?: number;
-}) =>
-    API.get<{
+}) => {
+    const normalizedParams = {
+        ...params,
+        phases: Array.isArray(params?.phases) ? params.phases.join(',') : params?.phases
+    };
+    const key = `insurance-guides-view:${JSON.stringify(normalizedParams)}`;
+    return deduped(key, () => API.get<{
         success: boolean;
         data: InsuranceGuideView[];
         orphanSessions: any[];
         totals: { sessions: InsuranceGuidePhaseCounters; financialSummary: InsuranceGuideFinancialSummary };
         competenceBreakdown: CompetenceBreakdown;
         paymentIntegrityConflicts: InsurancePaymentIntegrityConflict[];
+    pagination: any;
+    buckets?: Partial<Record<InsuranceSessionPhase, {
+        data: InsuranceGuideView[];
+        totals: { sessions: InsuranceGuidePhaseCounters; financialSummary: InsuranceGuideFinancialSummary };
+        competenceBreakdown: CompetenceBreakdown;
         pagination: any;
-    }>('/v2/insurance/guides/view', { params });
+    }>>;
+    }>('/v2/insurance/guides/view', { params: normalizedParams }));
+};
 
 // Encerrar período de guia per_month manualmente (cancela agendamentos pendentes)
 export const encerrarGuia = (data: { guideId: string }) =>
