@@ -537,6 +537,43 @@ export const packageService = {
     return response.data;
   },
 
+  /**
+   * Simula a transferência de sessões não realizadas para outro pacote.
+   * A regra vive no backend — o preview chama a mesma validação da execução,
+   * então o que a tela mostra é exatamente o que vai acontecer.
+   */
+  previewTransfer: async (packageId: string, payload: {
+    appointmentIds: string[];
+    target: { specialty: string; doctorId: string; sessionValue?: number };
+  }) => {
+    try {
+      const response = await API.post(`/v2/packages/${packageId}/transfer/preview`, payload);
+      return extractV2Data<any>(response);
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Erro ao simular transferência'));
+    }
+  },
+
+  /**
+   * Transfere a cobertura já paga de sessões não realizadas para um novo pacote.
+   * NÃO gera entrada de caixa: o dinheiro entrou no pacote de origem, na data
+   * original. `idempotencyKey` protege contra duplo clique — sem ela, um retry
+   * criaria cobertura dobrada (sessão de graça).
+   */
+  transferSessions: async (packageId: string, payload: {
+    appointmentIds: string[];
+    target: { specialty: string; doctorId: string; sessionValue?: number };
+    reason: string;
+    idempotencyKey: string;
+  }) => {
+    try {
+      const response = await API.post(`/v2/packages/${packageId}/transfer`, payload);
+      return extractV2Data<any>(response);
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Erro ao transferir sessões'));
+    }
+  },
+
   bulkUpdateAppointments: async (
     packageId: string,
     patch: { doctorId?: string; time?: string; dayOfWeek?: number }

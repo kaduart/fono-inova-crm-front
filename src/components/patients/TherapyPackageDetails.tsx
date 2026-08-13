@@ -107,6 +107,85 @@ export default function TherapyPackageDetails({
         return newDate;
     };
 
+    // Transferência de sessões para outro pacote
+    const [transferOpen, setTransferOpen] = useState(false);
+    const [transferIds, setTransferIds] = useState<string[]>([]);
+    const [transferSpecialty, setTransferSpecialty] = useState('');
+    const [transferDoctorId, setTransferDoctorId] = useState('');
+    const [transferValue, setTransferValue] = useState<string>('');
+    const [transferReason, setTransferReason] = useState('');
+    const [transferPreview, setTransferPreview] = useState<any>(null);
+    const [transferLoading, setTransferLoading] = useState(false);
+    // Gerada uma vez por abertura do diálogo: garante que duplo clique no
+    // "Confirmar" não crie duas transferências (cobertura dobrada).
+    const [transferKey, setTransferKey] = useState('');
+
+    const closeTransferDialog = () => {
+        setTransferOpen(false);
+        setTransferIds([]);
+        setTransferSpecialty('');
+        setTransferDoctorId('');
+        setTransferValue('');
+        setTransferReason('');
+        setTransferPreview(null);
+        setTransferKey('');
+    };
+
+    const openTransferDialog = () => {
+        setTransferKey(`transfer_${pack.packageId || pack._id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+        setTransferValue(String(pack.sessionValue ?? ''));
+        setTransferOpen(true);
+    };
+
+    const toggleTransferSession = (appointmentId: string) => {
+        setTransferPreview(null);
+        setTransferIds(prev => prev.includes(appointmentId)
+            ? prev.filter(id => id !== appointmentId)
+            : [...prev, appointmentId]);
+    };
+
+    const handleTransferPreview = async () => {
+        setTransferLoading(true);
+        try {
+            const data = await packageService.previewTransfer(pack.packageId || pack._id, {
+                appointmentIds: transferIds,
+                target: {
+                    specialty: transferSpecialty,
+                    doctorId: transferDoctorId,
+                    sessionValue: Number(transferValue) || undefined,
+                },
+            });
+            setTransferPreview(data);
+        } catch (err: any) {
+            toast.error(err?.message || 'Erro ao simular transferência');
+        } finally {
+            setTransferLoading(false);
+        }
+    };
+
+    const handleTransferConfirm = async () => {
+        setTransferLoading(true);
+        try {
+            const result = await packageService.transferSessions(pack.packageId || pack._id, {
+                appointmentIds: transferIds,
+                target: {
+                    specialty: transferSpecialty,
+                    doctorId: transferDoctorId,
+                    sessionValue: Number(transferValue) || undefined,
+                },
+                reason: transferReason.trim(),
+                idempotencyKey: transferKey,
+            });
+            toast.success(result?.message || 'Sessões transferidas com sucesso');
+            closeTransferDialog();
+            onRefresh?.();
+        } catch (err: any) {
+            toast.error(err?.message || 'Erro ao transferir sessões');
+        } finally {
+            setTransferLoading(false);
+        }
+    };
+
     const closeBulkDialog = () => {
         setBulkOpen(false);
         setBulkPreviewOpen(false);
@@ -129,6 +208,24 @@ export default function TherapyPackageDetails({
             .filter((s: any) => {
                 const ns = normalizeStatus(s.status);
                 return ['pre_agendado', 'scheduled', 'pending', 'unpaid'].includes(ns);
+            })
+            .sort((a: any, b: any) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
+    }, [sessions]);
+
+    /**
+     * Sessões que podem ser transferidas: contratadas e NÃO realizadas.
+     * Inclui as já canceladas de propósito — é o caso comum, a secretária
+     * cancela antes de saber que haveria conversão. Realizadas nunca entram:
+     * o atendimento aconteceu e a cobertura foi consumida.
+     */
+    const transferableSessions = useMemo(() => {
+        return sessions
+            .filter((s: any) => {
+                const ns = normalizeStatus(s.status);
+                const notDelivered = !['completed', 'paid'].includes(ns);
+                const hasAppointment = Boolean(s.appointmentId);
+                const notTransferred = !s.transferId;
+                return notDelivered && hasAppointment && notTransferred;
             })
             .sort((a: any, b: any) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`));
     }, [sessions]);
@@ -553,13 +650,25 @@ export default function TherapyPackageDetails({
                 {/* Footer estilo Liminar / Convênio */}
                 <div className="bg-gray-50 px-6 py-5 border-t border-gray-200">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                        <button
-                            onClick={openBulk}
-                            className="px-4 py-2.5 text-emerald-700 bg-white border border-emerald-300 rounded-full hover:bg-emerald-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
-                        >
-                            <Users className="w-4 h-4 shrink-0" />
-                            Alterar sessões pendentes
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                                onClick={openBulk}
+                                className="px-4 py-2.5 text-emerald-700 bg-white border border-emerald-300 rounded-full hover:bg-emerald-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                            >
+                                <Users className="w-4 h-4 shrink-0" />
+                                Alterar sessões pendentes
+                            </button>
+                            {transferableSessions.length > 0 && (
+                                <button
+                                    onClick={openTransferDialog}
+                                    title="Usar sessões não realizadas deste pacote em outra especialidade, sem cobrar de novo"
+                                    className="px-4 py-2.5 text-violet-700 bg-white border border-violet-300 rounded-full hover:bg-violet-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                                >
+                                    <ArrowRight className="w-4 h-4 shrink-0" />
+                                    Transferir sessões
+                                </button>
+                            )}
+                        </div>
                         <div className="flex items-center gap-2 flex-col sm:flex-row">
                             <button
                                 onClick={onClose}
@@ -848,6 +957,187 @@ export default function TherapyPackageDetails({
                                     {!bulkSaving && <CheckCircle className="w-4 h-4" />}
                                 </button>
                             </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Dialog: Transferir sessões para outro pacote */}
+        {transferOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-5 text-white flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
+                                <ArrowRight className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="font-bold text-base truncate">Transferir sessões</h3>
+                                <p className="text-xs text-violet-100 opacity-90 mt-0.5">
+                                    Sessões já pagas e não realizadas mudam de especialidade
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={closeTransferDialog} className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors shrink-0">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="px-6 py-5 overflow-y-auto space-y-5">
+                        <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-900">
+                            O pacote atual continua com <strong>{pack.totalSessions} sessões</strong> e{' '}
+                            <strong>R$ {Number(pack.totalPaid ?? 0).toFixed(2)}</strong> recebidos, na data original.
+                            Nada é cobrado de novo e <strong>nenhum valor entra no caixa</strong>.
+                        </div>
+
+                        {/* 1. Sessões */}
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                1. Quais sessões mudam de destino?
+                            </label>
+                            <div className="border border-gray-200 rounded-xl divide-y max-h-52 overflow-y-auto">
+                                {transferableSessions.map((s: any) => {
+                                    const apptId = String(s.appointmentId);
+                                    const checked = transferIds.includes(apptId);
+                                    const ns = normalizeStatus(s.status);
+                                    const style = STATUS_STYLES[ns] || STATUS_STYLES.pending;
+                                    return (
+                                        <label key={apptId} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${checked ? 'bg-violet-50' : 'hover:bg-gray-50'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => toggleTransferSession(apptId)}
+                                                className="w-4 h-4 accent-violet-600"
+                                            />
+                                            <span className="text-sm text-gray-800 flex-1">
+                                                {formatDate(s.date)} {s.time ? `às ${s.time}` : ''}
+                                            </span>
+                                            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
+                                                {style.label}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1.5">
+                                Sessões já realizadas não aparecem — o atendimento aconteceu e a cobertura foi usada.
+                            </p>
+                        </div>
+
+                        {/* 2. Destino */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">2. Nova especialidade</label>
+                                <select
+                                    value={transferSpecialty}
+                                    onChange={(e) => { setTransferSpecialty(e.target.value); setTransferDoctorId(''); setTransferPreview(null); }}
+                                    className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white"
+                                >
+                                    <option value="">Selecione</option>
+                                    {['fonoaudiologia', 'psicologia', 'terapia_ocupacional', 'fisioterapia', 'psicomotricidade', 'musicoterapia', 'psicopedagogia', 'neuropsicologia']
+                                        .filter(s => s !== pack.sessionType)
+                                        .map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Profissional</label>
+                                <select
+                                    value={transferDoctorId}
+                                    onChange={(e) => { setTransferDoctorId(e.target.value); setTransferPreview(null); }}
+                                    disabled={!transferSpecialty}
+                                    className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white disabled:bg-gray-100"
+                                >
+                                    <option value="">Selecione</option>
+                                    {doctors
+                                        .filter(d => {
+                                            if (!transferSpecialty) return false;
+                                            const allowed = [d.specialty, ...((d as any).specialties || [])].map((x: any) => (x || '').toLowerCase());
+                                            return allowed.includes(transferSpecialty.toLowerCase());
+                                        })
+                                        .map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Valor por sessão no novo pacote</label>
+                            <input
+                                type="number" min="0" step="0.01"
+                                value={transferValue}
+                                onChange={(e) => { setTransferValue(e.target.value); setTransferPreview(null); }}
+                                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">
+                                Origem: R$ {Number(pack.sessionValue ?? 0).toFixed(2)}/sessão. Valor diferente gera saldo a pagar ou sobra.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">3. Motivo</label>
+                            <textarea
+                                rows={2} maxLength={500}
+                                value={transferReason}
+                                onChange={(e) => setTransferReason(e.target.value)}
+                                placeholder="Ex.: mudança terapêutica definida pela equipe"
+                                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                            />
+                        </div>
+
+                        {/* Preview */}
+                        {transferPreview && (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 space-y-1.5 text-sm">
+                                <p className="font-semibold text-emerald-900">Confira antes de confirmar</p>
+                                <p className="text-emerald-800">{transferPreview.sessionCount} sessão(ões) serão transferidas</p>
+                                <p className="text-emerald-800">
+                                    R$ {Number(transferPreview.amount).toFixed(2)} de cobertura já paga
+                                </p>
+                                <p className="text-emerald-800 font-semibold">R$ 0,00 de entrada nova no caixa</p>
+                                <p className="text-emerald-800">
+                                    {transferPreview.completedUntouched} sessão(ões) realizada(s) não serão alteradas
+                                </p>
+                                {transferPreview.willRestamp > 0 && (
+                                    <p className="text-emerald-800">
+                                        {transferPreview.willRestamp} já cancelada(s) serão reaproveitadas e deixarão de constar como falta
+                                    </p>
+                                )}
+                                {transferPreview.shortfall > 0 && (
+                                    <p className="text-amber-800 bg-amber-100 rounded px-2 py-1 mt-1">
+                                        Faltam R$ {Number(transferPreview.shortfall).toFixed(2)} — o novo pacote nasce com saldo a receber.
+                                    </p>
+                                )}
+                                {transferPreview.surplus > 0 && (
+                                    <p className="text-amber-800 bg-amber-100 rounded px-2 py-1 mt-1">
+                                        Sobram R$ {Number(transferPreview.surplus).toFixed(2)} de cobertura não utilizada.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
+                        <button onClick={closeTransferDialog} className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 text-sm font-medium">
+                            Cancelar
+                        </button>
+                        {!transferPreview ? (
+                            <button
+                                onClick={handleTransferPreview}
+                                disabled={transferLoading || transferIds.length === 0 || !transferSpecialty || !transferDoctorId}
+                                className="px-5 py-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-700 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {transferLoading ? 'Simulando...' : 'Revisar transferência'}
+                                {!transferLoading && <ArrowRight className="w-4 h-4" />}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleTransferConfirm}
+                                disabled={transferLoading || !transferReason.trim()}
+                                title={!transferReason.trim() ? 'Informe o motivo' : ''}
+                                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-full hover:from-violet-700 hover:to-purple-700 text-sm font-medium disabled:bg-gray-300 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {transferLoading ? 'Transferindo...' : 'Confirmar transferência'}
+                                {!transferLoading && <CheckCircle className="w-4 h-4" />}
+                            </button>
                         )}
                     </div>
                 </div>
