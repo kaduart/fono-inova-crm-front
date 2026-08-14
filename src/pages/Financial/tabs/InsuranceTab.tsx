@@ -1602,6 +1602,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             drawerAction={subTab === 0 ? 'send_documents' : 'bill'}
                             onDrawerAction={handleOpenBillingWizard}
                             phase={subTab === 0 ? 'pendingBilling' : 'documentationSent'}
+                            convenios={convenios}
+                            loadingConvenios={loadingConvenios}
                         />
                     ) : subTab === 2 || subTab === 3 ? (
                         // Faturados/Recebidos derivam da ReadView pelo bucket da fase.
@@ -1627,6 +1629,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             drawerAction={subTab === 2 ? 'receive' : undefined}
                             onDrawerAction={subTab === 2 ? handleOpenReceberLoteModal : undefined}
                             phase={subTab === 2 ? 'billed' : 'received'}
+                            convenios={convenios}
+                            loadingConvenios={loadingConvenios}
                         />
                     ) : loading ? (
                         Array.from({ length: 4 }).map((_, i) => (

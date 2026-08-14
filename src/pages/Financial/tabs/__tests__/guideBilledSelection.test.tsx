@@ -2,10 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import GuidePendingBillingSection, { PatientDrawer, type PendingGuide } from '../GuidePendingBillingSection';
 
-vi.mock('../../../../hooks/useConvenios', () => ({
-    useConvenios: () => ({ convenios: [], isLoading: false })
-}));
-
 const billedGuide: PendingGuide = {
     guideId: 'guide-billed',
     number: '2027',
@@ -27,7 +23,10 @@ const baseProps = {
     loading: false,
     onRefresh: vi.fn(),
     month: '2026-08',
-    phaseLabel: 'faturada(s)'
+    phaseLabel: 'faturada(s)',
+    // convenios agora vem do pai (InsuranceTab) — o componente não busca mais
+    // sozinho, ver GuidePendingBillingSectionProps.
+    convenios: []
 };
 
 describe('GuidePendingBillingSection — seleção no bucket billed', () => {

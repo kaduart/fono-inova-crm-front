@@ -2,10 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import GuidePendingBillingSection from '../GuidePendingBillingSection';
 
-vi.mock('../../../../hooks/useConvenios', () => ({
-    useConvenios: () => ({ convenios: [], isLoading: false })
-}));
-
 const baseProps = {
     guides: [],
     selectedGuides: new Set<string>(),
@@ -13,7 +9,10 @@ const baseProps = {
     loading: false,
     onToggleGuide: vi.fn(),
     onRefresh: vi.fn(),
-    month: '2026-08'
+    month: '2026-08',
+    // convenios agora vem do pai (InsuranceTab) — o componente não busca mais
+    // sozinho, ver GuidePendingBillingSectionProps.
+    convenios: []
 };
 
 describe('GuidePendingBillingSection - órfãs lazy', () => {

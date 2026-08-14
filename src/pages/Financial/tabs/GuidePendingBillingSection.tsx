@@ -33,7 +33,6 @@ import { Fragment, useEffect, useState } from 'react';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 import { autoLinkOrphanSessions, createGuideFromOrphan, encerrarGuia, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
 import { updateGuide } from '../../../services/insuranceGuideApi';
-import { useConvenios } from '../../../hooks/useConvenios';
 import type { Convenio } from '../../../services/insuranceService';
 import { toast } from 'react-toastify';
 
@@ -168,6 +167,14 @@ interface GuidePendingBillingSectionProps {
     onLoadGuideDetails?: (guideIds: string[]) => Promise<PendingGuide[]>;
     detailsLoading?: boolean;
     phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
+    /**
+     * Recebido do pai (InsuranceTab), que já busca a lista para uso próprio.
+     * Antes este componente chamava useConvenios() de novo, independente do
+     * pai — dois fetches idênticos de GET /convenios?includeInactive=false a
+     * cada montagem, sem nenhum cache/dedup no hook para evitar a duplicata.
+     */
+    convenios: Convenio[];
+    loadingConvenios?: boolean;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -814,6 +821,8 @@ const GuidePendingBillingSection = ({
     onLoadGuideDetails,
     detailsLoading = false,
     phase = 'pendingBilling',
+    convenios,
+    loadingConvenios = false,
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
@@ -828,7 +837,6 @@ const GuidePendingBillingSection = ({
     const [savingGuide, setSavingGuide]                         = useState(false);
     const [closeGuideModal, setCloseGuideModal]               = useState<PendingGuide | null>(null);
     const [closingGuide, setClosingGuide]                     = useState(false);
-    const { convenios, isLoading: loadingConvenios }            = useConvenios({ includeInactive: false });
     const selectionInsideDrawer = drawerAction === 'send_documents' || drawerAction === 'bill';
     const toggleProvider = (provider: string) => setExpandedProviders(prev => (
         prev[provider] ? {} : { [provider]: true }
