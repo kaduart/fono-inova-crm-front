@@ -289,6 +289,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
         // fazer (com quem é o conflito, de qual guia, quando) — negrito nos dados,
         // não na frase inteira.
         const conflict = err?.response?.data?.conflict;
+        const errorCode = err?.response?.data?.errorCode;
         if (conflict?.withWhom) {
           toast.error(
             <span>
@@ -298,6 +299,10 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
             </span>,
             { duration: 9000 }
           );
+        } else if (errorCode === 'PLAN_HAS_ASSOCIATED_RECORDS') {
+          // Mensagem própria — "recarregue a página" não se aplica aqui, a ação
+          // certa é usar "Gerar sessões" no plano existente, não tentar de novo.
+          toast.error(message, { duration: 8000 });
         } else {
           toast.error(`Conflito: ${message}. Recarregue a página e tente novamente.`);
         }

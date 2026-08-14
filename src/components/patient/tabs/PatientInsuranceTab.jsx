@@ -779,8 +779,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         replanned,
         remaining,
         pastAppointmentsCompleted,
-        pastAppointmentsFailed,
-        staleAppointmentsCanceled
+        pastAppointmentsFailed
       } = res.data?.data || {};
 
       if (replanned && appointmentsCanceled > 0 && appointmentsGenerated > 0) {
@@ -791,9 +790,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
       } else if (appointmentsGenerated > 0) {
         toast.success(`${appointmentsGenerated} sessão(ões) gerada(s)`);
       } else if (remaining === 0) {
-        toast('Todos os agendamentos futuros já existem', { icon: 'ℹ️' });
+        // "Nada gerado" sem dizer o porquê deixava parecendo bug (ex: plano com
+        // startDate no passado mas sem sessões sobrando pra preencher o passado —
+        // achado real: guia 16173376, startDate 17/07, mas as 10 sessões autorizadas
+        // já estavam todas alocadas em datas futuras, sem sobra pra backfill).
+        toast(`Nenhuma sessão nova: as ${guide.totalSessions} autorizadas pela guia já estão todas agendadas/concluídas — não sobrou saldo pra gerar mais.`, { icon: 'ℹ️', duration: 6000 });
       } else {
-        toast('Nenhuma sessão nova foi gerada', { icon: 'ℹ️' });
+        toast(`Nenhuma sessão nova foi gerada (${remaining} ainda disponível na guia) — os horários do plano já coincidem com os agendamentos existentes.`, { icon: 'ℹ️', duration: 6000 });
       }
 
       if (pastAppointmentsCompleted > 0) {
@@ -801,19 +804,6 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
       }
       if (pastAppointmentsFailed?.length > 0) {
         toast.error(`${pastAppointmentsFailed.length} sessão(ões) retroativa(s) não puderam ser concluídas automaticamente. Complete-as manualmente pela agenda.`, { duration: 7000 });
-      }
-
-      // Sem isso, um agendamento antigo de uma guia órfã (nunca inativada) some da
-      // agenda sem explicação — quem gerou as sessões precisa saber que não foi ela
-      // quem apagou aquele horário, foi o sistema resolvendo um conflito.
-      if (staleAppointmentsCanceled?.count > 0) {
-        const guideList = staleAppointmentsCanceled.fromGuideNumbers?.length
-          ? staleAppointmentsCanceled.fromGuideNumbers.join(', ')
-          : 'uma guia anterior';
-        toast(
-          `${staleAppointmentsCanceled.count} agendamento(s) antigo(s) da guia ${guideList} (mesmo profissional, mesmo paciente) foram cancelados automaticamente por estarem no mesmo horário. Se a guia antiga ainda estiver ativa, considere inativá-la.`,
-          { duration: 9000, icon: '⚠️' }
-        );
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
@@ -1276,7 +1266,11 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-700">
-                    Data no passado: as sessões entre ela e hoje serão criadas <strong>já concluídas</strong> — consomem a guia e liquidam o pagamento, representando atendimentos que já aconteceram. Sessões futuras seguem normalmente.
+                    <strong>Vai criar sozinho, sem pedir confirmação</strong>, uma sessão pra cada dia/horário do plano entre{' '}
+                    <strong>{format(parseISO(generateModal.startDate), 'dd/MM/yyyy')}</strong> e hoje — e cada uma já nasce{' '}
+                    <strong>marcada como realizada</strong>: desconta da guia e lança o pagamento como recebido, como se o
+                    atendimento já tivesse acontecido de verdade. Só use se isso for real. A partir de hoje, as sessões
+                    nascem pendentes normalmente, sem nenhum efeito financeiro.
                   </p>
                 </div>
               )}
