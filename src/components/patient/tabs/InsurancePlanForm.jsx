@@ -262,9 +262,13 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
           sessionValue: Number(form.sessionValue) || 0,
           notes: form.notes
         };
+        // Criar só grava a configuração do plano — não toca na agenda. Gerar os
+        // agendamentos de verdade é um passo separado e explícito (botão "Gerar
+        // sessões" no card da guia, mesmo padrão de Pacotes/Liminar), pra quem está
+        // criando decidir quando a agenda real é mexida em vez de isso acontecer
+        // escondido dentro do "Criar plano".
         response = await API.post('/v2/insurance-plans', payload);
-        const createdCount = response?.data?.data?.appointments?.length || guide.totalSessions;
-        toast.success(`Plano criado com sucesso! ${createdCount} agendamento(s) gerado(s).`);
+        toast.success('Plano criado! Clique em "Gerar sessões" no card da guia para agendar os atendimentos.', { duration: 7000 });
       }
 
       onClose(true);
@@ -281,7 +285,22 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
           toast.error(`Erro de validação: ${message}`);
         }
       } else if (status === 409) {
-        toast.error(`Conflito: ${message}. Recarregue a página e tente novamente.`);
+        // Texto corrido escondia exatamente a parte que importa pra decidir o que
+        // fazer (com quem é o conflito, de qual guia, quando) — negrito nos dados,
+        // não na frase inteira.
+        const conflict = err?.response?.data?.conflict;
+        if (conflict?.withWhom) {
+          toast.error(
+            <span>
+              Conflito de agenda com <strong>{conflict.withWhom}</strong>
+              {conflict.guideNumber ? <> (guia <strong>{conflict.guideNumber}</strong>)</> : null} em{' '}
+              <strong>{conflict.date}</strong> às <strong>{conflict.time}</strong>. Escolha outro horário.
+            </span>,
+            { duration: 9000 }
+          );
+        } else {
+          toast.error(`Conflito: ${message}. Recarregue a página e tente novamente.`);
+        }
       } else if (status === 500) {
         toast.error('Erro interno no servidor. Nosso time foi notificado. Tente novamente em alguns instantes.');
       } else {

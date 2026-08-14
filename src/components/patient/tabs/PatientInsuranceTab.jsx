@@ -779,7 +779,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         replanned,
         remaining,
         pastAppointmentsCompleted,
-        pastAppointmentsFailed
+        pastAppointmentsFailed,
+        staleAppointmentsCanceled
       } = res.data?.data || {};
 
       if (replanned && appointmentsCanceled > 0 && appointmentsGenerated > 0) {
@@ -802,13 +803,38 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         toast.error(`${pastAppointmentsFailed.length} sessão(ões) retroativa(s) não puderam ser concluídas automaticamente. Complete-as manualmente pela agenda.`, { duration: 7000 });
       }
 
+      // Sem isso, um agendamento antigo de uma guia órfã (nunca inativada) some da
+      // agenda sem explicação — quem gerou as sessões precisa saber que não foi ela
+      // quem apagou aquele horário, foi o sistema resolvendo um conflito.
+      if (staleAppointmentsCanceled?.count > 0) {
+        const guideList = staleAppointmentsCanceled.fromGuideNumbers?.length
+          ? staleAppointmentsCanceled.fromGuideNumbers.join(', ')
+          : 'uma guia anterior';
+        toast(
+          `${staleAppointmentsCanceled.count} agendamento(s) antigo(s) da guia ${guideList} (mesmo profissional, mesmo paciente) foram cancelados automaticamente por estarem no mesmo horário. Se a guia antiga ainda estiver ativa, considere inativá-la.`,
+          { duration: 9000, icon: '⚠️' }
+        );
+      }
+
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
     } catch (err) {
       const status = err?.response?.status;
       const serverMsg = err?.response?.data?.message;
+      const conflict = err?.response?.data?.conflict;
 
       if (status === 429) {
         toast('Já existe uma geração em andamento. Aguarde alguns segundos.', { icon: '⏳' });
+      } else if (status === 409 && conflict?.withWhom) {
+        // Negrito só no que importa (com quem, guia, quando) — mesmo padrão do
+        // InsurancePlanForm, pra não enterrar a informação útil em texto corrido.
+        toast.error(
+          <span>
+            Conflito de agenda com <strong>{conflict.withWhom}</strong>
+            {conflict.guideNumber ? <> (guia <strong>{conflict.guideNumber}</strong>)</> : null} em{' '}
+            <strong>{conflict.date}</strong> às <strong>{conflict.time}</strong>. Escolha outro horário.
+          </span>,
+          { duration: 9000 }
+        );
       } else if (status >= 500) {
         toast.error(serverMsg || 'Erro no servidor. Aguarde um instante e tente novamente.');
       } else if (!err?.response) {
@@ -830,21 +856,12 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
   const handleConfirmGenerate = async () => {
     if (!generateModal?.open) return;
-    // Lê tudo ANTES de limpar o estado — inclusive o consentimento retroativo.
-    const { planId, startDate, allowPast } = generateModal;
+    const { planId, startDate } = generateModal;
     setGenerateModal(null);
 
     const currentStartDate = plan?.startDate ? plan.startDate.slice(0, 10) : null;
-
-    // ⛔ NÃO inferir backfill retroativo da data pré-preenchida.
-    //
-    // Antes: `allowPastGeneration = startDate < hoje`. Como o modal já abre com
-    // plan.startDate — muitas vezes no passado —, bastava clicar em "Gerar" para
-    // ligar o backfill sem ninguém decidir. Em 12/08/2026 isso criou 5 sessões
-    // retroativas na guia do Ícaro, todas marcadas como realizadas.
-    //
-    // Agora depende da caixa que o usuário marca conscientemente no modal.
-    const allowPastGeneration = Boolean(allowPast);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const startsInPast = startDate < todayStr;
 
     try {
       // Data mudou em relação ao plano salvo — persiste antes de gerar (mesmo
@@ -853,7 +870,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         await API.patch(`/v2/insurance-plans/${planId}`, { startDate });
         queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
       }
-      await runGenerateSessions(planId, { allowPastGeneration });
+      await runGenerateSessions(planId, { allowPastGeneration: startsInPast });
     } catch (err) {
       const serverMsg = err?.response?.data?.message;
       toast.error(serverMsg || 'Erro ao salvar a data de início do plano');
@@ -1256,34 +1273,11 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
               </div>
 
               {startsInPast && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                  <div className="flex items-start gap-2 mb-2.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800">
-                      A data escolhida está no passado. Por padrão, a geração começa <strong>a partir de hoje</strong>.
-                    </p>
-                  </div>
-
-                  {/* Consentimento explícito. Antes, o backfill retroativo era
-                      inferido só de a data pré-preenchida estar no passado —
-                      ninguém decidia nada, e em 12/08/2026 isso criou 5 sessões
-                      de julho já marcadas como realizadas na guia de um paciente. */}
-                  <label className="flex items-start gap-2 cursor-pointer bg-white rounded-lg border border-amber-200 p-2.5">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(generateModal.allowPast)}
-                      onChange={(e) => setGenerateModal(prev => (prev ? { ...prev, allowPast: e.target.checked } : prev))}
-                      className="w-4 h-4 mt-0.5 accent-amber-600"
-                    />
-                    <span className="text-xs text-slate-700">
-                      Criar também as sessões retroativas, entre a data escolhida e hoje.
-                      <span className="block text-slate-500 mt-1">
-                        Elas nascem <strong>pendentes</strong>, não consomem a guia e não geram cobrança.
-                        Cada atendimento que realmente aconteceu precisa ser confirmado em
-                        "Fechar Atendimento".
-                      </span>
-                    </span>
-                  </label>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">
+                    Data no passado: as sessões entre ela e hoje serão criadas <strong>já concluídas</strong> — consomem a guia e liquidam o pagamento, representando atendimentos que já aconteceram. Sessões futuras seguem normalmente.
+                  </p>
                 </div>
               )}
 
