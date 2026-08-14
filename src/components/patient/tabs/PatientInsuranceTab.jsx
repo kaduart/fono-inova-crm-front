@@ -1268,9 +1268,10 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <p className="text-xs text-amber-700">
                     <strong>Vai criar sozinho, sem pedir confirmação</strong>, uma sessão pra cada dia/horário do plano entre{' '}
                     <strong>{format(parseISO(generateModal.startDate), 'dd/MM/yyyy')}</strong> e hoje — e cada uma já nasce{' '}
-                    <strong>marcada como realizada</strong>: desconta da guia e lança o pagamento como recebido, como se o
-                    atendimento já tivesse acontecido de verdade. Só use se isso for real. A partir de hoje, as sessões
-                    nascem pendentes normalmente, sem nenhum efeito financeiro.
+                    <strong>marcada como realizada</strong>: desconta da guia e cria um recebível pendente de faturamento
+                    (não é dinheiro na conta — o convênio paga em lote, depois), como se o atendimento já tivesse
+                    acontecido de verdade. Só use se isso for real. A partir de hoje, as sessões nascem pendentes
+                    normalmente, sem nenhum efeito financeiro.
                   </p>
                 </div>
               )}
