@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, User, Calendar, Clock } from 'lucide-react';
 import { useGmbAlert } from '../../hooks/useGmbAlert';
+import api from '../../services/api';
 
 /**
  * 🔔 NotificationBell - Versão Final Corrigida
@@ -19,7 +20,6 @@ export const NotificationBellFixed: React.FC = () => {
   // 📍 Saúde dos posts GMB (falhou / sem confirmação / sem imagem)
   const gmbAlert = useGmbAlert();
 
-  const API_TOKEN = 'agenda_export_token_fono_inova_2025_secure_abc123';
   const STORAGE_KEY = 'notificationBell_seenIds_v3';
 
   // Carregar do localStorage IMEDIATAMENTE (antes de qualquer render)
@@ -52,26 +52,25 @@ export const NotificationBellFixed: React.FC = () => {
   }, [seenIds]);
 
   // Buscar pré-agendamentos
+  // 🔧 Antes chamava fetch() direto com um token de serviço fixo
+  // (agenda_export_token_...) que nunca teve escopo pra essa rota — sempre
+  // devolvia 403 (AGENDA_SERVICE_SCOPE_DENIED, ver back/middleware/amandaAuth.js).
+  // O client `api` compartilhado já anexa a sessão real do usuário logado, que
+  // essa rota aceita sem exigir role específica (ver back/routes/preAgendamentoTriage.routes.js).
   const fetchPreAgendamentos = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v2/pre-appointments?limit=50', {
-        headers: { 'Authorization': `Bearer ${API_TOKEN}` }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const items = data.data || [];
-        // V2 usa operationalStatus, com fallback para status
-        const getStatus = (p: any) => p.operationalStatus || p.status;
-        const pendentes = items.filter((p: any) => 
-          getStatus(p) === 'novo' || getStatus(p) === 'em_analise' || getStatus(p) === 'contatado'
-        );
-        
-        setPreAgendamentos(pendentes);
-        setCount(pendentes.length);
-        setIsReady(true); // Marca como pronto
-      }
+      const response = await api.get('/v2/pre-appointments?limit=50');
+      const items = response.data?.data || [];
+      // V2 usa operationalStatus, com fallback para status
+      const getStatus = (p: any) => p.operationalStatus || p.status;
+      const pendentes = items.filter((p: any) =>
+        getStatus(p) === 'novo' || getStatus(p) === 'em_analise' || getStatus(p) === 'contatado'
+      );
+
+      setPreAgendamentos(pendentes);
+      setCount(pendentes.length);
+      setIsReady(true); // Marca como pronto
     } catch (e) {
       console.log('Erro:', e);
     }
