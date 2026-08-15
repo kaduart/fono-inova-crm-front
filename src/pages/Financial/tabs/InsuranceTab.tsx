@@ -1162,34 +1162,49 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     }
 
     return (
-        <Box>
+        <Box sx={{ '& *': { boxSizing: 'border-box' } }}>
             {/* Header */}
-            <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#3B82F6' }}>
-                        <Building2 className="w-6 h-6 text-white" />
+            <div className="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-50 border border-blue-100">
+                        <Building2 className="w-5 h-5 text-blue-600" />
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">Gestão de Convênios</h2>
-                        <p className="text-sm text-gray-500">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-bold text-slate-900">Gestão de Convênios</h2>
+                        <p className="text-xs sm:text-sm text-slate-500">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-end gap-2 lg:ml-auto">
+                    {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
+                        <div className="flex items-center gap-2 sm:mr-1">
+                            <Calendar size={15} className="text-slate-400 shrink-0" />
+                            <TextField
+                                type="month"
+                                label="Mês de referência"
+                                value={selectedMonthYear}
+                                onChange={(e) => setSelectedMonthYear(e.target.value)}
+                                InputLabelProps={{ shrink: true }}
+                                size="small"
+                                sx={{ width: { xs: '100%', sm: 180 }, '& .MuiInputBase-root': { height: 38, borderRadius: '10px' } }}
+                            />
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2">
                     <button
                         onClick={() => setConvenioManagerOpen(true)}
-                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+                        className="h-[38px] px-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 whitespace-nowrap"
                     >
                         <Building2 size={16} />
                         Gerenciar Convênios
                     </button>
                     <button
                         onClick={() => setIsNewModalOpen(true)}
-                        className="px-3 py-2 text-white text-sm font-semibold rounded-xl flex items-center gap-2 whitespace-nowrap transition-all"
-                        style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}
+                        className="h-[38px] px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 whitespace-nowrap transition-colors"
                     >
                         <Plus size={16} />
                         Novo Atendimento
                     </button>
+                    </div>
                 </div>
             </div>
 
@@ -1197,76 +1212,57 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 Notas Fiscais e Rascunhos (não são escopados por mês). Um rascunho de junho trava
                 sessões independentemente do mês selecionado, então filtrá-lo por mês esconderia
                 justamente o que está bloqueando o faturamento. */}
-            {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <div className="flex items-center gap-1 text-gray-500">
-                        <Calendar size={16} />
-                        <span className="text-sm font-medium">Período:</span>
-                    </div>
-                    <TextField
-                        type="month"
-                        label="Mês de referência"
-                        value={selectedMonthYear}
-                        onChange={(e) => setSelectedMonthYear(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
-                        sx={{ width: 200 }}
-                    />
-                    <span className="text-sm text-gray-500 capitalize">{getMonthLabel()}</span>
-                </div>
-            )}
-
             {/* Cards de Resumo — accordion default fechado */}
             {(() => {
                 const ms = getMonthSummary();
                 const prodTotal = ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido;
                 return (
-                    <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden mb-3 bg-white">
                         {/* Header clicável */}
                         <button
                             onClick={() => setCardsOpen(o => !o)}
-                            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
                         >
-                            <div className="flex items-center gap-4 flex-wrap">
-                                <span className="text-sm font-semibold text-gray-700">Painel de Convênios</span>
-                                <span className="text-sm text-purple-700 font-bold" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="text-sm font-semibold text-slate-800 mr-1">Painel de Convênios</span>
+                                <span className="inline-flex items-center gap-1 rounded-lg border border-purple-100 bg-purple-50 px-2 py-1 text-xs text-purple-700" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
                                     {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} produção
                                 </span>
-                                <span className="text-sm text-amber-600" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
+                                <span className="inline-flex rounded-lg border border-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-700" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
                                     {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a faturar (total)
                                 </span>
                                 {ms.totalWaiting > 0 && (
-                                    <span className="text-sm text-blue-600" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
+                                    <span className="inline-flex rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-xs text-blue-700" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
                                         {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} aguardando faturamento (total)
                                     </span>
                                 )}
                                 {ms.totalRecebido > 0 && (
-                                    <span className="text-sm text-emerald-600 font-semibold">
+                                    <span className="inline-flex rounded-lg border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs text-emerald-700 font-semibold">
                                         {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebido
                                     </span>
                                 )}
                                 {ms.closedCount > 0 && (
-                                    <span className="text-sm text-gray-600">
+                                    <span className="inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">
                                         {ms.closedCount} guia{ms.closedCount !== 1 ? 's' : ''} finalizada{ms.closedCount !== 1 ? 's' : ''}
                                     </span>
                                 )}
                                 {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
-                                    <span className="text-sm text-red-600 font-semibold" title="Sessões pendentes de faturamento de meses anteriores, dentro do mesmo total acima — guias não são duplicadas.">
+                                    <span className="inline-flex rounded-lg border border-rose-100 bg-rose-50 px-2 py-1 text-xs text-rose-700 font-semibold" title="Sessões pendentes de faturamento de meses anteriores, dentro do mesmo total acima — guias não são duplicadas.">
                                         {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado (antes de {competenceBreakdown.referenceMonth})
                                     </span>
                                 )}
                             </div>
-                            <ChevronDown size={16} className={`text-gray-400 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={17} className={`text-slate-500 shrink-0 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         <Collapse in={cardsOpen}>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3">
+                            <div className="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch gap-3 p-3">
                                 {/* Produção Total */}
-                                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                <div className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full">
                                     <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
-                                    <div className="p-4 bg-white">
+                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-700">Produção</span>
+                                            <span className="text-xs font-bold text-purple-700">Produção</span>
                                             {summary.changePercent !== null && (
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                                     {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -1274,7 +1270,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
                                             {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} sessões realizadas</p>
@@ -1316,25 +1312,25 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             { key: 'current', label: 'Mês atual', predicate: (r) => !r.highlight },
                                         ]
                                     )}
-                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-amber-200 transition-all"
+                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-amber-300 transition-colors"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
-                                    <div className="p-4 bg-white">
+                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">A Faturar</span>
+                                            <span className="text-xs font-bold text-amber-700">A Faturar</span>
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
                                             {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingStateGuides.length} guia{pendingStateGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">não enviado ao convênio</p>
                                         <p className="text-xs text-gray-400">total acumulado — não filtra pelo Período acima</p>
                                         {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
-                                            <p className="text-xs text-red-500 font-medium mt-2 pt-2 border-t border-amber-100">
+                                            <p className="text-xs text-red-600 font-medium mt-2 rounded-lg bg-rose-50 px-2 py-1.5">
                                                 {competenceBreakdown.current.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} de {competenceBreakdown.referenceMonth} · {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado
                                             </p>
                                         )}
-                                        <p className="text-[11px] text-amber-600 font-semibold mt-2">Ver guias →</p>
+                                        <p className="text-[11px] text-amber-700 font-semibold mt-auto pt-2">Ver guias →</p>
                                     </div>
                                 </div>
 
@@ -1352,57 +1348,57 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             }))
                                             .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value)
                                     )}
-                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all"
+                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-blue-300 transition-colors"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#1D4ED8' }} />
-                                    <div className="p-4 bg-white">
+                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Aguardando Faturamento</span>
+                                            <span className="text-xs font-bold text-blue-700">Aguardando Faturamento</span>
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
                                             {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.waitingCount} sessões · {waitingBillingGuides.length} guia{waitingBillingGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">documentação já enviada</p>
-                                        <p className="text-[11px] text-blue-600 font-semibold mt-2">Ver guias →</p>
+                                        <p className="text-[11px] text-blue-600 font-semibold mt-auto pt-2">Ver guias →</p>
                                     </div>
                                 </div>
 
                                 {/* Faturado */}
                                 <div
                                     onClick={() => openDetailsModal('Faturado', '#3B82F6', billedPaymentsDetailed)}
-                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all"
+                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-blue-300 transition-colors"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
-                                    <div className="p-4 bg-white">
+                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-700">Faturado</span>
+                                            <span className="text-xs font-bold text-blue-700">Faturado</span>
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
                                             {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
                                         <p className="text-xs text-gray-400 mt-1">aguardando repasse</p>
-                                        <p className="text-[11px] text-blue-600 font-semibold mt-2">Ver pagamentos →</p>
+                                        <p className="text-[11px] text-blue-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
                                     </div>
                                 </div>
 
                                 {/* Recebido */}
                                 <div
                                     onClick={() => openDetailsModal('Recebido', '#10B981', receivedPaymentsDetailed)}
-                                    className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all"
+                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-emerald-300 transition-colors"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#10B981' }} />
-                                    <div className="p-4 bg-white">
+                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Recebido</span>
+                                            <span className="text-xs font-bold text-emerald-700">Recebido</span>
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
+                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
                                             {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
                                         <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
-                                        <p className="text-[11px] text-emerald-600 font-semibold mt-2">Ver pagamentos →</p>
+                                        <p className="text-[11px] text-emerald-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
                                     </div>
                                 </div>
                             </div>
@@ -1412,9 +1408,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             })()}
 
             {/* Sub-tabs */}
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-3 pt-3 pb-3 border-b border-gray-100">
-                    <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <div className="p-2 border-b border-slate-100 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="flex min-w-max gap-1 bg-slate-100/80 rounded-xl p-1">
                         {[
                             { value: 0, label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
                             { value: 1, label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
@@ -1432,7 +1428,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { value: 7, label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
                         ].map(tab => (
                             <button key={tab.value} onClick={() => setSubTab(tab.value)}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+                                className={`h-9 flex items-center gap-1.5 px-3 rounded-lg text-sm whitespace-nowrap transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                                     subTab === tab.value
                                         ? 'bg-white text-gray-900 shadow-sm font-semibold'
                                         : 'text-gray-500 hover:text-gray-700'
@@ -1440,7 +1436,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 {tab.icon}
                                 <span>{tab.label}</span>
                                 {tab.count > 0 && (
-                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                    <span className={`min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full text-[10px] font-bold ${
                                         tab.amber
                                             ? (subTab === tab.value ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
                                             : (subTab === tab.value ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500')
@@ -1453,9 +1449,9 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
                 {subTab === 0 && paymentIntegrityConflictCount > 0 && (
                     <Paper elevation={0} sx={{
-                        mx: 2, mt: 1.5, px: 2, py: 1.25,
+                        mx: { xs: 1.5, sm: 2 }, mt: 1.5, px: 1.5, py: 1,
                         display: 'flex', alignItems: 'center', gap: 1,
-                        bgcolor: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 2
+                        bgcolor: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px'
                     }}>
                         <AlertCircle size={18} color="#C2410C" />
                         <Typography fontSize="0.8rem" color="#9A3412" fontWeight={600}>

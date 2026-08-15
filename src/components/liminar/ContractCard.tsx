@@ -355,25 +355,26 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
   return (
     <div
-      className="relative rounded-3xl overflow-hidden transition-all duration-200"
-      style={{ background: '#FFFFFF', border: '1px solid #EDF2F7', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+      className="relative rounded-2xl overflow-hidden border border-slate-200 border-t-4 transition-shadow duration-200 hover:shadow-md"
+      style={{ background: '#FFFFFF', borderTopColor: palette.to, boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}
     >
       {/* ══ Camada 1: Header — identidade do contrato ══ */}
       <div
-        className="px-5 pt-4 pb-4 relative"
-        style={{ background: `linear-gradient(135deg, ${palette.from} 0%, ${palette.to} 100%)` }}
+        className="px-4 sm:px-5 pt-3 pb-2.5 relative bg-white"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <Scale className="w-4 h-4 flex-shrink-0 text-white/90" />
-            <span className="font-bold text-sm text-white">Contrato Liminar</span>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: palette.badge }}>
+              <Scale className="w-4 h-4 flex-shrink-0" style={{ color: palette.to }} />
+            </div>
+            <span className="font-bold text-sm text-slate-900">Contrato Liminar</span>
             {contract.processNumber && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium text-white" style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: palette.badgeText, background: palette.badge, border: `1px solid ${palette.badgeBorder}` }}>
                 Proc.: {lastDigits(contract.processNumber)}
               </span>
             )}
             {contract.court && (
-              <span className="text-xs px-2 py-0.5 rounded-full text-white/80" style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
+              <span className="text-xs px-2 py-0.5 rounded-full text-slate-500 bg-slate-50 border border-slate-200">
                 {contract.court}
               </span>
             )}
@@ -384,13 +385,13 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 type="button"
                 onClick={() => setShowInactivateModal(true)}
                 title="Clique para inativar este contrato"
-                className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white cursor-pointer hover:opacity-80 transition-opacity"
-                style={{ background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.3)' }}
+                className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ color: '#047857', background: '#ECFDF5', border: '1px solid #A7F3D0' }}
               >
                 {statusLabel}
               </button>
             ) : (
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-white" style={{ background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.3)' }}>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-slate-600 bg-slate-100 border border-slate-200">
                 {statusLabel}
               </span>
             )}
@@ -398,7 +399,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
               <button
                 onClick={() => setMenuOpen(v => !v)}
                 className="p-1 rounded-full transition-colors hover:bg-white/15"
-                style={{ color: 'rgba(255,255,255,0.75)' }}
+                style={{ color: '#64748B' }}
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -429,13 +430,13 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       </div>
 
       {/* ══ Camada 2: Summary — financeiro do contrato ══ */}
-      <div className="px-5 py-4" style={{ background: palette.badge }}>
+      <div className="px-4 sm:px-5 pb-4 pt-1 bg-white">
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.6)' }}>
+          <div className="rounded-xl p-3 border" style={{ background: palette.badge, borderColor: palette.badgeBorder }}>
             <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Disponível</span>
             <span className="font-bold text-base" style={{ color: available >= 0 ? '#2E7A5E' : '#C75146' }}>R$ {fmt(available)}</span>
           </div>
-          <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.6)' }}>
+          <div className="rounded-xl p-3 border border-slate-200 bg-slate-50">
             <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Total</span>
             <span className="font-bold text-base" style={{ color: '#1A2C3E' }}>R$ {fmt(contract.totalCredit)}</span>
           </div>
@@ -446,11 +447,10 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           <span>Comprom.: <b style={{ color: '#ED6C02' }}>R$ {fmt(committed?.committed ?? 0)}</b></span>
         </div>
 
-        <div className="relative w-full rounded-full overflow-hidden" style={{ height: 16, background: '#E9EEF2' }}>
+        <div className="relative w-full rounded-full overflow-hidden" style={{ height: 10, background: '#E9EEF2' }}>
           <div style={{ width: `${balancePct}%`, height: '100%', background: barColor, borderRadius: 9999, transition: 'width 0.5s' }} />
           <span
-            className="absolute inset-0 flex items-center justify-center text-[10px] font-bold"
-            style={{ color: balancePct > 45 ? '#fff' : '#1A2C3E' }}
+            className="sr-only"
           >
             {balancePct.toFixed(0)}% disponível
           </span>

@@ -150,16 +150,16 @@ const ConvenioManagerModal = ({ open, onClose, embedded = false }: ConvenioManag
     const renewalTypeInfo = (convenio: Convenio): { label: string; bg: string; color: string } => {
         switch (convenio.guidePolicy?.renewalType) {
             case 'advance_authorization':
-                return { label: 'Pré-atendimento', bg: '#8B5CF61A', color: '#5B21B6' };
+                return { label: 'Solicitação prévia', bg: '#8B5CF61A', color: '#5B21B6' };
             case 'until_consumed':
-                return { label: 'Até consumir', bg: '#3B82F61A', color: '#1D4ED8' };
+                return { label: 'Válida até esgotar', bg: '#3B82F61A', color: '#1D4ED8' };
             case 'fixed_date':
-                return { label: 'Data fixa', bg: '#EF44441A', color: '#B91C1C' };
+                return { label: 'Renova em data fixa', bg: '#EF44441A', color: '#B91C1C' };
             case 'authorization_validity':
-                return { label: 'Validade da autorização', bg: '#F59E0B1A', color: '#92400E' };
+                return { label: 'Até vencer autorização', bg: '#F59E0B1A', color: '#92400E' };
             case 'end_of_month':
             default:
-                return { label: 'Fim do mês', bg: '#9CA3AF1F', color: '#4B5563' };
+                return { label: 'Renovação mensal', bg: '#9CA3AF1F', color: '#4B5563' };
         }
     };
 
@@ -168,7 +168,7 @@ const ConvenioManagerModal = ({ open, onClose, embedded = false }: ConvenioManag
         { label: 'Nome', flex: 1.8 },
         { label: 'Valor Sessão', flex: 0.9, align: 'right' as const },
         { label: 'Faturamento', flex: 0.9, align: 'center' as const },
-        { label: 'Tipo de Guia', flex: 1.2, align: 'center' as const },
+        { label: 'Regra da Guia', flex: 1.2, align: 'center' as const },
         { label: 'Dia de Envio', flex: 0.8, align: 'center' as const },
         { label: 'Status', flex: 0.7, align: 'center' as const },
         { label: 'Pendentes', flex: 0.9, align: 'right' as const },

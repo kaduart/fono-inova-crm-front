@@ -182,6 +182,44 @@ interface GuidePendingBillingSectionProps {
 const formatCurrency = (v: number | undefined) =>
     (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const resolveProviderConvenio = (provider: string, convenios: Convenio[]) => {
+    const normalized = provider.toLowerCase().trim();
+    return convenios.find(convenio =>
+        convenio.code.toLowerCase().trim() === normalized
+        || convenio.name.toLowerCase().trim() === normalized
+    );
+};
+
+const resolveSubmissionHint = (convenio?: Convenio) => {
+    const policy = convenio?.guidePolicy;
+    if (!policy) return 'Prazo de envio não informado';
+    if (policy.renewalType === 'advance_authorization') {
+        return policy.priorAuthRequestDay
+            ? `Solicitar guia até dia ${policy.priorAuthRequestDay} do mês anterior`
+            : 'Solicitação prévia — dia não informado';
+    }
+    if (policy.billingSubmissionDay) return `Enviar faturamento até dia ${policy.billingSubmissionDay}`;
+    if (policy.billingDeadlineDays) return `Enviar em até ${policy.billingDeadlineDays} dias após o atendimento`;
+    return 'Prazo de envio não informado';
+};
+
+const resolveGuideRule = (convenio?: Convenio) => {
+    switch (convenio?.guidePolicy?.renewalType) {
+        case 'advance_authorization':
+            return 'Solicitação prévia';
+        case 'until_consumed':
+            return 'Válida até esgotar';
+        case 'fixed_date':
+            return 'Renova em data fixa';
+        case 'authorization_validity':
+            return 'Até vencer autorização';
+        case 'end_of_month':
+            return 'Renovação mensal';
+        default:
+            return 'Regra não informada';
+    }
+};
+
 const resolveGuidePendingTotal = (guide: PendingGuide) => {
     const fromSessions = (guide.sessions || []).reduce((sum, s) => sum + (Number(s.value) || 0), 0);
     if (fromSessions > 0) return fromSessions;
@@ -1102,16 +1140,18 @@ const GuidePendingBillingSection = ({
                     const grandSess  = allFlat.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
                     const grandPats  = new Set(guides.map(g => g.patient?.fullName)).size;
                     return (
-                        <Card elevation={0} sx={{ border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden', mb: 0.5 }}>
-                            <Box sx={{ px: 2.5, py: 0.85, bgcolor: 'white', borderBottom: '1px solid #F1F5F9' }}>
-                                <Typography fontSize="0.74rem" fontWeight={700} color="#475569">
+                        <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 2.5, overflowX: 'auto', mb: 0.5, boxShadow: '0 1px 2px rgba(15,23,42,0.03)' }}>
+                            <Box sx={{ px: 2.5, py: 1.1, minWidth: 1080, bgcolor: 'white', borderBottom: '1px solid #F1F5F9' }}>
+                                <Typography fontSize="0.8rem" fontWeight={700} color="#334155">
                                     Convênios <Box component="span" sx={{ color: '#94A3B8', fontWeight: 500 }}>· clique em uma linha para ver pacientes e guias</Box>
                                 </Typography>
                             </Box>
                             {/* Header */}
-                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ px: 2.5, py: 1.15, minWidth: 1080, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
                                 {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 180, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regra da guia</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 240, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo operacional</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pacientes</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 56, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guias</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sessões</Typography>
@@ -1129,6 +1169,9 @@ const GuidePendingBillingSection = ({
                                 const someSelected = allGuides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
                                 const isExpanded   = !!expandedProviders[provider];
                                 const providerMode = allGuides[0]?.billingMode;
+                                const providerConvenio = resolveProviderConvenio(provider, convenios);
+                                const guideRule = resolveGuideRule(providerConvenio);
+                                const submissionHint = resolveSubmissionHint(providerConvenio);
                                 const isPerGuide   = providerMode === 'per_guide';
                                 const rowAccent    = isPerGuide ? '#10B981' : '#3B82F6';
                                 const accentColor  = isPerGuide ? '#059669' : '#2563EB';
@@ -1152,7 +1195,7 @@ const GuidePendingBillingSection = ({
                                                 }
                                             }}
                                             sx={{
-                                                px: 2.5, py: 1.4,
+                                                px: 2.5, py: 1.35, minWidth: 1080,
                                                 display: 'flex', alignItems: 'center',
                                                 borderBottom: '1px solid #F1F5F9',
                                                 borderLeft: `3px solid ${isExpanded ? rowAccent : 'transparent'}`,
@@ -1175,9 +1218,23 @@ const GuidePendingBillingSection = ({
                                                     sx={{ p: 0.5, mr: 1 }}
                                                 />
                                             )}
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
                                                 <Typography fontWeight="700" fontSize="0.87rem" color="#0F172A">{formatProviderName(provider)}</Typography>
                                                 <BillingModeBadge mode={providerMode} />
+                                            </Box>
+                                            <Box sx={{ width: 180, pr: 2 }}>
+                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1, py: 0.45, borderRadius: 999, bgcolor: providerConvenio ? '#EFF6FF' : '#F8FAFC' }}>
+                                                    <Typography fontSize="0.7rem" fontWeight={700} color={providerConvenio ? '#1D4ED8' : '#64748B'} noWrap>
+                                                        {guideRule}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                            <Box sx={{ width: 240, pr: 2 }}>
+                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.55, borderRadius: 1.5, bgcolor: providerConvenio ? '#FFF7ED' : '#F8FAFC', border: `1px solid ${providerConvenio ? '#FED7AA' : '#E2E8F0'}` }}>
+                                                    <Typography fontSize="0.72rem" fontWeight={700} color={providerConvenio ? '#9A3412' : '#64748B'} noWrap>
+                                                        {submissionHint}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
                                             <Typography fontSize="0.83rem" color="#64748B" sx={{ width: 72, textAlign: 'center' }}>{patients}</Typography>
                                             <Typography fontSize="0.83rem" color="#64748B" sx={{ width: 56, textAlign: 'center' }}>{allGuides.length}</Typography>
@@ -1238,9 +1295,11 @@ const GuidePendingBillingSection = ({
 
                             {/* Rodapé total */}
                             {sortedProviders.length > 1 && (
-                                <Box sx={{ px: 2.5, py: 1.25, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderTop: '2px solid #E2E8F0' }}>
+                                <Box sx={{ px: 2.5, py: 1.45, minWidth: 1080, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderTop: '1px solid #CBD5E1' }}>
                                     {!readOnly && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                     <Typography fontSize="0.8rem" fontWeight={700} color="#475569" sx={{ flex: 1 }}>Total</Typography>
+                                    <Box sx={{ width: 180 }} />
+                                    <Box sx={{ width: 240 }} />
                                     <Typography fontSize="0.83rem" fontWeight={600} color="#475569" sx={{ width: 72, textAlign: 'center' }}>{grandPats}</Typography>
                                     <Typography fontSize="0.83rem" fontWeight={600} color="#475569" sx={{ width: 56, textAlign: 'center' }}>{allFlat.length}</Typography>
                                     <Box sx={{ width: 72, display: 'flex', justifyContent: 'center' }}>
