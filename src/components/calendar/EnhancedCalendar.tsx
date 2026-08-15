@@ -144,6 +144,15 @@ export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
         color: "#ef4444",
         icon: XCircle,
     },
+    // 🚨 FIX (2026-08-14): 'missed' é o valor real do enum operationalStatus
+    // (models/Appointment.js) — 'absent' não existe nos dados reais, então
+    // todo appointment com falta automática (auto_expired) caía no fallback
+    // pra 'scheduled' e aparecia como "Agendado" na agenda, mascarando faltas.
+    missed: {
+        label: "Não Compareceu",
+        color: "#ef4444",
+        icon: XCircle,
+    },
     pre_agendado: {
         label: "Pré-Agendado",
         color: "#ec4899", // Rosa
@@ -774,6 +783,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         completed: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-600' },
         canceled: { bg: 'bg-gray-100', text: 'text-gray-500', dot: 'bg-gray-400' },
         absent: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
+        missed: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
         pre_agendado: { bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
     };
 
@@ -880,6 +890,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             completed: { label: 'Concluído', bg: 'bg-green-700', text: 'text-white' },
             canceled: { label: 'Cancel.', bg: 'bg-gray-600', text: 'text-white' },
             absent: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
+            // 'missed' é o valor real gravado pelo backend (auto_expired) — 'absent'
+            // não existe nos dados reais; sem esta chave o lookup caía no fallback
+            // .scheduled e a falta aparecia como "Agendado" no calendário.
+            missed: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
             pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' },
         };
 
@@ -1351,6 +1365,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             completed: { label: 'Concluído', bg: 'bg-green-700', text: 'text-white' },
             canceled: { label: 'Cancel.', bg: 'bg-gray-600', text: 'text-white' },
             absent: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
+            // 'missed' é o valor real gravado pelo backend (auto_expired) — 'absent'
+            // não existe nos dados reais; sem esta chave o lookup caía no fallback
+            // .scheduled e a falta aparecia como "Agendado" no calendário.
+            missed: { label: 'Faltou', bg: 'bg-red-700', text: 'text-white' },
             pre_agendado: { label: 'Pré-Agend.', bg: 'bg-pink-500', text: 'text-white' }, // 🎯 NOVO
         };
 
