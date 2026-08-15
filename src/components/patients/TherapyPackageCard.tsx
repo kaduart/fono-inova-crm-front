@@ -1,4 +1,4 @@
-import { Building2, Calendar, CheckCircle2, ChevronRight, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -79,6 +79,7 @@ export default function TherapyPackageCard({
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
   const [showSessionsCalendarModal, setShowSessionsCalendarModal] = useState(false);
   const [sessionsModalView, setSessionsModalView] = useState<'mes' | 'lista'>('mes');
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
@@ -454,10 +455,10 @@ export default function TherapyPackageCard({
 
   return (
     <div
-      className="bg-white rounded-2xl border border-gray-200 border-t-[3px] border-t-emerald-500 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden"
+      className="bg-white rounded-2xl border border-slate-200 border-t-[4px] border-t-emerald-500 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
     >
       {/* Header com gradiente - verde para therapy, azul para convenio, âmbar para liminar */}
-      <div className={`p-4 sm:p-5 border-b border-gray-100 ${
+      <div className={`px-4 pt-3 pb-2.5 sm:px-5 sm:pt-4 sm:pb-3 ${
         pack.type === 'convenio'
           ? 'bg-blue-50/20'
           : pack.type === 'liminar'
@@ -473,18 +474,27 @@ export default function TherapyPackageCard({
           : 'bg-white'
       }`}>
         {/* Barra de status: Ativo | estado financeiro | Detalhes */}
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
           {pack.status === 'active' ? (
             <button
-              onClick={(e) => { e.stopPropagation(); setShowInactivateModal(true); }}
-              title="Clique para inativar este pacote"
-              className={statusConfig.pill + ' cursor-pointer hover:opacity-80 transition-opacity'}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (pack.paymentType !== 'per-session') {
+                  toast.info('Somente pacotes pagos por sessÃ£o podem ser inativados por esta opÃ§Ã£o.');
+                  return;
+                }
+                setShowInactivateModal(true);
+              }}
+              title={pack.paymentType === 'per-session'
+                ? 'Clique para inativar este pacote'
+                : 'Somente pacotes pagos por sessÃ£o podem ser inativados'}
+              className={statusConfig.pill + ' order-2 ml-auto cursor-pointer hover:opacity-80 transition-opacity'}
             >
               <StatusIcon className="w-3 h-3" />
               {statusConfig.label}
             </button>
           ) : (
-            <div className={statusConfig.pill}>
+            <div className={statusConfig.pill + ' order-2 ml-auto'}>
               <StatusIcon className="w-3 h-3" />
               {statusConfig.label}
             </div>
@@ -508,19 +518,10 @@ export default function TherapyPackageCard({
               </span>
             ) : null
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCardClick && onCardClick(pack);
-            }}
-            className="text-xs bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-emerald-200 transition-colors font-semibold ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-          >
-            Detalhes
-          </button>
         </div>
 
         {/* Info: ícone + nome/profissional */}
-        <div className="flex items-start gap-3 mb-3">
+        <div className="flex items-start gap-3 mb-2.5">
           <div className={`p-2 rounded-lg ${
             pack.type === 'convenio'
               ? 'bg-blue-100'
@@ -575,11 +576,11 @@ export default function TherapyPackageCard({
         </div>
 
         {/* Barra de progresso clínico */}
-        <div className="space-y-1.5 pt-3 border-t border-gray-100">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Progresso Clínico</span>
             <div className="text-right">
-              <span className={`text-base font-bold ${
+              <span className={`text-xs font-bold ${
                 pack.type === 'convenio'
                   ? 'text-blue-600'
                   : pack.type === 'liminar'
@@ -591,9 +592,9 @@ export default function TherapyPackageCard({
               <p className="text-[10px] text-gray-400 leading-none">utilizadas</p>
             </div>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-white/80 rounded-full h-2 overflow-hidden mt-2">
             <div
-              className={`h-1.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+              className={`h-2 rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
                 pack.type === 'convenio'
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-600'
                   : pack.type === 'liminar'
@@ -618,7 +619,7 @@ export default function TherapyPackageCard({
       </div>
 
       {/* Conteúdo principal */}
-      <div className="p-4 sm:p-5 space-y-3">
+      {detailsExpanded && <div className="px-4 pb-3 sm:px-5 space-y-3">
         {/* Badge de Status de Faturamento (só para convênio) */}
         {pack.type === 'convenio' && pack.insuranceBillingStatus && (
           <div className={`p-3 rounded-lg border flex items-center gap-2 ${
@@ -1002,18 +1003,34 @@ export default function TherapyPackageCard({
             </button>
           ) : null
         )}
-      </div>
+      </div>}
 
       {/* Resumo de Sessões — abre o modal (Mês/Lista). "X futuras agendadas" não repete aqui: já aparece
           junto do Progresso Clínico acima. Se houver pendência de cancelamento, abre direto na Lista. */}
-      <div className="border-t border-gray-200">
+      <button
+        type="button"
+        onClick={() => setDetailsExpanded(value => !value)}
+        className="mx-auto mb-1 flex items-center justify-center gap-1 rounded-lg px-4 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
+      >
+        {detailsExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      <div className="px-4 pt-1 pb-3.5 sm:px-5 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onCardClick && onCardClick(pack); }}
+          className="px-3.5 py-2.5 rounded-xl border border-emerald-500 text-emerald-700 text-xs font-semibold hover:bg-emerald-50 transition-colors shrink-0"
+        >
+          Detalhes
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             setSessionsModalView('mes');
             setShowSessionsCalendarModal(true);
           }}
-          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-2 hover:bg-emerald-50/60 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset"
+          className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-green-500 text-white flex items-center justify-center gap-2 text-xs font-bold shadow-sm hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 [&_span]:!text-white [&_span]:!bg-transparent [&_svg]:!text-white"
         >
           <div className="flex items-center gap-2 min-w-0">
             <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
