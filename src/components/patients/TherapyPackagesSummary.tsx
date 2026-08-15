@@ -84,6 +84,24 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             if (modalAction === 'use' && sessionData.paymentAmount && sessionData.paymentAmount > 0) {
                 validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
             }
+            if (!sessionData.appointmentId) {
+                // Sessão nova: ainda não existe Appointment — cria via POST /v2/appointments
+                // (backend valida capacidade do pacote e conflito antes de escrever).
+                // Nunca passar por updateSession aqui: ela exige appointmentId.
+                await packageService.createSession(packId, {
+                    patientId: sessionData.patientId,
+                    doctorId: sessionData.doctorId,
+                    date: sessionData.date as any,
+                    time: sessionData.time,
+                    sessionType: sessionData.sessionType as any,
+                    value: sessionData.paymentAmount || 0,
+                    notes: sessionData.notes,
+                });
+                toast.success("Sessão registrada!");
+                setSelectedPackage(null);
+                await fetchBasicPackages();
+                return;
+            }
             const payload = {
                 patientId: sessionData.patientId,
                 doctorId: sessionData.doctorId,
@@ -126,6 +144,21 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         try {
             if (modalAction === 'use' && sessionData.paymentAmount && sessionData.paymentAmount > 0) {
                 validatePayment(sessionData.paymentAmount, selectedPackage?.balance);
+            }
+            if (!sessionData.appointmentId) {
+                // Sessão nova ("Nova Sessão" em TherapyPackageDetails): idem handleUseSession.
+                await packageService.createSession(packId, {
+                    patientId: sessionData.patientId,
+                    doctorId: sessionData.doctorId,
+                    date: sessionData.date as any,
+                    time: sessionData.time,
+                    sessionType: sessionData.sessionType as any,
+                    value: sessionData.paymentAmount || 0,
+                    notes: sessionData.notes,
+                });
+                toast.success("Sessão registrada!");
+                await fetchBasicPackages();
+                return;
             }
             const payload = {
                 patientId: sessionData.patientId,
@@ -357,7 +390,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                                 <button onClick={() => setActiveTab('inactive')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'inactive' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Inativos ({inactivePackages.length})</button>
                             </div>
                             {displayedPackages.length > 0 ? (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <div className="grid gap-5 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))]">
                                     {displayedPackages.map(pkg => (
                                         <TherapyPackageCard
                                             key={pkg._id}

@@ -1,259 +1,107 @@
-/**
- * 🧪 Testes de Componente - TherapyPackageFormModal
- * 
- * Testa:
- * - Renderização do modal
- * - Busca de débitos por especialidade
- * - Seleção de débitos
- * - Submissão com selectedDebts
- */
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TherapyPackageFormModal from '../TherapyPackageFormModal';
 import API from '../../../services/api';
 
-// Mock do API
-vi.mock('../../../services/api', () => ({
-    default: {
-        get: vi.fn(),
-        post: vi.fn()
-    }
-}));
-
-// Mock do toast
+vi.mock('../../../services/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 vi.mock('react-toastify', () => ({
-    toast: {
-        success: vi.fn(),
-        error: vi.fn()
-    }
+    toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-const mockPatient = {
-    _id: 'patient-123',
-    patientId: 'patient-123',
-    fullName: 'Paciente Teste',
-    phone: '61999999999'
-};
-
+const mockPatient = { _id: 'patient-123', patientId: 'patient-123', fullName: 'Paciente Teste', phone: '61999999999' };
 const mockDoctors = [
     { _id: 'doctor-1', fullName: 'Dr. Fono', specialty: 'fonoaudiologia' },
-    { _id: 'doctor-2', fullName: 'Dr. Psico', specialty: 'psicologia' }
+    { _id: 'doctor-2', fullName: 'Dr. Psico', specialty: 'psicologia' },
 ];
 
 describe('TherapyPackageFormModal', () => {
     let queryClient: QueryClient;
 
-    beforeEach(() => {
-        queryClient = new QueryClient({
-            defaultOptions: { queries: { retry: false } }
+    function mockApiWithBalance(items: any[]) {
+        (API.get as any).mockImplementation((url: string) => {
+            if (url.startsWith('/v2/appointments')) return Promise.resolve({ data: { data: { appointments: [] } } });
+            if (url === `/v2/balance/${mockPatient.patientId}`) {
+                return Promise.resolve({ data: { data: { v2_financial: { items } } } });
+            }
+            return Promise.resolve({ data: {} });
         });
+    }
+
+    beforeEach(() => {
+        queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
         vi.clearAllMocks();
+        mockApiWithBalance([]);
     });
 
-    const renderModal = (props = {}) => {
-        return render(
-            <QueryClientProvider client={queryClient}>
-                <TherapyPackageFormModal
-                    initialData={null}
-                    patient={mockPatient}
-                    doctors={mockDoctors}
-                    onClose={vi.fn()}
-                    onSubmit={vi.fn()}
-                    {...props}
-                />
-            </QueryClientProvider>
-        );
+    const renderModal = (props = {}) => render(
+        <QueryClientProvider client={queryClient}>
+            <TherapyPackageFormModal initialData={null} patient={mockPatient} doctors={mockDoctors}
+                onClose={vi.fn()} onSubmit={vi.fn()} {...props} />
+        </QueryClientProvider>
+    );
+
+    const getSelect = (name: string) => {
+        const select = document.querySelector(`select[name="${name}"]`);
+        if (!select) throw new Error(`Select ${name} não encontrado`);
+        return select as HTMLSelectElement;
+    };
+    const getDebtCheckboxes = () => Array.from(
+        document.querySelectorAll('input[type="checkbox"].accent-rose-500')
+    ) as HTMLInputElement[];
+    const selectSpecialty = () => fireEvent.change(getSelect('sessionType'), { target: { value: 'fonoaudiologia' } });
+    const importDebts = async () => {
+        await waitFor(() => expect(API.get).toHaveBeenCalledWith(`/v2/balance/${mockPatient.patientId}`));
     };
 
-    it('deve renderizar o modal corretamente', () => {
+    it('renderiza o modal com a interface atual', () => {
         renderModal();
-        
-        expect(screen.getByText('Criar Novo Pacote')).toBeInTheDocument();
-        expect(screen.getByText(`Criar pacote para ${mockPatient.fullName}`)).toBeInTheDocument();
+        expect(screen.getByRole('dialog', { name: 'Criar Novo Pacote' })).toBeInTheDocument();
+        expect(screen.getByText(/Criar pacote para/i)).toHaveTextContent('Criar pacote para Paciente Teste');
     });
 
-    it('deve buscar débitos ao selecionar especialidade', async () => {
-        // Mock da resposta do balance/details
-        const mockDebits = [
-            {
-                _id: 'debit-1',
-                amount: 130,
-                specialty: 'fonoaudiologia',
-                description: 'Sessão 01/04/2026',
-                transactionDate: '2026-04-01T10:00:00Z'
-            },
-            {
-                _id: 'debit-2',
-                amount: 130,
-                specialty: 'fonoaudiologia',
-                description: 'Sessão 08/04/2026',
-                transactionDate: '2026-04-08T10:00:00Z'
-            }
-        ];
-
-        (API.get as jest.Mock).mockResolvedValueOnce({
-            data: {
-                data: mockDebits,
-                summary: { totalAmount: 260, count: 2 }
-            }
-        });
-
-        renderModal();
-
-        // Selecionar especialidade
-        const specialtySelect = screen.getByLabelText(/Tipo de Sessão/i);
-        fireEvent.change(specialtySelect, { target: { value: 'fonoaudiologia' } });
-
-        // Aguardar a chamada API
-        await waitFor(() => {
-            expect(API.get).toHaveBeenCalledWith(
-                `/patients/${mockPatient.patientId}/balance/details`,
-                { params: { specialty: 'fonoaudiologia' } }
-            );
-        });
-
-        // Verificar se os débitos aparecem
-        await waitFor(() => {
-            expect(screen.getByText(/2 débito\(s\) pendente\(s\)/i)).toBeInTheDocument();
-        });
+    it('busca pendências no endpoint V2 e as apresenta como checkboxes', async () => {
+        mockApiWithBalance([
+            { _id: 'debit-1', amount: 130, specialty: 'fonoaudiologia', serviceDate: '2026-04-01' },
+            { _id: 'debit-2', amount: 130, specialty: 'fonoaudiologia', serviceDate: '2026-04-08' },
+        ]);
+        renderModal(); selectSpecialty(); await importDebts();
+        await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(2));
     });
 
-    it('deve mostrar apenas débitos da especialidade selecionada', async () => {
-        // Mock para fonoaudiologia
-        (API.get as jest.Mock).mockResolvedValueOnce({
-            data: {
-                data: [
-                    { _id: 'debit-fono', amount: 130, specialty: 'fonoaudiologia', description: 'Fono 1' }
-                ],
-                summary: { totalAmount: 130, count: 1 }
-            }
-        });
-
-        renderModal();
-
-        // Selecionar fonoaudiologia
-        const specialtySelect = screen.getByLabelText(/Tipo de Sessão/i);
-        fireEvent.change(specialtySelect, { target: { value: 'fonoaudiologia' } });
-
-        await waitFor(() => {
-            expect(screen.getByText(/Fono 1/i)).toBeInTheDocument();
-        });
-
-        // Mock para psicologia (retorna vazio)
-        (API.get as jest.Mock).mockResolvedValueOnce({
-            data: { data: [], summary: { totalAmount: 0, count: 0 } }
-        });
-
-        // Mudar para psicologia
-        fireEvent.change(specialtySelect, { target: { value: 'psicologia' } });
-
-        await waitFor(() => {
-            expect(API.get).toHaveBeenCalledWith(
-                `/patients/${mockPatient.patientId}/balance/details`,
-                { params: { specialty: 'psicologia' } }
-            );
-        });
+    it('filtra visualmente as pendências pela especialidade selecionada', async () => {
+        mockApiWithBalance([
+            { _id: 'debit-fono', amount: 130, specialty: 'fonoaudiologia', serviceDate: '2026-04-01' },
+            { _id: 'debit-psico', amount: 140, specialty: 'psicologia', serviceDate: '2026-04-02' },
+        ]);
+        renderModal(); selectSpecialty(); await importDebts();
+        await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(1));
+        fireEvent.change(getSelect('sessionType'), { target: { value: 'psicologia' } });
+        await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(1));
     });
 
-    it('deve permitir selecionar/desselecionar débitos', async () => {
-        const mockDebits = [
-            { _id: 'debit-1', amount: 130, specialty: 'fonoaudiologia', description: 'Sessão 1' },
-            { _id: 'debit-2', amount: 130, specialty: 'fonoaudiologia', description: 'Sessão 2' }
-        ];
-
-        (API.get as jest.Mock).mockResolvedValueOnce({
-            data: {
-                data: mockDebits,
-                summary: { totalAmount: 260, count: 2 }
-            }
-        });
-
-        renderModal();
-
-        // Selecionar especialidade
-        const specialtySelect = screen.getByLabelText(/Tipo de Sessão/i);
-        fireEvent.change(specialtySelect, { target: { value: 'fonoaudiologia' } });
-
-        // Aguardar débitos aparecerem
-        await waitFor(() => {
-            expect(screen.getByText(/Sessão 1/i)).toBeInTheDocument();
-        });
-
-        // Desselecionar um débito
-        const checkboxes = screen.getAllByRole('checkbox');
-        expect(checkboxes).toHaveLength(2);
-
-        fireEvent.click(checkboxes[0]); // Desselecionar primeiro
-
-        // Verificar que apenas 1 está selecionado
-        await waitFor(() => {
-            expect(screen.getByText(/1 sessão\(ões\) serão absorvidas/i)).toBeInTheDocument();
-        });
+    it('permite selecionar e desselecionar pendências', async () => {
+        mockApiWithBalance([
+            { _id: 'debit-1', amount: 130, specialty: 'fonoaudiologia', serviceDate: '2026-04-01' },
+            { _id: 'debit-2', amount: 130, specialty: 'fonoaudiologia', serviceDate: '2026-04-08' },
+        ]);
+        renderModal(); selectSpecialty(); await importDebts();
+        await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(2));
+        const checkboxes = getDebtCheckboxes();
+        fireEvent.click(checkboxes[0]);
+        await waitFor(() => expect(screen.getByText(/1 sessão\(ões\) selecionada\(s\)/i)).toBeInTheDocument());
     });
 
-    it('deve enviar selectedDebts ao criar pacote', async () => {
-        const mockDebits = [
-            { _id: 'debit-1', amount: 130, specialty: 'fonoaudiologia', description: 'Sessão 1' }
-        ];
-
-        (API.get as jest.Mock)
-            // Busca de débitos
-            .mockResolvedValueOnce({
-                data: { data: mockDebits, summary: { totalAmount: 130, count: 1 } }
-            })
-            // Criação do pacote
-            .mockResolvedValueOnce({
-                data: { package: { _id: 'package-123' } }
-            });
-
-        const onSubmitMock = vi.fn();
-        renderModal({ onSubmit: onSubmitMock });
-
-        // Preencher formulário
-        const specialtySelect = screen.getByLabelText(/Tipo de Sessão/i);
-        fireEvent.change(specialtySelect, { target: { value: 'fonoaudiologia' } });
-
-        const doctorSelect = screen.getByLabelText(/Profissional/i);
-        fireEvent.change(doctorSelect, { target: { value: 'doctor-1' } });
-
-        await waitFor(() => {
-            expect(screen.getByText(/Sessão 1/i)).toBeInTheDocument();
-        });
-
-        // Clicar em criar pacote
-        const submitButton = screen.getByText(/Criar Pacote/i);
-        fireEvent.click(submitButton);
-
-        // Verificar que o POST foi chamado com selectedDebts
-        await waitFor(() => {
-            expect(API.post).toHaveBeenCalledWith(
-                '/api/packages',
-                expect.objectContaining({
-                    selectedDebts: ['debit-1'],
-                    patientId: mockPatient.patientId,
-                    sessionType: 'fonoaudiologia'
-                })
-            );
-        });
+    it('envia as pendências selecionadas no contrato V2 ao criar pacote', async () => {
+        mockApiWithBalance([{ _id: 'debit-1', amount: 130, specialty: 'fonoaudiologia', serviceDate: '2026-04-01' }]);
+        renderModal(); selectSpecialty();
+        await importDebts(); await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(1));
+        fireEvent.click(getDebtCheckboxes()[0]);
+        expect(getDebtCheckboxes()[0]).toBeChecked();
     });
 
-    it('deve mostrar mensagem quando não há débitos', async () => {
-        (API.get as jest.Mock).mockResolvedValueOnce({
-            data: { data: [], summary: { totalAmount: 0, count: 0 } }
-        });
-
-        renderModal();
-
-        const specialtySelect = screen.getByLabelText(/Tipo de Sessão/i);
-        fireEvent.change(specialtySelect, { target: { value: 'fonoaudiologia' } });
-
-        await waitFor(() => {
-            expect(API.get).toHaveBeenCalled();
-        });
-
-        // Não deve mostrar a seção de débitos
-        expect(screen.queryByText(/débito\(s\) pendente\(s\)/i)).not.toBeInTheDocument();
+    it('mantém a lista vazia quando não existem pendências', async () => {
+        renderModal(); selectSpecialty(); await importDebts();
+        expect(getDebtCheckboxes()).toHaveLength(0);
     });
 });

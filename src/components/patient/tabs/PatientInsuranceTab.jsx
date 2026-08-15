@@ -20,7 +20,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
   Select,
   FormControl,
   InputLabel,
@@ -69,6 +68,7 @@ import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
 import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
 import InactivateEntityModal from '../../common/InactivateEntityModal';
+import AppointmentDetailModal from '../../calendar/appointmentDetailModal';
 
 // ----------------------------------------------------------------------
 // Componente principal
@@ -714,7 +714,8 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
             md: 'repeat(3, 1fr)'
           },
           gap: 2.5,
-          justifyItems: 'start'
+          justifyItems: 'start',
+          alignItems: 'start'
         }}>
           {presentations.map(presentation => (
             <GuideCard
@@ -742,10 +743,10 @@ const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 
 // gradiente de especialidade. Um tom translúcido (ex: laranja 35%) sobre um card já
 // laranja praticamente some; um pill branco sólido + ponto colorido não depende da cor de fundo.
 const STATUS_SEVERITY_STYLE = {
-  success:  { bg: 'rgba(255,255,255,0.95)', color: '#15803D', dot: '#22C55E' },
-  warning:  { bg: 'rgba(255,255,255,0.95)', color: '#C2410C', dot: '#F97316' },
-  critical: { bg: 'rgba(255,255,255,0.95)', color: '#B91C1C', dot: '#EF4444' },
-  neutral:  { bg: 'rgba(255,255,255,0.9)',  color: '#4B5563', dot: '#9CA3AF' },
+  success:  { bg: '#EFF9F6', color: '#15803D', dot: '#22C55E' },
+  warning:  { bg: '#FFF7ED', color: '#C2410C', dot: '#F97316' },
+  critical: { bg: '#FDECEA', color: '#B91C1C', dot: '#EF4444' },
+  neutral:  { bg: '#F1F5F9', color: '#4B5563', dot: '#9CA3AF' },
 };
 
 const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate }) => {
@@ -890,67 +891,72 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
       style={{ height: '100%', width: '100%', maxWidth: 380 }}
     >
       <div
-        className="bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full"
+        className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col h-full"
         style={{ opacity: isUsable ? 1 : 0.75 }}
       >
-        {/* ── Gradient Header ── */}
-        <div
-          className="px-5 pt-4 pb-5 relative"
-          style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)` }}
-        >
-          {/* O (i) mora no card "Plano ativo" abaixo, junto do lápis — só fica aqui em cima
-              quando não há plano ainda (senão não haveria onde colocá-lo) */}
-          <div className="absolute top-2.5 right-2.5 flex items-center gap-0.5 bg-white/10 rounded-full p-0.5">
-            {!plan && onOpenDetails && (
+        {/* ── Faixa de identidade: cor entra como accent fino, não como bloco dominante ── */}
+        <div className="h-1" style={{ background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }} />
+
+        {/* ── Header compacto ── */}
+        <div className="px-4 pt-3 pb-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[11px] font-mono text-gray-400 mb-0.5">#{presentation.number}</div>
+              <h3 className="font-bold text-[0.95rem] text-gray-900 leading-tight truncate">{presentation.specialtyLabel}</h3>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0 -mr-1.5 -mt-1">
+              {!plan && onOpenDetails && (
+                <IconButton
+                  size="small"
+                  onClick={() => onOpenDetails(presentation)}
+                  title="Detalhes da guia"
+                  sx={{ color: '#9CA3AF', p: 0.5, '&:hover': { color: theme.text, bgcolor: theme.light } }}
+                >
+                  <Info size={15} />
+                </IconButton>
+              )}
               <IconButton
                 size="small"
-                onClick={() => onOpenDetails(presentation)}
-                title="Detalhes da guia"
-                sx={{ color: 'rgba(255,255,255,0.75)', p: 0.5, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.2)' } }}
+                onClick={(e) => onOpenMenu(e, presentation)}
+                sx={{ color: '#9CA3AF', p: 0.5, '&:hover': { color: theme.text, bgcolor: theme.light } }}
               >
-                <Info size={15} />
+                <MoreVertical size={16} />
               </IconButton>
-            )}
-            <IconButton
-              size="small"
-              onClick={(e) => onOpenMenu(e, presentation)}
-              sx={{ color: 'rgba(255,255,255,0.75)', p: 0.5, '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.2)' } }}
-            >
-              <MoreVertical size={16} />
-            </IconButton>
+            </div>
           </div>
 
-          <div className="text-white/70 text-xs font-mono mb-1">#{presentation.number}</div>
-          <div className={`text-white font-bold text-[1.15rem] leading-tight ${!plan ? 'pr-16' : 'pr-8'}`}>{presentation.specialtyLabel}</div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {presentation.insuranceLabel && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/95 text-gray-700">
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                style={{ backgroundColor: theme.light, color: theme.text }}
+              >
                 {presentation.insuranceLabel}
               </span>
             )}
             {guide.expiresAt && (
-              <span className="text-white/90 text-sm">
-                Vence <strong>{format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}</strong>
+              <span className="text-gray-500 text-xs">
+                Vence <strong className="text-gray-700 font-semibold">{format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}</strong>
               </span>
             )}
           </div>
 
-          {/* Badge de status sólido — legível em qualquer cor de fundo, ponto colorido reforça a severidade */}
-          <div className="mt-3">
+          {/* Badge de status sólido — ponto colorido reforça a severidade */}
+          <div className="mt-2">
             {!isCancelled && onInactivate ? (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onInactivate(presentation); }}
                 title="Clique para inativar esta guia"
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide cursor-pointer hover:opacity-85 transition-opacity shadow-sm"
-                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color, '--tw-ring-color': theme.to }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
                 {statusLabel}
               </button>
             ) : (
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide"
                 style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
@@ -960,14 +966,14 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
         </div>
 
-        {/* ── Progress section ── */}
-        <div className="px-5 py-4 border-b" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
+        {/* ── Progresso: bloco compacto e contido, cor só como accent ── */}
+        <div className="mx-4 mb-2.5 px-3.5 py-3 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-gray-700">Progresso clínico</span>
-            <span className="text-sm font-bold" style={{ color: theme.text }}>{usedSessions} / {totalSessions}</span>
+            <span className="text-xs font-semibold text-gray-600">Progresso clínico</span>
+            <span className="text-xs font-bold" style={{ color: theme.text }}>{usedSessions} / {totalSessions}</span>
           </div>
 
-          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-3">
+          <div className="w-full bg-white/70 rounded-full h-2 overflow-hidden mb-2.5">
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }}
@@ -975,35 +981,33 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: theme.text }}>
-              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: theme.text }}>
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
               {usedSessions} concluída{usedSessions !== 1 ? 's' : ''}
             </span>
             {(guide.canceledCount > 0) && (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-red-500">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-red-500">
+                <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
                 {guide.canceledCount} cancelada{guide.canceledCount !== 1 ? 's' : ''}
               </span>
             )}
             {(guide.scheduledCount > 0) && (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" />
                 {guide.scheduledCount} agendada{guide.scheduledCount !== 1 ? 's' : ''}
               </span>
             )}
-            <span className="text-xs text-gray-400 ml-auto">/{totalSessions}</span>
+            <span className="text-[11px] text-gray-400 ml-auto">/{totalSessions}</span>
           </div>
         </div>
 
-        {/* ── Gatilho do accordion: dentro do card, na borda entre Progresso e detalhes ── */}
+        {/* ── Gatilho do accordion: controle discreto integrado, sem linha estrutural pesada ── */}
         <button
           onClick={() => setDetailsExpanded(v => !v)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 border-b transition-colors hover:bg-gray-50"
-          style={{ borderColor: theme.border, color: theme.text }}
+          className="mx-4 mb-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+          style={{ color: theme.text, '--tw-ring-color': theme.to }}
         >
-          <span className="text-xs font-semibold">
-            {detailsExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
-          </span>
+          {detailsExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
           <ChevronDown
             size={14}
             style={{ transition: 'transform 0.2s', transform: detailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -1013,54 +1017,58 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         {detailsExpanded && (
         <>
         {/* ── Financial details ── */}
-        <div className="px-5 py-4 flex-1 flex flex-col gap-3">
+        <div className="px-4 pb-3 flex-1 flex flex-col gap-2.5">
           {(guide.sessionValue > 0 || guide.evaluationAmount > 0 || guide.totalValue > 0 || showGuideDoctor) && (
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
-              {guide.sessionValue > 0 && (
-                <div className="flex justify-between items-center px-3.5 py-2.5">
-                  <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                    <DollarSign size={13} className="opacity-50" />
-                    Valor/sessão
-                  </span>
-                  <span className="text-sm font-bold text-gray-900">
-                    {Number(guide.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </span>
+            <div className="flex flex-col gap-2">
+              {(guide.sessionValue > 0 || guide.totalValue > 0) && (
+                <div className="grid grid-cols-2 gap-2">
+                  {guide.sessionValue > 0 && (
+                    <div className="rounded-lg px-3 py-2" style={{ backgroundColor: theme.light }}>
+                      <span className="flex items-center gap-1 text-[11px] text-gray-500 mb-0.5">
+                        <DollarSign size={11} className="opacity-60" />
+                        Valor/sessão
+                      </span>
+                      <div className="text-sm font-bold text-gray-900">
+                        {Number(guide.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </div>
+                    </div>
+                  )}
+                  {guide.totalValue > 0 && (
+                    <div className="rounded-lg px-3 py-2" style={{ backgroundColor: theme.light }}>
+                      <span className="flex items-center gap-1 text-[11px] text-gray-500 mb-0.5">
+                        <DollarSign size={11} className="opacity-60" />
+                        Total autorizado
+                      </span>
+                      <div className="text-sm font-bold" style={{ color: theme.text }}>
+                        {Number(guide.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {guide.evaluationAmount > 0 && (
-                <div className="flex justify-between items-center px-3.5 py-2.5 border-t" style={{ borderColor: theme.border }}>
-                  <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                    <FileText size={13} className="opacity-50" />
+                <div className="flex justify-between items-center px-0.5">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <FileText size={12} className="opacity-50" />
                     Valor avaliação
                   </span>
                   <div className="flex items-center gap-2">
                     {guide.generateEvaluationBilling === false && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/70 text-gray-500">sem cobrança no sistema</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">sem cobrança no sistema</span>
                     )}
-                    <span className="text-sm font-bold text-gray-900">
+                    <span className="text-xs font-bold text-gray-900">
                       {Number(guide.evaluationAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                 </div>
               )}
-              {guide.totalValue > 0 && (
-                <div className="flex justify-between items-center px-3.5 py-2.5 border-t" style={{ borderColor: theme.border }}>
-                  <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                    <DollarSign size={13} className="opacity-50" />
-                    Total autorizado
-                  </span>
-                  <span className="text-sm font-bold" style={{ color: theme.text }}>
-                    {Number(guide.totalValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </span>
-                </div>
-              )}
               {showGuideDoctor && (
-                <div className="flex justify-between items-center gap-2 px-3.5 py-2.5 border-t" style={{ borderColor: theme.border }}>
-                  <span className="flex items-center gap-1.5 text-sm text-gray-500 shrink-0">
-                    <UserCheck size={13} className="opacity-50" />
+                <div className="flex justify-between items-center gap-2 px-0.5">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0">
+                    <UserCheck size={12} className="opacity-50" />
                     Profissional da guia
                   </span>
-                  <span className="text-sm font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
+                  <span className="text-xs font-semibold text-gray-700 text-right truncate">{guide.doctor.fullName}</span>
                 </div>
               )}
             </div>
@@ -1069,14 +1077,14 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
         {/* ── Plan block (lazy-loaded) ── */}
         {isUsable && planLoading && (
-          <Box sx={{ mx: 2.5, mb: 2 }}>
+          <Box sx={{ mx: 2, mb: 2 }}>
             <Skeleton variant="rounded" height={110} sx={{ borderRadius: '12px' }} />
           </Box>
         )}
 
         {isUsable && planError && (
           <Box sx={{
-            mx: 2.5, mb: 2, px: 2, py: 1.5, borderRadius: '12px',
+            mx: 2, mb: 2, px: 2, py: 1.5, borderRadius: '12px',
             bgcolor: '#FDECEA', border: '1px solid #F5C6C0',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1
           }}>
@@ -1090,8 +1098,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         )}
 
         {plan && (
-          <div className="mx-5 mb-4 px-4 py-3.5 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
-            <div className="flex items-center justify-between mb-2.5">
+          <div className="mx-4 mb-3 px-3.5 py-3 rounded-xl" style={{ backgroundColor: theme.light }}>
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Calendar size={12} style={{ color: theme.text }} />
                 <span className="text-xs font-bold uppercase tracking-wide" style={{ color: theme.text }}>
@@ -1104,8 +1112,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <button
                     onClick={() => onOpenDetails(presentation)}
                     title="Detalhes da guia"
-                    className="opacity-70 hover:opacity-100 transition-opacity"
-                    style={{ color: theme.text }}
+                    className="opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
+                    style={{ color: theme.text, '--tw-ring-color': theme.to }}
                   >
                     <Info size={13} />
                   </button>
@@ -1113,81 +1121,83 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 <button
                   onClick={() => onCreatePlan(presentation, plan)}
                   title="Editar plano"
-                  className="opacity-70 hover:opacity-100 transition-opacity"
-                  style={{ color: theme.text }}
+                  className="opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
+                  style={{ color: theme.text, '--tw-ring-color': theme.to }}
                 >
                   <Edit2 size={13} />
                 </button>
               </div>
             </div>
 
-            {(plan.doctor?.fullName || plan.doctor?.name) && (
-              <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-gray-500">Profissional</span>
-                <span className="font-semibold text-gray-800 truncate max-w-[60%] text-right">
-                  {plan.doctor?.fullName || plan.doctor?.name}
-                </span>
-              </div>
-            )}
-
-            {plan.sessionsPerWeek > 0 && (
-              <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-gray-500">Frequência</span>
-                <span className="font-semibold text-gray-800">{plan.sessionsPerWeek}×/semana</span>
-              </div>
-            )}
-
-            {plan.slots?.length > 0 && (
-              <div className="flex items-start justify-between text-sm mb-1.5 gap-2">
-                <span className="text-gray-500 shrink-0 mt-0.5">Horários</span>
-                <div className="flex flex-col items-end gap-1">
-                  {[...plan.slots]
-                    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.time.localeCompare(b.time))
-                    .map((s, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold"
-                      style={{ backgroundColor: '#FFFFFF', color: theme.text, border: `1px solid ${theme.border}` }}
-                    >
-                      {DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek}
-                      <span className="w-1 h-1 rounded-full opacity-40" style={{ backgroundColor: theme.text }} />
-                      {s.time}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {plan.sessionValue > 0 && (
-              <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-gray-500">Valor do plano</span>
-                <span className="font-semibold text-gray-800">
-                  {Number(plan.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </span>
-              </div>
-            )}
-
-            {plan.generatedAppointments?.length > 0 && (
-              <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-gray-500">Sessões geradas</span>
-                <span className="font-semibold text-gray-800">{plan.generatedAppointments.length}</span>
-              </div>
-            )}
-
-            {(() => {
-              const today = new Date().toISOString().split('T')[0];
-              const nextAppt = plan.generatedAppointments
-                ?.filter(a => a.date >= today && ['scheduled', 'pre_agendado'].includes(a.operationalStatus))
-                .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0];
-              return nextAppt ? (
+            <div className="flex flex-col gap-1.5">
+              {(plan.doctor?.fullName || plan.doctor?.name) && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Próxima sessão</span>
-                  <span className="font-semibold text-gray-800">
-                    {format(parseISO(nextAppt.date), 'dd/MM')} · {nextAppt.time}
+                  <span className="text-gray-500">Profissional</span>
+                  <span className="font-semibold text-gray-800 truncate max-w-[60%] text-right">
+                    {plan.doctor?.fullName || plan.doctor?.name}
                   </span>
                 </div>
-              ) : null;
-            })()}
+              )}
+
+              {plan.sessionsPerWeek > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Frequência</span>
+                  <span className="font-semibold text-gray-800">{plan.sessionsPerWeek}×/semana</span>
+                </div>
+              )}
+
+              {plan.slots?.length > 0 && (
+                <div className="flex items-start justify-between text-sm gap-2">
+                  <span className="text-gray-500 shrink-0 mt-0.5">Horários</span>
+                  <div className="flex flex-col items-end gap-1">
+                    {[...plan.slots]
+                      .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.time.localeCompare(b.time))
+                      .map((s, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold"
+                        style={{ backgroundColor: '#FFFFFF', color: theme.text, border: `1px solid ${theme.border}` }}
+                      >
+                        {DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek}
+                        <span className="w-1 h-1 rounded-full opacity-40" style={{ backgroundColor: theme.text }} />
+                        {s.time}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {plan.sessionValue > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Valor do plano</span>
+                  <span className="font-semibold text-gray-800">
+                    {Number(plan.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+              )}
+
+              {plan.generatedAppointments?.length > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Sessões geradas</span>
+                  <span className="font-semibold text-gray-800">{plan.generatedAppointments.length}</span>
+                </div>
+              )}
+
+              {(() => {
+                const today = new Date().toISOString().split('T')[0];
+                const nextAppt = plan.generatedAppointments
+                  ?.filter(a => a.date >= today && ['scheduled', 'pre_agendado'].includes(a.operationalStatus))
+                  .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0];
+                return nextAppt ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Próxima sessão</span>
+                    <span className="font-semibold text-gray-800">
+                      {format(parseISO(nextAppt.date), 'dd/MM')} · {nextAppt.time}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
+            </div>
           </div>
         )}
 
@@ -1196,7 +1206,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
         {plan?.needsSessionRegeneration && (
           <div
-            className="mx-5 mb-3 px-3.5 py-3 rounded-xl border flex items-start gap-2.5"
+            className="mx-4 mb-3 px-3.5 py-3 rounded-xl border flex items-start gap-2.5"
             style={{ backgroundColor: '#FDECEA', borderColor: '#F5C6C0' }}
           >
             <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#F9D5D0' }}>
@@ -1213,14 +1223,14 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
         {/* ── Action buttons ── */}
         {isUsable && onCreatePlan && (
-          <div className="px-5 pt-4 pb-5 flex items-center gap-2">
+          <div className="px-4 pt-1 pb-3.5 flex items-center gap-2">
             {plan && remaining > 0 && (
               <button
                 onClick={() => handleGenerateSessions(plan._id)}
                 disabled={generating}
                 title={`${remaining} sessão(ões) restante(s)`}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:scale-[0.97] shrink-0"
-                style={{ borderColor: theme.to, color: theme.to, background: 'transparent' }}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:scale-[0.97] shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                style={{ borderColor: theme.to, color: theme.to, background: 'transparent', '--tw-ring-color': theme.to }}
               >
                 <Zap size={13} />
                 {generating ? 'Gerando...' : `Gerar (${remaining})`}
@@ -1228,8 +1238,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             )}
             <button
               onClick={() => onCreatePlan(presentation, plan || null)}
-              className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-              style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 10px -2px ${theme.from}50` }}
+              className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+              style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 10px -2px ${theme.from}50`, '--tw-ring-color': theme.to }}
             >
               <Calendar size={14} />
               {plan ? 'Ver e editar sessões' : 'Agendar com guia'}
@@ -1429,32 +1439,22 @@ const APPT_STATUS_CONFIG = {
   processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
 };
 
-const EDITABLE_STATUSES = [
-  { value: 'pre_agendado', label: 'Pré-agendado' },
-  { value: 'scheduled',    label: 'Agendado' },
-  { value: 'confirmed',    label: 'Confirmado' },
-  { value: 'canceled',     label: 'Cancelado' },
-  { value: 'missed',       label: 'Faltou' },
-];
-
-const normalizeEditStatus = (raw) => {
-  if (!raw) return 'scheduled';
-  if (raw === 'cancelled') return 'canceled'; // normaliza grafia britânica
-  const known = ['pre_agendado', 'scheduled', 'confirmed', 'canceled', 'missed'];
-  return known.includes(raw) ? raw : 'scheduled';
-};
-
-const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
+export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState(false);
 
-  const [editingAppt, setEditingAppt] = useState(null);
-  const [editDate, setEditDate]       = useState('');
-  const [editTime, setEditTime]       = useState('');
-  const [editStatus, setEditStatus]   = useState('');
-  const [editDoctorId, setEditDoctorId] = useState('');
-  const [editSaving, setEditSaving]   = useState(false);
+  // Concluir pelo card reaproveita o completeAppointment do contexto global
+  // (mesmo usado pela agenda real) — já faz o polling do 202 assíncrono
+  // (pollAppointmentStatus) e detecta lock liberado por falha de worker, sem
+  // precisar reimplementar nada disso aqui (bloqueador 4 do review 2026-08-15).
+  const { completeAppointment: completeAppointmentCtx } = useAppointmentsContext();
+
+  // 🚨 FIX (2026-08-15): dialog de edição simples trocado por AppointmentDetailModal
+  // (mesmo padrão já usado em ContractCard.tsx/Liminar) — corrige rótulo de status
+  // errado ("Agendado" pra sessão completed, por normalizeEditStatus cair no fallback)
+  // e reaproveita as guardas/tradução de status já corretas do modal canônico.
+  const [editingAppointment, setEditingAppointment] = useState(null);
 
   const [doctors, setDoctors] = useState([]);
   const [doctorsLoaded, setDoctorsLoaded] = useState(false);
@@ -1516,12 +1516,51 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     loadAppointments(guide._id);
   }, [guide?._id]);
 
+  // Adapta o formato de appointment retornado por getGuideAppointments pro
+  // shape que AppointmentDetailModal espera — mesmo mapper de ContractCard.tsx.
+  const sessionToEvent = (s) => {
+    const dateObj = new Date(s.date);
+    return {
+      id: s._id,
+      patient: { id: s.patient?._id ?? s.patient, fullName: s.patient?.fullName ?? '' },
+      doctor: { id: s.doctor?._id ?? s.doctor, fullName: s.doctor?.fullName ?? '' },
+      date: dateObj,
+      startTime: s.time,
+      formattedDate: dateObj.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }),
+      backgroundColor: '#3B82F6',
+      borderColor: '#2563EB',
+      start: `${(s.date || '').slice(0, 10)}T${s.time}`,
+      operationalStatus: s.operationalStatus || s.status,
+      clinicalStatus: s.clinicalStatus,
+      reason: s.reason || s.notes || '',
+      sessionValue: s.sessionValue,
+      paymentAmount: s.paymentAmount,
+      specialty: s.specialty,
+      serviceType: s.serviceType,
+      billingType: s.billingType,
+      paymentMethod: s.paymentMethod,
+      insuranceProvider: s.insuranceProvider,
+      insuranceValue: s.insuranceValue,
+      authorizationCode: s.authorizationCode,
+      insuranceGuide: s.insuranceGuide ?? guide?._id ?? null,
+      insuranceGuideId: s.insuranceGuide?.toString?.() ?? s.insuranceGuideId ?? guide?._id ?? null,
+      insurancePlan: s.insurancePlan ?? null,
+      liminarContract: s.liminarContract ?? null,
+      package: s.package ?? null,
+      __isPreAgendamento: (s.operationalStatus || s.status) === 'pre_agendado',
+    };
+  };
+
   const openEdit = (appt) => {
-    setEditingAppt(appt);
-    setEditDate(appt.date ? appt.date.substring(0, 10) : '');
-    setEditTime(appt.time || '');
-    setEditStatus(normalizeEditStatus(appt.operationalStatus || appt.status));
-    setEditDoctorId(appt.doctor?._id || '');
+    // Guarda também aqui (não só no disabled do ícone) — o calendário mini
+    // (viewMode='calendar') chama openEdit direto no clique do evento, sem
+    // passar pelos botões da lista.
+    const status = appt.operationalStatus || appt.status;
+    if (status === 'completed') {
+      toast('Sessão já concluída — não pode ser editada/cancelada por aqui', { icon: 'ℹ️' });
+      return;
+    }
+    setEditingAppointment(sessionToEvent(appt));
   };
 
   const openMove = (appt) => {
@@ -1556,28 +1595,85 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     }
   };
 
-  const saveEdit = async () => {
-    if (!editDate || !editTime) { toast.error('Preencha data e hora'); return; }
-    setEditSaving(true);
+  // Handlers do AppointmentDetailModal — mesmo padrão de ContractCard.tsx
+  // (onCancelAppointment/onEditAppointment reaproveitam os mesmos endpoints que
+  // o dialog antigo já usava; onCompleteAppointment continua redirecionando pra
+  // agenda, igual ao Liminar hoje — nenhum fluxo de conclusão novo foi criado).
+  const handleCancelFromModal = async (id, reason) => {
     try {
-      if (editStatus === 'canceled') {
-        await appointmentService.cancel(editingAppt._id, { reason: 'Cancelado manualmente' });
-      } else {
-        const patch = { date: editDate, time: editTime, operationalStatus: editStatus };
-        if (editDoctorId) patch.doctor = editDoctorId;
-        await appointmentService.update(editingAppt._id, patch);
-      }
-      toast.success('Agendamento atualizado');
-      setEditingAppt(null);
+      await appointmentService.cancel(id, { reason: reason || 'Cancelado manualmente' });
+      toast.success('Agendamento cancelado');
+      setEditingAppointment(null);
       await loadAppointments(guide._id);
       onUpdate?.();
     } catch (err) {
-      const data = err?.response?.data;
-      if (data?.conflict) {
-        const conflict = data.conflict;
+      toast.error(err?.response?.data?.message || err?.message || 'Erro ao cancelar agendamento');
+    }
+  };
+
+  // 🚨 FIX (2026-08-15, auditoria Convênio): antes só mostrava um toast mandando
+  // usar a agenda — não existia "Concluir" pelo card. Reaproveita o mesmo
+  // primitivo já usado pela agenda real (appointmentService.complete →
+  // PATCH /v2/appointments/:id/complete → backend decide o roteamento
+  // financeiro por billingType, o mesmo completeInsuranceAppointmentCommand/
+  // completeSessionV2 já testado em back/tests/completeInsuranceAppointmentCommand.test.js).
+  // Nenhuma lógica financeira nova — só liga o botão "Realizar Atendimento" que
+  // o próprio AppointmentDetailModal já constrói o payload correto (billingType/
+  // insuranceProvider/insuranceValue/authorizationCode vêm do sessionToEvent).
+  const handleCompleteFromModal = async (id, data) => {
+    try {
+      // completeAppointmentCtx (AppointmentsContext) chama appointmentService.complete
+      // e, se a resposta vier processing.async=true (202), aguarda o MESMO polling
+      // que a agenda real usa (pollAppointmentStatus) antes de resolver — nunca
+      // fecha/atualiza o card com o processamento ainda em andamento (bloqueador 4).
+      const result = await completeAppointmentCtx(id, data);
+      if (result?._lockReleased) {
+        // Worker falhou e liberou o lock — processamento NÃO terminou de verdade,
+        // apesar de completeAppointmentCtx não ter lançado exceção.
+        throw new Error('O processamento falhou. Tente novamente em alguns instantes.');
+      }
+    } catch (err) {
+      // 🚨 FIX (review 2026-08-15, bloqueador 3): só considera sucesso quando a
+      // resposta é EXPLICITAMENTE idempotente. Qualquer outro 409 (ex:
+      // CONFIRM_FAILED, REACTIVATION_FAILED, SCHEDULE_FAILED) é erro real e
+      // precisa propagar — nunca tratar 409 genérico como sucesso.
+      const isExplicitlyIdempotent = err?.response?.status === 409 && err?.response?.data?.idempotent === true;
+      if (!isExplicitlyIdempotent) {
+        // Rede/timeout pode deixar ambíguo se a conclusão realmente aconteceu
+        // do lado do servidor — um refetch decide com certeza antes de
+        // desistir. Se o refetch também falhar, ou o status não confirmar
+        // 'completed', trata como erro real (propaga o erro ORIGINAL, não o
+        // do refetch — é o que explica o que aconteceu de fato).
+        const statusData = await appointmentService.getStatus(id).then(
+          (res) => res?.data?.data || res?.data,
+          () => null
+        );
+        if (statusData?.operationalStatus !== 'completed') {
+          throw err;
+        }
+        // refetch confirmou completed apesar do erro na resposta original — segue como sucesso
+      }
+    }
+    toast.success('Sessão concluída');
+    setEditingAppointment(null);
+    await loadAppointments(guide._id);
+    onUpdate?.();
+  };
+
+  const handleEditFromModal = async (id, data) => {
+    try {
+      await appointmentService.update(id, data);
+      toast.success('Agendamento atualizado');
+      setEditingAppointment(null);
+      await loadAppointments(guide._id);
+      onUpdate?.();
+    } catch (err) {
+      const data2 = err?.response?.data;
+      if (data2?.conflict) {
+        const conflict = data2.conflict;
         const existing = conflict.existingAppointment;
         const who = conflict.patientName || existing?.patient?.fullName || 'outro paciente';
-        const time = existing?.time || editTime;
+        const time = existing?.time || data?.time;
         const status = existing?.operationalStatus || '';
         const statusLabel = {
           confirmed: 'confirmado', scheduled: 'agendado',
@@ -1588,10 +1684,8 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           { duration: 6000 }
         );
       } else {
-        toast.error(data?.message || data?.error?.message || err?.message || 'Erro ao atualizar agendamento');
+        toast.error(data2?.message || data2?.error?.message || err?.message || 'Erro ao atualizar agendamento');
       }
-    } finally {
-      setEditSaving(false);
     }
   };
 
@@ -1691,39 +1785,58 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     <Dialog
       open={Boolean(guide)}
       onClose={onClose}
-      maxWidth={viewMode === 'calendar' ? 'md' : 'sm'}
-      fullWidth
+      maxWidth={false}
       PaperProps={{
         sx: {
-          borderRadius: '28px',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.15)',
-          overflow: 'hidden'
+          borderRadius: { xs: 0, sm: '20px' },
+          boxShadow: '0 20px 50px rgba(15, 23, 42, 0.14)',
+          overflow: 'hidden',
+          width: '100%',
+          maxWidth: { xs: '100vw', sm: 'min(1000px, 94vw)' },
+          height: { xs: '100dvh', sm: 'auto' },
+          maxHeight: { xs: '100dvh', sm: 'min(90vh, 920px)' },
+          m: { xs: 0, sm: 2 },
+          display: 'flex',
+          flexDirection: 'column'
         }
       }}
     >
       {/* Header */}
       <Box sx={{
-        background: 'linear-gradient(135deg, #1565C0 0%, #1E3A8A 100%)',
         px: 3,
-        py: 2.5,
+        py: 2.25,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        gap: 2,
+        borderBottom: '1px solid #EEF2F7',
+        flexShrink: 0
       }}>
-        <Box>
-          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '1rem' }}>
-            Detalhes da Guia #{guide.number}
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', mt: 0.3 }}>
-            {specialtyFormatted} • {insuranceFormatted}
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+          <Box sx={{ width: 4, height: 34, borderRadius: '4px', background: 'linear-gradient(180deg, #1565C0, #1E3A8A)', flexShrink: 0 }} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ color: '#0F172A', fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.3 }} noWrap>
+              Detalhes da Guia #{guide.number}
+            </Typography>
+            <Typography sx={{ color: '#64748B', fontSize: '0.78rem', mt: 0.2 }} noWrap>
+              {specialtyFormatted} • {insuranceFormatted}
+            </Typography>
+          </Box>
         </Box>
-        <IconButton onClick={onClose} size="small" sx={{ color: 'rgba(255,255,255,0.8)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' } }}>
-          <X size={18} />
+        <IconButton onClick={onClose} sx={{ color: '#94A3B8', flexShrink: 0, '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' } }}>
+          <X size={20} />
         </IconButton>
       </Box>
 
-      <DialogContent sx={{ p: 3 }}>
+      <DialogContent sx={{
+        p: 3,
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        '&::-webkit-scrollbar': { width: '6px' },
+        '&::-webkit-scrollbar-thumb': { backgroundColor: '#CBD5E1', borderRadius: '10px' },
+        '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' }
+      }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress size={32} sx={{ color: '#2E7A5E' }} />
@@ -1731,24 +1844,22 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         ) : (
           <>
             {/* Resumo rápido */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mb: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mb: 2.5 }}>
               {[
                 { label: 'Realizados', value: completedCount, color: '#2E7A5E', bg: '#EFF9F6' },
                 { label: 'Agendados',  value: scheduledCount, color: '#1B4D6E', bg: '#EEF4FB' },
                 { label: 'Cancelados', value: canceledCount,  color: '#C75146', bg: '#FDECEA' },
               ].map(item => (
-                <Box key={item.label} sx={{ bgcolor: item.bg, borderRadius: '16px', p: 1.5, textAlign: 'center' }}>
-                  <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: item.color, lineHeight: 1.2 }}>
+                <Box key={item.label} sx={{ bgcolor: item.bg, borderRadius: '14px', py: 1.5, px: 1, textAlign: 'center' }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1.35rem', color: item.color, lineHeight: 1.15 }}>
                     {item.value}
                   </Typography>
-                  <Typography sx={{ fontSize: '0.65rem', color: item.color, fontWeight: 500, opacity: 0.8 }}>
+                  <Typography sx={{ fontSize: '0.68rem', color: item.color, fontWeight: 600, opacity: 0.75, mt: 0.2, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                     {item.label}
                   </Typography>
                 </Box>
               ))}
             </Box>
-
-            <Divider sx={{ mb: 2.5 }} />
 
             {modalPlanLoading && (
               <Box sx={{ mb: 2.5 }}>
@@ -1782,33 +1893,34 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
             {/* Histórico de alterações do plano */}
             {modalPlan && (
-              <Box sx={{ mb: 2.5 }}>
+              <Box sx={{ mb: 2.5, pb: 2.5, borderBottom: '1px solid #F1F5F9' }}>
                 <Box
                   component="button"
                   onClick={() => setShowChangelog(v => !v)}
                   sx={{
-                    display: 'flex', alignItems: 'center', gap: 1, width: '100%',
-                    bgcolor: showChangelog ? '#EFF9F6' : '#F8FAFE',
-                    border: '1px solid', borderColor: showChangelog ? '#C6E6DA' : '#EDF2F7',
-                    borderRadius: '14px', px: 2, py: 1.5, cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    '&:hover': { bgcolor: '#EFF9F6', borderColor: '#C6E6DA' }
+                    display: 'flex', alignItems: 'center', gap: 1.25, width: '100%',
+                    bgcolor: '#F8FAFC',
+                    border: 'none',
+                    borderRadius: '12px', px: 1.75, py: 1.25, cursor: 'pointer',
+                    transition: 'background-color 0.15s',
+                    '&:hover': { bgcolor: '#F1F5F9' },
+                    '&:focus-visible': { outline: '2px solid #2E7A5E', outlineOffset: '2px' }
                   }}
                 >
-                  <History size={14} color="#2E7A5E" />
-                  <Typography sx={{ flex: 1, textAlign: 'left', fontSize: '0.8rem', fontWeight: 600, color: '#2E7A5E' }}>
+                  <History size={15} color="#2E7A5E" />
+                  <Typography sx={{ flex: 1, textAlign: 'left', fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}>
                     Histórico do plano
-                    {changelog.length > 0 && (
-                      <Box component="span" sx={{ ml: 1, px: 1, py: 0.2, bgcolor: '#2E7A5E', color: '#fff', borderRadius: '8px', fontSize: '0.65rem' }}>
-                        {changelog.length}
-                      </Box>
-                    )}
                   </Typography>
-                  {showChangelog ? <ChevronUp size={14} color="#2E7A5E" /> : <ChevronDown size={14} color="#8A99B0" />}
+                  {changelog.length > 0 && (
+                    <Box component="span" sx={{ px: 1, py: 0.15, bgcolor: '#E2E8F0', color: '#475569', borderRadius: '8px', fontSize: '0.68rem', fontWeight: 700 }}>
+                      {changelog.length}
+                    </Box>
+                  )}
+                  {showChangelog ? <ChevronUp size={15} color="#64748B" /> : <ChevronDown size={15} color="#94A3B8" />}
                 </Box>
 
                 {showChangelog && (
-                  <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                     {changelogLoading ? (
                       <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                         <CircularProgress size={20} sx={{ color: '#2E7A5E' }} />
@@ -1825,10 +1937,11 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
               </Box>
             )}
 
-            <Divider sx={{ mb: 2 }} />
-
-            {/* Toggle Lista / Calendário */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            {/* Toggle Lista / Calendário — cabeçalho da seção de agenda */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.75, flexWrap: 'wrap', gap: 1 }}>
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Agenda da guia
+              </Typography>
               <Box sx={{
                 display: 'inline-flex',
                 bgcolor: '#F1F5F9',
@@ -1842,18 +1955,22 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                 ].map(({ key, label }) => (
                   <Box
                     key={key}
+                    component="button"
+                    type="button"
                     onClick={() => setViewMode(key)}
                     sx={{
-                      px: 2,
-                      py: 0.75,
+                      px: 2.25,
+                      py: 0.875,
                       borderRadius: '8px',
                       fontSize: '0.8125rem',
                       fontWeight: 600,
                       cursor: 'pointer',
+                      border: 'none',
                       transition: 'all 0.15s',
                       bgcolor: viewMode === key ? '#fff' : 'transparent',
                       color: viewMode === key ? '#1565C0' : '#64748B',
                       boxShadow: viewMode === key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                      '&:focus-visible': { outline: '2px solid #1565C0', outlineOffset: '2px' }
                     }}
                   >
                     {label}
@@ -1875,7 +1992,7 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                 </Button>
               </Box>
             ) : viewMode === 'calendar' ? (
-              <Box sx={{ minHeight: 420 }}>
+              <Box sx={{ minHeight: 480 }}>
                 <PatientMiniCalendar
                   appointments={visibleAppointments.map(a => ({
                     ...a,
@@ -1894,10 +2011,16 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                 </Typography>
               </Box>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                 {visibleAppointments.map((appt, idx) => {
                   const statusKey = appt.operationalStatus || appt.status || '';
                   const cfg = APPT_STATUS_CONFIG[statusKey] || { label: statusKey, color: '#8A99B0', bg: '#F8FAFE' };
+                  // 🚨 FIX (2026-08-15, auditoria Convênio): sessão completed não pode ser
+                  // editada/movida/cancelada por aqui — já consumiu a guia e liquidou o
+                  // Payment via completeSessionV2; mexer por esse caminho corrompia o
+                  // estado sem contrapartida simétrica (mesma proteção existe no backend
+                  // em cancelAppointmentCommand.js, escopada a billingType='convenio').
+                  const isCompleted = statusKey === 'completed';
                   const dateStr = appt.date
                     ? format(parseISO(appt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR })
                     : '—';
@@ -1912,12 +2035,11 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         px: 2,
-                        py: 1.5,
-                        bgcolor: '#F8FAFE',
-                        borderRadius: '14px',
-                        border: '1px solid #EDF2F7',
-                        transition: 'all 0.15s',
-                        '&:hover': { bgcolor: '#F1F5F9', borderColor: '#E2E8F0' }
+                        py: 1.25,
+                        bgcolor: '#F8FAFC',
+                        borderRadius: '12px',
+                        transition: 'background-color 0.15s',
+                        '&:hover': { bgcolor: '#F1F5F9' }
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1951,15 +2073,18 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                         <IconButton
                           size="small"
                           onClick={() => openMove(appt)}
-                          sx={{ color: '#8A99B0', '&:hover': { color: '#1565C0' }, p: 0.5 }}
-                          title="Mover para outra guia"
+                          disabled={isCompleted}
+                          sx={{ color: '#8A99B0', '&:hover': { color: '#1565C0' }, p: 0.5, '&.Mui-disabled': { color: '#D8DEE8' } }}
+                          title={isCompleted ? 'Sessão já concluída — não pode ser movida' : 'Mover para outra guia'}
                         >
                           <ArrowRightLeft size={13} />
                         </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => openEdit(appt)}
-                          sx={{ color: '#8A99B0', '&:hover': { color: '#1B4D6E' }, p: 0.5 }}
+                          disabled={isCompleted}
+                          sx={{ color: '#8A99B0', '&:hover': { color: '#1B4D6E' }, p: 0.5, '&.Mui-disabled': { color: '#D8DEE8' } }}
+                          title={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
                         >
                           <Edit2 size={13} />
                         </IconButton>
@@ -1973,7 +2098,13 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: 'space-between' }}>
+      <DialogActions sx={{
+        px: 3, py: 2, gap: 1.5,
+        justifyContent: 'space-between',
+        borderTop: '1px solid #EEF2F7',
+        flexShrink: 0,
+        flexDirection: { xs: 'column-reverse', sm: 'row' }
+      }}>
         <Button
           onClick={() => {
             const firstPending = appointments.find(a =>
@@ -1988,9 +2119,10 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             setBulkDoctorOpen(true);
           }}
           variant="outlined"
-          size="small"
           sx={{
-            borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.75rem',
+            borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem',
+            px: 2.5, py: 0.9,
+            width: { xs: '100%', sm: 'auto' },
             borderColor: '#C6E6DA', color: '#2E7A5E',
             '&:hover': { bgcolor: '#EFF9F6', borderColor: '#2E7A5E' }
           }}
@@ -2002,6 +2134,8 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           variant="outlined"
           sx={{
             borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem',
+            px: 3, py: 0.9,
+            width: { xs: '100%', sm: 'auto' },
             borderColor: '#DDE4EE', color: '#5B6E8C',
             '&:hover': { bgcolor: '#F1F5F9', borderColor: '#C8D4E0' }
           }}
@@ -2186,105 +2320,23 @@ const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       )}
     </Dialog>
 
-    {/* ── Dialog de edição de agendamento ── */}
-    <Dialog
-      open={Boolean(editingAppt)}
-      onClose={() => !editSaving && setEditingAppt(null)}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: '20px' } }}
-    >
-      <Box sx={{
-        background: 'linear-gradient(135deg, #1565C0 0%, #1E3A8A 100%)',
-        px: 3, py: 2,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-      }}>
-        <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
-          Editar Agendamento
-        </Typography>
-        <IconButton onClick={() => setEditingAppt(null)} size="small" disabled={editSaving}
-          sx={{ color: 'rgba(255,255,255,0.8)' }}>
-          <X size={16} />
-        </IconButton>
-      </Box>
-
-      <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <TextField
-          label="Data"
-          type="date"
-          value={editDate}
-          onChange={e => setEditDate(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          fullWidth
-          size="small"
-          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-        />
-        <TextField
-          label="Hora"
-          type="time"
-          value={editTime}
-          onChange={e => setEditTime(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          fullWidth
-          size="small"
-          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-        />
-        <FormControl fullWidth size="small">
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={editStatus}
-            label="Status"
-            onChange={e => setEditStatus(e.target.value)}
-            sx={{ borderRadius: '12px' }}
-          >
-            {EDITABLE_STATUSES.map(s => (
-              <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl fullWidth size="small">
-          <InputLabel>Profissional</InputLabel>
-          <Select
-            value={editDoctorId}
-            label="Profissional"
-            onChange={e => setEditDoctorId(e.target.value)}
-            sx={{ borderRadius: '12px' }}
-          >
-            <MenuItem value=""><em>Sem alteração</em></MenuItem>
-            {doctors
-              .filter(d => {
-                const target = (guide?.specialty || '').toLowerCase();
-                const allowed = [d.specialty, ...(d.specialties || [])].map(s => (s || '').toLowerCase());
-                const matchesGuideSpecialty = !guide?.specialty || allowed.includes(target);
-                const isCurrentDoctor = d._id === editingAppt?.doctor?._id;
-                return matchesGuideSpecialty || isCurrentDoctor;
-              })
-              .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
-          </Select>
-        </FormControl>
-      </DialogContent>
-
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button
-          onClick={() => setEditingAppt(null)}
-          disabled={editSaving}
-          variant="outlined"
-          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
-            borderColor: '#DDE4EE', color: '#5B6E8C' }}
-        >
-          Cancelar
-        </Button>
-        <Button
-          onClick={saveEdit}
-          disabled={editSaving}
-          variant="contained"
-          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
-            bgcolor: '#1B4D6E', '&:hover': { bgcolor: '#163d58' } }}
-        >
-          {editSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Salvar'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    {/* ── Modal de edição de agendamento (mesmo AppointmentDetailModal do calendário/Liminar) ── */}
+    {editingAppointment && (
+      <AppointmentDetailModal
+        isOpen={!!editingAppointment}
+        onClose={() => setEditingAppointment(null)}
+        event={editingAppointment}
+        doctors={doctors}
+        onCancelAppointment={handleCancelFromModal}
+        onCompleteAppointment={handleCompleteFromModal}
+        onEditAppointment={handleEditFromModal}
+        // 🚨 FIX (2026-08-15): sem isso, este modal (div fixed, z-50) renderizava
+        // ATRÁS do Dialog MUI "Detalhes da Guia" que o abre (MUI Modal usa
+        // z-index 1300 por padrão) — clicar num agendamento parecia não abrir
+        // nada, mas na verdade abria escondido atrás. 1400 > zIndex.modal do MUI.
+        zIndex={1400}
+      />
+    )}
 
     <Dialog open={!!movingAppt} onClose={() => setMovingAppt(null)} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>Mover atendimento entre guias</DialogTitle>

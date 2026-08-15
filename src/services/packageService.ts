@@ -481,22 +481,38 @@ export const packageService = {
     return extractV2Data(response);
   },
 
-  // 🔄 Cancelamento em massa de sessões (com lista específica)
+  // 🔄 Cancelamento em massa de sessões — respeita exatamente a lista de
+  // appointmentIds recebida (nunca cancela mais que isso). Falha parcial NUNCA
+  // é reportada como sucesso total: `success` só é true quando todos os IDs
+  // pedidos foram cancelados; `failedIds` sempre lista o que não foi.
   bulkCancelSessions: async (packageId: string, appointmentIds: string[], confirmedAbsence: boolean = false) => {
-    // 🚀 V2: Cancela cada agendamento individualmente
-    let canceledCount = 0;
+    const canceledIds: string[] = [];
+    const failedIds: { appointmentId: string; error: string }[] = [];
+
     for (const appointmentId of appointmentIds) {
       try {
         await API.patch(`/v2/appointments/${appointmentId}/cancel`, {
           reason: 'Cancelamento em massa',
           confirmedAbsence,
         });
-        canceledCount++;
-      } catch (e) {
-        console.warn(`[bulkCancelSessions] Falha ao cancelar ${appointmentId}:`, e);
+        canceledIds.push(appointmentId);
+      } catch (e: any) {
+        const errorMessage = extractErrorMessage(e, 'Erro desconhecido');
+        console.warn(`[bulkCancelSessions] Falha ao cancelar ${appointmentId}:`, errorMessage);
+        failedIds.push({ appointmentId, error: errorMessage });
       }
     }
-    return { success: true, message: `${canceledCount} sessões canceladas`, canceledCount };
+
+    return {
+      success: failedIds.length === 0,
+      canceledCount: canceledIds.length,
+      canceledIds,
+      failedIds,
+      totalRequested: appointmentIds.length,
+      message: failedIds.length === 0
+        ? `${canceledIds.length} sessão(ões) cancelada(s)`
+        : `${canceledIds.length} de ${appointmentIds.length} sessão(ões) cancelada(s) — ${failedIds.length} falharam`,
+    };
   },
 
   // 🚀 Cancelar TODAS as sessões do pacote (mais simples, mais rápido)

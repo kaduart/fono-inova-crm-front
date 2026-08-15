@@ -51,6 +51,13 @@ export const SessionModal = ({
     
     const [isFormValid, setIsFormValid] = useState(false);
 
+    // 🛡️ Sessão de pacote já concluída não pode ter data/horário/profissional
+    // reescritos por aqui — o histórico (sessionsDone incrementado, Payment
+    // liquidado) já foi processado. Backend tem o mesmo guard (defesa em
+    // profundidade); isso aqui é só a UX de não deixar tentar. Cancelamento
+    // (mudar Status para "Cancelada") continua permitido normalmente.
+    const isCompletedLocked = action === 'edit' && sessionData.status === 'completed';
+
     useEffect(() => {
         const isValid = Boolean(
             sessionData.doctorId &&
@@ -154,7 +161,8 @@ export const SessionModal = ({
                                 <Select
                                     value={sessionData.doctorId || ''}
                                     onChange={(e) => onSessionDataChange({ ...sessionData, doctorId: e.target.value })}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                    disabled={isCompletedLocked}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                 >
                                     <option value="">Selecione um profissional</option>
                                     {doctors.map((doctor) => (
@@ -176,7 +184,8 @@ export const SessionModal = ({
                                         type="date"
                                         value={sessionData.date || ''}
                                         onChange={(e) => onSessionDataChange({ ...sessionData, date: e.target.value })}
-                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        disabled={isCompletedLocked}
+                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                     />
                                 </div>
 
@@ -199,10 +208,18 @@ export const SessionModal = ({
                                         timeFormat="HH:mm"
                                         dateFormat="HH:mm"
                                         placeholderText="HH:MM"
-                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                        disabled={isCompletedLocked}
+                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                     />
                                 </div>
                             </div>
+
+                            {isCompletedLocked && (
+                                <p className="text-xs text-gray-500 -mt-2 flex items-center gap-1.5">
+                                    <Ban className="w-3.5 h-3.5 shrink-0" />
+                                    Sessão concluída: data, horário e profissional não podem mais ser alterados.
+                                </p>
+                            )}
 
                             {/* Status e Tipo */}
                             <div className="grid grid-cols-2 gap-3 sm:gap-4">

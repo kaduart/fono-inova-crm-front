@@ -346,11 +346,6 @@ export default function TherapyPackageDetails({
 
     const openSessionModal = (action: 'edit' | 'use', session?: ISession) => {
         setModalAction(action);
-        if (!session) {
-            setSelectedSession(initialSessionState);
-            setIsSessionModalOpen(true);
-            return;
-        }
 
         const context = {
             doctorId: pack.doctorId || pack.doctor?._id?.toString?.() || pack.doctor?.toString?.() || '',
@@ -359,6 +354,21 @@ export default function TherapyPackageDetails({
             sessionValue: typeof pack.sessionValue === 'number' ? pack.sessionValue : 0,
             sessionType: pack.sessionType || pack.specialty || '',
         };
+
+        if (!session) {
+            // Sessão nova (botão "Nova Sessão"): pré-preenche paciente/profissional/pacote/
+            // especialidade do próprio pack — sem isso o payload ia sem patientId/doctorId
+            // e a criação falhava silenciosamente lá na frente.
+            setSelectedSession({
+                ...initialSessionState,
+                doctorId: context.doctorId,
+                patientId: context.patientId,
+                package: packageId,
+                sessionType: context.sessionType,
+            });
+            setIsSessionModalOpen(true);
+            return;
+        }
 
         const dto = mapSessionResponseDTO(session, context);
         const normalized = sessionDTOToISession(dto);
@@ -471,64 +481,63 @@ export default function TherapyPackageDetails({
 
     return (
       <>
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto transform transition-all border border-gray-200">
-                {/* Header estilo Liminar */}
-                <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-5 text-white relative">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4 min-w-0">
-                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
-                                <Leaf className="w-7 h-7" />
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="text-xl font-bold truncate">Detalhes do Pacote</h2>
-                                <p className="text-emerald-100 text-sm opacity-90 mt-0.5">
-                                    {(pack.sessionType || 'Terapia').replace(/_/g, ' ')} • {counts.total} sessões
-                                </p>
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${financialState.bg} ${financialState.border} border ${financialState.color}`}>
-                                        <FinancialIcon className="w-3 h-3" />
-                                        {financialState.label}
-                                    </span>
-                                </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 sm:p-4 backdrop-blur-sm">
+            <div className="bg-white sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto max-w-full sm:max-w-[min(1000px,94vw)] max-h-[100dvh] sm:max-h-[min(90vh,920px)] overflow-hidden flex flex-col border border-gray-200">
+                {/* Header — identidade do contexto como accent, não como faixa pesada */}
+                <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 flex items-start justify-between gap-3 shrink-0 bg-white sticky top-0 z-10">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                            <Leaf className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">Detalhes do Pacote</h2>
+                            <p className="text-gray-500 text-xs sm:text-sm mt-0.5 truncate">
+                                {(pack.sessionType || 'Terapia').replace(/_/g, ' ')} • {counts.total} sessões
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${financialState.bg} ${financialState.border} border ${financialState.color}`}>
+                                    <FinancialIcon className="w-3 h-3" />
+                                    {financialState.label}
+                                </span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            <div className="relative">
-                                <button
-                                    onClick={() => setMenuOpen(v => !v)}
-                                    className="p-2 rounded-lg hover:bg-white/15 transition-colors text-white/80 hover:text-white"
-                                >
-                                    <MoreVertical className="w-5 h-5" />
-                                </button>
-                                {menuOpen && (
-                                    <div
-                                        className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl py-1 min-w-[140px] z-10 border border-gray-100"
-                                        onClick={() => setMenuOpen(false)}
-                                    >
-                                        <button
-                                            onClick={onEdit}
-                                            className="flex items-center gap-2 w-full text-left text-xs font-medium px-4 py-2 hover:bg-slate-50 text-gray-700"
-                                        >
-                                            <Edit2 className="w-3.5 h-3.5" /> Editar pacote
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <div className="relative">
                             <button
-                                onClick={onClose}
-                                className="p-2 hover:bg-white/15 rounded-lg transition-colors text-white/80 hover:text-white"
+                                onClick={() => setMenuOpen(v => !v)}
+                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
                             >
-                                <X className="w-5 h-5" />
+                                <MoreVertical className="w-5 h-5" />
                             </button>
+                            {menuOpen && (
+                                <div
+                                    className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl py-1 min-w-[140px] z-10 border border-gray-100"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    <button
+                                        onClick={onEdit}
+                                        className="flex items-center gap-2 w-full text-left text-xs font-medium px-4 py-2 hover:bg-slate-50 text-gray-700"
+                                    >
+                                        <Edit2 className="w-3.5 h-3.5" /> Editar pacote
+                                    </button>
+                                </div>
+                            )}
                         </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-6">
+                {/* Content — único scroll principal do modal */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5
+                    [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
                     {/* Resumo em cards estilo Convênio */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 gap-2.5">
                         {[
                             { label: 'Total', value: counts.total, color: 'text-gray-900', bg: 'bg-gray-50', border: 'border-gray-100' },
                             { label: 'Realizadas', value: counts.done, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
@@ -537,21 +546,21 @@ export default function TherapyPackageDetails({
                         ].map(item => (
                             <div
                                 key={item.label}
-                                className={`${item.bg} ${item.border} border p-4 rounded-xl text-center transition-colors hover:opacity-90`}
+                                className={`${item.bg} ${item.border} border px-3 py-2.5 rounded-xl text-center transition-colors hover:opacity-90`}
                             >
-                                <div className={`text-2xl font-bold ${item.color} mb-1`}>{item.value}</div>
+                                <div className={`text-xl font-bold ${item.color} leading-tight`}>{item.value}</div>
                                 <div className="text-xs font-medium text-gray-500">{item.label}</div>
                             </div>
                         ))}
                     </div>
 
                     {/* Progresso empilhado estilo Liminar */}
-                    <div className="space-y-3">
+                    <div className="space-y-2 rounded-xl border border-gray-100 px-3.5 py-3">
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-semibold text-gray-700">Progresso</span>
                             <span className="text-sm font-bold text-gray-700">{counts.done}/{counts.total} ({progressPct}%)</span>
                         </div>
-                        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden flex">
+                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden flex">
                             <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${donePct}%` }} />
                             <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${scheduledPct}%` }} />
                             <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${canceledPct}%` }} />
@@ -584,25 +593,25 @@ export default function TherapyPackageDetails({
 
                     {/* Summary financeiro em cards estilo Liminar */}
                     {totalValue > 0 && (
-                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-3">
+                        <div className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/40">
+                            <div className="flex items-center gap-2 mb-2.5">
                                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                                <span className="text-sm font-bold text-emerald-800">Resumo Financeiro</span>
+                                <span className="text-sm font-bold text-gray-800">Resumo Financeiro</span>
                             </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="bg-white/70 rounded-xl p-3 text-center border border-emerald-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div className="bg-white rounded-lg px-3 py-2.5 text-left border border-gray-100">
                                     <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Contratado</span>
                                     <span className="text-sm font-bold text-gray-900">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
                                     </span>
                                 </div>
-                                <div className="bg-white/70 rounded-xl p-3 text-center border border-emerald-100">
+                                <div className="bg-white rounded-lg px-3 py-2.5 text-left border border-gray-100">
                                     <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Pago</span>
                                     <span className="text-sm font-bold text-emerald-600">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}
                                     </span>
                                 </div>
-                                <div className="bg-white/70 rounded-xl p-3 text-center border border-emerald-100">
+                                <div className="bg-white rounded-lg px-3 py-2.5 text-left border border-gray-100">
                                     <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">{hasCredit ? 'Crédito' : 'Pendente'}</span>
                                     <span className={`text-sm font-bold ${hasCredit ? 'text-blue-600' : pendingValue > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(hasCredit ? balance : pendingValue))}
@@ -638,13 +647,13 @@ export default function TherapyPackageDetails({
                     )}
 
                     {/* Lista / Calendário de sessões */}
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
+                    <div className="space-y-3 pt-1">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
                             <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-emerald-600" />
                                 Sessões
                             </h4>
-                            <div className="inline-flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
+                            <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-0.5">
                                 {[
                                     { key: 'list', label: 'Lista' },
                                     { key: 'calendar', label: 'Calendário' },
@@ -652,7 +661,7 @@ export default function TherapyPackageDetails({
                                     <button
                                         key={key}
                                         onClick={() => setSessionView(key as any)}
-                                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                                             sessionView === key
                                                 ? 'bg-white text-emerald-700 shadow-sm'
                                                 : 'text-gray-500 hover:text-gray-700'
@@ -670,7 +679,7 @@ export default function TherapyPackageDetails({
                                 <p className="text-sm text-gray-500">Nenhuma sessão registrada neste pacote.</p>
                             </div>
                         ) : sessionView === 'list' ? (
-                            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                            <div className="space-y-2">
                                 {sortedSessions.map((session: any, idx: number) => {
                                     const ns = normalizeStatus(session.status);
                                     const cfg = STATUS_STYLES[ns] || STATUS_STYLES.pending;
@@ -679,7 +688,7 @@ export default function TherapyPackageDetails({
                                         <button
                                             key={session._id || session.sessionId || idx}
                                             onClick={() => openSessionModal('edit', session)}
-                                            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-100 transition-colors text-left"
+                                            className="w-full flex items-center justify-between px-3.5 py-2.5 bg-white hover:bg-gray-50 rounded-xl border border-gray-200 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
@@ -694,14 +703,16 @@ export default function TherapyPackageDetails({
                                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} ${cfg.border} border`}>
                                                     {cfg.label}
                                                 </span>
-                                                <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                                                <span className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
+                                                    <Edit2 className="w-3.5 h-3.5 text-gray-500" />
+                                                </span>
                                             </div>
                                         </button>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <div className="min-h-[320px]">
+                            <div className="min-h-[480px]">
                                 <PatientMiniCalendar
                                     appointments={calendarEvents as any}
                                     onEventClick={(appt: any) => openSessionModal('edit', appt.__session)}
@@ -711,13 +722,13 @@ export default function TherapyPackageDetails({
                     </div>
                 </div>
 
-                {/* Footer estilo Liminar / Convênio */}
-                <div className="bg-gray-50 px-6 py-5 border-t border-gray-200">
+                {/* Footer — sticky, fora da área de scroll */}
+                <div className="bg-white px-4 sm:px-6 py-3.5 border-t border-gray-200 shrink-0 sticky bottom-0 z-10">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                         <div className="flex flex-col sm:flex-row gap-2">
                             <button
                                 onClick={openBulk}
-                                className="px-4 py-2.5 text-emerald-700 bg-white border border-emerald-300 rounded-full hover:bg-emerald-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                                className="px-4 py-2.5 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                             >
                                 <Users className="w-4 h-4 shrink-0" />
                                 Alterar sessões pendentes
@@ -726,7 +737,7 @@ export default function TherapyPackageDetails({
                                 <button
                                     onClick={openTransferDialog}
                                     title="Usar sessões não realizadas deste pacote em outra especialidade, sem cobrar de novo"
-                                    className="px-4 py-2.5 text-violet-700 bg-white border border-violet-300 rounded-full hover:bg-violet-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
+                                    className="px-4 py-2.5 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                 >
                                     <ArrowRight className="w-4 h-4 shrink-0" />
                                     Transferir sessões
@@ -736,20 +747,20 @@ export default function TherapyPackageDetails({
                         <div className="flex items-center gap-2 flex-col sm:flex-row">
                             <button
                                 onClick={onClose}
-                                className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors font-medium text-sm"
+                                className="w-full sm:w-auto px-5 py-2.5 text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                             >
                                 Fechar
                             </button>
                             <button
                                 onClick={() => openSessionModal('use')}
-                                className="px-5 py-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors font-medium text-sm flex items-center justify-center gap-2"
+                                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors font-medium text-sm flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                             >
                                 <Plus className="w-4 h-4" />
                                 Nova Sessão
                             </button>
                             <button
                                 onClick={onEdit}
-                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full hover:from-emerald-600 hover:to-green-700 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-md"
+                                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                             >
                                 <Edit2 className="w-4 h-4" />
                                 Editar

@@ -78,6 +78,16 @@ type ConfirmState = {
   pendingLoading: boolean;
 } | { open: false };
 
+// Theming do FullCalendar via CSS custom properties (v6+), escopado ao wrapper
+// do modal de sessões — mesmo tratamento usado em PatientMiniCalendar.tsx.
+const CALENDAR_THEME_VARS = {
+  '--fc-border-color': '#E5E7EB',
+  '--fc-page-bg-color': '#FFFFFF',
+  '--fc-neutral-bg-color': '#F9FAFB',
+  '--fc-today-bg-color': '#EFF6FF',
+  '--fc-now-indicator-color': '#2563EB',
+} as React.CSSProperties;
+
 export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props) {
   const { contract, plan, planError, committed } = data;
   const palette = PALETTES[colorIndex % PALETTES.length];
@@ -1133,24 +1143,25 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         }));
 
         return (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-              <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                <div className="flex items-center gap-4">
-                  <h3 className="font-bold text-slate-800 capitalize">Sessões — {specialtyModal.specialty.replace(/_/g, ' ')}</h3>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} /> Realizada</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#3B82F6' }} /> Confirmada</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} /> Agendada</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#94A3B8' }} /> Cancelada</span>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 sm:p-4">
+            <div className="bg-white sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto max-w-full sm:max-w-[min(1000px,94vw)] max-h-[100dvh] sm:max-h-[min(90vh,920px)] flex flex-col">
+              <div className="flex items-start sm:items-center justify-between gap-3 p-5 border-b border-slate-100 shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
+                  <h3 className="font-bold text-slate-800 capitalize truncate">Sessões — {specialtyModal.specialty.replace(/_/g, ' ')}</h3>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} /> Realizada</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#3B82F6' }} /> Confirmada</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} /> Agendada</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#94A3B8' }} /> Cancelada</span>
                   </div>
                 </div>
                 <button onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100">
+                  className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 shrink-0">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 min-h-0 overflow-y-auto p-5
+                [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
                 {specialtyModal.loading ? (
                   <div className="flex justify-center py-10">
                     <div className="w-6 h-6 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
@@ -1158,39 +1169,58 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 ) : specialtyModal.sessions.length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-10">Nenhuma sessão agendada.</p>
                 ) : (
-                  <FullCalendar
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    headerToolbar={{
-                      left: 'prev,next today',
-                      center: 'title',
-                      right: 'dayGridMonth,timeGridWeek',
-                    }}
-                    locale={ptBR}
-                    initialView="dayGridMonth"
-                    events={events}
-                    height="auto"
-                    eventDisplay="block"
-                    eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
-                    eventClassNames="cursor-pointer"
-                    eventClick={(arg) => {
-                      const session = arg.event.extendedProps.session;
-                      setSpecialtyModal((p) => ({ ...p, open: false }));
-                      setEditingAppointment(sessionToEvent(session));
-                    }}
-                    eventContent={(arg) => {
-                      const session = arg.event.extendedProps.session;
-                      const canceled = isCanceled(session?.operationalStatus);
-                      return (
-                        <div className={`px-1 py-0.5 text-xs leading-tight overflow-hidden ${canceled ? 'opacity-80' : ''}`}>
-                          <div className={`font-semibold ${canceled ? 'line-through' : ''}`}>{arg.timeText}</div>
-                          {session?.doctor?.fullName && (
-                            <div className={`truncate opacity-90 ${canceled ? 'line-through' : ''}`}>{session.doctor.fullName}</div>
-                          )}
-                          <div className="opacity-90">{canceled ? 'Cancelada' : `R$ ${fmt(session?.sessionValue ?? 0)}`}</div>
-                        </div>
-                      );
-                    }}
-                  />
+                  <div
+                    // Mesmo tratamento visual escopado do FullCalendar usado em
+                    // PatientMiniCalendar (Convênio/Pacote) — aqui replicado como
+                    // classes num wrapper próprio, já que o Liminar tem sua própria
+                    // instância de FullCalendar (views/plugins diferentes, preservados).
+                    className="[&_.fc]:font-sans
+                      [&_.fc-toolbar]:flex [&_.fc-toolbar]:flex-wrap [&_.fc-toolbar]:items-center [&_.fc-toolbar]:gap-2 [&_.fc-toolbar]:mb-3
+                      [&_.fc-toolbar-title]:text-[0.95rem] [&_.fc-toolbar-title]:sm:text-lg [&_.fc-toolbar-title]:font-bold [&_.fc-toolbar-title]:text-gray-800
+                      [&_.fc-button]:!rounded-lg [&_.fc-button]:!shadow-none [&_.fc-button]:!border-gray-200 [&_.fc-button]:!bg-white [&_.fc-button]:!text-gray-600 [&_.fc-button]:!text-xs [&_.fc-button]:!font-semibold [&_.fc-button]:!px-2.5 [&_.fc-button]:!py-1.5 [&_.fc-button]:!capitalize
+                      [&_.fc-button:hover]:!bg-gray-50
+                      [&_.fc-button:focus]:!shadow-none
+                      [&_.fc-button-active]:!bg-gray-800 [&_.fc-button-active]:!border-gray-800 [&_.fc-button-active]:!text-white
+                      [&_.fc-daygrid-day-frame]:min-h-[92px]
+                      [&_.fc-col-header-cell-cushion]:py-2 [&_.fc-col-header-cell-cushion]:text-gray-500
+                      [&_.fc-scrollgrid]:!rounded-lg [&_.fc-scrollgrid]:!border-gray-200
+                      [&_.fc-event]:!border-0"
+                    style={CALENDAR_THEME_VARS}
+                  >
+                    <FullCalendar
+                      plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                      headerToolbar={{
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek',
+                      }}
+                      locale={ptBR}
+                      initialView="dayGridMonth"
+                      events={events}
+                      height="auto"
+                      eventDisplay="block"
+                      eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+                      eventClassNames="cursor-pointer"
+                      eventClick={(arg) => {
+                        const session = arg.event.extendedProps.session;
+                        setSpecialtyModal((p) => ({ ...p, open: false }));
+                        setEditingAppointment(sessionToEvent(session));
+                      }}
+                      eventContent={(arg) => {
+                        const session = arg.event.extendedProps.session;
+                        const canceled = isCanceled(session?.operationalStatus);
+                        return (
+                          <div className={`flex flex-col gap-0.5 px-1.5 py-1 text-xs leading-tight overflow-hidden ${canceled ? 'opacity-80' : ''}`}>
+                            <div className={`font-bold ${canceled ? 'line-through' : ''}`}>{arg.timeText}</div>
+                            {session?.doctor?.fullName && (
+                              <div className={`truncate opacity-90 ${canceled ? 'line-through' : ''}`}>{session.doctor.fullName}</div>
+                            )}
+                            <div className="opacity-90">{canceled ? 'Cancelada' : `R$ ${fmt(session?.sessionValue ?? 0)}`}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             </div>

@@ -63,6 +63,15 @@ interface AppointmentDetailModalProps {
     onConvertPreAgendamento?: (id: string) => Promise<void>;
     onRefreshAppointments?: () => void;
     permissions?: CalendarPermissions;
+    // 🚨 FIX (2026-08-15): raiz do modal é uma <div fixed z-50> (Tailwind), não
+    // um MUI <Dialog> — funciona bem sobre a página normal (uso original em
+    // EnhancedCalendar/PaymentPage/ContractCard), mas z-50 fica ABAIXO do
+    // z-index padrão de qualquer MUI Dialog (theme.zIndex.modal = 1300).
+    // GuideDetailsModal (Convênio) abre este modal de DENTRO de um MUI Dialog
+    // já aberto — sem essa prop, ele renderizava atrás do Dialog pai, mesmo
+    // montado por cima. Default 50 preserva o comportamento exato dos 3
+    // chamadores existentes que não passam essa prop.
+    zIndex?: number;
 }
 
 // 🔧 SISTEMA DE TRADUÇÃO DE STATUS
@@ -272,6 +281,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onConvertPreAgendamento,
     onRefreshAppointments,
     permissions: permissionsProp,
+    zIndex = 50,
 }) => {
     const permissions = permissionsProp ?? getDefaultPermissions('admin');
     // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
@@ -2243,7 +2253,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const tabConfig = getTabConfig(activeTab);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4" style={{ zIndex }}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full flex flex-col md:flex-row max-h-[88vh] overflow-hidden border border-gray-200 relative text-sm">
                 
                 {/* 🔄 OVERLAY DE PROCESSAMENTO */}

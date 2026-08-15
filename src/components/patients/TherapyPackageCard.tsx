@@ -330,33 +330,39 @@ export default function TherapyPackageCard({
     setIsBatchCanceling(true);
 
     try {
-      // 🧠 BACKEND DECIDE: Sempre manda lista, backend escolhe a melhor estratégia
-      const sessionIds = Array.from(selectedSessionIds);
-      
-      console.log('[CANCEL] Enviando para backend decidir...', { 
-        packageId: pack.packageId || pack._id, 
-        selectedCount: sessionIds.length,
-        totalScheduled: scheduledSessions.length 
-      });
-      
-      // 🚀 UX OTIMISTA: Atualiza UI imediatamente (antes da resposta)
-      const optimisticCanceled = sessionIds.length;
-      toast.info(`Cancelando ${optimisticCanceled} sessão(ões)...`);
-      
-      // Chama endpoint (backend decide se faz cancel-all ou bulk)
-      const response = await packageService.cancelAllSessions(pack.packageId || pack._id, false);
-      
-      const { canceledSessions, finalStatus } = response.data;
+      // 🎯 Respeita EXATAMENTE a seleção: converte os _id de Session marcados
+      // pelo checkbox nos appointmentId correspondentes e manda só esses —
+      // nunca cancelAllSessions (que ignora a seleção e cancela tudo que está
+      // pendente no pacote).
+      const selectedSessions = (pack.sessions || []).filter((s: any) => selectedSessionIds.has(s._id));
+      const appointmentIds = selectedSessions
+        .map((s: any) => s.appointmentId)
+        .filter((appointmentId: any): appointmentId is string => Boolean(appointmentId));
 
-      if (canceledSessions > 0) {
-        toast.success(`${canceledSessions} sessão(ões) cancelada(s)!`);
-      } else {
-        toast.info('Nenhuma sessão precisava ser cancelada');
+      if (appointmentIds.length === 0) {
+        toast.error('Nenhuma das sessões selecionadas possui agendamento vinculado.');
+        return;
+      }
+
+      toast.info(`Cancelando ${appointmentIds.length} sessão(ões)...`);
+
+      const response = await packageService.bulkCancelSessions(pack.packageId || pack._id, appointmentIds, false);
+
+      if (response.canceledCount > 0) {
+        toast.success(`${response.canceledCount} sessão(ões) cancelada(s)!`);
+      }
+      // Falha parcial nunca é reportada como sucesso total — sempre avisa
+      // exatamente quantas e quais falharam, sem engolir o erro.
+      if (response.failedIds.length > 0) {
+        console.warn('[confirmBatchCancel] Sessões não canceladas:', response.failedIds);
+        toast.error(
+          `${response.failedIds.length} de ${response.totalRequested} sessão(ões) não puderam ser canceladas. Tente novamente.`
+        );
       }
 
       // Limpa seleção
       setSelectedSessionIds(new Set());
-      
+
       // 🔥 ATUALIZAÇÃO OTIMISTA: Atualiza local sem reload pesado
       if (onRefresh) {
         onRefresh(); // Callback do pai para atualizar lista
@@ -448,26 +454,26 @@ export default function TherapyPackageCard({
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden"
+      className="bg-white rounded-2xl border border-gray-200 border-t-[3px] border-t-emerald-500 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden"
     >
       {/* Header com gradiente - verde para therapy, azul para convenio, âmbar para liminar */}
-      <div className={`p-6 border-b ${
+      <div className={`p-4 sm:p-5 border-b border-gray-100 ${
         pack.type === 'convenio'
-          ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-100'
+          ? 'bg-blue-50/20'
           : pack.type === 'liminar'
-          ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100'
+          ? 'bg-emerald-50/20'
           : paymentState === 'paid'
-          ? 'bg-gradient-to-r from-green-50 to-emerald-100 border-green-200'
+          ? 'bg-emerald-50/20'
           : paymentState === 'reserved'
-          ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+          ? 'bg-amber-50/20'
           : paymentState === 'overdue'
-          ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200'
+          ? 'bg-red-50/20'
           : paymentState === 'partial'
-          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100'
-          : 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100'
+          ? 'bg-blue-50/20'
+          : 'bg-white'
       }`}>
         {/* Barra de status: Ativo | estado financeiro | Detalhes */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
           {pack.status === 'active' ? (
             <button
               onClick={(e) => { e.stopPropagation(); setShowInactivateModal(true); }}
@@ -507,14 +513,14 @@ export default function TherapyPackageCard({
               e.stopPropagation();
               onCardClick && onCardClick(pack);
             }}
-            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors font-medium ml-auto"
+            className="text-xs bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-emerald-200 transition-colors font-semibold ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Detalhes
           </button>
         </div>
 
         {/* Info: ícone + nome/profissional */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-start gap-3 mb-3">
           <div className={`p-2 rounded-lg ${
             pack.type === 'convenio'
               ? 'bg-blue-100'
@@ -530,9 +536,9 @@ export default function TherapyPackageCard({
               <Sprout className="h-5 w-5 text-emerald-600" />
             )}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-gray-900">
+              <h3 className="font-semibold text-gray-900 leading-tight truncate">
                 {patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado'}
               </h3>
               {pack.type === 'convenio' && (
@@ -546,7 +552,7 @@ export default function TherapyPackageCard({
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">
               {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
               <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
             </p>
@@ -569,7 +575,7 @@ export default function TherapyPackageCard({
         </div>
 
         {/* Barra de progresso clínico */}
-        <div className="space-y-2">
+        <div className="space-y-1.5 pt-3 border-t border-gray-100">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Progresso Clínico</span>
             <div className="text-right">
@@ -585,9 +591,9 @@ export default function TherapyPackageCard({
               <p className="text-[10px] text-gray-400 leading-none">utilizadas</p>
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
             <div
-              className={`h-2.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+              className={`h-1.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
                 pack.type === 'convenio'
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-600'
                   : pack.type === 'liminar'
@@ -612,7 +618,7 @@ export default function TherapyPackageCard({
       </div>
 
       {/* Conteúdo principal */}
-      <div className="p-6 space-y-4">
+      <div className="p-4 sm:p-5 space-y-3">
         {/* Badge de Status de Faturamento (só para convênio) */}
         {pack.type === 'convenio' && pack.insuranceBillingStatus && (
           <div className={`p-3 rounded-lg border flex items-center gap-2 ${
@@ -645,7 +651,7 @@ export default function TherapyPackageCard({
         )}
 
         {/* Métricas Financeiras */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Valor Total - Condicional para convênio */}
           {pack.type === 'convenio' ? (
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
@@ -667,12 +673,12 @@ export default function TherapyPackageCard({
               </div>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
+            <div className="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-emerald-600" />
                 <span className="text-sm font-medium text-gray-700">Pacote Contratado</span>
               </div>
-              <div className="text-lg font-bold text-gray-900">
+              <div className="text-base font-bold text-gray-900 tabular-nums">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
               </div>
               {financial !== null && paymentState === 'reserved' && (
@@ -727,16 +733,16 @@ export default function TherapyPackageCard({
                 </p>
               </div>
             ) : (
-              <div className={`p-4 rounded-xl border ${
+              <div className={`p-3 rounded-xl border ${
                 paymentState === 'paid'
-                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                  ? 'bg-green-50/60 border-green-100'
                   : paymentState === 'reserved'
-                    ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'
+                    ? 'bg-amber-50/60 border-amber-100'
                     : paymentState === 'overdue'
-                      ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-100'
+                      ? 'bg-red-50/60 border-red-100'
                       : paymentState === 'partial'
-                        ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'
-                        : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
+                        ? 'bg-blue-50/60 border-blue-100'
+                        : 'bg-gray-50/70 border-gray-100'
               }`}>
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingUp className={`h-4 w-4 ${
@@ -854,7 +860,7 @@ export default function TherapyPackageCard({
         )}
 
         {/* Detalhes Financeiros */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t border-gray-100">
           <div className="space-y-1">
             <span className="text-gray-500">Valor/Sessão</span>
             <div className="font-medium text-gray-900">
@@ -1007,7 +1013,7 @@ export default function TherapyPackageCard({
             setSessionsModalView('mes');
             setShowSessionsCalendarModal(true);
           }}
-          className="w-full px-6 py-3 flex items-center justify-between gap-2 hover:bg-emerald-50 transition-colors group"
+          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-2 hover:bg-emerald-50/60 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset"
         >
           <div className="flex items-center gap-2 min-w-0">
             <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
