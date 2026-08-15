@@ -88,6 +88,15 @@ const CALENDAR_THEME_VARS = {
   '--fc-now-indicator-color': '#2563EB',
 } as React.CSSProperties;
 
+export async function completeLiminarAppointment(
+  id: string,
+  completeData: Parameters<typeof appointmentService.complete>[1],
+  onSuccess: () => void,
+) {
+  await appointmentService.complete(id, completeData);
+  onSuccess();
+}
+
 export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props) {
   const { contract, plan, planError, committed } = data;
   const palette = PALETTES[colorIndex % PALETTES.length];
@@ -930,9 +939,12 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             setEditingAppointment(null);
             onRefresh();
           }}
-          onCompleteAppointment={async (_id, _data) => {
-            toast.info('Use a tela de agenda para completar a sessão');
-            setEditingAppointment(null);
+          onCompleteAppointment={async (id, completeData) => {
+            await completeLiminarAppointment(id, completeData, () => {
+              toast.success('Atendimento realizado com sucesso');
+              setEditingAppointment(null);
+              onRefresh();
+            });
           }}
           onEditAppointment={async (id, data) => {
             await appointmentService.update(id, data);
