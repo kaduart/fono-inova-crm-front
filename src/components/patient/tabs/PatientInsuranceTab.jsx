@@ -134,6 +134,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     return presentations
       .filter(p => selectedSpecialty === 'all' || p.specialty === selectedSpecialty)
       .filter(p => {
+        if (selectedStatus === 'cancelled') return p.isCancelled;
         if (selectedStatus === 'inactive') return !p.isUsable;
         return p.isUsable;
       });
@@ -141,6 +142,9 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 
   const activeCount = useMemo(() => presentations.filter(p => p.isUsable).length, [presentations]);
   const inactiveCount = useMemo(() => presentations.filter(p => !p.isUsable).length, [presentations]);
+  // Aba dedicada pra achar guia cancelada sem precisar entrar em "Inativas"
+  // primeiro (achado real: usuário não sabia que #16173377 estava lá dentro).
+  const cancelledCount = useMemo(() => presentations.filter(p => p.isCancelled).length, [presentations]);
 
   const groupedGuides = useMemo(() => {
     const active = availablePresentations.filter(p => p.isUsable);
@@ -480,6 +484,8 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
           sx={{ '&.Mui-selected': { backgroundColor: '#2E7A5E' } }} />
         <Tab label={`Inativas (${inactiveCount})`} value="inactive"
           sx={{ '&.Mui-selected': { backgroundColor: '#C75146' } }} />
+        <Tab label={`Canceladas (${cancelledCount})`} value="cancelled"
+          sx={{ '&.Mui-selected': { backgroundColor: '#A0AABF' } }} />
       </Tabs>
 
       {/* Saldo agregado por especialidade (apenas quando filtrado) */}
@@ -530,7 +536,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       {availablePresentations.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#F9FBFD', borderRadius: '32px' }}>
           <Typography variant="body1" sx={{ color: '#5B6E8C', mb: 1 }}>
-            Nenhuma guia {selectedStatus === 'inactive' ? 'inativa' : 'ativa'} encontrada
+            Nenhuma guia {selectedStatus === 'inactive' ? 'inativa' : selectedStatus === 'cancelled' ? 'cancelada' : 'ativa'} encontrada
             {selectedSpecialty !== 'all' && ` para ${selectedSpecialty.replace(/_/g, ' ')}`}
           </Typography>
           <Typography variant="body2" sx={{ color: '#8A99B0' }}>
