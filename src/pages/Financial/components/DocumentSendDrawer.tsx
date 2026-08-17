@@ -274,7 +274,6 @@ export function DocumentSendDrawer({
     ) => {
         if (!communication) return;
         if (!to) return toast.warn('Informe o destinatário');
-        if (selectedDocumentIds.size === 0) return toast.warn('Selecione pelo menos um documento');
 
         setSending(true);
         let jobId: string | null = null;
@@ -372,12 +371,12 @@ export function DocumentSendDrawer({
         .filter(req => req.required)
         .filter(req => !(groupedByType[req.type] || []).some(d => selectedDocumentIds.has(d._id)));
 
-    // Documentos obrigatórios só fazem sentido pro 1º envio — reenvio/complemento usa
-    // anexos que já foram aceitos e enviados com sucesso antes, então não faz sentido
-    // travar o botão exigindo um tipo de documento que nem estava lá da primeira vez
-    // (achado 2026-08-04: paciente com guia já enviada sem "Guia" anexada tinha o
-    // Reenviar sempre desabilitado).
-    const isReadyToSend = to.trim() !== '' && selectedDocumentIds.size > 0 && (isAlreadySent || missingRequiredDocuments.length === 0);
+    // Documentos obrigatórios e anexos selecionados são só um checklist informativo —
+    // o usuário pode querer mandar só o e-mail (ex.: aviso, cobrança de pendência) sem
+    // nenhum anexo, então o botão não pode ficar travado por "Guia"/"Relatório" faltando
+    // nem por nenhum documento selecionado (pedido 2026-08-17: botão sempre ativo,
+    // bastando ter destinatário preenchido).
+    const isReadyToSend = to.trim() !== '';
 
     return (
         <Drawer
