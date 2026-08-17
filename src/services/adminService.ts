@@ -17,6 +17,9 @@ export const adminService = {
 
     addAdmin: (adminData: { fullName: string; email: string; password: string; role?: string }) =>
         API.post(USE_V2 ? '/v2/admin/dashboard/admins' : '/admin/add-admin', adminData),
+
+    fetchSecretaries: () =>
+        API.get<{ success: boolean; data: Array<{ _id: string; fullName: string; email: string; role: 'secretary' }> }>('/admin/secretaries'),
     
     // 🚀 V2: Novo método para overview do dashboard
     fetchDashboardOverview: () =>

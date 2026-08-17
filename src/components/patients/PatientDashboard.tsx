@@ -1,4 +1,4 @@
-import { Activity, Calendar, ChevronDown, CreditCard, FileText, Plus, Users } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
@@ -87,7 +87,6 @@ export default function PatientDashboard() {
   const [careTeam, setCareTeam] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [completedAppointments, setCompletedAppointments] = useState([]);
-  const [evolutions, setEvolutions] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [allAppointmentsById, setAllAppointmentsById] = useState([]);
   const [evaluationToEdit, setEvaluationToEdit] = useState(null);
@@ -289,11 +288,14 @@ export default function PatientDashboard() {
   };
 
   // Agora usamos patientAppointments diretamente para o card de atividades
-  const recentActivities = patientAppointments.filter(appt =>
-    appt.operationalStatus === 'completed' ||
-    appt.operationalStatus === 'cancelled' ||
-    appt.operationalStatus === 'confirmed'
-  );
+  const recentActivities = patientAppointments
+    .filter(appt =>
+      appt.operationalStatus === 'completed' ||
+      appt.operationalStatus === 'canceled' ||
+      appt.operationalStatus === 'missed' ||
+      appt.operationalStatus === 'confirmed'
+    )
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 
   const fetchCareTeam = async () => {
@@ -341,23 +343,6 @@ export default function PatientDashboard() {
       console.error('Error fetching prescriptions:', error);
     } */
   };
-
-  // 🚀 V2: Busca evoluções usando evaluationService
-  useEffect(() => {
-    if (activeTab === 'Evolution' && patientInfo?._id) {
-      const fetchEvolutions = async () => {
-        try {
-          const data = await getEvaluationsByPatient(patientInfo._id);
-          setEvolutions(data || []);
-        } catch (error) {
-          console.error('Erro ao carregar evoluções:', error);
-          toast.error('Erro ao carregar dados de evolução');
-        }
-      };
-
-      fetchEvolutions();
-    }
-  }, [activeTab, patientInfo]);
 
   const [evaluations, setEvaluations] = useState([]);
 
@@ -481,45 +466,64 @@ export default function PatientDashboard() {
     return (
     <>
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
-          <p className="text-2xl font-black text-gray-900">{totalApts}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{totalDone} concluídos</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-5">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500" />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Atendimentos</p>
+              <p className="mt-1 text-2xl font-extrabold text-slate-900">{totalApts}</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{totalDone} concluídos</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Activity size={18} /></div>
+          </div>
         </div>
-        <div className={`rounded-xl border shadow-sm px-4 py-3 ${totalPending > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-gray-100'}`}>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Pendente</p>
-          <p className={`text-2xl font-black ${totalPending > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
-            {totalPending > 0 ? `R$ ${totalPending.toLocaleString('pt-BR')}` : '—'}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-0.5">a receber</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Próxima Sessão</p>
-          {nextAptDate ? (
-            <>
-              <p className="text-base font-black text-gray-900 leading-tight">
-                {nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className={`absolute inset-x-0 top-0 h-0.5 ${totalPending > 0 ? 'bg-amber-500' : 'bg-slate-300'}`} />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
+              <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
+                {totalPending > 0 ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ 0,00'}
               </p>
-              <p className="text-[10px] text-gray-500 mt-0.5 truncate">
-                {nextApt.time && `${nextApt.time} · `}{nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-gray-400 mt-1">Sem agenda</p>
-          )}
+              <p className="mt-0.5 text-[11px] text-slate-500">valor a receber</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-2.5 text-amber-600"><CreditCard size={18} /></div>
+          </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Status</p>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {ptTags.length > 0 ? ptTags.map((t: string) => (
-              <span key={t} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${t === 'debito' ? 'bg-red-100 text-red-600' : t === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'}`}>{t}</span>
-            )) : <span className="text-sm text-gray-400">Regular</span>}
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Próxima sessão</p>
+              <p className="mt-1 text-xl font-extrabold text-slate-900">
+                {nextAptDate ? nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Sem agenda'}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                {nextAptDate ? `${nextApt.time || 'Horário pendente'} · ${nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}` : 'Nenhuma sessão futura'}
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Calendar size={18} /></div>
+          </div>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-violet-500" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Classificações</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {ptTags.length > 0 ? ptTags.map((tag: string) => (
+                  <span key={tag} className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${tag === 'debito' ? 'bg-red-100 text-red-700' : tag === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
+                )) : <span className="text-sm font-bold text-emerald-700">Regular</span>}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">situação atual do paciente</p>
+            </div>
+            <div className="rounded-xl bg-violet-50 p-2.5 text-violet-600"><ShieldCheck size={18} /></div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 mb-8">
         {/* Card Agendamentos para Hoje */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -547,7 +551,7 @@ export default function PatientDashboard() {
                 <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start gap-3">
                     {/* Avatar com inicial do profissional */}
-                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                    <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
                       {appointment.doctor?.fullName?.charAt(0) || '?'}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -642,7 +646,13 @@ export default function PatientDashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-medium text-gray-900">
-                        {appointment.operationalStatus === 'confirmed' ? 'Consulta realizada' : 'Consulta cancelada'}
+                        {appointment.operationalStatus === 'completed' || appointment.clinicalStatus === 'completed'
+                          ? 'Atendimento concluído'
+                          : appointment.operationalStatus === 'canceled'
+                            ? 'Atendimento cancelado'
+                            : appointment.operationalStatus === 'missed'
+                              ? 'Falta registrada'
+                              : 'Atendimento atualizado'}
                       </h4>
                       <span className="text-xs text-gray-500">
                         {new Date(appointment.date).toLocaleDateString('pt-BR')}
@@ -689,7 +699,7 @@ export default function PatientDashboard() {
           </div>
 
           <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
-            <button className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors">
+            <button onClick={handleOpenHistory} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors">
               Ver todas as atividades →
             </button>
           </div>
@@ -715,7 +725,7 @@ export default function PatientDashboard() {
         />
       </div>
 
-      <Card>
+      {prescriptions.length > 0 && <Card>
         <CardHeader icon={FileText}>
           <CardTitle className="text-sm font-medium">Prescrições</CardTitle>
         </CardHeader>
@@ -749,8 +759,8 @@ export default function PatientDashboard() {
             ))}
           </div>
         )}
-      </Card>
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+      </Card>}
+      {careTeam.length > 0 && <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Equipe de cuidado</CardTitle>
@@ -766,7 +776,7 @@ export default function PatientDashboard() {
             </ul>
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
       <AppointmentHistoryModal
         open={showHistory}
@@ -778,6 +788,116 @@ export default function PatientDashboard() {
   };
 
 
+  const renderProfile = () => {
+    const address = patientInfo.address;
+    const fullAddress = address
+      ? [address.street, address.number, address.district, address.city, address.state].filter(Boolean).join(', ')
+      : '';
+    const birthDate = patientInfo.dateOfBirth
+      ? new Date(patientInfo.dateOfBirth).toLocaleDateString('pt-BR')
+      : 'Não informado';
+
+    const InfoItem = ({ label, value }: { label: string; value?: string | boolean }) => (
+      <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+          {typeof value === 'boolean' ? (value ? 'Sim' : 'Não') : value || 'Não informado'}
+        </p>
+      </div>
+    );
+
+    return (
+      <div className="space-y-4">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-white p-5 sm:flex-row sm:items-center">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <UserRound size={26} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700">Perfil do paciente</p>
+              <h2 className="truncate text-xl font-extrabold text-slate-900">{patientInfo.fullName}</h2>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span>{birthDate}</span>
+                <span>{patientInfo.gender || 'Gênero não informado'}</span>
+                <span>{patientInfo.profession || 'Profissão não informada'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2 lg:p-5">
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <UserRound size={17} className="text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Dados pessoais</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <InfoItem label="Nome completo" value={patientInfo.fullName} />
+                <InfoItem label="Nascimento" value={birthDate} />
+                <InfoItem label="CPF" value={patientInfo.cpf} />
+                <InfoItem label="RG" value={patientInfo.rg} />
+                <InfoItem label="Estado civil" value={patientInfo.maritalStatus} />
+                <InfoItem label="Naturalidade" value={patientInfo.placeOfBirth} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Phone size={17} className="text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900">Contato e endereço</h3>
+              </div>
+              <div className="space-y-2.5">
+                <InfoItem label="Telefone" value={patientInfo.phone} />
+                <InfoItem label="E-mail" value={patientInfo.email} />
+                <InfoItem label="Endereço" value={fullAddress} />
+                <InfoItem label="CEP" value={address?.zipCode} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-4 lg:col-span-2">
+              <div className="mb-3 flex items-center gap-2">
+                <HeartPulse size={17} className="text-rose-600" />
+                <h3 className="text-sm font-bold text-slate-900">Informações clínicas</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+                <InfoItem label="Queixa principal" value={patientInfo.mainComplaint} />
+                <InfoItem label="Histórico clínico" value={patientInfo.clinicalHistory} />
+                <InfoItem label="Alergias" value={patientInfo.allergies} />
+                <InfoItem label="Medicamentos" value={patientInfo.medications} />
+                <InfoItem label="Histórico familiar" value={patientInfo.familyHistory} />
+                <InfoItem label="Especialidades" value={patientInfo.specialties?.map(item => String(item).replaceAll('_', ' ')).join(', ')} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <ShieldCheck size={17} className="text-violet-600" />
+                <h3 className="text-sm font-bold text-slate-900">Responsáveis e autorizações</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <InfoItem label="Responsável legal" value={patientInfo.legalGuardian} />
+                <InfoItem label="Autorização de imagem" value={patientInfo.imageAuthorization} />
+                <InfoItem label="Contato de emergência" value={patientInfo.emergencyContact?.name} />
+                <InfoItem label="Telefone de emergência" value={patientInfo.emergencyContact?.phone} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <ShieldCheck size={17} className="text-cyan-600" />
+                <h3 className="text-sm font-bold text-slate-900">Plano de saúde</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <InfoItem label="Convênio" value={patientInfo.healthPlan?.name} />
+                <InfoItem label="Número da carteirinha" value={patientInfo.healthPlan?.policyNumber} />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+
   const renderEvolution = () => {
     if (!patientInfo) return null;
 
@@ -785,6 +905,7 @@ export default function PatientDashboard() {
       <PatientEvolution
         patientId={patientInfo._id}
         patientName={patientInfo.fullName}
+        initialEvolutions={evaluations}
       />
     );
   };
@@ -896,30 +1017,25 @@ export default function PatientDashboard() {
 
       <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* 🔹 Cabeçalho institucional */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="relative mb-5 flex flex-col items-start justify-between gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500" />
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-50 rounded-lg">
-              <Calendar size={26} style={{ color: '#00C087' }} />
+            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600">
+              <Calendar size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">
+              <h1 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
                 {patientInfo?.fullName || 'Paciente'}
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Gerencie avaliações, agendamentos e histórico do paciente.
+              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+                Visão consolidada do acompanhamento clínico e financeiro.
               </p>
             </div>
           </div>
 
           <button
             onClick={() => setShowBalanceModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-all duration-200"
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              fontWeight: 600,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'linear-gradient(135deg, #fbbf24, #b45309)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)')}
+            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
           >
             <CreditCard size={18} />
             Fechar Atendimento
@@ -927,16 +1043,7 @@ export default function PatientDashboard() {
         </div>
 
 
-        <div className="mb-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {activeTab === 'Dashboard'}
-            {activeTab === 'Profile'}
-            {activeTab === 'Appointment Booking'}
-            {activeTab === 'Management Packages'}
-            {activeTab === 'Liminar'}
-            {activeTab === 'Evolution'}
-          </h2>
-          
+        {(pollingState.isPolling || isLoading) && <div className="mb-4 flex justify-end">
           {/* 🚀 V2: Indicador de processamento assíncrono */}
           {pollingState.isPolling && (
             <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">
@@ -951,10 +1058,11 @@ export default function PatientDashboard() {
               <span>Carregando...</span>
             </div>
           )}
-        </div>
+        </div>}
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className={activeTab === 'Dashboard' ? '' : 'bg-white rounded-xl border border-gray-100 shadow-sm p-6'}>
           {activeTab === 'Dashboard' && renderDashboard()}
+          {activeTab === 'Profile' && renderProfile()}
           {activeTab === 'Appointment Booking' && renderAppointmentBooking()}
           {activeTab === 'Management Packages' && renderManagePackages()}
           {activeTab === 'Liminar' && renderLiminar()}

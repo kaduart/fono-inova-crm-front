@@ -27,8 +27,8 @@ export const CardTitle = ({ children, className = '' }: { children: React.ReactN
     <h3 className={`text-lg leading-6 font-medium ${className}`}>{children}</h3>
 );
 
-export const CardContent = ({ children }: { children: React.ReactNode }) => (
-    <div className="px-4 py-5 sm:p-6">{children}</div>
+export const CardContent = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+    <div className={`px-4 py-5 sm:p-6 ${className}`}>{children}</div>
 );
 
 export const CardFooter = ({ children }: { children: React.ReactNode }) => (

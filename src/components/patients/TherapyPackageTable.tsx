@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Archive, Pencil } from 'lucide-react';
 import { ITherapyPackage } from '../../utils/types/types';
 
 type Props = {
@@ -6,7 +6,7 @@ type Props = {
     currentPage: number;
     totalPages: number;
     onEdit: (pkg: ITherapyPackage) => void;
-    onDelete: (id: string) => void;
+    onInactivate: (id: string) => void;
     onPageChange: (page: number) => void;
 };
 
@@ -36,7 +36,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
     completed:      { label: 'Concluído',  color: 'bg-gray-100 text-gray-700' },
 };
 
-export default function TherapyPackageTable({ packages, currentPage, totalPages, onEdit, onDelete, onPageChange }: Props) {
+export default function TherapyPackageTable({ packages, currentPage, totalPages, onEdit, onInactivate, onPageChange }: Props) {
     if (!packages.length) return null;
 
     return (
@@ -101,9 +101,18 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
                                     <button onClick={() => onEdit(pkg)} className="text-blue-600 hover:text-blue-800" title="Editar">
                                         <Pencil size={16} />
                                     </button>
-                                    <button onClick={() => onDelete(pkg._id)} className="text-red-600 hover:text-red-800" title="Excluir">
-                                        <Trash2 size={16} />
-                                    </button>
+                                    {pkg.status === 'active' && pkg.paymentType === 'per-session' && (
+                                        <button onClick={() => onInactivate(pkg._id)} className="text-amber-600 hover:text-amber-800" title="Inativar pacote">
+                                            <Archive size={16} />
+                                            <span className="sr-only">Inativar pacote</span>
+                                        </button>
+                                    )}
+                                    {pkg.status === 'active' && ['full', 'partial', 'prepaid'].includes(pkg.paymentType || '') && (
+                                        <button disabled className="cursor-not-allowed text-gray-300" title="Este pacote possui valor antecipado e exige transferência, crédito ou estorno antes do encerramento">
+                                            <Archive size={16} />
+                                            <span className="sr-only">Inativação indisponível</span>
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         );

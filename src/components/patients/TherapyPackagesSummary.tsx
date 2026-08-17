@@ -390,7 +390,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                                 <button onClick={() => setActiveTab('inactive')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'inactive' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Inativos ({inactivePackages.length})</button>
                             </div>
                             {displayedPackages.length > 0 ? (
-                                <div className="grid gap-5 sm:gap-6 items-start [grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))]">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
                                     {displayedPackages.map(pkg => (
                                         <TherapyPackageCard
                                             key={pkg._id}

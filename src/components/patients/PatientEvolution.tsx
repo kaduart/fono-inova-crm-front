@@ -11,16 +11,16 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
-import { FileText } from 'lucide-react';
+import { Activity, CalendarDays, FileText, Stethoscope, UserRound } from 'lucide-react';
+import API from '../../services/api';
 import { getEvaluationsByPatient } from '../../services/evaluationService';
-import { extractData } from '../../utils/dtoHelper';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     CartesianGrid,
+    Area,
+    AreaChart,
     Legend,
-    Line,
-    LineChart,
     PolarAngleAxis,
     PolarGrid,
     PolarRadiusAxis,
@@ -40,6 +40,29 @@ interface Metric {
     name: string;
     type: string;
 }
+
+const deriveMetrics = (evolutions: EvolutionFormData[]): Metric[] => {
+    const available = new Map<string, Metric>();
+
+    evolutions.forEach((evolution: any) => {
+        (evolution.evaluationAreas || []).forEach((area: any) => {
+            if (!area?.id) return;
+            available.set(area.id, {
+                _id: area.id,
+                name: area.name || area.id,
+                type: evolution.evaluationTypes?.[0] || area.id,
+            });
+        });
+
+    });
+
+    return Array.from(available.values());
+};
+
+const getMetricValue = (evolution: any, metricId: string): number | undefined => {
+    const area = (evolution.evaluationAreas || []).find((item: any) => item.id === metricId);
+    return area?.score !== undefined && area?.score !== null ? Number(area.score) : undefined;
+};
 interface ChartDataItem {
     date: string;
     [key: string]: number | string;
@@ -47,9 +70,10 @@ interface ChartDataItem {
 interface PatientEvolutionProps {
     patientId: string;
     patientName: string;
+    initialEvolutions: EvolutionFormData[];
 }
 
-const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientName }) => {
+const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientName, initialEvolutions }) => {
     const [evolutions, setEvolutions] = useState<EvolutionFormData[]>([]);
     const [metrics, setMetrics] = useState<Metric[]>([]);
     const [selectedType, setSelectedType] = useState('all');
@@ -65,30 +89,13 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
     const userRole = localStorage.getItem('userRole');
 
 
-    const [evaluationTypes, setEvaluationTypes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // 🚀 V2: Busca evoluções do paciente
-        getEvaluationsByPatient(patientId)
-            .then(response => {
-                setEvolutions(response);
-                setIsLoading(false);
-            })
-            .catch(error => {
-                console.error("Error fetching evolutions:", error);
-                setIsLoading(false);
-            });
-
-        // Fetch available evaluation types (mantém legado por enquanto)
-        axios.get(`/api/evaluationTypes`)
-            .then(response => {
-                setEvaluationTypes(response.data);
-            })
-            .catch(error => {
-                console.error("Error fetching evaluation types:", error);
-            });
-    }, [patientId]);
+        setEvolutions(initialEvolutions);
+        setMetrics(deriveMetrics(initialEvolutions));
+        setIsLoading(false);
+    }, [initialEvolutions]);
 
 
     // Preparar dados para o gráfico
@@ -109,12 +116,14 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
             // Se uma métrica específica for selecionada
             if (selectedMetric !== 'all') {
-                const metricValue = evolution.metrics?.[selectedMetric] || 0;
+                const metricValue = getMetricValue(evolution, selectedMetric);
                 const metricName = metrics.find(m => m._id === selectedMetric)?.name || selectedMetric;
 
                 return {
                     date,
-                    [metricName]: metricValue
+                    [metricName]: metricValue,
+                    status: evolution.treatmentStatus,
+                    timestamp: new Date(evolution.date).getTime(),
                 };
             }
 
@@ -123,25 +132,29 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
             metrics.forEach((metric: Metric) => {
                 if (selectedType === 'all' || metric.type === selectedType) {
-                    metricValues[metric.name] = evolution.metrics?.[metric._id] || 0;
+                    const value = getMetricValue(evolution, metric._id);
+                    if (value !== undefined) metricValues[metric.name] = value;
                 }
             });
 
             return {
                 date,
                 ...metricValues,
-                status: evolution.treatmentStatus
+                status: evolution.treatmentStatus,
+                timestamp: new Date(evolution.date).getTime(),
             };
-        });
+        }).filter(item => Object.entries(item).some(([key, value]) =>
+            !['date', 'status', 'timestamp'].includes(key)
+            && typeof value === 'number'
+            && Number.isFinite(value)
+        ));
 
         // Ordenar por data
         data.sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            return dateA - dateB;
+            return a.timestamp - b.timestamp;
         });
 
-        const normalizedData = data.map(item => ({
+        const normalizedData = data.map(({ timestamp: _timestamp, ...item }) => ({
             ...item,
             status: item.status ?? "unknown", // substitui undefined por 'unknown' (ou outro valor padrão)
         }));
@@ -149,17 +162,6 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
         setChartData(normalizedData);
     }, [evolutions, metrics, selectedType, selectedMetric]);
 
-
-
-    const handleSaveEvolution = (data: any) => {
-        axios.post('/api/v2/evolutions', data)
-            .then(() => {
-                axios.get(`/api/v2/evolutions/${patientId}`)
-                    .then(response => setEvolutions(extractData(response)))
-                    .catch(error => console.error('Error fetching evolutions after saving:', error));
-            })
-            .catch(error => console.error('Error saving evolution:', error));
-    };
     const handleTypeChange = (event: React.ChangeEvent<{ value: unknown }>) => {
         setSelectedType(event.target.value as string);
         setSelectedMetric('all');
@@ -175,7 +177,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
     const handleFormSubmit = async (formData: any) => {
         try {
-            await axios.post('/api/v2/evolutions', {
+            await API.post('/v2/evolutions', {
                 ...formData,
                 patientId
             });
@@ -183,6 +185,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
             // Recarregar evoluções (V2)
             const evolutionsRes = await getEvaluationsByPatient(patientId);
             setEvolutions(evolutionsRes);
+            setMetrics(deriveMetrics(evolutionsRes));
 
             setShowForm(false);
         } catch (error) {
@@ -192,7 +195,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
     const generatePDF = async () => {
         try {
-            const response = await axios.get(`/api/reports/patient/${patientId}`, {
+            const response = await API.get(`/reports/patient/${patientId}`, {
                 responseType: 'blob'
             });
 
@@ -208,21 +211,37 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
         }
     };
 
+    const orderedEvolutions = [...evolutions].sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const latestEvolution = orderedEvolutions[0] as any;
+    const scoredEvolutions = orderedEvolutions.filter((evolution: any) =>
+        (evolution.evaluationAreas || []).some((area: any) => area.score !== undefined && area.score !== null)
+    ).length;
+
     return (
-        <div className="space-y-6 p-4">
+        <div className="space-y-6 p-2 sm:p-4">
             {isLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                     <LoadingSpinner />
                 </Box>
             ) : (
-                <Box sx={{ p: 3 }}>
-                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                            <Typography variant="h5" component="h1">
-                                Evolução do Paciente: {patientName}
-                            </Typography>
+                <Box>
+                    <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, mb: 3, border: '1px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
+                        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 3 }}>
+                            <Box>
+                                <Typography fontSize="0.72rem" fontWeight={800} color="#059669" textTransform="uppercase" letterSpacing="0.08em">
+                                    Acompanhamento clínico
+                                </Typography>
+                                <Typography variant="h5" component="h1" fontWeight={800} color="#0F172A">
+                                    Evolução de {patientName}
+                                </Typography>
+                                <Typography fontSize="0.82rem" color="#64748B" mt={0.35}>
+                                    Histórico clínico, indicadores e progresso terapêutico do paciente.
+                                </Typography>
+                            </Box>
 
-                            <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Box sx={{ display: 'flex', gap: 1.25 }}>
                                 <Button
                                     variant="outlined"
                                     startIcon={<FileText size={16} />}
@@ -234,10 +253,10 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
 
                                 <Button
                                     variant="contained"
-                                    color="primary"
                                     onClick={() => setShowForm(true)}
+                                    sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}
                                 >
-                                    Nova Avaliação
+                                    Nova evolução
                                 </Button>
                             </Box>
                         </Box>
@@ -246,8 +265,76 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                             <Typography>Nenhuma evolução registrada para este paciente.</Typography>
                         ) : (
                             <>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                                    {[
+                                        { label: 'Evoluções registradas', value: evolutions.length, icon: Activity, iconClass: 'bg-emerald-100 text-emerald-700' },
+                                        { label: 'Último atendimento', value: latestEvolution ? new Date(latestEvolution.date).toLocaleDateString('pt-BR') : '—', icon: CalendarDays, iconClass: 'bg-blue-100 text-blue-700' },
+                                        { label: 'Profissional', value: latestEvolution?.doctor?.fullName || 'Não informado', icon: UserRound, iconClass: 'bg-violet-100 text-violet-700' },
+                                        { label: 'Avaliações pontuadas', value: scoredEvolutions, icon: Stethoscope, iconClass: 'bg-amber-100 text-amber-700' },
+                                    ].map(({ label, value, icon: Icon, iconClass }) => (
+                                        <div key={label} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 min-w-0">
+                                            <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${iconClass}`}>
+                                                <Icon size={16} />
+                                            </div>
+                                            <p className="truncate text-base font-extrabold text-slate-900" title={String(value)}>{value}</p>
+                                            <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{label}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mb-6 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                                        <div>
+                                            <h2 className="text-sm font-bold text-slate-900">Evoluções recentes</h2>
+                                            <p className="text-[11px] text-slate-500">Registros clínicos mais recentes do acompanhamento</p>
+                                        </div>
+                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                                            {evolutions.length} registros
+                                        </span>
+                                    </div>
+                                    <div className="divide-y divide-slate-100">
+                                        {orderedEvolutions.slice(0, 6).map((evolution: any) => (
+                                            <article key={evolution._id} className="px-4 py-3.5 hover:bg-slate-50/70 transition-colors">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <time className="text-xs font-extrabold text-slate-900">
+                                                                {new Date(evolution.date).toLocaleDateString('pt-BR')} {evolution.time ? `às ${evolution.time}` : ''}
+                                                            </time>
+                                                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                                                {getStatusLabel(evolution.treatmentStatus)}
+                                                            </span>
+                                                            {evolution.specialty && (
+                                                                <span className="text-[11px] font-medium capitalize text-slate-500">{String(evolution.specialty).replaceAll('_', ' ')}</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="mt-1.5 text-sm leading-5 text-slate-700">{evolution.content || 'Sem descrição clínica.'}</p>
+                                                        <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                                                            {evolution.doctor?.fullName || 'Profissional não informado'}
+                                                        </p>
+                                                    </div>
+                                                    {(evolution.evaluationAreas || []).length > 0 && (
+                                                        <div className="flex shrink-0 flex-wrap gap-1.5 sm:max-w-52 sm:justify-end">
+                                                            {evolution.evaluationAreas.map((area: any) => (
+                                                                <span key={area.id} className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+                                                                    {area.name}: {area.score}/10
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
+                                    <div className="mb-1">
+                                        <h2 className="text-sm font-bold text-slate-900">Indicadores de evolução</h2>
+                                        <p className="text-[11px] text-slate-500">O gráfico considera apenas registros que possuem avaliação pontuada.</p>
+                                    </div>
                                 <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
-                                    <Tab label="Gráfico de Linha" />
+                                    <Tab label="Evolução Clínica" />
                                     <Tab label="Gráfico de Barras" />
                                     <Tab label="Gráfico Radar" />
                                 </Tabs>
@@ -292,40 +379,65 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                 </Grid>
 
                                 <Box sx={{ height: 400, mb: 3 }}>
-                                    {tabValue === 0 && (
+                                    {tabValue === 0 && chartData.length > 0 && (
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart
+                                            <AreaChart
                                                 data={chartData}
-                                                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                                margin={{ top: 18, right: 24, left: 0, bottom: 8 }}
                                             >
-                                                <CartesianGrid strokeDasharray="3 3" />
-                                                <XAxis dataKey="date" />
-                                                <YAxis domain={[0, 10]} />
-                                                <Tooltip />
-                                                <Legend />
+                                                <defs>
+                                                    {Object.keys(chartData[0] || {})
+                                                        .filter(key => key !== 'date' && key !== 'status')
+                                                        .map((key, index) => (
+                                                            <linearGradient key={key} id={`clinicalGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor={getLineColor(index)} stopOpacity={0.34} />
+                                                                <stop offset="95%" stopColor={getLineColor(index)} stopOpacity={0.03} />
+                                                            </linearGradient>
+                                                        ))}
+                                                </defs>
+                                                <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="date" axisLine={{ stroke: '#cbd5e1' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} dy={8} />
+                                                <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={32} />
+                                                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 10px 25px rgba(15,23,42,.08)' }} />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
 
                                                 {selectedMetric !== 'all' ? (
-                                                    <Line
+                                                    <Area
                                                         type="monotone"
                                                         dataKey={Object.keys(chartData[0] || {}).find(key => key !== 'date' && key !== 'status')}
-                                                        stroke="#8884d8"
-                                                        activeDot={{ r: 8 }}
+                                                        stroke="#2563eb"
+                                                        strokeWidth={2.5}
+                                                        fill="url(#clinicalGradient-0)"
+                                                        activeDot={{ r: 5, strokeWidth: 2, fill: '#fff' }}
+                                                        connectNulls
                                                     />
                                                 ) : (
                                                     Object.keys(chartData[0] || {})
                                                         .filter(key => key !== 'date' && key !== 'status')
                                                         .map((key, index) => (
-                                                            <Line
+                                                            <Area
                                                                 key={key}
                                                                 type="monotone"
                                                                 dataKey={key}
                                                                 stroke={getLineColor(index)}
-                                                                activeDot={{ r: 8 }}
+                                                                strokeWidth={2.5}
+                                                                fill={`url(#clinicalGradient-${index})`}
+                                                                activeDot={{ r: 5, strokeWidth: 2, fill: '#fff' }}
+                                                                connectNulls
                                                             />
                                                         ))
                                                 )}
-                                            </LineChart>
+                                            </AreaChart>
                                         </ResponsiveContainer>
+                                    )}
+                                    {tabValue === 0 && chartData.length === 0 && (
+                                        <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white text-center">
+                                            <div>
+                                                <Activity className="mx-auto h-8 w-8 text-slate-300" />
+                                                <p className="mt-2 text-sm font-bold text-slate-700">Ainda não há pontuações para o gráfico</p>
+                                                <p className="mt-1 text-xs text-slate-500">Registre avaliações com áreas pontuadas para acompanhar a evolução.</p>
+                                            </div>
+                                        </div>
                                     )}
 
                                     {tabValue === 1 && chartData.length > 0 && (
@@ -381,6 +493,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                 <Typography variant="subtitle1" gutterBottom>
                                     Status do Tratamento: {getStatusLabel(chartData[chartData.length - 1]?.status)}
                                 </Typography>
+                                </div>
                             </>
                         )}
                     </Paper>

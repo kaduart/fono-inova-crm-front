@@ -3,7 +3,7 @@ import {
     Alert, Chip, MenuItem, Skeleton, Tab, Tabs, Badge, Tooltip, IconButton,
     FormControl, InputLabel, Select, LinearProgress
 } from '@mui/material';
-import { format, isSameDay, parseISO } from 'date-fns';
+import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -36,6 +36,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
 import { EmitFiscalInvoiceModal } from '../../components/fiscal/EmitFiscalInvoiceModal';
 import AppointmentPackageProgress from '../../components/appointments/AppointmentPackageProgress';
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts';
 
 interface DayData {
     date: string;
@@ -133,6 +134,7 @@ const resolveStatusFinanceiro = (a: any): string => {
 
 const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoadingChange }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
+    const [previousDayCashflow, setPreviousDayCashflow] = useState<CashflowV2Response | null>(null);
 
     const [monthData, setMonthData] = useState<DayData[]>([]);
     const [monthResumo, setMonthResumo] = useState<{
@@ -281,10 +283,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         onLoadingChange?.(true);
         try {
             let res;
-            if (dateRange && !manualDateOverride) {
+            if (dateRange && !manualDateOverride && dateRange.startDate !== dateRange.endDate) {
                 res = await cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate);
+                setPreviousDayCashflow(null);
             } else {
-                res = await cashflowService.getDailyCashflow(selectedDate);
+                const currentDate = dateRange && !manualDateOverride ? dateRange.startDate : selectedDate;
+                const previousDate = format(subDays(parseISO(currentDate), 1), 'yyyy-MM-dd');
+                const [currentResponse, previousResponse] = await Promise.all([
+                    cashflowService.getDailyCashflow(currentDate),
+                    cashflowService.getDailyCashflow(previousDate),
+                ]);
+                res = currentResponse;
+                if (guard.active) setPreviousDayCashflow(previousResponse.data);
             }
             if (!guard.active) return;
             setDailyCashflow(res.data);
@@ -358,6 +368,31 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const periodTitle = isMultiDayRange ? 'do Período' : 'do Dia';
 
     const data = dailyCashflow?.data;
+    const hourlyCashComparison = useMemo(() => {
+        if (!data || !previousDayCashflow?.data || isMultiDayRange) return [];
+        const buildHourlyTotals = (transactions: CashflowV2Data['transacoes']) => {
+            const totals = new Map<number, number>();
+            (transactions || []).forEach(transaction => {
+                const hour = Number.parseInt(String(transaction.hora || '0').split(':')[0], 10);
+                if (!Number.isFinite(hour)) return;
+                totals.set(hour, (totals.get(hour) || 0) + Number(transaction.valor || 0));
+            });
+            return totals;
+        };
+        const todayByHour = buildHourlyTotals(data.transacoes);
+        const previousByHour = buildHourlyTotals(previousDayCashflow.data.transacoes);
+        const populatedHours = [...todayByHour.keys(), ...previousByHour.keys()];
+        const firstHour = Math.min(7, ...(populatedHours.length ? populatedHours : [7]));
+        const lastHour = Math.max(19, ...(populatedHours.length ? populatedHours : [19]));
+        let todayAccumulated = 0;
+        let previousAccumulated = 0;
+        return Array.from({ length: lastHour - firstHour + 1 }, (_, index) => {
+            const hour = firstHour + index;
+            todayAccumulated += todayByHour.get(hour) || 0;
+            previousAccumulated += previousByHour.get(hour) || 0;
+            return { hour: `${String(hour).padStart(2, '0')}h`, hoje: todayAccumulated, anterior: previousAccumulated };
+        });
+    }, [data, previousDayCashflow, isMultiDayRange]);
 
     // Cálculos para o mês
     const monthTotals = useMemo(() => {
@@ -815,6 +850,48 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             })()}
                         </div>
                     </div>
+
+                    {/* ========== COMPARATIVO HORÁRIO DE CAIXA ========== */}
+                    {!isMultiDayRange && hourlyCashComparison.length > 0 && (
+                        <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <ShowChartIcon style={{ fontSize: 18 }} className="text-emerald-600" />
+                                        <h3 className="text-sm font-black text-slate-900">Evolução do Caixa por Horário</h3>
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-slate-500">Recebimentos acumulados ao longo do dia comparados ao dia anterior.</p>
+                                </div>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                    <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Hoje {formatCurrency(data.caixa.total)}</span>
+                                    <span className="rounded-lg bg-blue-50 px-3 py-1.5 font-bold text-blue-700">Dia anterior {formatCurrency(previousDayCashflow?.data?.caixa.total || 0)}</span>
+                                </div>
+                            </div>
+                            <div className="h-64 w-full sm:h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={hourlyCashComparison} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+                                        <defs>
+                                            <linearGradient id="cashTodayGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.34} />
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.03} />
+                                            </linearGradient>
+                                            <linearGradient id="cashPreviousGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.24} />
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="hour" axisLine={{ stroke: '#cbd5e1' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} width={72} tickFormatter={(value) => `R$ ${Number(value).toLocaleString('pt-BR', { notation: 'compact' })}`} />
+                                        <RechartsTooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 10px 25px rgba(15,23,42,.08)' }} />
+                                        <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} formatter={(value) => value === 'hoje' ? 'Hoje' : 'Dia anterior'} />
+                                        <Area type="monotone" dataKey="anterior" stroke="#3b82f6" strokeWidth={2.25} fill="url(#cashPreviousGradient)" activeDot={{ r: 4 }} />
+                                        <Area type="monotone" dataKey="hoje" stroke="#10b981" strokeWidth={2.75} fill="url(#cashTodayGradient)" activeDot={{ r: 5 }} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ========== EFICIÊNCIA FINANCEIRA DO DIA ========== */}
                     {!isMultiDayRange && data.eficienciaFinanceira && data.eficienciaFinanceira.atendimentos > 0 && (() => {

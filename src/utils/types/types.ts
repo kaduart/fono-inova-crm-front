@@ -127,7 +127,8 @@ export interface ITherapyPackage {
     sessionsRemaining?: number;
     sessionValue: number;
     payments: IPayment[];
-    status: 'active' | 'completed' | 'pending';
+    status: 'active' | 'completed' | 'pending' | 'canceled';
+    paymentType?: 'per-session' | 'full' | 'partial' | 'prepaid';
     totalPaid: number;
     balance: number;
     remaining: number;

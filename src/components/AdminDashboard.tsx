@@ -87,6 +87,7 @@ import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '..
 // 🚫 REMOVIDO: import do usePixSocket para evitar reload automático
 // import { usePixSocket } from '../hooks/usePixSocket';
 import AddAdminContent from './admin/AddAdminContent';
+import SecretariesManagement from './admin/SecretariesManagement';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
@@ -1127,7 +1128,7 @@ export default function AdminDashboard() {
             case 'Add Admin':
                 return <AddAdminContent addNewAdmin={addNewAdmin} role="admin" />;
             case 'Add Secretária':
-                return <AddAdminContent addNewAdmin={addNewAdmin} role="secretary" />;
+                return <SecretariesManagement addNewAdmin={addNewAdmin} />;
             case 'Add Profissional':
                 return (
                     <Suspense fallback={<TabSpinner />}>

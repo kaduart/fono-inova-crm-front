@@ -208,11 +208,13 @@ function formatDateStatic(date: string | Date) {
 }
 
 export function PatientAppointmentsTable({ appointments, patientId, onMoved }: Props) {
+  const PAGE_SIZE = 10;
   const [movingAppt, setMovingAppt] = useState<IAppointment | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedDay, setSelectedDay] = useState<string>('all');
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Extrai meses únicos a partir do dataset completo (já vem inteiro do backend,
   // então a lista de meses não depende de qual filtro está selecionado)
@@ -304,6 +306,13 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [appointments, selectedMonth, selectedDay, selectedDoctor, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedAppointments = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedMonth, selectedDay, selectedDoctor, selectedStatus, appointments.length]);
 
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null) return '—';
@@ -442,7 +451,7 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {filtered.map((appt) => (
+              {paginatedAppointments.map((appt) => (
                 <tr key={apptId(appt)} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap text-gray-400">
                     {globalOrdinal.get(apptId(appt)) ?? '—'}
@@ -500,6 +509,23 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
           </div>
         )}
       </div>
+
+      {filtered.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-gray-500">
+            Exibindo <span className="font-semibold text-gray-700">{(currentPage - 1) * PAGE_SIZE + 1}</span>–<span className="font-semibold text-gray-700">{Math.min(currentPage * PAGE_SIZE, filtered.length)}</span> de <span className="font-semibold text-gray-700">{filtered.length}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
+              Anterior
+            </button>
+            <span className="min-w-24 text-center text-xs font-semibold text-gray-600">Página {currentPage} de {totalPages}</span>
+            <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
+              Próxima
+            </button>
+          </div>
+        </div>
+      )}
 
       {movingAppt && (
         <MoveGuideModal

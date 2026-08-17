@@ -30,26 +30,26 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
     });
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-    const [deleting, setDeleting] = useState(false);
+    const [inactivateTargetId, setInactivateTargetId] = useState<string | null>(null);
+    const [inactivating, setInactivating] = useState(false);
 
-    const handleDeleteClick = (id: string) => {
-        setDeleteTargetId(id);
+    const handleInactivateClick = (id: string) => {
+        setInactivateTargetId(id);
     };
 
-    const handleConfirmDelete = async () => {
-        if (!deleteTargetId) return;
-        setDeleting(true);
+    const handleConfirmInactivate = async () => {
+        if (!inactivateTargetId) return;
+        setInactivating(true);
         try {
-            await packageService.deletePackage(deleteTargetId);
-            toast.success('Pacote excluído com sucesso!');
+            await packageService.inactivatePackage(inactivateTargetId);
+            toast.success('Pacote inativado com sucesso!');
             onRefresh();
-            setDeleteTargetId(null);
+            setInactivateTargetId(null);
         } catch (err: any) {
-            console.error('Erro ao excluir:', err);
-            toast.error(err?.response?.data?.message || err?.message || 'Erro ao excluir pacote.');
+            console.error('Erro ao inativar:', err);
+            toast.error(err?.response?.data?.message || err?.message || 'Erro ao inativar pacote.');
         } finally {
-            setDeleting(false);
+            setInactivating(false);
         }
     };
 
@@ -137,7 +137,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                         <TherapyPackageTable
                             packages={packages}
                             onEdit={handleEdit}
-                            onDelete={handleDeleteClick}
+                            onInactivate={handleInactivateClick}
                             currentPage={filters.page}
                             totalPages={totalPages}
                             onPageChange={(newPage) => setFilters(prev => ({ ...prev, page: newPage }))}
@@ -168,19 +168,19 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                 </div>
 
                 {/* Modal de confirmação de exclusão */}
-                {deleteTargetId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !deleting && setDeleteTargetId(null)}>
+                {inactivateTargetId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !inactivating && setInactivateTargetId(null)}>
                         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                                     <AlertTriangle className="w-5 h-5 text-red-600" />
                                 </div>
-                                <h4 className="text-lg font-bold text-gray-900">Excluir pacote</h4>
+                                <h4 className="text-lg font-bold text-gray-900">Inativar pacote</h4>
                             </div>
-                            <p className="text-sm text-gray-600 mb-5">Tem certeza que deseja excluir este pacote? Essa ação não pode ser desfeita.</p>
+                            <p className="text-sm text-gray-600 mb-5">As sessões não concluídas serão canceladas. Sessões concluídas e pagamentos recebidos serão preservados, e o pacote será movido para Inativos.</p>
                             <div className="flex gap-3">
-                                <button onClick={() => setDeleteTargetId(null)} disabled={deleting} className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50">Cancelar</button>
-                                <button onClick={handleConfirmDelete} disabled={deleting} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50">{deleting ? 'Excluindo...' : 'Sim, excluir'}</button>
+                                <button onClick={() => setInactivateTargetId(null)} disabled={inactivating} className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50">Cancelar</button>
+                                <button onClick={handleConfirmInactivate} disabled={inactivating} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50">{inactivating ? 'Inativando...' : 'Sim, inativar'}</button>
                             </div>
                         </div>
                     </div>

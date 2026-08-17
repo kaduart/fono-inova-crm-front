@@ -10,9 +10,12 @@ import { Label } from '../ui/Label';
 interface AddAdminContentProps {
     addNewAdmin: (adminData: { fullName: string; email: string; password: string; role?: string }) => Promise<void>;
     role?: 'admin' | 'secretary';
+    onCreated?: () => void;
+    onCancel?: () => void;
+    modal?: boolean;
 }
 
-const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = 'admin' }) => {
+const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = 'admin', onCreated, onCancel, modal = false }) => {
     const label = role === 'secretary' ? 'Secretária' : 'Admin';
     const { user } = useAuth();
     const [adminData, setAdminData] = useState({
@@ -40,6 +43,7 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = '
         }
         try {
             await addNewAdmin({ ...adminData, role });
+            onCreated?.();
             setAdminData({
                 fullName: '',
                 email: '',
@@ -52,24 +56,27 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = '
     };
 
     return (
-        <Card className="w-full max-w-2xl mx-auto">
-            <CardHeader>
-                <CardTitle>Adicionar {label}</CardTitle>
+        <Card className={`w-full max-w-2xl mx-auto overflow-hidden border border-slate-200 bg-white shadow-2xl hover:scale-100 ${modal ? 'rounded-2xl' : ''}`}>
+            <CardHeader className="border-b border-slate-100 bg-white px-6 py-5">
+                <div>
+                    <CardTitle className="text-lg font-extrabold text-slate-900">Adicionar {label}</CardTitle>
+                    <p className="mt-1 text-sm text-slate-500">Crie o acesso da nova integrante da equipe administrativa.</p>
+                </div>
             </CardHeader>
-            <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+            <CardContent className="bg-white px-6 py-5">
+                <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="fullName">Nome Completo</Label>
-                            <Input id="fullName" name="fullName" value={adminData.fullName} onChange={handleInputChange} required />
+                            <Label htmlFor="fullName" className="text-sm font-semibold text-slate-700">Nome completo</Label>
+                            <Input id="fullName" name="fullName" value={adminData.fullName} onChange={handleInputChange} autoComplete="off" required />
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" name="email" type="email" value={adminData.email} onChange={handleInputChange} required />
+                        <Label htmlFor="email" className="text-sm font-semibold text-slate-700">E-mail</Label>
+                        <Input id="email" name="secretary-email" type="email" value={adminData.email} onChange={(event) => setAdminData(prev => ({ ...prev, email: event.target.value }))} autoComplete="off" required />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="password" className="text-sm font-semibold text-slate-700">Senha</Label>
                         <div className="relative">
                             <Input
                                 id="password"
@@ -77,6 +84,7 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = '
                                 type={showAdminPassword ? "text" : "password"}
                                 value={adminData.password}
                                 onChange={handleInputChange}
+                                autoComplete="new-password"
                                 required
                             />
                             <Button
@@ -97,7 +105,7 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = '
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="confirmPassword">Confirm Password</Label>
+                        <Label htmlFor="confirmPassword" className="text-sm font-semibold text-slate-700">Confirmar senha</Label>
                         <div className="relative">
                             <Input
                                 id="confirmPassword"
@@ -105,11 +113,15 @@ const AddAdminContent: React.FC<AddAdminContentProps> = ({ addNewAdmin, role = '
                                 type={showAdminPassword ? "text" : "password"}
                                 value={adminData.confirmPassword}
                                 onChange={handleInputChange}
+                                autoComplete="new-password"
                                 required
                             />
                         </div>
                     </div>
-                    <Button type="submit" className="ml-auto">Adicionar {label}</Button>
+                    <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
+                        {onCancel && <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>}
+                        <Button type="submit" className="bg-emerald-600 px-5 text-white hover:bg-emerald-700">Adicionar {label}</Button>
+                    </div>
                 </form>
             </CardContent>
         </Card>

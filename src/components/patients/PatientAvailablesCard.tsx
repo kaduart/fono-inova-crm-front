@@ -7,11 +7,10 @@ import {
   TooltipTrigger,
 } from "@radix-ui/react-tooltip"; // ajuste o caminho conforme sua estrutura
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toDateString } from "../../utils/dateUtils";
 import { IDoctors, IPatient } from "../../utils/types/types";
 import { Button } from "../ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import Input from "../ui/Input";
 import InputCurrency from "../ui/InputCurrency";
 import { Label } from "../ui/Label";
@@ -37,7 +36,9 @@ interface Props {
 
 
 export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientInfo, evaluationToEdit, setEvaluationToEdit, onSubmit }: Props) {
+  const PAGE_SIZE = 8;
   const [showModal, setShowModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [evaluationData, setEvaluationData] = useState<EvaluationData>({
     doctorId: "",
     valuePaid: 0,
@@ -61,24 +62,40 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
     setShowModal(false);
   };
 
+  const totalEvaluations = Array.isArray(evaluations) ? evaluations.length : 0;
+  const totalPages = Math.max(1, Math.ceil(totalEvaluations / PAGE_SIZE));
+  const paginatedEvaluations = Array.isArray(evaluations)
+    ? evaluations.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    : [];
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [totalEvaluations]);
+
   return (
     <>
-      <Card>
-        <CardHeader icon={FileText}>
-          <CardTitle className="text-sm font-medium">Avaliações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-end">
+      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-blue-50 p-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Avaliações</h3>
+              <p className="mt-0.5 text-xs text-gray-500">{totalEvaluations} avaliações registradas</p>
+            </div>
+          </div>
+          <div>
             <TooltipProvider >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    size="icon"
-                    variant="ghost"
-                    className="text-blue-600 hover:bg-blue-100"
+                    size="sm"
+                    className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
                     onClick={() => setShowModal(true)}
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-4 w-4" />
+                    Nova avaliação
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -87,6 +104,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
               </Tooltip>
             </TooltipProvider>
           </div>
+        </div>
           {Array.isArray(evaluations) && evaluations.length === 0 && (
             <div className="py-8 text-center">
               <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
@@ -100,7 +118,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
           )}
 
           {Array.isArray(evaluations) && evaluations.length > 0 && (
-            <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+            <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm text-gray-700">
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
@@ -114,7 +132,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {evaluations.map((evalItem) => (
+                  {paginatedEvaluations.map((evalItem: any) => (
                     <tr key={evalItem._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">{evalItem.doctor.fullName}</td>
                       <td className="px-4 py-3 capitalize">{evalItem.doctor.specialty}</td>
@@ -174,12 +192,24 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
                   ))}
                 </tbody>
               </table>
+              <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-gray-500">
+                  Exibindo <span className="font-semibold text-gray-700">{(currentPage - 1) * PAGE_SIZE + 1}</span>–<span className="font-semibold text-gray-700">{Math.min(currentPage * PAGE_SIZE, totalEvaluations)}</span> de <span className="font-semibold text-gray-700">{totalEvaluations}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(page => Math.max(1, page - 1))}>
+                    Anterior
+                  </Button>
+                  <span className="min-w-24 text-center text-xs font-semibold text-gray-600">Página {currentPage} de {totalPages}</span>
+                  <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}>
+                    Próxima
+                  </Button>
+                </div>
+              </div>
             </div>
 
           )}
-
-        </CardContent>
-      </Card >
+      </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
