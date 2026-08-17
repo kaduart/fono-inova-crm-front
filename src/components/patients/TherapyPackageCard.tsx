@@ -296,6 +296,7 @@ export default function TherapyPackageCard({
         start: `${isoDate}T${s.time || '08:00'}`,
         doctor: packageDoctorName ? { fullName: packageDoctorName } : undefined,
         operationalStatus: ns === 'pending' ? 'scheduled' : ns,
+        specialty: s.sessionType || s.specialty,
         __session: s,
       };
     })

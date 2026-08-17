@@ -55,21 +55,25 @@ interface BillingCommunicationWizardProps {
     onChanged: () => void;
 }
 
+interface DocSlotDocument {
+    documentId: string;
+    filename: string;
+}
+
 interface DocSlot {
     type: string;
     label: string;
     required: boolean;
-    documentId?: string;
-    filename?: string;
+    documents: DocSlotDocument[];
 }
 
 type AllocationMode = 'grouped' | 'per_guide';
 
 const DEFAULT_SLOTS: DocSlot[] = [
-    { type: 'guide', label: 'Guia', required: true },
-    { type: 'attendance_list', label: 'Lista de Presença', required: true },
-    { type: 'report', label: 'Relatório', required: false },
-    { type: 'other', label: 'Outro', required: false }
+    { type: 'guide', label: 'Guia', required: true, documents: [] },
+    { type: 'attendance_list', label: 'Lista de Presença', required: true, documents: [] },
+    { type: 'report', label: 'Relatório', required: false, documents: [] },
+    { type: 'other', label: 'Outro', required: false, documents: [] }
 ];
 
 function idOf(value: unknown): string {
@@ -145,7 +149,7 @@ export function BillingCommunicationWizard({
     const [submission, setSubmission] = useState<BillingSubmission | null>(null);
     const [allocations, setAllocations] = useState<BillingSubmissionAllocation[]>([]);
     const [mode, setMode] = useState<AllocationMode>('grouped');
-    const [slots, setSlots] = useState<DocSlot[]>(DEFAULT_SLOTS.map(slot => ({ ...slot })));
+    const [slots, setSlots] = useState<DocSlot[]>(DEFAULT_SLOTS.map(slot => ({ ...slot, documents: [] })));
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('Documentação para Faturamento');
     const [message, setMessage] = useState('');
@@ -165,7 +169,7 @@ export function BillingCommunicationWizard({
     const providerInfo = provider(submission);
     const isEditable = submission?.status === 'draft';
     const packageDocumentsFor = (source: BillingSubmissionAllocation[]) => [...new Set([
-        ...slots.map(slot => slot.documentId).filter(Boolean) as string[],
+        ...slots.flatMap(slot => slot.documents.map(document => document.documentId)),
         ...source
             .map(allocation => allocation.invoice?.documentId)
             .filter(Boolean)
@@ -176,7 +180,7 @@ export function BillingCommunicationWizard({
         if (!open || !submissionId) return;
         let active = true;
         setLoading(true);
-        setSlots(DEFAULT_SLOTS.map(slot => ({ ...slot })));
+        setSlots(DEFAULT_SLOTS.map(slot => ({ ...slot, documents: [] })));
         getBillingSubmission(submissionId)
             .then(async response => {
                 if (!active) return;
@@ -198,15 +202,15 @@ export function BillingCommunicationWizard({
                         const communicationResponse = await getCommunication(latestCommunication._id);
                         if (active) {
                             const attachments = communicationResponse.data.data.package?.attachments || [];
-                            setSlots(DEFAULT_SLOTS.map(slot => {
-                                const attachment = attachments.find(item => item.type === slot.type);
-                                if (!attachment) return { ...slot };
-                                return {
-                                    ...slot,
-                                    documentId: idOf(attachment.documentId),
-                                    filename: attachment.filename
-                                };
-                            }));
+                            setSlots(DEFAULT_SLOTS.map(slot => ({
+                                ...slot,
+                                documents: attachments
+                                    .filter(item => item.type === slot.type)
+                                    .map(attachment => ({
+                                        documentId: idOf(attachment.documentId),
+                                        filename: attachment.filename
+                                    }))
+                            })));
                         }
                     } catch {
                         // A NF continua canônica no submission. Falha ao recuperar um
@@ -233,7 +237,7 @@ export function BillingCommunicationWizard({
         if (!open) {
             setSubmission(null);
             setAllocations([]);
-            setSlots(DEFAULT_SLOTS.map(slot => ({ ...slot })));
+            setSlots(DEFAULT_SLOTS.map(slot => ({ ...slot, documents: [] })));
             setCommunicationId(null);
             setDocumentsAlreadySent(false);
         }
@@ -334,7 +338,7 @@ export function BillingCommunicationWizard({
                 await persistAllocations(next);
             } else {
                 setSlots(current => current.map(slot => slot.type === type
-                    ? { ...slot, documentId: document._id, filename: document.originalName || document.name }
+                    ? { ...slot, documents: [...slot.documents, { documentId: document._id, filename: document.originalName || document.name }] }
                     : slot));
             }
             toast.success(`${file.name} anexado`);
@@ -343,6 +347,12 @@ export function BillingCommunicationWizard({
         } finally {
             setUploadingKey(null);
         }
+    };
+
+    const removeSlotDocument = (type: string, documentId: string) => {
+        setSlots(current => current.map(slot => slot.type === type
+            ? { ...slot, documents: slot.documents.filter(document => document.documentId !== documentId) }
+            : slot));
     };
 
     const waitForJob = (currentCommunicationId: string, jobId: string) => new Promise<void>((resolve, reject) => {
@@ -649,21 +659,34 @@ export function BillingCommunicationWizard({
                                             </Box>
                                             {allocation.invoice?.documentId && <Chip size="small" icon={<CheckCircle size={14} />} color="success" label="NF anexada" sx={{ fontWeight: 600 }} />}
                                         </Box>
-                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
                                             <TextField
-                                                fullWidth label="Número da NF" size="small"
+                                                label="Número da NF" size="small"
                                                 value={allocation.invoice?.invoiceNumber || ''}
                                                 disabled={!isEditable || busy}
                                                 onChange={event => updateInvoice(allocation._id, 'invoiceNumber', event.target.value)}
+                                                sx={{ flex: 1, minWidth: 0 }}
                                             />
                                             <TextField
-                                                fullWidth label="Data da NF" type="date" size="small" InputLabelProps={{ shrink: true }}
+                                                label="Data da NF" type="date" size="small" InputLabelProps={{ shrink: true }}
                                                 value={allocation.invoice?.invoiceDate?.slice(0, 10) || ''}
                                                 disabled={!isEditable || busy}
                                                 onChange={event => updateInvoice(allocation._id, 'invoiceDate', event.target.value)}
+                                                sx={{ flexShrink: 0, width: { xs: '100%', sm: 168 } }}
                                             />
-                                            <Button component="label" variant="outlined" startIcon={uploadingKey === allocation._id ? <CircularProgress size={14} /> : <Upload size={15} />} disabled={!isEditable || busy} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                                {filename || 'Anexar NF'}
+                                            <Button
+                                                component="label" variant="outlined"
+                                                startIcon={uploadingKey === allocation._id ? <CircularProgress size={14} /> : <Upload size={15} />}
+                                                disabled={!isEditable || busy}
+                                                sx={{
+                                                    borderRadius: 2, textTransform: 'none', fontWeight: 600,
+                                                    flexShrink: 0, justifyContent: 'flex-start',
+                                                    width: { xs: '100%', sm: 160 }
+                                                }}
+                                            >
+                                                <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {filename || 'Anexar NF'}
+                                                </Box>
                                                 <input hidden type="file" accept="application/pdf" onChange={event => {
                                                     const file = event.target.files?.[0];
                                                     if (file) uploadDocument(file, 'invoice', allocation._id);
@@ -681,22 +704,33 @@ export function BillingCommunicationWizard({
                         <Box>
                             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 1 }}>
                                 {slots.map(slot => (
-                                    <Box key={slot.type} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: slot.documentId ? '#F0FDF4' : '#F8FAFC', border: '1px solid', borderColor: slot.documentId ? '#BBF7D0' : '#F1F5F9' }}>
-                                        <Box display="flex" alignItems="center" gap={1} minWidth={0}>
-                                            <FileText size={16} style={{ color: slot.documentId ? '#16A34A' : '#64748B', flexShrink: 0 }} />
-                                            <Box minWidth={0}>
+                                    <Box key={slot.type} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, p: 1.25, borderRadius: 2, bgcolor: slot.documents.length ? '#F0FDF4' : '#F8FAFC', border: '1px solid', borderColor: slot.documents.length ? '#BBF7D0' : '#F1F5F9' }}>
+                                        <Box display="flex" alignItems="center" justifyContent="space-between" gap={1.5}>
+                                            <Box display="flex" alignItems="center" gap={1} minWidth={0}>
+                                                <FileText size={16} style={{ color: slot.documents.length ? '#16A34A' : '#64748B', flexShrink: 0 }} />
                                                 <Typography variant="body2" fontWeight={600}>{slot.label}{slot.required ? ' *' : ''}</Typography>
-                                                {slot.filename && <Typography variant="caption" color="text.secondary" noWrap display="block">{slot.filename}</Typography>}
                                             </Box>
+                                            <Button component="label" size="small" variant="outlined" disabled={busy} startIcon={uploadingKey === slot.type ? <CircularProgress size={13} /> : <Upload size={14} />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, flexShrink: 0 }}>
+                                                Anexar
+                                                <input hidden type="file" accept="application/pdf" onChange={event => {
+                                                    const file = event.target.files?.[0];
+                                                    if (file) uploadDocument(file, slot.type);
+                                                    event.target.value = '';
+                                                }} />
+                                            </Button>
                                         </Box>
-                                        <Button component="label" size="small" variant="outlined" disabled={busy} startIcon={uploadingKey === slot.type ? <CircularProgress size={13} /> : <Upload size={14} />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, flexShrink: 0 }}>
-                                            {slot.documentId ? 'Trocar' : 'Anexar'}
-                                            <input hidden type="file" accept="application/pdf" onChange={event => {
-                                                const file = event.target.files?.[0];
-                                                if (file) uploadDocument(file, slot.type);
-                                                event.target.value = '';
-                                            }} />
-                                        </Button>
+                                        {slot.documents.length > 0 && (
+                                            <Stack spacing={0.5} sx={{ pl: 3 }}>
+                                                {slot.documents.map(document => (
+                                                    <Box key={document.documentId} display="flex" alignItems="center" justifyContent="space-between" gap={1}>
+                                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>{document.filename}</Typography>
+                                                        <IconButton size="small" disabled={busy} onClick={() => removeSlotDocument(slot.type, document.documentId)}>
+                                                            <X size={13} />
+                                                        </IconButton>
+                                                    </Box>
+                                                ))}
+                                            </Stack>
+                                        )}
                                     </Box>
                                 ))}
                             </Box>
@@ -803,3 +837,4 @@ export function BillingCommunicationWizard({
 }
 
 export default BillingCommunicationWizard;
+

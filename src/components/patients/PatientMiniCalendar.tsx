@@ -6,6 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { useRef } from 'react';
 import { Appointment } from '../../utils/types';
+import { getSpecialtyLabel } from '../../constants/specialties';
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   completed:    { bg: '#D1FAE5', text: '#065F46', label: 'Realizado' },
@@ -40,7 +41,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
 
     const events = appointments.map(appt => ({
         id: appt._id || appt.id,
-        title: `${appt.patient?.fullName || appt.doctor?.fullName || '—'}`,
+        title: `${getSpecialtyLabel(appt.specialty || (appt as any).sessionType)}${appt.doctor?.fullName ? ` — ${appt.doctor.fullName}` : ''}`,
         start: appt.start || `${(appt.date || '').substring(0, 10)}T${appt.time || '08:00'}`,
         end: appt.end,
         extendedProps: {
@@ -88,6 +89,9 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                     const status = arg.event.extendedProps.operationalStatus || '';
                     const cfg = STATUS_STYLE[status] || DEFAULT_STYLE;
                     const clickable = Boolean(onEventClick);
+                    const appt = arg.event.extendedProps.appt as Appointment & { sessionType?: string };
+                    const specialtyLabel = getSpecialtyLabel(appt?.specialty || appt?.sessionType);
+                    const doctorName = appt?.doctor?.fullName;
 
                     return (
                         <div
@@ -102,7 +106,10 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                             {arg.timeText && (
                                 <span className="text-[0.7rem] font-semibold leading-tight opacity-80">{arg.timeText}</span>
                             )}
-                            <span className="text-xs font-bold leading-tight truncate">{arg.event.title}</span>
+                            <span className="text-xs font-bold leading-tight truncate">{specialtyLabel}</span>
+                            {doctorName && (
+                                <span className="text-[0.68rem] leading-tight opacity-80 truncate">{doctorName}</span>
+                            )}
                             {cfg.label && (
                                 <span className="text-[0.68rem] leading-tight opacity-75">{cfg.label}</span>
                             )}

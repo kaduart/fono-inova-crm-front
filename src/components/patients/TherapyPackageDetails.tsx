@@ -430,6 +430,7 @@ export default function TherapyPackageDetails({
                     operationalStatus: ns === 'pending' ? 'scheduled' : ns,
                     doctor: s.doctor || { fullName: s.professionalName || '—' },
                     patient: patient,
+                    specialty: s.sessionType || s.specialty,
                     __session: s,
                 };
             })
