@@ -2204,12 +2204,16 @@ export default function MarketingDashboard() {
                               Publicado: {new Date(post.publishedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
-                          {post.status === 'draft' && (
+                          {/* Fallback: qualquer status sem data própria (draft, ready, processing,
+                              failed, cancelled, publishing_retry) mostra ao menos a data de criação —
+                              sem isso o card ficava sem NENHUMA data pros posts do fluxo assistido
+                              (status 'ready'), dificultando gerenciar o que foi gerado quando */}
+                          {!((post.status === 'scheduled' && post.scheduledAt) || (post.status === 'published' && post.publishedAt)) && post.createdAt && (
                             <span className="text-xs text-gray-500 flex items-center gap-1">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Criado: {new Date(post.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                              Criado: {new Date(post.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                         </div>
