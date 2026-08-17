@@ -982,13 +982,18 @@ export default function MarketingDashboard() {
   const StatusBadge = ({ status }: { status: string }) => {
     const config: Record<string, { color: string; bg: string; label: string; animate?: boolean }> = {
       draft: { color: 'gray', bg: 'bg-gray-100', label: 'Rascunho' },
+      ready: { color: 'purple', bg: 'bg-purple-100', label: 'Pronto p/ publicar' },
       approved: { color: 'emerald', bg: 'bg-emerald-100', label: 'Aprovado' },
       scheduled: { color: 'blue', bg: 'bg-blue-100', label: 'Agendado' },
       published: { color: 'green', bg: 'bg-green-100', label: 'Publicado' },
       failed: { color: 'red', bg: 'bg-red-100', label: 'Falhou' },
+      cancelled: { color: 'gray', bg: 'bg-gray-100', label: 'Cancelado' },
+      publishing_retry: { color: 'yellow', bg: 'bg-yellow-100', label: 'Reenviando...', animate: true },
       processing: { color: 'yellow', bg: 'bg-yellow-100', label: 'Processando...', animate: true }
     };
-    const cfg = config[status] || config.draft;
+    // Sem fallback pra 'draft': status desconhecido mostra o texto cru em vez de
+    // mentir uma label errada (foi assim que 'ready' virou "Rascunho" por meses)
+    const cfg = config[status] || { color: 'gray', bg: 'bg-gray-100', label: status };
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} text-${cfg.color}-800 flex items-center gap-1`}>
         {cfg.animate && (
@@ -2220,7 +2225,7 @@ export default function MarketingDashboard() {
 
                         <div className="flex items-center gap-2">
                           {/* GMB: fluxo antigo */}
-                          {activeTab === 'gmb' && (post.status === 'draft' || post.status === 'scheduled') && (
+                          {activeTab === 'gmb' && (post.status === 'draft' || post.status === 'ready' || post.status === 'scheduled') && (
                             <>
                               <button
                                 onClick={() => setEditModal({ open: true, post })}
