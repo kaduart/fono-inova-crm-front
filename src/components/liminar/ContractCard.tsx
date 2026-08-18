@@ -996,14 +996,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                   >
                     <option value="">Sem profissional</option>
-                    {modalDoctors
-                      .filter(d => {
-                        if (!editTherapyModal.specialty) return true;
-                        const target = editTherapyModal.specialty.toLowerCase();
-                        const allowed = [d.specialty, ...(d.specialties || [])].map(s => (s || '').toLowerCase());
-                        return allowed.includes(target);
-                      })
-                      .map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+                    {modalDoctors.map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
                   </select>
                 )}
               </div>

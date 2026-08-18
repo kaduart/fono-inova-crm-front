@@ -337,7 +337,6 @@ interface PatientDrawerProps {
     phaseLabel?: string;
     drawerAction?: 'send_documents' | 'bill' | 'receive';
     onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void;
-    billingCompetence?: string;
     phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
     onToggleGuide: (guideId: string) => void;
     onEditGuide: (guide: PendingGuide) => void;
@@ -370,7 +369,7 @@ function getBillingCycleReason(convenio: Convenio | undefined): string | null {
     }
 }
 
-export function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar', drawerAction, onDrawerAction, billingCompetence, phase = 'pendingBilling' }: PatientDrawerProps) {
+export function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar', drawerAction, onDrawerAction, phase = 'pendingBilling' }: PatientDrawerProps) {
     const total = guides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
     const sessions = guides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
     const sessionAverage = (() => {
@@ -422,6 +421,313 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
     const accentBg    = isPerGuide ? '#ECFDF5' : '#FFFBEB';
     const accentBorder = isPerGuide ? '#6EE7B7' : '#FDE68A';
 
+    // A ReadView V2 soma sessões pendentes de TODAS as competências não
+    // faturadas de uma guia mensal (o corte da leitura legada em 13/08 tirou o
+    // escopo mensal implícito que existia antes disso). Este drawer agrupa por
+    // competência em vez de colapsar tudo na mais antiga e descartar o resto —
+    // achado 2026-08-17. Faturamento continua 1 NF por competência (regra de
+    // negócio do convênio); só a exibição deixou de esconder o backlog.
+    interface CompetenceGroup {
+        competence: string;
+        guides: PendingGuide[];
+        sessions: number;
+        value: number;
+    }
+    const competenceGroups: CompetenceGroup[] = isAutomaticMonthlySelection
+        ? (() => {
+            const byCompetence = new Map<string, PendingGuide[]>();
+            guides.forEach(guide => {
+                const sessionsByCompetence = new Map<string, PendingGuideSession[]>();
+                (guide.sessions || []).forEach(session => {
+                    const competence = String(session.date).slice(0, 7);
+                    if (!/^\d{4}-\d{2}$/.test(competence)) return;
+                    if (!sessionsByCompetence.has(competence)) sessionsByCompetence.set(competence, []);
+                    sessionsByCompetence.get(competence)!.push(session);
+                });
+                sessionsByCompetence.forEach((competenceSessions, competence) => {
+                    const dates = competenceSessions.map(s => s.date).sort();
+                    const scopedGuide: PendingGuide = {
+                        ...guide,
+                        sessions: competenceSessions,
+                        pendingSessions: competenceSessions.length,
+                        pendingValue: competenceSessions.reduce((sum, s) => sum + Number(s.value || 0), 0),
+                        firstSessionDate: dates[0],
+                        lastSessionDate: dates[dates.length - 1]
+                    };
+                    if (!byCompetence.has(competence)) byCompetence.set(competence, []);
+                    byCompetence.get(competence)!.push(scopedGuide);
+                });
+            });
+            return [...byCompetence.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([competence, competenceGuides]) => ({
+                    competence,
+                    guides: competenceGuides,
+                    sessions: competenceGuides.reduce((sum, g) => sum + (g.pendingSessions || 0), 0),
+                    value: competenceGuides.reduce((sum, g) => sum + resolveGuidePendingTotal(g), 0)
+                }));
+        })()
+        : [];
+
+    const renderGuideCard = (guide: PendingGuide) => {
+        const isSelected  = selectedGuides.has(guide.guideId);
+        const isExpanded  = expandedGuides.has(guide.guideId);
+        const hasSessions = (guide.sessions || []).length > 0;
+        const billingState = getGuideBillingState(guide);
+        const convenio = convenios.find(c => c.code === guide.insurance);
+        const cycleReason = guide.guideStatus !== 'cancelled' ? getBillingCycleReason(convenio) : null;
+        const mostRecentSessionId = hasSessions
+            ? guide.sessions!.reduce((latest, s) =>
+                !latest || new Date(s.date).getTime() > new Date(latest.date).getTime() ? s : latest
+            , guide.sessions![0]).sessionId
+            : null;
+
+        return (
+            <Card key={guide.guideId} elevation={0} sx={{
+                flexShrink: 0,
+                border: isSelected ? '2px solid #3B82F6' : '1.5px solid #E2E8F0',
+                borderRadius: 3,
+                bgcolor: isSelected ? '#F0F9FF' : 'white',
+                overflow: 'hidden',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+                boxShadow: isSelected ? '0 0 0 3px rgba(59,130,246,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
+                '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
+            }}>
+                {/* Linha de cor lateral — reflete o estado de faturamento da guia */}
+                <Box sx={{ height: 4, bgcolor: billingState.color }} />
+
+                <Box sx={{ p: 1.75 }}>
+                    {/* Row 1: checkbox + número + badge + valor */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.25 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                            {!readOnly && !isAutomaticMonthlySelection && (
+                                <Checkbox
+                                    checked={isSelected}
+                                    onChange={() => onToggleGuide(guide.guideId)}
+                                    size="small"
+                                    sx={{ p: 0.25, mt: 0.1 }}
+                                />
+                            )}
+                            <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                                    <Typography fontWeight="700" fontSize="0.9rem" color="#0F172A">
+                                        Guia {guide.number}
+                                    </Typography>
+                                    <BillingModeBadge mode={guide.billingMode} />
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => { e.stopPropagation(); onEditGuide(guide); }}
+                                        sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#3B82F6', bgcolor: '#EFF6FF' } }}
+                                        title="Editar guia"
+                                    >
+                                        <Pencil size={13} />
+                                    </IconButton>
+                                    {guide.billingMode === 'per_month' && guide.guideStatus !== 'cancelled' && (
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => { e.stopPropagation(); onCloseGuide(guide); }}
+                                            sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#B45309', bgcolor: '#FEF3C7' } }}
+                                            title="Finalizar guia (cancela agendamentos pendentes)"
+                                        >
+                                            <Lock size={13} />
+                                        </IconButton>
+                                    )}
+                                </Box>
+                                <Chip
+                                    size="small"
+                                    label={getSpecialtyLabel(guide.specialty || '')}
+                                    sx={{ fontSize: '0.63rem', height: 17, bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600, mt: 0.5, letterSpacing: '0.01em' }}
+                                />
+                            </Box>
+                        </Box>
+
+                        {/* Valor + sessões a faturar */}
+                        <Box sx={{ textAlign: 'right' }}>
+                            <Typography fontWeight="800" fontSize="1.0rem" color="#0F172A">
+                                {formatCurrency(resolveGuidePendingTotal(guide))}
+                            </Typography>
+                            <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
+                                {guide.pendingSessions} sessõe{guide.pendingSessions !== 1 ? 's' : ''} {phaseLabel} · {formatCurrency(resolveGuideSessionValue(guide))}/sessão
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    {/* Row 2: estado único de faturamento (substitui a barra de progresso de sessões,
+                        que confundia "sessão realizada" com "sessão faturada") + motivo do ciclo do
+                        convênio (guia sem lote pode ser normal dependendo da regra — ver guidePolicy) */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mb: 1.25 }}>
+                        <Box sx={{
+                            display: 'inline-flex', alignItems: 'center', gap: 0.6,
+                            px: 1.25, py: 0.5,
+                            bgcolor: billingState.bg,
+                            border: `1px solid ${billingState.border}`,
+                            borderRadius: 20,
+                        }}>
+                            <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>{billingState.emoji}</span>
+                            <Typography fontSize="0.72rem" fontWeight={600} color={billingState.color}>
+                                {billingState.label}
+                            </Typography>
+                        </Box>
+                        {/* Notas fiscais que cobrem esta guia. Sem isto o card diz "Faturada"
+                            sem dizer por qual documento — e uma guia faturada mês a mês está
+                            em várias notas ao mesmo tempo. */}
+                        {(guide.invoices || []).map(nf => (
+                            <Box
+                                key={nf.batchId}
+                                title={`Lote ${nf.batchStatus || '—'}${nf.origin === 'legacy_reconciliation' ? ' · reconciliação de nota antiga' : ''}`}
+                                sx={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                                    px: 0.9, py: 0.35, borderRadius: 20,
+                                    bgcolor: nf.origin === 'legacy_reconciliation' ? '#F5F3FF' : '#F8FAFC',
+                                    border: `1px solid ${nf.origin === 'legacy_reconciliation' ? '#DDD6FE' : '#E2E8F0'}`
+                                }}
+                            >
+                                <FileText size={11} color={nf.origin === 'legacy_reconciliation' ? '#6D28D9' : '#475569'} />
+                                <Typography fontSize="0.66rem" fontWeight={700} color={nf.origin === 'legacy_reconciliation' ? '#6D28D9' : '#475569'}>
+                                    {nf.invoiceNumber || 'NF não informada'}
+                                </Typography>
+                                <Typography fontSize="0.63rem" color="#94A3B8">
+                                    {nf.sessions} sess · {formatCurrency(nf.amount)}
+                                    {nf.invoiceDate ? ` · ${formatDate(nf.invoiceDate)}` : ''}
+                                </Typography>
+                            </Box>
+                        ))}
+                        {/* Composição por fase. O rótulo acima mostra só a próxima ação; numa guia
+                            per_month faturada mês a mês, ele sozinho esconderia o que já foi faturado
+                            e recebido. Aqui a guia conta a história inteira. */}
+                        {guide.hasMixedStates && guide.phaseCounters && (
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                {([
+                                    { n: guide.phaseCounters.pendingBilling, label: 'a faturar', color: '#9A3412', bg: '#FFF7ED', border: '#FED7AA' },
+                                    { n: guide.phaseCounters.documentationSent, label: 'doc. enviada', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+                                    { n: guide.phaseCounters.billed, label: 'faturada(s)', color: '#854D0E', bg: '#FEFCE8', border: '#FDE68A' },
+                                    { n: guide.phaseCounters.received, label: 'recebida(s)', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0' },
+                                ] as const).filter(p => p.n > 0).map(p => (
+                                    <Box
+                                        key={p.label}
+                                        sx={{
+                                            px: 0.85, py: 0.3, borderRadius: 20,
+                                            bgcolor: p.bg, border: `1px solid ${p.border}`,
+                                        }}
+                                    >
+                                        <Typography fontSize="0.66rem" fontWeight={700} color={p.color}>
+                                            {p.n} {p.label}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
+                        {isReceiveMode && (
+                            <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
+                                Aguardando recebimento
+                            </Typography>
+                        )}
+                        {isDocumentMode && (
+                            <Typography fontSize="0.7rem" color="#6D28D9" fontWeight={700}>
+                                Próxima ação: preparar faturamento
+                            </Typography>
+                        )}
+                        {isBillingMode && (
+                            <Typography fontSize="0.7rem" color="#1D4ED8" fontWeight={700}>
+                                Próxima ação: continuar faturamento
+                            </Typography>
+                        )}
+                        {phase === 'received' && (
+                            <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
+                                Recebimento concluído
+                            </Typography>
+                        )}
+                        {!drawerAction && phase === 'pendingBilling' && cycleReason && (
+                            <Typography fontSize="0.7rem" color="#94A3B8" fontStyle="italic">
+                                {cycleReason}
+                            </Typography>
+                        )}
+                    </Box>
+
+                    {/* Row 3: período + expandir */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 0.25 }}>
+                        {guide.firstSessionDate ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#94A3B8', fontSize: '0.73rem' }}>
+                                <Calendar size={11} />
+                                {formatDate(guide.firstSessionDate)}
+                                {guide.lastSessionDate && guide.firstSessionDate !== guide.lastSessionDate &&
+                                    <> → {formatDate(guide.lastSessionDate)}</>}
+                            </Box>
+                        ) : <Box />}
+
+                        {hasSessions && (
+                            <Box
+                                onClick={(e) => toggleGuideExpand(guide.guideId, e)}
+                                sx={{
+                                    display: 'flex', alignItems: 'center', gap: 0.5,
+                                    cursor: 'pointer', color: '#3B82F6', fontSize: '0.73rem', fontWeight: 600,
+                                    '&:hover': { color: '#1D4ED8' }
+                                }}
+                            >
+                                {isExpanded ? 'Ocultar sessões' : `Ver ${guide.sessions!.length} sessões`}
+                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </Box>
+                        )}
+                    </Box>
+
+                    {/* A lista abaixo mostra só sessões PENDENTES (guide.sessions) — as já
+                        faturadas em ciclos anteriores não entram aí, de propósito, pra não
+                        reaparecer num lote novo. Essa linha existe só pra deixar visível que
+                        a guia tem mais sessões do que a lista de pendentes mostra, sem precisar
+                        ir atrás do lote antigo pra confirmar. */}
+                    {phase === 'pendingBilling' && !!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: '#94A3B8', fontSize: '0.7rem', fontStyle: 'italic' }}>
+                            + {guide.alreadyBilledSessions} sessõe{guide.alreadyBilledSessions !== 1 ? 's' : ''} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
+                            {guide.lastBatchSentAt ? ` em ${formatDate(guide.lastBatchSentAt)}` : ''} (não aparece{guide.alreadyBilledSessions !== 1 ? 'm' : ''} na lista abaixo)
+                        </Box>
+                    )}
+
+                    {/* Sessões individuais */}
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                        <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
+                            {guide.sessions!.map((s, sidx) => {
+                                const isMostRecent = hasSessions && s.sessionId === mostRecentSessionId;
+                                return (
+                                    <Box key={s.sessionId || sidx} sx={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        py: 0.4, px: isMostRecent ? 0.75 : 0,
+                                        borderRadius: 1.5,
+                                        bgcolor: isMostRecent ? '#F0FDF4' : 'transparent',
+                                        borderBottom: !isMostRecent && sidx < guide.sessions!.length - 1 ? '1px dashed #F1F5F9' : 'none'
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{
+                                                width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                bgcolor: isMostRecent ? '#059669' : '#E2E8F0',
+                                                color: isMostRecent ? '#fff' : '#64748B',
+                                                fontSize: '0.62rem', fontWeight: 700
+                                            }}>
+                                                {sidx + 1}
+                                            </Box>
+                                            <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}{s.time ? ` ${s.time}` : ''}</Typography>
+                                            {s.doctorName && (
+                                                <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
+                                            )}
+                                            {isMostRecent && (
+                                                <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                    mais recente
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                        <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">
+                                            {formatCurrency(s.value)}
+                                        </Typography>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                    </Collapse>
+                </Box>
+            </Card>
+        );
+    };
+
     return (
         <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{
             sx: { width: { xs: '100vw', sm: 620 }, display: 'flex', flexDirection: 'column', bgcolor: '#F8FAFC', overflow: 'hidden' }
@@ -463,13 +769,6 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             </Typography>
                         </Box>
                     )}
-                    {isAutomaticMonthlySelection && billingCompetence && (
-                        <Box sx={{ display: 'inline-flex', ml: 1, mt: 1, px: 1.1, py: 0.4, borderRadius: 10, bgcolor: '#F8FAFC', border: '1px solid #CBD5E1' }}>
-                            <Typography fontSize="0.68rem" fontWeight={800} color="#334155" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Competência {billingCompetence}
-                            </Typography>
-                        </Box>
-                    )}
                 </Box>
 
                 {/* Stats chips */}
@@ -499,295 +798,80 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 </Box>
             </Box>
 
-            {/* ── Selecionar todas ───────────────────────────────────── */}
-            <Box sx={{
-                px: 3, py: 1.25,
-                bgcolor: 'white',
-                borderBottom: '1px solid #E2E8F0',
-                display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0
-            }}>
-                {!readOnly && !isAutomaticMonthlySelection && (
-                    <Checkbox
-                        checked={allSelected}
-                        indeterminate={someSelected}
-                        onChange={toggleAllGuides}
-                        size="small"
-                        sx={{ p: 0.5 }}
-                    />
-                )}
-                <Typography fontSize="0.8rem" color="#475569" fontWeight={500}>
-                    {isAutomaticMonthlySelection
-                        ? `Todas as sessões do mês serão incluídas automaticamente (${guides.length} guia${guides.length !== 1 ? 's' : ''})`
-                        : readOnly
-                        ? `${guides.length} guia${guides.length !== 1 ? 's' : ''} nesta fase`
-                        : allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${guides.length})`}
-                </Typography>
-            </Box>
-
-            {/* ── Lista de guias ─────────────────────────────────────── */}
-            <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                {guides.map((guide) => {
-                    const isSelected  = selectedGuides.has(guide.guideId);
-                    const isExpanded  = expandedGuides.has(guide.guideId);
-                    const hasSessions = (guide.sessions || []).length > 0;
-                    const billingState = getGuideBillingState(guide);
-                    const convenio = convenios.find(c => c.code === guide.insurance);
-                    const cycleReason = guide.guideStatus !== 'cancelled' ? getBillingCycleReason(convenio) : null;
-                    const mostRecentSessionId = hasSessions
-                        ? guide.sessions!.reduce((latest, s) =>
-                            !latest || new Date(s.date).getTime() > new Date(latest.date).getTime() ? s : latest
-                        , guide.sessions![0]).sessionId
-                        : null;
-
-                    return (
-                        <Card key={guide.guideId} elevation={0} sx={{
-                            flexShrink: 0,
-                            border: isSelected ? '2px solid #3B82F6' : '1.5px solid #E2E8F0',
-                            borderRadius: 3,
-                            bgcolor: isSelected ? '#F0F9FF' : 'white',
-                            overflow: 'hidden',
-                            transition: 'border-color 0.15s, box-shadow 0.15s',
-                            boxShadow: isSelected ? '0 0 0 3px rgba(59,130,246,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
-                            '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
-                        }}>
-                            {/* Linha de cor lateral — reflete o estado de faturamento da guia */}
-                            <Box sx={{ height: 4, bgcolor: billingState.color }} />
-
-                            <Box sx={{ p: 1.75 }}>
-                                {/* Row 1: checkbox + número + badge + valor */}
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.25 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                                        {!readOnly && !isAutomaticMonthlySelection && (
-                                            <Checkbox
-                                                checked={isSelected}
-                                                onChange={() => onToggleGuide(guide.guideId)}
-                                                size="small"
-                                                sx={{ p: 0.25, mt: 0.1 }}
-                                            />
-                                        )}
-                                        <Box>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                                                <Typography fontWeight="700" fontSize="0.9rem" color="#0F172A">
-                                                    Guia {guide.number}
-                                                </Typography>
-                                                <BillingModeBadge mode={guide.billingMode} />
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => { e.stopPropagation(); onEditGuide(guide); }}
-                                                    sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#3B82F6', bgcolor: '#EFF6FF' } }}
-                                                    title="Editar guia"
-                                                >
-                                                    <Pencil size={13} />
-                                                </IconButton>
-                                                {guide.billingMode === 'per_month' && guide.guideStatus !== 'cancelled' && (
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={(e) => { e.stopPropagation(); onCloseGuide(guide); }}
-                                                        sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#B45309', bgcolor: '#FEF3C7' } }}
-                                                        title="Finalizar guia (cancela agendamentos pendentes)"
-                                                    >
-                                                        <Lock size={13} />
-                                                    </IconButton>
-                                                )}
-                                            </Box>
-                                            <Chip
-                                                size="small"
-                                                label={getSpecialtyLabel(guide.specialty || '')}
-                                                sx={{ fontSize: '0.63rem', height: 17, bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600, mt: 0.5, letterSpacing: '0.01em' }}
-                                            />
-                                        </Box>
-                                    </Box>
-
-                                    {/* Valor + sessões a faturar */}
-                                    <Box sx={{ textAlign: 'right' }}>
-                                        <Typography fontWeight="800" fontSize="1.0rem" color="#0F172A">
-                                            {formatCurrency(resolveGuidePendingTotal(guide))}
-                                        </Typography>
-                                        <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
-                                            {guide.pendingSessions} sessõe{guide.pendingSessions !== 1 ? 's' : ''} {phaseLabel} · {formatCurrency(resolveGuideSessionValue(guide))}/sessão
-                                        </Typography>
-                                    </Box>
-                                </Box>
-
-                                {/* Row 2: estado único de faturamento (substitui a barra de progresso de sessões,
-                                    que confundia "sessão realizada" com "sessão faturada") + motivo do ciclo do
-                                    convênio (guia sem lote pode ser normal dependendo da regra — ver guidePolicy) */}
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mb: 1.25 }}>
-                                    <Box sx={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 0.6,
-                                        px: 1.25, py: 0.5,
-                                        bgcolor: billingState.bg,
-                                        border: `1px solid ${billingState.border}`,
-                                        borderRadius: 20,
-                                    }}>
-                                        <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>{billingState.emoji}</span>
-                                        <Typography fontSize="0.72rem" fontWeight={600} color={billingState.color}>
-                                            {billingState.label}
-                                        </Typography>
-                                    </Box>
-                                    {/* Notas fiscais que cobrem esta guia. Sem isto o card diz "Faturada"
-                                        sem dizer por qual documento — e uma guia faturada mês a mês está
-                                        em várias notas ao mesmo tempo. */}
-                                    {(guide.invoices || []).map(nf => (
-                                        <Box
-                                            key={nf.batchId}
-                                            title={`Lote ${nf.batchStatus || '—'}${nf.origin === 'legacy_reconciliation' ? ' · reconciliação de nota antiga' : ''}`}
-                                            sx={{
-                                                display: 'inline-flex', alignItems: 'center', gap: 0.5,
-                                                px: 0.9, py: 0.35, borderRadius: 20,
-                                                bgcolor: nf.origin === 'legacy_reconciliation' ? '#F5F3FF' : '#F8FAFC',
-                                                border: `1px solid ${nf.origin === 'legacy_reconciliation' ? '#DDD6FE' : '#E2E8F0'}`
-                                            }}
-                                        >
-                                            <FileText size={11} color={nf.origin === 'legacy_reconciliation' ? '#6D28D9' : '#475569'} />
-                                            <Typography fontSize="0.66rem" fontWeight={700} color={nf.origin === 'legacy_reconciliation' ? '#6D28D9' : '#475569'}>
-                                                {nf.invoiceNumber || 'NF não informada'}
-                                            </Typography>
-                                            <Typography fontSize="0.63rem" color="#94A3B8">
-                                                {nf.sessions} sess · {formatCurrency(nf.amount)}
-                                                {nf.invoiceDate ? ` · ${formatDate(nf.invoiceDate)}` : ''}
-                                            </Typography>
-                                        </Box>
-                                    ))}
-                                    {/* Composição por fase. O rótulo acima mostra só a próxima ação; numa guia
-                                        per_month faturada mês a mês, ele sozinho esconderia o que já foi faturado
-                                        e recebido. Aqui a guia conta a história inteira. */}
-                                    {guide.hasMixedStates && guide.phaseCounters && (
-                                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                                            {([
-                                                { n: guide.phaseCounters.pendingBilling, label: 'a faturar', color: '#9A3412', bg: '#FFF7ED', border: '#FED7AA' },
-                                                { n: guide.phaseCounters.documentationSent, label: 'doc. enviada', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-                                                { n: guide.phaseCounters.billed, label: 'faturada(s)', color: '#854D0E', bg: '#FEFCE8', border: '#FDE68A' },
-                                                { n: guide.phaseCounters.received, label: 'recebida(s)', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0' },
-                                            ] as const).filter(p => p.n > 0).map(p => (
-                                                <Box
-                                                    key={p.label}
-                                                    sx={{
-                                                        px: 0.85, py: 0.3, borderRadius: 20,
-                                                        bgcolor: p.bg, border: `1px solid ${p.border}`,
-                                                    }}
-                                                >
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color={p.color}>
-                                                        {p.n} {p.label}
-                                                    </Typography>
-                                                </Box>
-                                            ))}
-                                        </Box>
-                                    )}
-                                    {isReceiveMode && (
-                                        <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
-                                            Aguardando recebimento
-                                        </Typography>
-                                    )}
-                                    {isDocumentMode && (
-                                        <Typography fontSize="0.7rem" color="#6D28D9" fontWeight={700}>
-                                            Próxima ação: preparar faturamento
-                                        </Typography>
-                                    )}
-                                    {isBillingMode && (
-                                        <Typography fontSize="0.7rem" color="#1D4ED8" fontWeight={700}>
-                                            Próxima ação: continuar faturamento
-                                        </Typography>
-                                    )}
-                                    {phase === 'received' && (
-                                        <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
-                                            Recebimento concluído
-                                        </Typography>
-                                    )}
-                                    {!drawerAction && phase === 'pendingBilling' && cycleReason && (
-                                        <Typography fontSize="0.7rem" color="#94A3B8" fontStyle="italic">
-                                            {cycleReason}
-                                        </Typography>
-                                    )}
-                                </Box>
-
-                                {/* Row 3: período + expandir */}
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 0.25 }}>
-                                    {guide.firstSessionDate ? (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#94A3B8', fontSize: '0.73rem' }}>
-                                            <Calendar size={11} />
-                                            {formatDate(guide.firstSessionDate)}
-                                            {guide.lastSessionDate && guide.firstSessionDate !== guide.lastSessionDate &&
-                                                <> → {formatDate(guide.lastSessionDate)}</>}
-                                        </Box>
-                                    ) : <Box />}
-
-                                    {hasSessions && (
-                                        <Box
-                                            onClick={(e) => toggleGuideExpand(guide.guideId, e)}
-                                            sx={{
-                                                display: 'flex', alignItems: 'center', gap: 0.5,
-                                                cursor: 'pointer', color: '#3B82F6', fontSize: '0.73rem', fontWeight: 600,
-                                                '&:hover': { color: '#1D4ED8' }
-                                            }}
-                                        >
-                                            {isExpanded ? 'Ocultar sessões' : `Ver ${guide.sessions!.length} sessões`}
-                                            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                        </Box>
-                                    )}
-                                </Box>
-
-                                {/* A lista abaixo mostra só sessões PENDENTES (guide.sessions) — as já
-                                    faturadas em ciclos anteriores não entram aí, de propósito, pra não
-                                    reaparecer num lote novo. Essa linha existe só pra deixar visível que
-                                    a guia tem mais sessões do que a lista de pendentes mostra, sem precisar
-                                    ir atrás do lote antigo pra confirmar. */}
-                                {phase === 'pendingBilling' && !!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: '#94A3B8', fontSize: '0.7rem', fontStyle: 'italic' }}>
-                                        + {guide.alreadyBilledSessions} sessõe{guide.alreadyBilledSessions !== 1 ? 's' : ''} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
-                                        {guide.lastBatchSentAt ? ` em ${formatDate(guide.lastBatchSentAt)}` : ''} (não aparece{guide.alreadyBilledSessions !== 1 ? 'm' : ''} na lista abaixo)
-                                    </Box>
-                                )}
-
-                                {/* Sessões individuais */}
-                                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                                    <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
-                                        {guide.sessions!.map((s, sidx) => {
-                                            const isMostRecent = hasSessions && s.sessionId === mostRecentSessionId;
-                                            return (
-                                                <Box key={s.sessionId || sidx} sx={{
-                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                    py: 0.4, px: isMostRecent ? 0.75 : 0,
-                                                    borderRadius: 1.5,
-                                                    bgcolor: isMostRecent ? '#F0FDF4' : 'transparent',
-                                                    borderBottom: !isMostRecent && sidx < guide.sessions!.length - 1 ? '1px dashed #F1F5F9' : 'none'
-                                                }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Box sx={{
-                                                            width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            bgcolor: isMostRecent ? '#059669' : '#E2E8F0',
-                                                            color: isMostRecent ? '#fff' : '#64748B',
-                                                            fontSize: '0.62rem', fontWeight: 700
-                                                        }}>
-                                                            {sidx + 1}
-                                                        </Box>
-                                                        <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}{s.time ? ` ${s.time}` : ''}</Typography>
-                                                        {s.doctorName && (
-                                                            <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
-                                                        )}
-                                                        {isMostRecent && (
-                                                            <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                                                                mais recente
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                    <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">
-                                                        {formatCurrency(s.value)}
-                                                    </Typography>
-                                                </Box>
-                                            );
-                                        })}
-                                    </Box>
-                                </Collapse>
+            {isAutomaticMonthlySelection ? (
+                /* ── Agrupado por competência ───────────────────────────
+                   Cada competência pendente vira sua própria seção com seu
+                   próprio botão de ação — nenhuma sessão fica escondida por
+                   trás de um mês só. */
+                <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {competenceGroups.map(group => (
+                        <Box key={group.competence}>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', px: 0.5, mb: 1 }}>
+                                <Typography fontSize="0.78rem" fontWeight={800} color="#334155" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Competência {group.competence}
+                                </Typography>
+                                <Typography fontSize="0.75rem" color="#64748B" fontWeight={600}>
+                                    {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''} · {formatCurrency(group.value)}
+                                </Typography>
                             </Box>
-                        </Card>
-                    );
-                })}
-            </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                                {group.guides.map(renderGuideCard)}
+                            </Box>
+                            {drawerAction && !readOnly && (
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.25 }}>
+                                    <Button
+                                        variant="contained" size="small"
+                                        startIcon={<Send size={15} />}
+                                        onClick={() => onDrawerAction?.(group.guides.map(g => g.guideId), group.competence)}
+                                        sx={{
+                                            bgcolor: isBillingMode ? '#2563EB' : '#7C3AED',
+                                            '&:hover': { bgcolor: isBillingMode ? '#1D4ED8' : '#6D28D9' },
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {isBillingMode ? 'Continuar faturamento' : 'Preparar faturamento'}
+                                    </Button>
+                                </Box>
+                            )}
+                        </Box>
+                    ))}
+                </Box>
+            ) : (
+                <>
+                    {/* ── Selecionar todas ───────────────────────────────── */}
+                    <Box sx={{
+                        px: 3, py: 1.25,
+                        bgcolor: 'white',
+                        borderBottom: '1px solid #E2E8F0',
+                        display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0
+                    }}>
+                        {!readOnly && (
+                            <Checkbox
+                                checked={allSelected}
+                                indeterminate={someSelected}
+                                onChange={toggleAllGuides}
+                                size="small"
+                                sx={{ p: 0.5 }}
+                            />
+                        )}
+                        <Typography fontSize="0.8rem" color="#475569" fontWeight={500}>
+                            {readOnly
+                                ? `${guides.length} guia${guides.length !== 1 ? 's' : ''} nesta fase`
+                                : allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${guides.length})`}
+                        </Typography>
+                    </Box>
 
-            {/* Ação contextual: conclui a baixa sem obrigar o usuário a voltar à tela. */}
-            {drawerAction && !readOnly && (
+                    {/* ── Lista de guias ─────────────────────────────────── */}
+                    <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                        {guides.map(renderGuideCard)}
+                    </Box>
+                </>
+            )}
+
+            {/* Ação contextual: conclui a baixa sem obrigar o usuário a voltar à tela.
+                Só aparece no modo flat (per_guide/read-only) — no modo automático por
+                competência, cada grupo já tem seu próprio botão de ação acima. */}
+            {!isAutomaticMonthlySelection && drawerAction && !readOnly && (
                 <Box sx={{
                     px: 2.5, py: 1.75,
                     bgcolor: 'white',
@@ -804,7 +888,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                            {selectedHere.length > 0 && !isAutomaticMonthlySelection && (
+                            {selectedHere.length > 0 && (
                                 <Button size="small" variant="text" onClick={() => selectedHere.forEach(g => onToggleGuide(g.guideId))}>
                                     Limpar
                                 </Button>
@@ -813,11 +897,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 variant="contained"
                                 startIcon={isReceiveMode ? <CheckCircle size={16} /> : <Send size={16} />}
                                 disabled={selectedHere.length === 0}
-                                onClick={() => {
-                                    const guideIds = selectedHere.map(g => g.guideId);
-                                    if (billingCompetence) onDrawerAction?.(guideIds, billingCompetence);
-                                    else onDrawerAction?.(guideIds);
-                                }}
+                                onClick={() => onDrawerAction?.(selectedHere.map(g => g.guideId))}
                                 sx={{
                                     bgcolor: isReceiveMode ? '#059669' : isBillingMode ? '#2563EB' : '#7C3AED',
                                     '&:hover': { bgcolor: isReceiveMode ? '#047857' : isBillingMode ? '#1D4ED8' : '#6D28D9' },
@@ -864,7 +944,7 @@ const GuidePendingBillingSection = ({
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
-    const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[]; competence?: string } | null>(null);
+    const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[] } | null>(null);
     const [linking, setLinking]                                 = useState(false);
     const [createModal, setCreateModal]                         = useState<OrphanSession | null>(null);
     const [linkModal, setLinkModal]                             = useState<OrphanSession | null>(null);
@@ -902,34 +982,15 @@ const GuidePendingBillingSection = ({
         if (selectionInsideDrawer) {
             selectedGuides.forEach(guideId => onToggleGuide(guideId));
         }
-        const monthlyMode = patientGuides[0]?.billingMode === 'per_month';
-        const availableCompetences = [...new Set(patientGuides.flatMap(guide => (
-            guide.sessions || []
-        ).map(session => String(session.date).slice(0, 7)).filter(value => /^\d{4}-\d{2}$/.test(value))))].sort();
-        const targetCompetence = monthlyMode && selectionInsideDrawer
-            ? (availableCompetences.includes(month) ? month : availableCompetences[0])
-            : undefined;
-        const scopedGuides = monthlyMode && selectionInsideDrawer
-            ? patientGuides
-                .map(guide => {
-                    const scopedSessions = (guide.sessions || []).filter(session => String(session.date).slice(0, 7) === targetCompetence);
-                    return {
-                        ...guide,
-                        sessions: scopedSessions,
-                        pendingSessions: scopedSessions.length,
-                        pendingValue: scopedSessions.reduce((sum, session) => sum + Number(session.value || 0), 0),
-                        firstSessionDate: scopedSessions.map(session => session.date).sort()[0],
-                        lastSessionDate: scopedSessions.map(session => session.date).sort().at(-1)
-                    };
-                })
-                .filter(guide => (guide.sessions || []).length > 0)
-            : patientGuides;
-
-        if (scopedGuides.length === 0) {
+        // A ReadView V2 soma sessões pendentes de todas as competências não
+        // faturadas (achado 2026-08-17) — o drawer mostra tudo, agrupado por
+        // competência internamente (PatientDrawer), em vez de colapsar numa só
+        // e descartar o resto.
+        if (patientGuides.every(guide => (guide.sessions || []).length === 0)) {
             toast.info('Nenhuma sessão pendente encontrada para este paciente');
             return;
         }
-        setDrawerPatient({ name, provider, guides: scopedGuides, competence: targetCompetence });
+        setDrawerPatient({ name, provider, guides: patientGuides });
     };
 
     // Mantém o drawer sincronizado após uma baixa/refresh. Se todas as guias
@@ -940,24 +1001,10 @@ const GuidePendingBillingSection = ({
             (g.insurance || 'outros') === drawerPatient.provider &&
             (g.patient?.fullName || 'Paciente não identificado') === drawerPatient.name
         );
-        if (currentGuides.length === 0) {
+        if (currentGuides.length === 0 || currentGuides.every(guide => (guide.sessions || []).length === 0)) {
             setDrawerPatient(null);
         } else if (currentGuides !== drawerPatient.guides) {
-            const refreshedGuides = drawerPatient.competence && currentGuides[0]?.billingMode === 'per_month'
-                ? currentGuides
-                    .map(guide => {
-                        const scopedSessions = (guide.sessions || []).filter(session => String(session.date).slice(0, 7) === drawerPatient.competence);
-                        return {
-                            ...guide,
-                            sessions: scopedSessions,
-                            pendingSessions: scopedSessions.length,
-                            pendingValue: scopedSessions.reduce((sum, session) => sum + Number(session.value || 0), 0)
-                        };
-                    })
-                    .filter(guide => (guide.sessions || []).length > 0)
-                : currentGuides;
-            if (refreshedGuides.length === 0) setDrawerPatient(null);
-            else setDrawerPatient(prev => prev ? { ...prev, guides: refreshedGuides } : null);
+            setDrawerPatient(prev => prev ? { ...prev, guides: currentGuides } : null);
         }
     }, [guides]);
 
@@ -1470,12 +1517,10 @@ const GuidePendingBillingSection = ({
                     readOnly={readOnly}
                     phaseLabel={phaseLabel}
                     drawerAction={drawerAction}
-                    billingCompetence={drawerPatient.competence}
-                    onDrawerAction={(guideIds) => {
+                    onDrawerAction={(guideIds, competence) => {
                         if (detailsLoading) return;
                         setDrawerPatient(null);
-                        if (drawerPatient.competence) onDrawerAction?.(guideIds, drawerPatient.competence);
-                        else onDrawerAction?.(guideIds);
+                        onDrawerAction?.(guideIds, competence);
                     }}
                     phase={phase}
                 />
