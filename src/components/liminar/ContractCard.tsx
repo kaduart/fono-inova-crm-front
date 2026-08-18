@@ -72,11 +72,18 @@ type SpecialtyMeta = { key: string; label: string; slotsPerWeek: number; session
 type ConfirmState = {
   open: true;
   weeks: number;
+  startDate: string;
   allSpecialties: SpecialtyMeta[];
   selectedSpecialties: string[];
   pendingBySpecialty: Record<string, number>;
   pendingLoading: boolean;
 } | { open: false };
+
+function todayIsoDate(): string {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 10);
+}
 
 // Theming do FullCalendar via CSS custom properties (v6+), escopado ao wrapper
 // do modal de sessões — mesmo tratamento usado em PatientMiniCalendar.tsx.
@@ -183,6 +190,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
     }));
     setConfirm({
       open: true, weeks,
+      startDate: todayIsoDate(),
       allSpecialties,
       selectedSpecialties: allSpecialties.map(s => s.key),
       pendingBySpecialty: {},
@@ -211,11 +219,13 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       const res = await liminarContractService.generateSessions(contract._id, plan._id, {
         mode: 'append',
         weeks: confirm.weeks,
+        startDate: confirm.startDate,
         specialties: confirm.selectedSpecialties,
       });
 
       if (res.created > 0) {
-        toast.success(`✅ ${res.created} sessões criadas  |  💰 R$ ${fmt(res.totalCost)}`);
+        const revivedNote = res.revived ? ` (${res.revived} reaproveitada${res.revived !== 1 ? 's' : ''} de canceladas)` : '';
+        toast.success(`✅ ${res.created} sessões criadas${revivedNote}  |  💰 R$ ${fmt(res.totalCost)}`);
       }
 
       if (res.conflicts > 0 && res.conflictSlots?.length > 0) {
@@ -815,28 +825,44 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800">Gerar sessões</h3>
-                  <p className="text-xs text-slate-500">A partir de hoje, com o plano atual</p>
+                  <p className="text-xs text-slate-500">Com o plano atual, a partir da data escolhida</p>
                 </div>
                 <button onClick={() => setConfirm({ open: false })} className="ml-auto text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Quantidade de semanas */}
-              <div className="mb-4">
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Quantas semanas?</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={52}
-                  value={confirm.weeks}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value, 10);
-                    setConfirm(prev => (prev.open ? { ...prev, weeks: Number.isNaN(value) ? 1 : Math.max(1, Math.min(52, value)) } : prev));
-                  }}
-                  className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
-                />
-                <p className="text-xs text-slate-400 mt-1">Máximo de 52 semanas por vez</p>
+              {/* Quantidade de semanas + data de início */}
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Quantas semanas?</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={52}
+                    value={confirm.weeks}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value, 10);
+                      setConfirm(prev => (prev.open ? { ...prev, weeks: Number.isNaN(value) ? 1 : Math.max(1, Math.min(52, value)) } : prev));
+                    }}
+                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Máximo de 52 semanas por vez</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Gerar sessões desde:</label>
+                  <input
+                    type="date"
+                    min={todayIsoDate()}
+                    value={confirm.startDate}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setConfirm(prev => (prev.open ? { ...prev, startDate: value || todayIsoDate() } : prev));
+                    }}
+                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Reaproveita sessões canceladas no período</p>
+                </div>
               </div>
 
               {/* Aviso sessões pendentes */}

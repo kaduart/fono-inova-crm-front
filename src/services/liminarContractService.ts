@@ -38,6 +38,7 @@ export interface TherapeuticPlan {
 
 export interface GenerateSessionsResult {
   created: number;
+  revived?: number;
   skipped: number;
   total: number;
   totalCost: number;

@@ -7,19 +7,14 @@ import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
-import { getSpecialtyLabel } from '../../constants/specialties';
+import { SPECIALTY_OPTIONS } from '../../constants/specialties';
 import { TherapeuticPlan } from '../../services/liminarContractService';
 
-const SPECIALTIES = [
-  { value: 'fonoaudiologia', label: getSpecialtyLabel('fonoaudiologia') },
-  { value: 'terapia_ocupacional', label: getSpecialtyLabel('terapia_ocupacional') },
-  { value: 'psicologia', label: getSpecialtyLabel('psicologia') },
-  { value: 'fisioterapia', label: getSpecialtyLabel('fisioterapia') },
-  { value: 'psicomotricidade', label: getSpecialtyLabel('psicomotricidade') },
-  { value: 'musicoterapia', label: getSpecialtyLabel('musicoterapia') },
-  { value: 'psicopedagogia', label: getSpecialtyLabel('psicopedagogia') },
-  { value: 'neuropediatria', label: getSpecialtyLabel('neuropediatria') },
-];
+// Lista completa e canônica de especialidades do sistema (mesma fonte usada em
+// Package/Appointment) — antes esta tela tinha uma lista própria, menor e
+// desatualizada, que travava a edição do plano de liminar só nas especialidades
+// já geradas originalmente (achado 2026-08-18).
+const SPECIALTIES = SPECIALTY_OPTIONS;
 
 const WEEKDAYS = [
   { value: 1, label: 'Segunda-feira' },
