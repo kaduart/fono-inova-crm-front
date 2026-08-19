@@ -993,13 +993,21 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
                     {(operationalStatus === 'scheduled' || operationalStatus === 'confirmed') && (onConfirm || onComplete) && (
                         <div className="flex gap-2 mt-3">
-                            {operationalStatus === 'scheduled' && onConfirm && (
+                            {/* 🚨 FIX (2026-08-18): "Confirmar" (scheduled -> confirmed) deixava a sessão
+                                presa num estado intermediário que ninguém fechava depois — sem cron nem
+                                lembrete que force a virar completed, ficava "confirmado" pra sempre (achado
+                                real: appointment do paciente Davi/Tatiana). Unifica com a decisão já tomada
+                                em appointmentDetailModal.tsx (10/07/2026): o clique já completa direto,
+                                sem etapa de confirmação separada. `confirmed` continua existindo no domínio
+                                (backend aceita completar de scheduled OU confirmed — ver
+                                back/docs/API_CONTRACT_COMPLETE_SESSION.md), só não é mais o alvo deste botão. */}
+                            {operationalStatus === 'scheduled' && onComplete && (
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); onConfirm(apptId); }}
-                                    className="flex-1 bg-white/90 hover:bg-white text-blue-700 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                                    onClick={(e) => { e.stopPropagation(); onComplete(apptId); }}
+                                    className="flex-1 bg-white/90 hover:bg-white text-green-700 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
                                 >
-                                    Confirmar
+                                    Realizar
                                 </button>
                             )}
                             {operationalStatus === 'confirmed' && onComplete && (
@@ -1199,16 +1207,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     </div>
 
                     {/* 🚀 AÇÕES RÁPIDAS NO CARD (sem abrir modal) */}
-                    {!isExpanded && operationalStatus === 'scheduled' && onConfirm && (
+                    {/* 🚨 FIX (2026-08-18): ver comentário equivalente na variante premium acima —
+                        "Confirmar" deixava a sessão presa em 'confirmed' sem ninguém fechar depois.
+                        Agora completa direto, igual ao modal de detalhe. */}
+                    {!isExpanded && operationalStatus === 'scheduled' && onComplete && (
                         <button
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onConfirm(apptId);
+                                onComplete(apptId);
                             }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm"
+                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm"
                         >
-                            Confirmar
+                            Realizar
                         </button>
                     )}
                     {!isExpanded && operationalStatus === 'confirmed' && onComplete && (

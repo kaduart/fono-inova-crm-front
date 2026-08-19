@@ -2182,7 +2182,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                             <React.Fragment key={a.id}>
                                                                                 <div
                                                                                     onClick={() => setSelectedApt(a)}
-                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-colors hover:bg-gray-100/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isCompleted ? 'bg-emerald-100/70' : isFirstEval ? 'bg-pink-50/60' : 'bg-gray-50'}`}
+                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-colors hover:bg-gray-100/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : isCompleted ? 'bg-emerald-100/70' : 'bg-gray-50'}`}
                                                                                 >
                                                                                     {aptIdx === 0 && (
                                                                                         <span className="absolute -left-5 top-1/2 -translate-y-1/2 text-[8px] font-bold text-gray-300 whitespace-nowrap">{String(hour).padStart(2,'0')}H</span>
