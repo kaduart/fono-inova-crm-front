@@ -2083,7 +2083,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
                                                                         const paymentCls =
                                                                             isCanceled ? 'bg-red-100 text-red-600' :
-                                                                            paymentBadge?.startsWith('🟡') ? 'bg-amber-100 text-amber-700' :
+                                                                            // Convênio pendente tinha a mesma cor de "Sessão pendente"/"Pendente"
+                                                                            // (ambos amber) — cor própria pra distinguir "aguardando repasse do
+                                                                            // convênio" de "aguardando pagamento do paciente".
+                                                                            paymentBadge?.startsWith('🟡') ? 'bg-cyan-100 text-cyan-700' :
                                                                             paymentBadge === '📦 Pacote quitado' ? 'bg-violet-100 text-violet-700' :
                                                                             paymentBadge?.startsWith('✓') ? 'bg-emerald-100 text-emerald-700' :
                                                                             paymentBadge?.startsWith('⌛') ? 'bg-amber-100 text-amber-700' :
@@ -2182,7 +2185,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                             <React.Fragment key={a.id}>
                                                                                 <div
                                                                                     onClick={() => setSelectedApt(a)}
-                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-colors hover:bg-gray-100/70 ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : isCompleted ? 'bg-emerald-100/70' : 'bg-gray-50'}`}
+                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-all hover:opacity-100 hover:shadow-md hover:ring-1 hover:ring-gray-300 hover:-translate-y-px ${isCanceled ? 'opacity-50' : ''} ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : isCompleted ? 'bg-emerald-100/70' : 'bg-gray-50'}`}
                                                                                 >
                                                                                     {aptIdx === 0 && (
                                                                                         <span className="absolute -left-5 top-1/2 -translate-y-1/2 text-[8px] font-bold text-gray-300 whitespace-nowrap">{String(hour).padStart(2,'0')}H</span>
