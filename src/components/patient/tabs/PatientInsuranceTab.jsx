@@ -772,6 +772,27 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
   const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
   const queryClient = useQueryClient();
 
+  // 🆕 (2026-08-20) Confirmação em lote das retroativas — 1 clique deliberado,
+  // chamado a partir do botão de ação no toast (ou de onde mais for exposto).
+  // Nunca disparado sozinho por generate-sessions (ver comentário no backend).
+  const confirmPastSessions = async (planId) => {
+    try {
+      const res = await API.post(`/v2/insurance-plans/${planId}/confirm-past-sessions`, {}, { timeout: 60000 });
+      const { total, confirmed, failed } = res.data?.data || {};
+      if (total === 0) {
+        toast('Nenhuma sessão retroativa pendente encontrada.', { icon: 'ℹ️' });
+      } else if (failed?.length > 0) {
+        toast.error(`${confirmed}/${total} confirmada(s). ${failed.length} falharam — tente novamente pela agenda.`, { duration: 8000 });
+      } else {
+        toast.success(`${confirmed} sessão(ões) retroativa(s) confirmada(s) como realizada(s)`, { duration: 5000 });
+      }
+      queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
+    } catch (err) {
+      const serverMsg = err?.response?.data?.message;
+      toast.error(serverMsg || 'Erro ao confirmar sessões retroativas em lote');
+    }
+  };
+
   const runGenerateSessions = async (planId, { allowPastGeneration = false } = {}) => {
     setGenerating(true);
     try {
@@ -807,9 +828,34 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
       // 🚨 FIX (2026-08-20): sessões retroativas não são mais completadas
       // automaticamente (ver comentário no backend, routes/insurancePlans.v2.js)
-      // — nascem pre_agendado, pendentes de confirmação manual real.
+      // — nascem pre_agendado, pendentes de confirmação manual. Oferece
+      // confirmação EM LOTE (1 clique, deliberado) em vez de forçar confirmar
+      // uma por uma — sem voltar a completar nada sozinho.
       if (pastAppointmentsPending > 0) {
-        toast(`${pastAppointmentsPending} sessão(ões) retroativa(s) criada(s) como pendente — confirme cada uma manualmente pela agenda se o atendimento realmente aconteceu.`, { icon: 'ℹ️', duration: 8000 });
+        const totalLabel = appointmentsGenerated > 0
+          ? `${appointmentsGenerated} sessão(ões) gerada(s), sendo ${pastAppointmentsPending} retroativa(s) (datas já passadas).`
+          : `${pastAppointmentsPending} sessão(ões) retroativa(s) (datas já passadas) criada(s) como pendente.`;
+        toast((t) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320 }}>
+            <span style={{ fontSize: 13 }}>
+              {totalLabel} Confirme só se o atendimento realmente aconteceu.
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { toast.dismiss(t.id); confirmPastSessions(planId); }}
+                style={{ padding: '6px 12px', background: '#059669', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+              >
+                Confirmar {pastAppointmentsPending} como realizada(s)
+              </button>
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                style={{ padding: '6px 12px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
+              >
+                Confirmar depois
+              </button>
+            </div>
+          </div>
+        ), { duration: 20000 });
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
@@ -1267,14 +1313,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 </button>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Data de início</label>
-                <input
-                  type="date"
-                  value={generateModal.startDate}
-                  onChange={(e) => setGenerateModal(prev => (prev ? { ...prev, startDate: e.target.value } : prev))}
-                  className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
-                />
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Data de início</label>
+                  <input
+                    type="date"
+                    value={generateModal.startDate}
+                    onChange={(e) => setGenerateModal(prev => (prev ? { ...prev, startDate: e.target.value } : prev))}
+                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-2">Sessões a gerar</label>
+                  <div className="w-full p-3 text-sm border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800">{remaining}</span>
+                    <span className="text-[11px] text-slate-400">autorizado</span>
+                  </div>
+                </div>
               </div>
 
               {startsInPast && (
@@ -1289,13 +1344,6 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   </p>
                 </div>
               )}
-
-              <div className="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Sessões a gerar (autorizado pela guia):</span>
-                  <span className="font-semibold text-slate-800">{remaining}</span>
-                </div>
-              </div>
 
               <div className="flex gap-3">
                 <button onClick={() => setGenerateModal(null)}
