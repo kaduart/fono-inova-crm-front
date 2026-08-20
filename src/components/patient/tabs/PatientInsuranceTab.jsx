@@ -785,8 +785,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         appointmentsCanceled,
         replanned,
         remaining,
-        pastAppointmentsCompleted,
-        pastAppointmentsFailed
+        pastAppointmentsPending
       } = res.data?.data || {};
 
       if (replanned && appointmentsCanceled > 0 && appointmentsGenerated > 0) {
@@ -806,11 +805,11 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         toast(`Nenhuma sessão nova foi gerada (${remaining} ainda disponível na guia) — os horários do plano já coincidem com os agendamentos existentes.`, { icon: 'ℹ️', duration: 6000 });
       }
 
-      if (pastAppointmentsCompleted > 0) {
-        toast.success(`${pastAppointmentsCompleted} sessão(ões) retroativa(s) marcada(s) como concluída(s)`, { duration: 5000 });
-      }
-      if (pastAppointmentsFailed?.length > 0) {
-        toast.error(`${pastAppointmentsFailed.length} sessão(ões) retroativa(s) não puderam ser concluídas automaticamente. Complete-as manualmente pela agenda.`, { duration: 7000 });
+      // 🚨 FIX (2026-08-20): sessões retroativas não são mais completadas
+      // automaticamente (ver comentário no backend, routes/insurancePlans.v2.js)
+      // — nascem pre_agendado, pendentes de confirmação manual real.
+      if (pastAppointmentsPending > 0) {
+        toast(`${pastAppointmentsPending} sessão(ões) retroativa(s) criada(s) como pendente — confirme cada uma manualmente pela agenda se o atendimento realmente aconteceu.`, { icon: 'ℹ️', duration: 8000 });
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
@@ -1282,12 +1281,11 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-700">
-                    <strong>Vai criar sozinho, sem pedir confirmação</strong>, uma sessão pra cada dia/horário do plano entre{' '}
-                    <strong>{format(parseISO(generateModal.startDate), 'dd/MM/yyyy')}</strong> e hoje — e cada uma já nasce{' '}
-                    <strong>marcada como realizada</strong>: desconta da guia e cria um recebível pendente de faturamento
-                    (não é dinheiro na conta — o convênio paga em lote, depois), como se o atendimento já tivesse
-                    acontecido de verdade. Só use se isso for real. A partir de hoje, as sessões nascem pendentes
-                    normalmente, sem nenhum efeito financeiro.
+                    Vai criar uma sessão pendente pra cada dia/horário do plano entre{' '}
+                    <strong>{format(parseISO(generateModal.startDate), 'dd/MM/yyyy')}</strong> e hoje.{' '}
+                    <strong>Nenhuma sessão retroativa é marcada como realizada automaticamente</strong> — cada uma
+                    fica pendente na agenda até alguém confirmar manualmente que o atendimento realmente aconteceu
+                    (só assim ela desconta da guia). Não gera cobrança nem desconto de guia sozinho.
                   </p>
                 </div>
               )}
