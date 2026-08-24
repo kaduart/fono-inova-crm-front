@@ -92,10 +92,10 @@ export const PAYMENT_STATUS_CONFIG = {
     },
     pending: {
         label: "Pendente",
-        color: "#b91c1c",
+        color: "#d97706",
         icon: DollarSign,
-        bgColor: "rgba(235, 130, 219, 1)",
-        textColor: "#7f1d1d",
+        bgColor: "#fde68a",
+        textColor: "#92400e",
     },
     pending_receipt: {
         label: "Ag. Recibo",
@@ -947,7 +947,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     }}
                 >
                     <div className="flex items-center justify-between gap-2 mb-2.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/90 ${soft.text}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-semibold bg-white/90 ${soft.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${soft.dot}`} />
                             {operationalBadge.label}
                         </span>
@@ -978,14 +978,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     )}
 
                     <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/40">
-                        <span className="text-[11px] text-gray-700 font-medium">{serviceLabel}</span>
+                        <span className="text-2xs text-gray-700 font-medium">{serviceLabel}</span>
                         <div className="flex items-center gap-1.5">
                             {patientHasDebt && (
-                                <span className="text-[10px] font-bold text-red-700 bg-white/70 px-1.5 py-0.5 rounded-full" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
+                                <span className="text-3xs font-bold text-red-700 bg-white/70 px-1.5 py-0.5 rounded-full" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
                                     ⚠️ Débito R$ {patientBalance.toFixed(0)}
                                 </span>
                             )}
-                            <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1`}>
+                            <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-2xs font-bold flex items-center gap-1`}>
                                 <span>{paymentBadge.icon}</span><span>{paymentBadge.label}</span>
                             </span>
                         </div>
@@ -1048,12 +1048,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     <div className="flex items-center gap-1">
                         {/* 💰 BADGE DE DÍVIDA — só para particular, convênio paga no mês */}
                         {appointment.paymentStatus === 'unpaid' && !isConvenio && (
-                            <div className="bg-rose-600 text-white px-2 py-1 rounded-lg text-[10px] font-extrabold shadow-md flex items-center gap-1 animate-pulse">
+                            <div className="bg-rose-600 text-white px-2 py-1 rounded-lg text-3xs font-extrabold shadow-md flex items-center gap-1 animate-pulse">
                                 <span>💰</span>
                                 <span>Em aberto</span>
                             </div>
                         )}
-                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg ${isExpanded ? 'text-xs' : 'text-[10px]'} font-extrabold shadow-md flex items-center gap-1`}>
+                        <div className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-1 rounded-lg ${isExpanded ? 'text-xs' : 'text-3xs'} font-extrabold shadow-md flex items-center gap-1`}>
                             <span>{paymentBadge.icon}</span>
                             <span>{paymentBadge.label}</span>
                         </div>
@@ -1074,12 +1074,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 <div className="flex flex-wrap gap-1 mb-2">
                     {/* No card expandido de pacote/convênio, o bloco de info já identifica o tipo — evita redundância */}
                     {!(isExpanded && (hasPackage || isConvenio)) && (
-                        <span className={`${isExpanded ? 'text-xs' : 'text-[10px]'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium`}>
+                        <span className={`${isExpanded ? 'text-xs' : 'text-3xs'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium`}>
                             {serviceLabel}
                         </span>
                     )}
                     {specialty && (
-                        <span className={`${isExpanded ? 'text-xs' : 'text-[10px]'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize`}>
+                        <span className={`${isExpanded ? 'text-xs' : 'text-3xs'} bg-white/80 px-2 py-0.5 rounded text-gray-800 font-medium capitalize`}>
                             {specialtyLabel}
                         </span>
                     )}
@@ -1096,13 +1096,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         {isLiminar ? '⚖️ Liminar' : '📦 Pacote'}
                                     </span>
                                     {/* Sempre mostra badge de status (do pacote ou do appointment) */}
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
+                                    <span className={`text-3xs px-1.5 py-0.5 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
                                         {paymentBadge.label}
                                     </span>
                                 </div>
                                 {/* Progresso do pacote: da API (package.sessionsDone / package.totalSessions) */}
                                 {totalSessions !== null ? (
-                                    <div className="text-[11px] text-gray-700">
+                                    <div className="text-2xs text-gray-700">
                                         <div className="flex justify-between mb-0.5">
                                             <span>Progresso:</span>
                                             <span className="font-bold">
@@ -1121,30 +1121,30 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 ) : null}
                                 {/* Valor: só mostra se > 0; senão indica que está incluso no pacote */}
                                 {(packageSessionValue ?? sessionValue ?? 0) > 0 ? (
-                                    <div className="text-[11px] text-gray-700 mt-1">
+                                    <div className="text-2xs text-gray-700 mt-1">
                                         💰 Valor/sessão:{" "}
                                         <span className="font-semibold">
                                             R$ {(packageSessionValue ?? sessionValue ?? 0).toFixed(2)}
                                         </span>
                                     </div>
                                 ) : (
-                                    <div className="text-[11px] text-gray-600 mt-1 italic">
+                                    <div className="text-2xs text-gray-600 mt-1 italic">
                                         🎁 Incluído no pacote
                                     </div>
                                 )}
                                 {isLiminar && liminarProcessNumber && (
-                                    <div className="text-[10px] text-amber-700 mt-1">
+                                    <div className="text-3xs text-amber-700 mt-1">
                                         ⚖️ Processo: {liminarProcessNumber}
                                     </div>
                                 )}
                                 {isLiminar && liminarCreditBalance !== null && (
-                                    <div className="text-[10px] text-amber-700">
+                                    <div className="text-3xs text-amber-700">
                                         💳 Crédito: R$ {Number(liminarCreditBalance).toFixed(2)}
                                     </div>
                                 )}
                                 {/* Hint quando pacote não está populado */}
                                 {!packageObj && packageId && (
-                                    <div className="text-[10px] text-purple-600/70 mt-1 italic">
+                                    <div className="text-3xs text-purple-600/70 mt-1 italic">
                                         Sessão vinculada a pacote
                                     </div>
                                 )}
@@ -1157,12 +1157,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 <div className="flex items-center gap-1.5 mb-0.5">
                                     <span className="text-xs font-bold text-blue-800">🏥 Convênio</span>
                                     {serviceType === 'evaluation' && (
-                                        <span className="text-[10px] font-semibold bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full">
+                                        <span className="text-3xs font-semibold bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full">
                                             Avaliação
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-[11px] text-gray-700">
+                                <div className="text-2xs text-gray-700">
                                     {insuranceProviderName && <div>{insuranceProviderName}</div>}
                                     {appointment.insuranceValue > 0 && (
                                         <div>Valor tabela: R$ {appointment.insuranceValue.toFixed(2)}</div>
@@ -1189,19 +1189,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
                 {/* Valor ou motivo no modo compacto */}
                 {!isExpanded && !hasPackage && !isConvenio && sessionValue > 0 && (
-                    <p className={`text-[11px] text-gray-800 font-semibold mb-2`}>
+                    <p className={`text-2xs text-gray-800 font-semibold mb-2`}>
                         💰 R$ {sessionValue.toFixed(2)}
                     </p>
                 )}
                 {!isExpanded && reason && !hasPackage && !isConvenio && sessionValue === 0 && (
-                    <p className={`text-[10px] text-gray-700 truncate italic mb-2`} title={reason}>
+                    <p className={`text-3xs text-gray-700 truncate italic mb-2`} title={reason}>
                         📝 {reason.length > 25 ? reason.substring(0, 25) + '...' : reason}
                     </p>
                 )}
 
                 {/* Badges adicionais */}
                 <div className="flex flex-wrap items-center gap-1 mt-auto">
-                    <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold flex items-center gap-1`}>
+                    <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded ${isExpanded ? 'text-2xs' : 'text-[9px]'} font-bold flex items-center gap-1`}>
                         <OperationalIcon size={isExpanded ? 12 : 9} />
                         <span>{operationalBadge.label}</span>
                     </div>
@@ -1217,7 +1217,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 e.stopPropagation();
                                 onComplete(apptId);
                             }}
-                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm"
+                            className="relative bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm before:absolute before:-inset-2 before:content-['']"
                         >
                             Realizar
                         </button>
@@ -1229,14 +1229,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 e.stopPropagation();
                                 onComplete(apptId);
                             }}
-                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm"
+                            className="relative bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm before:absolute before:-inset-2 before:content-['']"
                         >
                             Realizar
                         </button>
                     )}
 
                     {patientHasDebt && (
-                        <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold animate-pulse`} title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
+                        <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-2xs' : 'text-[9px]'} font-bold animate-pulse`} title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
                             ⚠️ Débito R$ {patientBalance.toFixed(0)}
                         </div>
                     )}
@@ -1456,12 +1456,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     <span className={`text-xs font-medium ${isLiminar ? 'text-amber-300' : 'text-slate-300'}`}>
                                         {isLiminar ? '⚖️ Liminar' : '📦 Pacote'}
                                     </span>
-                                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
+                                    <span className={`text-3xs px-2 py-1 rounded-full font-bold ${paymentBadge.bg} ${paymentBadge.text}`}>
                                         {isLiminar ? 'Crédito' : paymentBadge.label}
                                     </span>
                                 </div>
                                 {packageObj && (
-                                    <div className="text-[10px] text-slate-400 space-y-1">
+                                    <div className="text-3xs text-slate-400 space-y-1">
                                         <div>💰 Valor/sessão: R$ {packageObj.sessionValue?.toFixed(2)}</div>
                                         {isLiminar ? (
                                             <>
@@ -1479,7 +1479,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     </div>
                                 )}
                                 {!packageObj && packageId && (
-                                    <div className="text-[10px] text-slate-500 italic">
+                                    <div className="text-3xs text-slate-500 italic">
                                         Pacote (detalhes não carregados)
                                     </div>
                                 )}
@@ -1492,12 +1492,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 <div className="flex items-center gap-1.5 mb-1">
                                     <span className="text-xs font-medium text-blue-300">🏥 Convênio</span>
                                     {serviceType === 'evaluation' && (
-                                        <span className="text-[10px] font-semibold bg-violet-900/60 text-violet-300 border border-violet-500/40 px-1.5 py-0.5 rounded-full">
+                                        <span className="text-3xs font-semibold bg-violet-900/60 text-violet-300 border border-violet-500/40 px-1.5 py-0.5 rounded-full">
                                             Avaliação
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-[10px] text-slate-300">
+                                <div className="text-3xs text-slate-300">
                                     <div className="font-semibold text-white">{insuranceProviderName}</div>
                                     <div>💳 Valor tabela: R$ {arg.event.extendedProps.insuranceValue?.toFixed(2) || '0,00'}</div>
                                 </div>
@@ -1510,7 +1510,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 <div className="flex items-center justify-between mb-1">
                                     <span className="text-xs font-medium text-red-300">⚠️ SALDO DEVEDOR</span>
                                 </div>
-                                <div className="text-[10px] text-slate-200">
+                                <div className="text-3xs text-slate-200">
                                     <div className="font-bold text-red-400 text-lg">R$ {patientBalance.toFixed(2)}</div>
                                     <div className="text-red-300">Saldo geral do paciente (não é o valor desta sessão/pacote)</div>
                                 </div>
@@ -1877,7 +1877,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </span>
                                 {dayCount > 0 && (
                                     <span
-                                        className="mt-1 inline-flex items-center justify-center px-1.5 py-0 rounded-full text-[10px] font-bold text-white bg-green-600 pointer-events-none select-none"
+                                        className="mt-1 inline-flex items-center justify-center px-1.5 py-0 rounded-full text-3xs font-bold text-white bg-green-600 pointer-events-none select-none"
                                         style={{ minWidth: '18px', height: '18px' }}
                                     >
                                         {dayCount}
@@ -2109,7 +2109,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shrink-0">
-                                                    <span className="text-[10px] font-semibold uppercase leading-none opacity-90">{weekdayShort}</span>
+                                                    <span className="text-3xs font-semibold uppercase leading-none opacity-90">{weekdayShort}</span>
                                                     <span className="text-lg font-bold leading-none mt-0.5">{dateObj.getDate()}</span>
                                                 </div>
                                                 <div className="min-w-0">

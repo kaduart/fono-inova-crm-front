@@ -12,7 +12,7 @@ export const SelectValue = ({ placeholder }: SelectValueProps) => {
     if (!context) throw new Error('SelectValue must be used within Select');
 
     return (
-        <span className={!context.value ? 'text-muted-foreground' : ''}>
+        <span className={!context.value ? 'text-gray-500' : ''}>
             {context.value || placeholder}
         </span>
     );

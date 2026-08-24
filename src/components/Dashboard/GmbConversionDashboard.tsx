@@ -474,7 +474,7 @@ export default function GmbConversionDashboard() {
         
         <button
           onClick={() => window.open('/admin/leads?source=gmb', '_blank')}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
         >
           Ver Leads GMB →
         </button>

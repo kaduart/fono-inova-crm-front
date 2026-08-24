@@ -88,7 +88,7 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
             value={formData.seizureFrequency}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -100,7 +100,7 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
             name="sensoryProfile.auditory"
             value={formData.sensoryProfile.auditory}
             onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="normal">Normal</option>
             <option value="hypersensitive">Hipersensível</option>
@@ -116,7 +116,7 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
             name="sensoryProfile.visual"
             value={formData.sensoryProfile.visual}
             onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="normal">Normal</option>
             <option value="hypersensitive">Hipersensível</option>
@@ -134,7 +134,7 @@ const NeuropedEvolutionForm: React.FC<NeuropedEvolutionFormProps> = ({ appointme
       <div className="mt-8">
         <button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
         >
           Salvar Avaliação
         </button>

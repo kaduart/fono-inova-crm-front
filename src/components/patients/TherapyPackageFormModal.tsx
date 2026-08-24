@@ -1023,7 +1023,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             <p className="text-sm font-semibold text-rose-800">
                                                 Financeiro
                                             </p>
-                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                                            <span className="text-3xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
                                                 recomendado
                                             </span>
                                         </div>
@@ -1051,7 +1051,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             setSelectedDebtIds(new Set(filteredDebts.map(s => s.v2PaymentId)));
                                                         }
                                                     }}
-                                                    className="text-[10px] text-rose-500 underline"
+                                                    className="text-3xs text-rose-500 underline"
                                                 >
                                                     {selectedDebtIds.size === filteredDebts.length ? 'Desmarcar todas' : 'Marcar todas'}
                                                 </button>
@@ -1079,7 +1079,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             {s.amount ? ` — R$ ${Number(s.amount).toFixed(2).replace('.', ',')}` : ''}
                                                             {s.doctorName ? ` (${s.doctorName})` : ''}
                                                         </span>
-                                                        <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">pendente</span>
+                                                        <span className="text-3xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">pendente</span>
                                                     </label>
                                                 ))}
                                             </div>
@@ -1140,7 +1140,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     name="appointmentId"
                                     value={formData.appointmentId}
                                     onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                 >
                                     <option value="">Selecione um agendamento</option>
                                     {appointments
@@ -1436,7 +1436,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             {selectedExistingAppointment && (
                                 <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-blue-700">
-                                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">1</span>
+                                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-3xs text-white">1</span>
                                     Esta é a primeira sessão do pacote. As próximas serão calculadas pela frequência escolhida.
                                 </p>
                             )}
@@ -1784,7 +1784,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                                 className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                             />
                                                             {index === 0 && payments.length === 1 && (
-                                                                <p className="mt-1 text-[10px] leading-tight text-slate-400">
+                                                                <p className="mt-1 text-3xs leading-tight text-slate-400">
                                                                     Saldo sugerido do pacote; altere se for dividir o pagamento.
                                                                 </p>
                                                             )}

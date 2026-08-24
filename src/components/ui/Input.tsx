@@ -9,7 +9,7 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, id, mask, className = '', value, onChange, ...props }, ref) => {
     const inputClassName = `mt-1 block w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm
-      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out ${className}`;
+      focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 ease-in-out ${className}`;
 
     // Se estiver usando value/onChange, o componente é controlado,
     // então vamos passar os props para o InputMask e o input corretamente.

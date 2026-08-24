@@ -1199,7 +1199,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     </button>
                     <button
                         onClick={() => setIsNewModalOpen(true)}
-                        className="h-[38px] px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 whitespace-nowrap transition-colors"
+                        className="h-[38px] px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 whitespace-nowrap transition-colors"
                     >
                         <Plus size={16} />
                         Novo Atendimento
@@ -1330,7 +1330,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 {competenceBreakdown.current.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} de {competenceBreakdown.referenceMonth} · {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado
                                             </p>
                                         )}
-                                        <p className="text-[11px] text-amber-700 font-semibold mt-auto pt-2">Ver guias →</p>
+                                        <p className="text-2xs text-amber-700 font-semibold mt-auto pt-2">Ver guias →</p>
                                     </div>
                                 </div>
 
@@ -1360,7 +1360,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.waitingCount} sessões · {waitingBillingGuides.length} guia{waitingBillingGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">documentação já enviada</p>
-                                        <p className="text-[11px] text-blue-600 font-semibold mt-auto pt-2">Ver guias →</p>
+                                        <p className="text-2xs text-blue-600 font-semibold mt-auto pt-2">Ver guias →</p>
                                     </div>
                                 </div>
 
@@ -1379,7 +1379,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
                                         <p className="text-xs text-gray-400 mt-1">aguardando repasse</p>
-                                        <p className="text-[11px] text-blue-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
+                                        <p className="text-2xs text-blue-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
                                     </div>
                                 </div>
 
@@ -1398,7 +1398,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
                                         <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
-                                        <p className="text-[11px] text-emerald-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
+                                        <p className="text-2xs text-emerald-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
                                     </div>
                                 </div>
                             </div>
@@ -1436,7 +1436,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 {tab.icon}
                                 <span>{tab.label}</span>
                                 {tab.count > 0 && (
-                                    <span className={`min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full text-[10px] font-bold ${
+                                    <span className={`min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full text-3xs font-bold ${
                                         tab.amber
                                             ? (subTab === tab.value ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
                                             : (subTab === tab.value ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500')

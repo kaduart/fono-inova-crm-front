@@ -121,7 +121,7 @@ function ResetPassword() {
                 <p className="mb-4">{message.text || 'Este link de redefinição é inválido ou expirou.'}</p>
                 <button
                     onClick={() => navigate('/forgot-password')}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+                    className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700"
                 >
                     Solicitar novo link
                 </button>
@@ -155,7 +155,7 @@ function ResetPassword() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Digite sua nova senha"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             required
                             minLength={6}
                         />
@@ -183,7 +183,7 @@ function ResetPassword() {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Confirme sua nova senha"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         required
                     />
                 </div>
@@ -191,7 +191,7 @@ function ResetPassword() {
                 <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full py-2 px-4 rounded-md text-white font-medium ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+                    className={`w-full py-2 px-4 rounded-md text-white font-medium ${isLoading ? 'bg-emerald-400' : 'bg-emerald-600 hover:bg-emerald-700'
                         }`}
                 >
                     {isLoading ? (

@@ -1641,7 +1641,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conta Corrente do Paciente</h3>
-                                        <p className="text-[11px] text-gray-500">Adicionar esta sessão ao saldo devedor</p>
+                                        <p className="text-2xs text-gray-500">Adicionar esta sessão ao saldo devedor</p>
                                     </div>
                                     <label className="relative inline-flex cursor-pointer items-center shrink-0">
                                       <input
@@ -1702,7 +1702,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">Não remunerar profissional</h3>
-                                        <p className="text-[11px] text-gray-500">Desativar comissão somente neste atendimento</p>
+                                        <p className="text-2xs text-gray-500">Desativar comissão somente neste atendimento</p>
                                     </div>
                                     <label className="relative inline-flex cursor-pointer items-center shrink-0">
                                       <input
@@ -1814,7 +1814,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                          'Paciente não encontrado'}
                                     </span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 mt-1">
+                                <p className="text-2xs text-slate-500 mt-1">
                                     Para trocar o paciente, é necessário criar outro agendamento.
                                 </p>
                             </div>
@@ -2027,13 +2027,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-gray-500">Convênio</label>
                                                 <input type="text" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
-                                                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 bg-white"
+                                                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 bg-white"
                                                     placeholder="Nome do plano" />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-gray-500">Valor (R$)</label>
                                                 <InputCurrency name="insuranceValue" value={insuranceValue} onChange={(e) => setInsuranceValue(Number(e.target.value))}
-                                                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400" />
+                                                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400" />
                                             </div>
                                         </div>
                                     </div>

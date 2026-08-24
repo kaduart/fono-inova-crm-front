@@ -514,7 +514,7 @@ const GmbDashboard = () => {
             <button
               onClick={handleCreateAssisted}
               disabled={creatingAssisted}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 border-2 border-blue-400"
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 border-2 border-emerald-500"
               title="Sistema gera, você publica no Google em 30 segundos"
             >
               {creatingAssisted ? (
@@ -773,7 +773,7 @@ const GmbDashboard = () => {
                                 {post.status === 'ready' && (
                                   <button
                                     onClick={() => handleOpenAssistedModal(post)}
-                                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
                                     title="Abrir assistente de publicação"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1037,7 +1037,7 @@ const GmbDashboard = () => {
                   type="text"
                   value={editModal.post.title || ''}
                   onChange={(e) => setEditModal({ ...editModal, post: { ...editModal.post, title: e.target.value } })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
@@ -1050,7 +1050,7 @@ const GmbDashboard = () => {
                   value={editModal.post.content || ''}
                   onChange={(e) => setEditModal({ ...editModal, post: { ...editModal.post, content: e.target.value } })}
                   rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 resize-none"
                 />
                 <p className="text-xs text-gray-500 mt-1">Limite do GMB: 1500 caracteres</p>
               </div>
@@ -1062,7 +1062,7 @@ const GmbDashboard = () => {
                   type="datetime-local"
                   value={editModal.post.scheduledAt ? new Date(editModal.post.scheduledAt).toISOString().slice(0, 16) : ''}
                   onChange={(e) => setEditModal({ ...editModal, post: { ...editModal.post, scheduledAt: e.target.value } })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
@@ -1084,7 +1084,7 @@ const GmbDashboard = () => {
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
               >
                 Salvar Alterações
               </button>

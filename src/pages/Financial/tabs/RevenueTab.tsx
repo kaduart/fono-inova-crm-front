@@ -1,200 +1,50 @@
-import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
-import { useMemo, useState } from 'react';
-import {
-    Box,
-    Card,
-    CardContent,
-    Grid,
-    Typography,
-    Paper,
-    Chip,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-} from '@mui/material';
-import {
-    AttachMoney,
-    TrendingUp,
-    AccountBalance,
-} from '@mui/icons-material';
-import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
-import { FinancialLoading } from '../components/FinancialLoading';
+import { Banknote, Landmark, TrendingUp, WalletCards } from 'lucide-react';
 import moment from 'moment-timezone';
+import { useMemo, useState } from 'react';
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
 
 const TIMEZONE = 'America/Sao_Paulo';
-
-const monthNames = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-];
+const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const RevenueTab: React.FC = () => {
-    const [selectedMonth, setSelectedMonth] = useState<number>(moment().tz(TIMEZONE).month());
-    const [selectedYear, setSelectedYear] = useState<number>(moment().tz(TIMEZONE).year());
-
+    const [selectedMonth, setSelectedMonth] = useState(moment().tz(TIMEZONE).month());
+    const [selectedYear, setSelectedYear] = useState(moment().tz(TIMEZONE).year());
     const startDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).startOf('month').toISOString();
     const endDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).endOf('month').toISOString();
-    const years = Array.from({ length: 3 }, (_, i) => moment().tz(TIMEZONE).year() - i);
-
+    const years = Array.from({ length: 3 }, (_, index) => moment().tz(TIMEZONE).year() - index);
     const { data, isLoading } = useFinancialMetrics(startDate, endDate);
 
-    // Métricas calculadas dos dados unificados
-    const metrics = useMemo(() => {
-        if (!data) {
-            return {
-                totalRevenue: 0,
-                particular: 0,
-                convenioAvulso: 0,
-                convenioPacote: 0,
-                faturado: 0,
-                aReceber: 0,
-            };
-        }
-
-        return {
-            // 🆕 Cash total (recebido)
-            totalRevenue: data.cash?.total || 0,
-            
-            // 🆕 Breakdown por fonte
-            particular: data.cash?.breakdown?.particular || 0,
-            convenioAvulso: data.cash?.breakdown?.convenioAvulso || 0,
-            convenioPacote: data.cash?.breakdown?.convenioPacote || 0,
-            
-            // 🆕 Faturamento
-            faturado: data.billing?.total || 0,
-            
-            // 🆕 A receber
-            aReceber: data.receivable?.total || 0,
-        };
-    }, [data]);
+    const metrics = useMemo(() => ({
+        totalRevenue: data?.cash?.total || 0,
+        particular: data?.cash?.breakdown?.particular || 0,
+        convenioAvulso: data?.cash?.breakdown?.convenioAvulso || 0,
+        convenioPacote: data?.cash?.breakdown?.convenioPacote || 0,
+        faturado: data?.billing?.total || 0,
+        aReceber: data?.receivable?.total || 0,
+    }), [data]);
 
     if (isLoading) return <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />;
 
-    const periodoLabel = `${monthNames[selectedMonth]} ${selectedYear}`;
+    const cards = [
+        { label: 'Total recebido', value: metrics.totalRevenue, icon: Banknote, tone: 'bg-green-50 text-green-700' },
+        { label: 'Particular', value: metrics.particular, icon: TrendingUp, tone: 'bg-emerald-50 text-emerald-700' },
+        { label: 'Convênio avulso', value: metrics.convenioAvulso, icon: Landmark, tone: 'bg-blue-50 text-blue-700' },
+        { label: 'Convênio pacote', value: metrics.convenioPacote, icon: WalletCards, tone: 'bg-purple-50 text-purple-700' },
+    ];
 
-    return (
-        <Box>
-            <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                <Typography variant="h5" fontWeight="bold">
-                    💵 Análise de Receitas — {periodoLabel}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                    <FormControl size="small" sx={{ minWidth: 140 }}>
-                        <InputLabel>Mês</InputLabel>
-                        <Select value={selectedMonth} label="Mês" onChange={(e) => setSelectedMonth(Number(e.target.value))}>
-                            {monthNames.map((name, idx) => (
-                                <MenuItem key={idx} value={idx}>{name}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                        <InputLabel>Ano</InputLabel>
-                        <Select value={selectedYear} label="Ano" onChange={(e) => setSelectedYear(Number(e.target.value))}>
-                            {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-                </Box>
-            </Box>
-
-            <Grid container spacing={3}>
-                {/* Card: Total Recebido */}
-                <Grid item xs={12} md={6} lg={3}>
-                    <Card>
-                        <CardContent>
-                            <Box display="flex" alignItems="center" gap={2}>
-                                <AttachMoney color="success" />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Total Recebido
-                                    </Typography>
-                                    <Typography variant="h5" fontWeight="bold">
-                                        R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Card: Particular */}
-                <Grid item xs={12} md={6} lg={3}>
-                    <Card>
-                        <CardContent>
-                            <Box display="flex" alignItems="center" gap={2}>
-                                <TrendingUp color="primary" />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Particular
-                                    </Typography>
-                                    <Typography variant="h6" fontWeight="bold">
-                                        R$ {metrics.particular.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Card: Convênio Avulso */}
-                <Grid item xs={12} md={6} lg={3}>
-                    <Card>
-                        <CardContent>
-                            <Box display="flex" alignItems="center" gap={2}>
-                                <AccountBalance color="info" />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Convênio Avulso
-                                    </Typography>
-                                    <Typography variant="h6" fontWeight="bold">
-                                        R$ {metrics.convenioAvulso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Card: Convênio Pacote */}
-                <Grid item xs={12} md={6} lg={3}>
-                    <Card>
-                        <CardContent>
-                            <Box display="flex" alignItems="center" gap={2}>
-                                <AccountBalance color="warning" />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Convênio Pacote
-                                    </Typography>
-                                    <Typography variant="h6" fontWeight="bold">
-                                        R$ {metrics.convenioPacote.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            {/* Resumo */}
-            <Paper sx={{ mt: 3, p: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                    Resumo do Período
-                </Typography>
-                <Box display="flex" gap={2} flexWrap="wrap">
-                    <Chip 
-                        label={`Faturado: R$ ${metrics.faturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                        color="primary"
-                        variant="outlined"
-                    />
-                    <Chip 
-                        label={`A Receber: R$ ${metrics.aReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                        color="warning"
-                        variant="outlined"
-                    />
-                </Box>
-            </Paper>
-        </Box>
-    );
+    return <section className="space-y-6" aria-labelledby="revenue-title">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div><h2 id="revenue-title" className="text-xl font-bold text-gray-900">Análise de receitas</h2><p className="mt-1 text-sm text-gray-500">Visão consolidada de {monthNames[selectedMonth]} de {selectedYear}.</p></div>
+            <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-medium text-gray-700">Mês<select value={selectedMonth} onChange={(event) => setSelectedMonth(Number(event.target.value))} className="mt-1 block min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500">{monthNames.map((name, index) => <option key={name} value={index}>{name}</option>)}</select></label>
+                <label className="text-xs font-medium text-gray-700">Ano<select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))} className="mt-1 block min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500">{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
+            </div>
+        </header>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(({ label, value, icon: Icon, tone }) => <article key={label} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"><div className="flex items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-xl ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></span><div className="min-w-0"><p className="text-xs font-medium text-gray-500">{label}</p><p className="mt-1 truncate text-xl font-bold tabular-nums text-gray-900">{money(value)}</p></div></div></article>)}</div>
+        <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"><h3 className="text-base font-semibold text-gray-900">Resumo do período</h3><div className="mt-4 flex flex-wrap gap-2"><span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold tabular-nums text-blue-700 ring-1 ring-inset ring-blue-200">Faturado: {money(metrics.faturado)}</span><span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold tabular-nums text-amber-700 ring-1 ring-inset ring-amber-200">A receber: {money(metrics.aReceber)}</span></div></article>
+    </section>;
 };
 
 export default RevenueTab;

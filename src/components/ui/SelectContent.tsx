@@ -8,7 +8,7 @@ export const SelectContent = ({ children }: { children: React.ReactNode }) => {
     if (!context) throw new Error('SelectContent must be used within Select');
 
     return context.open ? (
-        <div className="absolute z-50 w-full mt-1 overflow-hidden border rounded-md shadow-md top-full bg-background">
+        <div className="absolute z-50 w-full mt-1 overflow-hidden border border-gray-100 rounded-md shadow-xl top-full bg-white">
             <div className="p-1">
                 {children}
             </div>

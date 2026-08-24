@@ -122,7 +122,7 @@ export default function GmbAssistedPublishModal({ post, isOpen, onClose, onPubli
                 }`}>
                   {step.done ? '✓' : step.num}
                 </div>
-                <span className="text-xs mt-1 text-center max-w-[80px]">{step.text}</span>
+                <span className="text-3xs sm:text-xs mt-1 text-center max-w-[64px] sm:max-w-[80px] truncate">{step.text}</span>
               </div>
             ))}
           </div>
@@ -234,7 +234,7 @@ export default function GmbAssistedPublishModal({ post, isOpen, onClose, onPubli
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between">
           <button
             onClick={handleOpenGMB}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

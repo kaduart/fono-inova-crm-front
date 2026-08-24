@@ -1226,7 +1226,7 @@ export default function MarketingDashboard() {
                           setScheduleTime('08:00');
                         }
                       }}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-emerald-500"
                     />
                     <span>📅 Agendar</span>
                   </label>
@@ -1263,7 +1263,7 @@ export default function MarketingDashboard() {
                   <select
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50"
+                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50"
                   >
                     {getProximosDias().map(dia => (
                       <option key={dia.value} value={dia.value}>{dia.label}</option>
@@ -1272,7 +1272,7 @@ export default function MarketingDashboard() {
                   <select
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
-                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50"
+                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50"
                   >
                     {HORARIOS_ESTRATEGICOS.map(horario => (
                       <option key={horario.value} value={horario.value}>{horario.label}</option>
@@ -1398,7 +1398,7 @@ export default function MarketingDashboard() {
                 >
                   <span className="text-base">✨</span>
                   <span>Completo</span>
-                  <span className="text-[10px] opacity-70">Imagem + Copy</span>
+                  <span className="text-3xs opacity-70">Imagem + Copy</span>
                 </button>
                 <button
                   onClick={() => setSelectedMode('caption')}
@@ -1406,7 +1406,7 @@ export default function MarketingDashboard() {
                 >
                   <span className="text-base">📝</span>
                   <span>Só Legenda</span>
-                  <span className="text-[10px] opacity-70">Texto SEO</span>
+                  <span className="text-3xs opacity-70">Texto SEO</span>
                 </button>
                 <button
                   onClick={() => setSelectedMode('hooks')}
@@ -1414,7 +1414,7 @@ export default function MarketingDashboard() {
                 >
                   <span className="text-base">🎣</span>
                   <span>10 Ganchos</span>
-                  <span className="text-[10px] opacity-70">Virais Reels</span>
+                  <span className="text-3xs opacity-70">Virais Reels</span>
                 </button>
               </div>
             </div>
@@ -1422,7 +1422,7 @@ export default function MarketingDashboard() {
             {/* Tom de Voz */}
             <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Tom de voz</p>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {[
                   { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
                   { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
@@ -1435,7 +1435,7 @@ export default function MarketingDashboard() {
                     className={`px-1.5 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                   >
                     <span className="text-base">{emoji}</span>
-                    <span className="text-[11px] font-semibold">{label}</span>
+                    <span className="text-2xs font-semibold">{label}</span>
                     <span className="text-[9px] opacity-60">{desc}</span>
                   </button>
                 ))}
@@ -1508,7 +1508,7 @@ export default function MarketingDashboard() {
         <div className="flex items-center gap-2 mb-3">
           <span className="text-base">🚀</span>
           <label className="text-sm font-semibold text-violet-800">Preset Premium (opcional)</label>
-          <span className="text-[10px] font-medium text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">NOVO</span>
+          <span className="text-3xs font-medium text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">NOVO</span>
         </div>
         <select
           value={selectedPreset}
@@ -1652,7 +1652,7 @@ export default function MarketingDashboard() {
             <div>
               <label className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
                 Modo Zeus (Alta Conversão)
-                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">NOVO</span>
+                <span className="text-3xs font-medium text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">NOVO</span>
               </label>
               <p className="text-xs text-emerald-600">Roteiros otimizados para converter leads em pacientes</p>
             </div>
@@ -1695,7 +1695,7 @@ export default function MarketingDashboard() {
                     <span>{opt.emoji}</span>
                     <div className="text-left">
                       <div className="font-semibold">{opt.label}</div>
-                      <div className="text-[10px] opacity-70">{opt.desc}</div>
+                      <div className="text-3xs opacity-70">{opt.desc}</div>
                     </div>
                   </button>
                 ))}
@@ -1756,7 +1756,7 @@ export default function MarketingDashboard() {
                 <div>
                   <label htmlFor="zeusLoop" className="text-sm font-medium text-violet-800 flex items-center gap-1">
                     Formato LOOP contínuo
-                    <span className="text-[10px] bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded">Veo 2.0</span>
+                    <span className="text-3xs bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded">Veo 2.0</span>
                   </label>
                   <p className="text-xs text-violet-600">Vídeo que reinicia automaticamente, parecendo infinito</p>
                 </div>
@@ -1786,7 +1786,7 @@ export default function MarketingDashboard() {
               }`}
             >
               <span className="text-base">{emoji}</span>
-              <span className="text-[11px] font-semibold">{label}</span>
+              <span className="text-2xs font-semibold">{label}</span>
               <span className="text-[9px] text-gray-400">{desc}</span>
             </button>
           ))}
@@ -1802,7 +1802,7 @@ export default function MarketingDashboard() {
           <select
             value={videoArea}
             onChange={(e) => { setVideoArea(e.target.value); setVideoSubTema(''); }}
-            className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
           >
             <option value="">Área (automático)</option>
             {Object.entries(TEMAS_VIDEO)
@@ -1819,7 +1819,7 @@ export default function MarketingDashboard() {
             <select
               value={videoSubTema}
               onChange={(e) => setVideoSubTema(e.target.value)}
-              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50 text-blue-900"
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50 text-blue-900"
             >
               <option value="">Subtema (qualquer)</option>
               {TEMAS_VIDEO[videoArea].subtemas.map(s => (
@@ -1839,7 +1839,7 @@ export default function MarketingDashboard() {
             <p className="text-xs text-orange-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
               <span>🎣</span> Estilo do Gancho
             </p>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
               {[
                 { key: 'alerta', emoji: '🚨', label: 'Alerta' },
                 { key: 'dor', emoji: '💔', label: 'Dor' },
@@ -1868,7 +1868,7 @@ export default function MarketingDashboard() {
               <p className="text-xs text-green-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
                 <span>🎯</span> Objetivo do Vídeo
               </p>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {[
                   { key: 'salvar', emoji: '🔖', label: 'Salvar' },
                   { key: 'compartilhar', emoji: '📤', label: 'Compartilhar' },
@@ -1897,7 +1897,7 @@ export default function MarketingDashboard() {
             <p className="text-xs text-violet-700 mb-3 font-semibold uppercase tracking-wider flex items-center gap-1">
               <span>🎭</span> Tom do Roteiro
             </p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { key: 'emotional', emoji: '💔', label: 'Emocional', desc: 'Dor/urgência' },
                 { key: 'educativo', emoji: '📚', label: 'Educativo', desc: 'Dicas/fatos' },
@@ -1914,7 +1914,7 @@ export default function MarketingDashboard() {
                   }`}
                 >
                   <span className="text-base">{emoji}</span>
-                  <span className="text-[11px] font-semibold">{label}</span>
+                  <span className="text-2xs font-semibold">{label}</span>
                   <span className="text-[9px] text-gray-400">{desc}</span>
                 </button>
               ))}
@@ -1938,7 +1938,7 @@ export default function MarketingDashboard() {
                 <div className="font-semibold text-emerald-800">
                   {zeusObjetivo === 'atrrair' ? 'Atrair' : zeusObjetivo === 'qualificar' ? 'Qualificar' : zeusObjetivo === 'converter' ? 'Converter' : 'Reativar'}
                 </div>
-                <div className="text-[10px] text-emerald-600">Funil: {mapZeusObjetivoToEstagio(zeusObjetivo)}</div>
+                <div className="text-3xs text-emerald-600">Funil: {mapZeusObjetivoToEstagio(zeusObjetivo)}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1949,27 +1949,27 @@ export default function MarketingDashboard() {
                 <div className="font-semibold text-emerald-800">
                   {zeusProva === 'resultados' ? 'Resultados' : zeusProva === 'casos' ? 'Casos' : 'Dados'}
                 </div>
-                <div className="text-[10px] text-emerald-600">Prova social</div>
+                <div className="text-3xs text-emerald-600">Prova social</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg">🎨</span>
               <div>
                 <div className="font-semibold text-emerald-800 capitalize">{videoHookStyle}</div>
-                <div className="text-[10px] text-emerald-600">Gancho (auto)</div>
+                <div className="text-3xs text-emerald-600">Gancho (auto)</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg">🎭</span>
               <div>
                 <div className="font-semibold text-emerald-800 capitalize">{selectedTone}</div>
-                <div className="text-[10px] text-emerald-600">Tom (auto)</div>
+                <div className="text-3xs text-emerald-600">Tom (auto)</div>
               </div>
             </div>
           </div>
           {zeusDuvida && (
             <div className="mt-3 pt-3 border-t border-emerald-200">
-              <div className="text-[10px] text-emerald-600 uppercase font-semibold mb-1">Objeção a quebrar</div>
+              <div className="text-3xs text-emerald-600 uppercase font-semibold mb-1">Objeção a quebrar</div>
               <div className="text-sm text-emerald-800 italic">"{zeusDuvida}"</div>
             </div>
           )}
@@ -2860,7 +2860,7 @@ export default function MarketingDashboard() {
               <textarea
                 value={editModal.post.content}
                 onChange={(e) => setEditModal({ ...editModal, post: { ...editModal.post, content: e.target.value } })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
                 rows={4}
                 placeholder="Escreva o conteúdo do post..."
               />
@@ -3062,7 +3062,7 @@ export default function MarketingDashboard() {
               <div className="flex items-center justify-center">
                 <div className={`w-20 h-20 rounded-full flex flex-col items-center justify-center border-4 ${(scoreModal.score?.score_geral || 0) >= 8 ? 'border-green-400 bg-green-50 text-green-700' : (scoreModal.score?.score_geral || 0) >= 6 ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-red-400 bg-red-50 text-red-700'}`}>
                   <span className="text-2xl font-bold">{scoreModal.score?.score_geral ?? '–'}</span>
-                  <span className="text-[10px] font-medium">/ 10</span>
+                  <span className="text-3xs font-medium">/ 10</span>
                 </div>
               </div>
               {/* Dimensões */}
@@ -3138,7 +3138,7 @@ export default function MarketingDashboard() {
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
               <button
                 onClick={() => { setWeeklyPlanResult(null); refresh(); }}
-                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
               >
                 Ver posts criados
               </button>

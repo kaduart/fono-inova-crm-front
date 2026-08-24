@@ -96,7 +96,7 @@ export default function AmandaInsights() {
                 <button
                     onClick={runAnalysis}
                     disabled={analyzing}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white px-4 py-2 rounded-lg transition-colors duration-200"
                 >
                     {analyzing ? (
                         <>

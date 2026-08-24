@@ -111,7 +111,7 @@ const CreateAppointmentPage: React.FC = () => {
                             <select
                                 value={formData.patientId}
                                 onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
-                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 required
                             >
                                 <option value="">Selecione um paciente</option>
@@ -141,7 +141,7 @@ const CreateAppointmentPage: React.FC = () => {
                                 type="date"
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 required
                             />
                         </div>
@@ -154,7 +154,7 @@ const CreateAppointmentPage: React.FC = () => {
                                 type="time"
                                 value={formData.time}
                                 onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 required
                             />
                         </div>
@@ -179,7 +179,7 @@ const CreateAppointmentPage: React.FC = () => {
                         <textarea
                             value={formData.reason}
                             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[100px]"
                             required
                         ></textarea>
                     </div>
@@ -194,7 +194,7 @@ const CreateAppointmentPage: React.FC = () => {
                         </button>
                         <button
                             type="submit"
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
                         >
                             Agendar Consulta
                         </button>

@@ -185,7 +185,7 @@ export const SessionModal = ({
                                         value={sessionData.date || ''}
                                         onChange={(e) => onSessionDataChange({ ...sessionData, date: e.target.value })}
                                         disabled={isCompletedLocked}
-                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                     />
                                 </div>
 
@@ -413,7 +413,7 @@ export const SessionModal = ({
                                 <Textarea
                                     value={sessionData.notes || ''}
                                     onChange={(e) => onSessionDataChange({ ...sessionData, notes: e.target.value })}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px] bg-white"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[120px] bg-white"
                                     placeholder="Detalhes relevantes sobre a sessão, observações do profissional, ou qualquer informação adicional..."
                                 />
                             </div>

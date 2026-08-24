@@ -122,7 +122,7 @@ export default function AppointmentsPage() {
               Gerencie suas consultas e sessões (Event-Driven)
             </p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
             <Plus className="w-5 h-5" />
             Novo Agendamento
           </button>
@@ -138,14 +138,14 @@ export default function AppointmentsPage() {
                 placeholder="Buscar paciente ou profissional..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
             <div className="flex gap-2">
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="all">Todos os status</option>
                 <option value="scheduled">Agendado</option>
@@ -431,7 +431,7 @@ export default function AppointmentsPage() {
                       max={selectedAppointment.sessionValue}
                       value={balanceAmount}
                       onChange={(e) => setBalanceAmount(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       placeholder="0.00"
                     />
                   </div>
@@ -443,7 +443,7 @@ export default function AppointmentsPage() {
                       type="text"
                       value={balanceDescription}
                       onChange={(e) => setBalanceDescription(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       placeholder="Ex: Troca de horário"
                     />
                   </div>

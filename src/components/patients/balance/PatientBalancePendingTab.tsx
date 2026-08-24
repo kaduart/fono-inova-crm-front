@@ -260,7 +260,7 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
                   <div className="mt-3 flex justify-end gap-2">
                     <button
                       onClick={() => onOpenQuickPayment(payment.id)}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                     >
                       <DollarSign className="w-3 h-3" />
                       Pagar

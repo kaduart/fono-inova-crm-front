@@ -17,20 +17,6 @@ interface PatientTableProps {
     isRefreshing?: boolean;
 }
 
-interface CardProps {
-    children: React.ReactNode;
-    className?: string;
-    sx?: React.CSSProperties;
-}
-
-interface CardHeaderProps {
-    children: React.ReactNode;
-}
-
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-    className?: string;
-}
-
 interface WhatsAppActionButtonsProps {
     phone: string;
     nome?: string;
@@ -44,21 +30,6 @@ interface WhatsAppActionButtonsProps {
 // ============================================================================
 // Componentes auxiliares (tipados)
 // ============================================================================
-
-const Card: React.FC<CardProps> = ({ children, className, sx }) => (
-    <div className={className} style={sx}>{children}</div>
-);
-
-const CardHeader: React.FC<CardHeaderProps> = ({ children }) => (
-    <div className="px-6 py-5 border-b border-gray-100">{children}</div>
-);
-
-const Input: React.FC<InputProps> = ({ className, ...props }) => (
-    <input
-        className={`${className} focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-        {...props}
-    />
-);
 
 const WhatsAppActionButtons: React.FC<WhatsAppActionButtonsProps> = ({
     phone,
@@ -287,17 +258,17 @@ const PatientTable: React.FC<PatientTableProps> = ({
                             {/* Header row */}
                             <div className="flex items-center gap-3 px-3 py-2 mb-1 border-b border-gray-200">
                                 <div className="flex-1 min-w-0">
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <User className="w-3 h-3" /> Paciente
                                     </span>
                                 </div>
                                 <div className="w-44 shrink-0 hidden md:block">
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <Package className="w-3 h-3" /> Terapia
                                     </span>
                                 </div>
                                 <div className="w-40 shrink-0 hidden lg:block cursor-pointer" onClick={() => sortData('nextAppointment')}>
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <Calendar className="w-3 h-3" /> Próxima consulta
                                         {sortConfig.key === 'nextAppointment' && (
                                             <span className="text-gray-600">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
@@ -305,12 +276,12 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                     </span>
                                 </div>
                                 <div className="w-28 shrink-0 hidden sm:block">
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <DollarSign className="w-3 h-3" /> Saldo
                                     </span>
                                 </div>
                                 <div className="w-36 shrink-0 text-center">
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Ações</span>
+                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider">Ações</span>
                                 </div>
                                 <div className="w-6 shrink-0" />
                             </div>
@@ -339,7 +310,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         <div className="flex items-center gap-1.5 flex-wrap">
                                                             <span className="font-semibold text-gray-800 text-sm truncate">{patient.fullName || '-'}</span>
                                                             {patient.tags?.includes('vip') && (
-                                                                <span className="px-1.5 py-0 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 shrink-0">VIP</span>
+                                                                <span className="px-1.5 py-0 rounded text-3xs font-bold bg-amber-100 text-amber-700 border border-amber-200 shrink-0">VIP</span>
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -351,12 +322,12 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                 const planName = patient.healthPlan?.name;
                                                                 const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
                                                                 return isConvenio ? (
-                                                                    <span className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-600 px-1.5 py-0 rounded text-[10px] font-medium">
+                                                                    <span className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-600 px-1.5 py-0 rounded text-3xs font-medium">
                                                                         <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
                                                                         {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="inline-flex items-center gap-0.5 bg-orange-50 text-orange-600 px-1.5 py-0 rounded text-[10px] font-medium">
+                                                                    <span className="inline-flex items-center gap-0.5 bg-orange-50 text-orange-600 px-1.5 py-0 rounded text-3xs font-medium">
                                                                         <span className="w-1 h-1 bg-orange-500 rounded-full"></span>
                                                                         Particular
                                                                     </span>
@@ -380,14 +351,14 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                 <div className="flex flex-col gap-1">
                                                                     <div className="flex items-center justify-between gap-1">
                                                                         <span className="text-xs font-medium text-gray-700 truncate">{pkg.sessionType || 'Pacote'}</span>
-                                                                        <span className="text-[10px] text-purple-600 font-semibold shrink-0">{pkg.sessionsDone}/{pkg.totalSessions}</span>
+                                                                        <span className="text-3xs text-purple-600 font-semibold shrink-0">{pkg.sessionsDone}/{pkg.totalSessions}</span>
                                                                     </div>
                                                                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                                                         <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                                                     </div>
-                                                                    <span className="text-[10px] text-gray-400">{pkg.sessionsRemaining} restante{pkg.sessionsRemaining !== 1 ? 's' : ''}{activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}</span>
+                                                                    <span className="text-3xs text-gray-400">{pkg.sessionsRemaining} restante{pkg.sessionsRemaining !== 1 ? 's' : ''}{activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}</span>
                                                                     {(patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name) && (
-                                                                        <span className="text-[10px] text-gray-400 truncate">
+                                                                        <span className="text-3xs text-gray-400 truncate">
                                                                             {patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name}
                                                                         </span>
                                                                     )}
@@ -399,9 +370,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <span className="text-xs text-gray-500">{totalCompleted} sessão{totalCompleted !== 1 ? 'ões' : ''} total</span>
                                                                     {nextSpecialty ? (
-                                                                        <span className="text-[10px] text-gray-400 truncate">Próxima: {nextSpecialty}</span>
+                                                                        <span className="text-3xs text-gray-400 truncate">Próxima: {nextSpecialty}</span>
                                                                     ) : lastSpecialty ? (
-                                                                        <span className="text-[10px] text-gray-400 truncate">Última: {lastSpecialty}</span>
+                                                                        <span className="text-3xs text-gray-400 truncate">Última: {lastSpecialty}</span>
                                                                     ) : null}
                                                                 </div>
                                                             );
@@ -410,7 +381,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             return (
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <span className="text-xs text-gray-500 truncate">{nextSpecialty}</span>
-                                                                    <span className="text-[10px] text-gray-400">Próxima consulta</span>
+                                                                    <span className="text-3xs text-gray-400">Próxima consulta</span>
                                                                 </div>
                                                             );
                                                         }
@@ -418,7 +389,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             return (
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <span className="text-xs text-gray-500 truncate">{lastSpecialty}</span>
-                                                                    <span className="text-[10px] text-gray-400">Última consulta</span>
+                                                                    <span className="text-3xs text-gray-400">Última consulta</span>
                                                                 </div>
                                                             );
                                                         }
@@ -435,7 +406,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                 {formatDateBrazilian(patient.nextAppointment.date)}
                                                             </span>
                                                             {patient.lastAppointment?.date && (
-                                                                <span className="text-[10px] text-gray-400 pl-0.5">
+                                                                <span className="text-3xs text-gray-400 pl-0.5">
                                                                     Última: {formatDateBrazilian(patient.lastAppointment.date)}
                                                                 </span>
                                                             )}
@@ -444,7 +415,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         <div className="flex flex-col gap-0.5">
                                                             <span className="text-gray-400 text-xs">Sem agendamento</span>
                                                             {patient.lastAppointment?.date && (
-                                                                <span className="text-[10px] text-gray-400">
+                                                                <span className="text-3xs text-gray-400">
                                                                     Última: {formatDateBrazilian(patient.lastAppointment.date)}
                                                                 </span>
                                                             )}
@@ -464,7 +435,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                                     <DollarSign className="w-3 h-3" /> R$ {saldo.toFixed(2)}
                                                                 </span>
                                                                 {convenioPending > 0.01 && (
-                                                                    <div className="text-[10px] text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
+                                                                    <div className="text-3xs text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
                                                                 )}
                                                             </div>
                                                         );
@@ -477,7 +448,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             <div>
                                                                 <span className="text-gray-400 text-xs">R$ 0,00</span>
                                                                 {convenioPending > 0.01 && (
-                                                                    <div className="text-[10px] text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
+                                                                    <div className="text-3xs text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
                                                                 )}
                                                             </div>
                                                         );
@@ -490,7 +461,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         <Link
                                                             to={`/patient-dashboard/${patient.patientId || patient.id}`}
                                                             title="Ver detalhes"
-                                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors"
+                                                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <Eye className="w-4 h-4" />
@@ -498,14 +469,14 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onEditPatient?.(patient); }}
                                                             title="Editar"
-                                                            className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
                                                         <Link
                                                             to={`/patient-dashboard/${patient.patientId || patient.id}?tab=evolucoes`}
                                                             title="Ver evoluções"
-                                                            className="p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                                                            className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <FileHeart className="w-4 h-4" />
@@ -513,7 +484,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onDeletePatient?.(patient); }}
                                                             title="Deletar paciente"
-                                                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -541,7 +512,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             { label: 'Pendente', value: patient.totalPending > 0 ? `R$ ${patient.totalPending.toLocaleString('pt-BR')}` : '—', color: patient.totalPending > 0 ? 'text-amber-700' : 'text-gray-400', bg: patient.totalPending > 0 ? 'bg-amber-50' : 'bg-white' },
                                                         ].map(s => (
                                                             <div key={s.label} className={`${s.bg} border border-gray-100 rounded-lg px-3 py-2`}>
-                                                                <div className="text-[10px] text-gray-400 mb-0.5">{s.label}</div>
+                                                                <div className="text-3xs text-gray-400 mb-0.5">{s.label}</div>
                                                                 <div className={`text-sm font-bold ${s.color}`}>{s.value}</div>
                                                             </div>
                                                         ))}
@@ -549,7 +520,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                     {/* WhatsApp */}
                                                     {patient.phone && (
                                                         <div>
-                                                            <h4 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Contato rápido</h4>
+                                                            <h4 className="text-3xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Contato rápido</h4>
                                                             <WhatsAppActionButtons
                                                                 phone={patient.phone.startsWith('+') ? patient.phone.slice(1) : patient.phone}
                                                                 nome={patient.name}

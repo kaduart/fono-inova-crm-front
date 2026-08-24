@@ -486,7 +486,7 @@ const ScheduleAppointmentModal = ({
                                     value={patientSearch}
                                     onChange={(e) => setPatientSearch(e.target.value)}
                                     placeholder="Digite o nome do paciente..."
-                                    className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm pr-10"
+                                    className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm pr-10"
                                 />
                                 {isSearching && (
                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -564,7 +564,7 @@ const ScheduleAppointmentModal = ({
                                     placeholder="Nome completo *"
                                     value={newPatientName}
                                     onChange={(e) => setNewPatientName(e.target.value)}
-                                    className="w-full p-2 text-sm border border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                                    className="w-full p-2 text-sm border border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
                                     autoFocus
                                 />
                                 <input
@@ -572,14 +572,14 @@ const ScheduleAppointmentModal = ({
                                     placeholder="Telefone *"
                                     value={newPatientPhone}
                                     onChange={(e) => setNewPatientPhone(e.target.value)}
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                                 <input
                                     type="date"
                                     placeholder="Data de nascimento"
                                     value={newPatientBirthDate}
                                     onChange={(e) => setNewPatientBirthDate(e.target.value)}
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
                         )}
@@ -594,7 +594,7 @@ const ScheduleAppointmentModal = ({
                             value={formData.doctorId}
                             onChange={handleChange}
                             disabled={isLoadingDoctors}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
                         >
                             <option value="">
                                 {isLoadingDoctors ? 'Carregando...' : 'Selecione um profissional'}
@@ -679,7 +679,7 @@ const ScheduleAppointmentModal = ({
                             name="sessionType"
                             value={formData.sessionType}
                             onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         >
                             <option value="fonoaudiologia">Fonoaudiologia</option>
                             <option value="psicologia">Psicologia</option>
@@ -701,7 +701,7 @@ const ScheduleAppointmentModal = ({
                             name="status"
                             value={formData.status}
                             onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         >
                             <option value="agendado">Agendado</option>
                             <option value="confirmado">Confirmado</option>
@@ -732,7 +732,7 @@ const ScheduleAppointmentModal = ({
                             customInput={
                                 <ReactInputMask
                                     mask="99/99/9999"
-                                    className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             }
                             locale={ptBR}
@@ -751,7 +751,7 @@ const ScheduleAppointmentModal = ({
                             name="time"
                             value={formData.time}
                             onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         /> */}
                         <DatePicker
                             selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
@@ -767,7 +767,7 @@ const ScheduleAppointmentModal = ({
                             customInput={
                                 <ReactInputMask
                                     mask="99:99"
-                                    className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             }
                         />
@@ -784,7 +784,7 @@ const ScheduleAppointmentModal = ({
                             name="serviceType"
                             value={formData.serviceType}
                             onChange={handleTypeChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         >
 
 
@@ -818,7 +818,7 @@ const ScheduleAppointmentModal = ({
                                 name="packageId"
                                 value={formData.packageId}
                                 onChange={handleChange}
-                                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >
                                 <option value="">Selecione um pacote</option>
                                 {packages.map(pkg => (
@@ -905,7 +905,7 @@ const ScheduleAppointmentModal = ({
                                         name="paymentAmount"
                                         value={formData.paymentAmount}
                                         onChange={handleChange}
-                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                 </div>
 
@@ -917,7 +917,7 @@ const ScheduleAppointmentModal = ({
                                         name="paymentMethod"
                                         value={formData.paymentMethod}
                                         onChange={handleChange}
-                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     >
                                         <option value="dinheiro">Dinheiro</option>
                                         <option value="pix">PIX</option>
@@ -951,7 +951,7 @@ const ScheduleAppointmentModal = ({
                                                 }));
                                             }}
                                             disabled={loadingConvenios}
-                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                                         >
                                             <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione o convênio'}</option>
                                             {convenios.map(p => (
@@ -972,7 +972,7 @@ const ScheduleAppointmentModal = ({
                                                 setInsuranceValue(Number(e.target.value));
                                                 setFormData(prev => ({ ...prev, insuranceValue: Number(e.target.value) }));
                                             }}
-                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                                         />
                                     </div>
                                 </div>
@@ -989,7 +989,7 @@ const ScheduleAppointmentModal = ({
                                             setFormData(prev => ({ ...prev, authorizationCode: e.target.value }));
                                         }}
                                         placeholder="Ex: 123456789"
-                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                                     />
                                 </div>
 
@@ -1013,7 +1013,7 @@ const ScheduleAppointmentModal = ({
                         onChange={handleChange}
                         rows={3}
                         placeholder="Detalhes da sessão, observações importantes, etc."
-                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     />
                 </div>
             </div>
@@ -1032,7 +1032,7 @@ const ScheduleAppointmentModal = ({
                     onClick={handleSubmit}
                     className={`px-6 py-3 text-white transition-colors flex items-center justify-center gap-2 ${!canSchedule || isLoading || isCreatingPatient
                         ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-emerald-600 hover:bg-emerald-700'
                         }`}
                 >
                     {isCreatingPatient ? (

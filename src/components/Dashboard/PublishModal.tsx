@@ -228,7 +228,7 @@ export function PublishModal({ post, channel, onApprove, onPublish, onUploadMedi
                       type="text"
                       value={campaignName}
                       onChange={(e) => setCampaignName(e.target.value)}
-                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300"
                     />
                   </div>
                   <div>
@@ -238,7 +238,7 @@ export function PublishModal({ post, channel, onApprove, onPublish, onUploadMedi
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="ex: Goiânia"
-                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300"
                     />
                   </div>
                   <div className="flex gap-3">
@@ -249,7 +249,7 @@ export function PublishModal({ post, channel, onApprove, onPublish, onUploadMedi
                         value={ageMin}
                         onChange={(e) => setAgeMin(Number(e.target.value))}
                         min={18} max={65}
-                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300"
                       />
                     </div>
                     <div className="flex-1">
@@ -259,7 +259,7 @@ export function PublishModal({ post, channel, onApprove, onPublish, onUploadMedi
                         value={ageMax}
                         onChange={(e) => setAgeMax(Number(e.target.value))}
                         min={18} max={65}
-                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300"
                       />
                     </div>
                   </div>

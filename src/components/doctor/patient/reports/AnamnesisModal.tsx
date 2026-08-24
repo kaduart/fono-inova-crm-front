@@ -180,7 +180,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                     type="date"
                                     value={formData.identification.interviewDate}
                                     onChange={(e) => updateFormData('identification', 'interviewDate', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
 
@@ -193,7 +193,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                     value={formData.identification.interviewer}
                                     onChange={(e) => updateFormData('identification', 'interviewer', e.target.value)}
                                     placeholder="Seu nome"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
 
@@ -206,7 +206,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                     value={formData.identification.mainComplaint}
                                     onChange={(e) => updateFormData('identification', 'mainComplaint', e.target.value)}
                                     placeholder="Descreva detalhadamente a queixa que trouxe o paciente à terapia..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                                 <p className="mt-1 text-sm text-gray-500">Seja específico e detalhado sobre os sintomas e preocupações</p>
                             </div>
@@ -220,7 +220,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                     value={formData.identification.complaintDuration}
                                     onChange={(e) => updateFormData('identification', 'complaintDuration', e.target.value)}
                                     placeholder="Ex: 1 ano, 6 meses..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
 
@@ -231,7 +231,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                 <select
                                     value={formData.identification.complaintEvolution}
                                     onChange={(e) => updateFormData('identification', 'complaintEvolution', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
                                     <option value="">Selecione...</option>
                                     <option value="piorou">Piorou Progressivamente</option>
@@ -538,7 +538,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                                         <button
                                             onClick={handleSave}
                                             disabled={loading}
-                                            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                         >
                                             {loading ? (
                                                 <>

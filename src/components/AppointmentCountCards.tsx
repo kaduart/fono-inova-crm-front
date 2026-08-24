@@ -146,7 +146,7 @@ const AppointmentStatusCards = () => {
                                     name="dateFrom"
                                     value={filters.dateFrom}
                                     onChange={handleFilterChange}
-                                    className="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                                    className="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
                                 />
                             </div>
 
@@ -160,7 +160,7 @@ const AppointmentStatusCards = () => {
                                     name="dateTo"
                                     value={filters.dateTo}
                                     onChange={handleFilterChange}
-                                    className="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
+                                    className="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
                                 />
                             </div>
 

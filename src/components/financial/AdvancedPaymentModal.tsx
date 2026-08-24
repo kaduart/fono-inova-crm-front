@@ -188,7 +188,7 @@ export const AdvancedPaymentModal = ({
                                             patientId: e.target.value
                                         })}
                                         disabled={isLoading}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 appearance-none"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 appearance-none"
                                     >
                                         <option value="">Selecione um paciente</option>
                                         {patients.map(patient => (
@@ -215,7 +215,7 @@ export const AdvancedPaymentModal = ({
                                             doctorId: e.target.value
                                         })}
                                         disabled={isLoading || doctors.length === 0}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 appearance-none"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 appearance-none"
                                     >
                                         {doctors.map(doctor => (
                                             <option key={doctor._id} value={doctor._id}>
@@ -316,7 +316,7 @@ export const AdvancedPaymentModal = ({
                                             amount: e.target.value
                                         })}
                                         disabled={isLoading}
-                                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
                                     />
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
@@ -336,7 +336,7 @@ export const AdvancedPaymentModal = ({
                                             paymentMethod: e.target.value
                                         })}
                                         disabled={isLoading}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 appearance-none"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 appearance-none"
                                     >
                                         <option value="cartão">Cartão</option>
                                         <option value="pix">PIX</option>
@@ -364,7 +364,7 @@ export const AdvancedPaymentModal = ({
                                 disabled={isLoading}
                                 placeholder="Opcional"
                                 rows={2}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
                             />
                         </div>
                     </div>
@@ -383,7 +383,7 @@ export const AdvancedPaymentModal = ({
                     <button
                         onClick={handleSubmit}
                         disabled={isLoading}
-                        className="px-5 py-2.5 text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 transition-opacity flex items-center"
+                        className="px-5 py-2.5 text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-70 transition-opacity flex items-center"
                     >
                         {isLoading ? (
                             <>

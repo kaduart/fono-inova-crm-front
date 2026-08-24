@@ -18,7 +18,7 @@ export const FollowupFilters = ({ onFilter }: { onFilter: (f: any) => void }) =>
                     name="status"
                     value={filters.status}
                     onChange={handleChange}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-colors"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
                 >
                     <option value="">Todos</option>
                     <option value="scheduled">Agendado</option>
@@ -34,7 +34,7 @@ export const FollowupFilters = ({ onFilter }: { onFilter: (f: any) => void }) =>
                     placeholder="Meta, Google..."
                     value={filters.origin}
                     onChange={handleChange}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-colors"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
                 />
             </div>
 
@@ -47,7 +47,7 @@ export const FollowupFilters = ({ onFilter }: { onFilter: (f: any) => void }) =>
                         name="startDate"
                         value={filters.startDate}
                         onChange={handleChange}
-                        className="flex-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-colors"
+                        className="flex-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
                     />
                     <span className="text-slate-400">–</span>
                     <input
@@ -55,14 +55,14 @@ export const FollowupFilters = ({ onFilter }: { onFilter: (f: any) => void }) =>
                         name="endDate"
                         value={filters.endDate}
                         onChange={handleChange}
-                        className="flex-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-colors"
+                        className="flex-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
                     />
                 </div>
             </div>
 
             <button
                 onClick={apply}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md"
             >
                 <Filter size={16} /> Aplicar
             </button>

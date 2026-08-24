@@ -670,7 +670,7 @@ export function NewEvaluationModal({
                                             console.log('🎯 PROTOCOLO SELECIONADO:', e.target.value);
                                             onSelectProtocol?.(e.target.value || '');
                                         }}
-                                        className="w-full p-4 text-base font-medium border-2 border-blue-400 rounded-xl focus:ring-4 focus:ring-blue-200 focus:border-blue-500 bg-white"
+                                        className="w-full p-4 text-base font-medium border-2 border-emerald-400 rounded-xl focus:ring-4 focus:ring-emerald-200 focus:border-emerald-500 bg-white"
                                     >
                                         <option value="">-- Escolha um protocolo --</option>
                                         {protocols.map((p: any) => (

@@ -504,15 +504,15 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div>
-                <span className="block text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Ritmo atual</span>
+                <span className="block text-3xs font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Ritmo atual</span>
                 <span className="text-sm font-semibold" style={{ color: '#1A2C3E' }}>{proj.averageSessionsPerWeek} sess./sem</span>
               </div>
               <div>
-                <span className="block text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Consumo/sem</span>
+                <span className="block text-3xs font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Consumo/sem</span>
                 <span className="text-sm font-semibold whitespace-nowrap" style={{ color: '#1A2C3E' }}>R$ {fmt(proj.weeklyConsumption)}</span>
               </div>
               <div>
-                <span className="block text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Restantes</span>
+                <span className="block text-3xs font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Restantes</span>
                 <span className="text-sm font-semibold" style={{ color: '#1A2C3E' }}>≈{roundedRemaining} sessões</span>
               </div>
             </div>
@@ -690,22 +690,22 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                                 className="rounded-lg p-2 text-center"
                                 style={{ background: 'rgba(255,255,255,0.6)', border: `1px solid ${spTheme.border}` }}
                               >
-                                <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Valor/sessão</p>
+                                <p className="text-3xs uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Valor/sessão</p>
                                 <p className="text-xs font-bold" style={{ color: spTheme.text }}>R$ {fmt(config.sessionValue ?? 0)}</p>
                               </div>
                               <div
                                 className="rounded-lg p-2 text-center"
                                 style={{ background: 'rgba(255,255,255,0.6)', border: `1px solid ${spTheme.border}` }}
                               >
-                                <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Total autorizado</p>
+                                <p className="text-3xs uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Total autorizado</p>
                                 <p className="text-xs font-bold" style={{ color: spTheme.text }}>{base} sessões</p>
-                                <p className="text-[10px]" style={{ color: '#8A99B0' }}>R$ {fmt(base * (config.sessionValue ?? 0))}</p>
+                                <p className="text-3xs" style={{ color: '#8A99B0' }}>R$ {fmt(base * (config.sessionValue ?? 0))}</p>
                               </div>
                               <div
                                 className="rounded-lg p-2 text-center"
                                 style={{ background: 'rgba(255,255,255,0.6)', border: `1px solid ${spTheme.border}` }}
                               >
-                                <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Sessões geradas</p>
+                                <p className="text-3xs uppercase tracking-wide font-semibold" style={{ color: '#8A99B0' }}>Sessões geradas</p>
                                 <p className="text-xs font-bold" style={{ color: spTheme.text }}>{generated}</p>
                               </div>
                             </div>
@@ -1067,7 +1067,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                       <select
                         value={slot.dayOfWeek}
                         onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((s, si) => si === i ? { ...s, dayOfWeek: e.target.value as any } : s) }))}
-                        className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       >
                         <option value="">Dia</option>
                         {[{v:1,l:'Segunda'},{v:2,l:'Terça'},{v:3,l:'Quarta'},{v:4,l:'Quinta'},{v:5,l:'Sexta'}].map(d => (
@@ -1077,7 +1077,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                       <input
                         type="time" value={slot.time}
                         onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((s, si) => si === i ? { ...s, time: e.target.value } : s) }))}
-                        className="w-28 p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-28 p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       />
                       {editTherapyModal.slots.length > 1 && (
                         <button type="button" onClick={() => setEditTherapyModal(p => ({ ...p, slots: p.slots.filter((_, si) => si !== i) }))} className="text-rose-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors">
@@ -1106,7 +1106,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                   value={editTherapyModal.notes}
                   onChange={(e) => setEditTherapyModal(p => ({ ...p, notes: e.target.value }))}
                   rows={2}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                   placeholder="Ex: orientação parental, atendida pela responsável..."
                 />
               </div>

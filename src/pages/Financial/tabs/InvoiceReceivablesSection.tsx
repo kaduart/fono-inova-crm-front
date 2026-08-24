@@ -60,14 +60,14 @@ function fetchInvoiceReceivables() {
 function StatusBadge({ status }: { status: InvoiceReceivable['status'] }) {
     if (status === 'received') {
         return (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-2xs font-bold text-emerald-700">
                 <Check size={11} /> Baixada
             </span>
         );
     }
     const partial = status === 'partial';
     return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-bold ${
             partial
                 ? 'border-amber-200 bg-amber-50 text-amber-700'
                 : 'border-blue-200 bg-blue-50 text-blue-700'
@@ -203,7 +203,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                     </div>
                     <div className="min-w-0">
                         <h2 className="text-sm font-black text-slate-900">Controle por nota fiscal</h2>
-                        <p className="truncate text-[11px] text-slate-500">Clique em uma NF para conferir guias e registrar a baixa.</p>
+                        <p className="truncate text-2xs text-slate-500">Clique em uma NF para conferir guias e registrar a baixa.</p>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -257,13 +257,13 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                                             setEditingInvoice(invoice);
                                             setEditInvoiceNumber(invoice.invoiceNumber || '');
                                         }}
-                                        className="inline-flex items-center gap-1 rounded-md p-1 text-[11px] font-bold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                                        className="inline-flex items-center gap-1 rounded-md p-1 text-2xs font-bold text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
                                         title="Editar número da NF"
                                     >
                                         <Pencil size={12} />
                                     </button>
                                     <StatusBadge status={invoice.status} />
-                                    {invoice.origin === 'legacy_reconciliation' && <span className="hidden rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700 lg:inline">Legado</span>}
+                                    {invoice.origin === 'legacy_reconciliation' && <span className="hidden rounded-full bg-violet-50 px-2 py-0.5 text-3xs font-bold text-violet-700 lg:inline">Legado</span>}
                                 </div>
                                 <p className="mt-0.5 truncate text-xs text-slate-500">
                                     <span className="font-bold text-slate-700">{invoice.patient?.fullName || 'Paciente não identificado'}</span>
@@ -289,7 +289,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                                     <div className="mx-1 h-1.5 min-w-24 flex-1 overflow-hidden rounded-full bg-slate-200">
                                         <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
                                     </div>
-                                    <span className="text-[11px] font-black text-slate-500">{progress}%</span>
+                                    <span className="text-2xs font-black text-slate-500">{progress}%</span>
                                     {view === 'pending' && (
                                         <button type="button" onClick={() => setTarget({ invoice })} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
                                             <WalletCards size={14} /> Baixar saldo da NF
@@ -310,7 +310,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between gap-3 pl-11 sm:pl-0">
-                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                                            <span className={`rounded-full px-2.5 py-1 text-3xs font-bold ${
                                                 guide.status === 'received'
                                                     ? 'bg-emerald-100 text-emerald-700'
                                                     : guide.status === 'partial'
@@ -390,12 +390,12 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                         <div className="space-y-4 px-5 py-5">
                             <div>
                                 <label htmlFor="invoice-number-edit" className="mb-1.5 block text-xs font-bold text-slate-700">Número da nota fiscal</label>
-                                <input id="invoice-number-edit" type="text" value={editInvoiceNumber} onChange={event => setEditInvoiceNumber(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Digite o número da NF" />
+                                <input id="invoice-number-edit" type="text" value={editInvoiceNumber} onChange={event => setEditInvoiceNumber(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" placeholder="Digite o número da NF" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3.5">
                             <button type="button" onClick={() => setEditingInvoice(null)} disabled={updatingInvoice} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-200 disabled:opacity-50">Cancelar</button>
-                            <button type="button" onClick={handleUpdateInvoiceNumber} disabled={updatingInvoice || !editInvoiceNumber.trim()} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                            <button type="button" onClick={handleUpdateInvoiceNumber} disabled={updatingInvoice || !editInvoiceNumber.trim()} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300">
                                 {updatingInvoice ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
                                 {updatingInvoice ? 'Salvando...' : 'Salvar'}
                             </button>

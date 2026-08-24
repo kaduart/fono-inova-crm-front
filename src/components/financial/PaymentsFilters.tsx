@@ -189,7 +189,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.doctorId || ""}
                             onChange={(e) => handleFilterChange('doctorId', e.target.value)}
                         >
@@ -216,7 +216,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                     <div className="relative flex items-center">
                         <input
                             type="text"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             placeholder="Nome ou ID"
                             value={filters.patientId || ""}
                             onChange={(e) => handleFilterChange('patientId', e.target.value)}
@@ -234,7 +234,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.status || ""}
                             onChange={(e) => handleFilterChange('status', e.target.value)}
                         >
@@ -258,7 +258,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.paymentMethod || ""}
                             onChange={(e) => handleFilterChange('paymentMethod', e.target.value)}
                         >
@@ -282,7 +282,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.serviceType || ""}
                             onChange={(e) => handleFilterChange('serviceType', e.target.value)}
                         >

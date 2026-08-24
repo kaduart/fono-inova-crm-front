@@ -141,7 +141,7 @@ const FollowupComposer: React.FC<FollowupComposerProps> = ({
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Digite ou gere uma mensagem..."
-        className="w-full border rounded p-2 text-sm mb-3 h-28 focus:ring-2 focus:ring-blue-400"
+        className="w-full border rounded p-2 text-sm mb-3 h-28 focus:ring-2 focus:ring-emerald-400"
         disabled={loading || generating}
       />
 

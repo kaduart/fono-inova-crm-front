@@ -211,10 +211,10 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
           <h3 className="font-semibold text-gray-900">{video.title}</h3>
           <div className="flex gap-1 flex-shrink-0">
             {(video as any).provider === 'veo-3.1' && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">Veo 3.1</span>
+              <span className="text-3xs font-semibold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">Veo 3.1</span>
             )}
             {videoEditadoUrl && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">Editado</span>
+              <span className="text-3xs font-semibold px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">Editado</span>
             )}
           </div>
         </div>
@@ -239,7 +239,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
               {onPublishMeta && (
                 <button 
                   onClick={() => setShowMetaModal(true)} 
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 min-w-[120px]"
+                  className="flex-1 px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 min-w-[120px]"
                   title="Criar campanha no Meta Ads"
                 >
                   💰 Tráfego Pago

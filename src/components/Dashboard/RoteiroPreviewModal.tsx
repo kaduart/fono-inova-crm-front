@@ -294,7 +294,7 @@ export function RoteiroPreviewModal({ roteiro, onConfirm, onCancel }: Props) {
               type="text"
               value={editado.titulo}
               onChange={e => setEditado(prev => ({ ...prev, titulo: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -307,7 +307,7 @@ export function RoteiroPreviewModal({ roteiro, onConfirm, onCancel }: Props) {
               type="text"
               value={editado.hook_texto_overlay}
               onChange={e => setEditado(prev => ({ ...prev, hook_texto_overlay: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               maxLength={80}
             />
             <p className="text-xs text-gray-400 mt-1">{editado.hook_texto_overlay?.length || 0}/80 chars — aparece na tela do video</p>
@@ -344,7 +344,7 @@ export function RoteiroPreviewModal({ roteiro, onConfirm, onCancel }: Props) {
               value={editado.texto_completo}
               onChange={e => setEditado(prev => ({ ...prev, texto_completo: e.target.value }))}
               rows={8}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none leading-relaxed"
               placeholder="Texto da narracao..."
             />
             <p className="text-xs text-gray-400 mt-1">{editado.texto_completo?.length || 0} caracteres</p>
@@ -359,7 +359,7 @@ export function RoteiroPreviewModal({ roteiro, onConfirm, onCancel }: Props) {
               type="text"
               value={editado.cta_texto_overlay}
               onChange={e => setEditado(prev => ({ ...prev, cta_texto_overlay: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -431,7 +431,7 @@ export function RoteiroPreviewModal({ roteiro, onConfirm, onCancel }: Props) {
             </button>
             <button
               onClick={() => onConfirm(editado)}
-              className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              className="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
             >
               Gerar video com este roteiro
             </button>

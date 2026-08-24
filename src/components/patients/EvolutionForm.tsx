@@ -123,7 +123,7 @@ const EvolutionForm: React.FC<EvolutionFormProps> = ({
             <button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 transition"
             >
                 {isSubmitting ? 'Salvando...' : 'Salvar Evolução'}
             </button>

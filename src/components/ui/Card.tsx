@@ -4,8 +4,7 @@ interface CardProps {
 }
 
 export const Card = ({ children, className = '' }: CardProps) => (
-    <div className={`rounded-lg shadow-md shadow-lg border-l-4 transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-lg
-     ${className}`}>
+    <div className={`rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${className}`}>
         {children}
     </div>
 );
@@ -19,18 +18,18 @@ interface CardHeaderProps {
 export const CardHeader = ({ children, icon: Icon, className = '' }: CardHeaderProps) => (
     <div className={`px-4 py-5 border-b border-gray-200 sm:px-6 flex items-center justify-between ${className}`}>
         {children}
-        {Icon && <Icon className="h-5 w-5 text-blue-600 ml-2" />}
+        {Icon && <Icon className="h-5 w-5 text-emerald-600 ml-2" />}
     </div>
 );
 
 export const CardTitle = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-    <h3 className={`text-lg leading-6 font-medium ${className}`}>{children}</h3>
+    <h3 className={`text-lg leading-6 font-semibold text-gray-900 ${className}`}>{children}</h3>
 );
 
 export const CardContent = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
     <div className={`px-4 py-5 sm:p-6 ${className}`}>{children}</div>
 );
 
-export const CardFooter = ({ children }: { children: React.ReactNode }) => (
-    <div className="px-4 py-4 sm:px-6">{children}</div>
+export const CardFooter = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+    <div className={`border-t border-gray-100 px-4 py-4 sm:px-6 ${className}`}>{children}</div>
 );

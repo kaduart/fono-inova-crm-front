@@ -412,7 +412,7 @@ export const PaymentModal = ({
                         <button
                             type="button"
                             onClick={addAdvanceService}
-                            className="bg-blue-600 text-white px-2 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1 text-xs"
+                            className="bg-emerald-600 text-white px-2 py-1 rounded-md hover:bg-emerald-700 flex items-center gap-1 text-xs"
                             disabled={isLoading}
                         >
                             <Plus size={14} /> Adicionar

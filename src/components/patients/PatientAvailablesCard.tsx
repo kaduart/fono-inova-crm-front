@@ -91,7 +91,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
-                    className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
+                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
                     onClick={() => setShowModal(true)}
                   >
                     <Plus className="h-4 w-4" />
@@ -293,7 +293,7 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
                   onChange={handleChange}
                 />
               </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
                 Salvar Avaliação
               </Button>
             </form>

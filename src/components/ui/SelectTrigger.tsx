@@ -10,7 +10,7 @@ export const SelectTrigger = ({ children }: { children: React.ReactNode }) => {
 
     return (
         <div
-            className="flex items-center justify-between w-full px-3 py-2 border rounded-md bg-background"
+            className="flex items-center justify-between w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
             onClick={() => context.setOpen(!context.open)}
         >
             {children}

@@ -14,6 +14,6 @@ export const SearchInput = ({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="p-2 border border-gray-300 rounded w-full text-gray-500 focus:ring-blue-500 focus:border-blue-500"
+        className="p-2 border border-gray-300 rounded w-full text-gray-500 focus:ring-emerald-500 focus:border-emerald-500"
     />
 );

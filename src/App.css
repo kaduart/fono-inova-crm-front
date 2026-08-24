@@ -70,7 +70,7 @@
 }
 
 .fc .fc-button {
-  @apply bg-white border-gray-300 text-gray-700 font-medium py-1.5 px-3 text-sm rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  @apply bg-white border-gray-300 text-gray-700 font-medium py-1.5 px-3 text-sm rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
 }
 
 .fc .fc-button-primary:not(:disabled).fc-button-active {
