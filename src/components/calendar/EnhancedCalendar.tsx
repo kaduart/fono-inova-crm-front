@@ -981,8 +981,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         <span className="text-[11px] text-gray-700 font-medium">{serviceLabel}</span>
                         <div className="flex items-center gap-1.5">
                             {patientHasDebt && (
-                                <span className="text-[10px] font-bold text-red-700 bg-white/70 px-1.5 py-0.5 rounded-full" title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
-                                    ⚠️ R$ {patientBalance.toFixed(0)}
+                                <span className="text-[10px] font-bold text-red-700 bg-white/70 px-1.5 py-0.5 rounded-full" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
+                                    ⚠️ Débito R$ {patientBalance.toFixed(0)}
                                 </span>
                             )}
                             <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1`}>
@@ -1236,8 +1236,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     )}
 
                     {patientHasDebt && (
-                        <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold animate-pulse`} title={`Paciente deve R$ ${patientBalance.toFixed(2)}`}>
-                            ⚠️ R$ {patientBalance.toFixed(0)}
+                        <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-[11px]' : 'text-[9px]'} font-bold animate-pulse`} title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
+                            ⚠️ Débito R$ {patientBalance.toFixed(0)}
                         </div>
                     )}
                     {isPackageSessionPending && (
@@ -1512,7 +1512,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                                 <div className="text-[10px] text-slate-200">
                                     <div className="font-bold text-red-400 text-lg">R$ {patientBalance.toFixed(2)}</div>
-                                    <div className="text-red-300">Paciente deve este valor</div>
+                                    <div className="text-red-300">Saldo geral do paciente (não é o valor desta sessão/pacote)</div>
                                 </div>
                             </div>
                         )}
@@ -2145,6 +2145,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     value={dayModalFilter}
                                     onChange={(e) => setDayModalFilter(e.target.value)}
                                     placeholder="Buscar paciente pelo nome..."
+                                    autoFocus
                                     className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                 />
                             </div>
