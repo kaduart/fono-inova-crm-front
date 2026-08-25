@@ -201,43 +201,43 @@ const TAB_CONFIG = {
   gmb: {
     label: 'Google Meu Negócio',
     icon: Google,
-    color: 'blue',
+    activeClass: 'border-blue-600 text-blue-600',
     shortLabel: 'GMB'
   },
   instagram: {
     label: 'Instagram',
     icon: Instagram,
-    color: 'pink',
+    activeClass: 'border-pink-600 text-pink-600',
     shortLabel: 'IG'
   },
   facebook: {
     label: 'Facebook',
     icon: Facebook,
-    color: 'indigo',
+    activeClass: 'border-indigo-600 text-indigo-600',
     shortLabel: 'FB'
   },
   landingpages: {
     label: 'Landing Pages',
     icon: FileText,
-    color: 'cyan',
+    activeClass: 'border-cyan-600 text-cyan-600',
     shortLabel: 'LPs'
   },
   metaads: {
     label: 'Tráfego Pago',
     icon: TrendingUp,
-    color: 'emerald',
+    activeClass: 'border-emerald-600 text-emerald-600',
     shortLabel: 'Ads'
   },
   videos: {
     label: 'Vídeos com IA',
     icon: Video,
-    color: 'red',
+    activeClass: 'border-red-600 text-red-600',
     shortLabel: 'Vídeos'
   },
   spy: {
     label: 'Spy de Concorrentes',
     icon: Search,
-    color: 'purple',
+    activeClass: 'border-purple-600 text-purple-600',
     shortLabel: 'Spy'
   }
 };
@@ -980,22 +980,22 @@ export default function MarketingDashboard() {
   };
 
   const StatusBadge = ({ status }: { status: string }) => {
-    const config: Record<string, { color: string; bg: string; label: string; animate?: boolean }> = {
-      draft: { color: 'gray', bg: 'bg-gray-100', label: 'Rascunho' },
-      ready: { color: 'purple', bg: 'bg-purple-100', label: 'Pronto p/ publicar' },
-      approved: { color: 'emerald', bg: 'bg-emerald-100', label: 'Aprovado' },
-      scheduled: { color: 'blue', bg: 'bg-blue-100', label: 'Agendado' },
-      published: { color: 'green', bg: 'bg-green-100', label: 'Publicado' },
-      failed: { color: 'red', bg: 'bg-red-100', label: 'Falhou' },
-      cancelled: { color: 'gray', bg: 'bg-gray-100', label: 'Cancelado' },
-      publishing_retry: { color: 'yellow', bg: 'bg-yellow-100', label: 'Reenviando...', animate: true },
-      processing: { color: 'yellow', bg: 'bg-yellow-100', label: 'Processando...', animate: true }
+    const config: Record<string, { bg: string; text: string; label: string; animate?: boolean }> = {
+      draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Rascunho' },
+      ready: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Pronto p/ publicar' },
+      approved: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Aprovado' },
+      scheduled: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Agendado' },
+      published: { bg: 'bg-green-100', text: 'text-green-800', label: 'Publicado' },
+      failed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Falhou' },
+      cancelled: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Cancelado' },
+      publishing_retry: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Reenviando...', animate: true },
+      processing: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Processando...', animate: true }
     };
     // Sem fallback pra 'draft': status desconhecido mostra o texto cru em vez de
     // mentir uma label errada (foi assim que 'ready' virou "Rascunho" por meses)
-    const cfg = config[status] || { color: 'gray', bg: 'bg-gray-100', label: status };
+    const cfg = config[status] || { bg: 'bg-gray-100', text: 'text-gray-800', label: status };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} text-${cfg.color}-800 flex items-center gap-1`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text} flex items-center gap-1`}>
         {cfg.animate && (
           <span className="inline-block w-1.5 h-1.5 bg-yellow-600 rounded-full animate-pulse" />
         )}
@@ -1005,14 +1005,14 @@ export default function MarketingDashboard() {
   };
 
   const FunnelBadge = ({ stage }: { stage: string }) => {
-    const config: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
-      top: { emoji: '🔴', label: 'Topo', color: 'red', bg: 'bg-red-50' },
-      middle: { emoji: '🟡', label: 'Meio', color: 'yellow', bg: 'bg-yellow-50' },
-      bottom: { emoji: '🟢', label: 'Fundo', color: 'green', bg: 'bg-green-50' }
+    const config: Record<string, { emoji: string; label: string; bg: string; text: string; border: string }> = {
+      top: { emoji: '🔴', label: 'Topo', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+      middle: { emoji: '🟡', label: 'Meio', bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
+      bottom: { emoji: '🟢', label: 'Fundo', bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' }
     };
     const cfg = config[stage] || config.top;
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${cfg.bg} text-${cfg.color}-700 border-${cfg.color}-200`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
         {cfg.emoji} {cfg.label}
       </span>
     );
@@ -1141,7 +1141,7 @@ export default function MarketingDashboard() {
                   key={key}
                   onClick={() => setActiveTab(key as any)}
                   className={`flex items-center gap-2 px-4 py-3 font-medium text-sm border-b-2 transition-all whitespace-nowrap ${activeTab === key
-                    ? `border-${config.color}-600 text-${config.color}-600`
+                    ? config.activeClass
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                 >
@@ -1197,15 +1197,15 @@ export default function MarketingDashboard() {
                       const esp = ESPECIALIDADES.find(e => e.id === (selectedEspecialidade || automaticConfig.especialidade))!;
                       const funnel = selectedEspecialidade ? selectedFunnelStage : automaticConfig.funnel;
                       const funnelLabels = {
-                        top: { emoji: '🔴', label: 'Topo (Descoberta)', color: 'red' },
-                        middle: { emoji: '🟡', label: 'Meio (Consideração)', color: 'yellow' },
-                        bottom: { emoji: '🟢', label: 'Fundo (Conversão)', color: 'green' }
+                        top: { emoji: '🔴', label: 'Topo (Descoberta)', className: 'bg-red-100 text-red-700 border-red-200' },
+                        middle: { emoji: '🟡', label: 'Meio (Consideração)', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+                        bottom: { emoji: '🟢', label: 'Fundo (Conversão)', className: 'bg-green-100 text-green-700 border-green-200' }
                       };
                       const fl = funnelLabels[funnel];
                       return (
                         <>
                           <span className="text-sm font-semibold text-gray-900">{esp.nome}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${fl.color}-100 text-${fl.color}-700 border border-${fl.color}-200`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${fl.className}`}>
                             {fl.emoji} {fl.label}
                           </span>
                         </>
