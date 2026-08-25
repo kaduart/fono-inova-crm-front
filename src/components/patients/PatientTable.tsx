@@ -84,6 +84,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
     const [isSearching, setIsSearching] = useState(false);
     const [onlyWithDebt, setOnlyWithDebt] = useState(false);
     const [debtTotal, setDebtTotal] = useState<number | null>(null);
+    const [debtTotalAmount, setDebtTotalAmount] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -120,9 +121,13 @@ const PatientTable: React.FC<PatientTableProps> = ({
                     hasDebt: onlyWithDebt,
                     limit: 100
                 });
-                setPatients(mapPatientListResponseDTO(result.patients));
+                const mapped = mapPatientListResponseDTO(result.patients);
+                setPatients(mapped);
                 setCurrentPage(1);
-                if (onlyWithDebt) setDebtTotal(result.pagination.total);
+                if (onlyWithDebt) {
+                    setDebtTotal(result.pagination.total);
+                    setDebtTotalAmount(mapped.reduce((sum, p) => sum + (p.debt ?? 0), 0));
+                }
             } catch (error) {
                 console.error('❌ Erro ao buscar pacientes:', error);
             } finally {
@@ -235,7 +240,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
             <div className="p-4">
                     {/* Busca + filtro de saldo devedor */}
                     <div className="mb-4 flex flex-col sm:flex-row gap-2">
-                        <div className="relative flex-1">
+                        <div className="relative w-full sm:max-w-[220px]">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
@@ -257,7 +262,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                         <button
                             onClick={() => {
                                 setOnlyWithDebt(prev => !prev);
-                                if (onlyWithDebt) setDebtTotal(null); // desligando: descarta contagem da última consulta
+                                if (onlyWithDebt) { setDebtTotal(null); setDebtTotalAmount(null); } // desligando: descarta resultado da última consulta
                                 setCurrentPage(1);
                             }}
                             title="Buscar no servidor somente pacientes com saldo devedor"
@@ -272,6 +277,11 @@ const PatientTable: React.FC<PatientTableProps> = ({
                             {onlyWithDebt && debtTotal !== null && (
                                 <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-3xs font-bold bg-red-600 text-white">
                                     {debtTotal}
+                                </span>
+                            )}
+                            {onlyWithDebt && debtTotalAmount !== null && debtTotalAmount > 0 && (
+                                <span className="text-3xs font-bold text-red-700">
+                                    R$ {debtTotalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>
                             )}
                         </button>
