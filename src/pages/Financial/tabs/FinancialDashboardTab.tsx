@@ -116,8 +116,8 @@ interface FinancialDashboardTabProps {
 // Evita colisão de nome com o Tooltip do recharts (já importado nesta tela para os gráficos).
 const InfoTooltip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <span className="relative inline-flex group ml-1 align-middle">
-    <span className="cursor-help text-gray-400 hover:text-gray-600 text-[11px] leading-none select-none">ⓘ</span>
-    <span className="pointer-events-none absolute z-20 hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 rounded-lg bg-gray-900 text-white text-[10px] leading-snug p-2.5 shadow-lg text-left normal-case font-normal">
+    <span className="cursor-help text-gray-400 hover:text-gray-600 text-2xs leading-none select-none">ⓘ</span>
+    <span className="pointer-events-none absolute z-20 hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 rounded-lg bg-gray-900 text-white text-3xs leading-snug p-2.5 shadow-lg text-left normal-case font-normal">
       {children}
     </span>
   </span>
@@ -596,7 +596,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       {ritmoCardEl}
 
       {/* ── VISÃO OPERACIONAL ── */}
-      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Visão Operacional</p>
+      <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Visão Operacional</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {/* 1. Produção Clínica */}
         <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
@@ -604,10 +604,10 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="p-4 bg-white">
             <div className="flex items-center gap-2 mb-2">
               <Briefcase size={14} className="text-blue-600" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Produção Clínica</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-blue-600">Produção Clínica</span>
             </div>
             <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalProducao)}</div>
-            <p className="text-[10px] text-gray-500 mb-3">serviços realizados · <strong className="text-blue-600">base da meta mensal</strong></p>
+            <p className="text-3xs text-gray-500 mb-3">serviços realizados · <strong className="text-blue-600">base da meta mensal</strong></p>
             <div className="space-y-1.5 border-t border-gray-100 pt-2">
               {([
                 { label: 'Pacote',     value: revenue.byMethod.pacote || 0,     color: '#8B5CF6' },
@@ -633,10 +633,10 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="p-4 bg-white">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle2 size={14} className="text-emerald-600" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Recebido da Produção</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-emerald-600">Recebido da Produção</span>
             </div>
             <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalRecebimentoProducao)}</div>
-            <p className="text-[10px] text-gray-500 mb-3">da produção deste mês já convertida em caixa</p>
+            <p className="text-3xs text-gray-500 mb-3">da produção deste mês já convertida em caixa</p>
             <div className="border-t border-gray-100 pt-2">
               <div className="flex justify-between text-xs mb-1.5">
                 <span className="text-gray-500">% da produção recebida</span>
@@ -647,7 +647,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   style={{ width: `${totalProducao > 0 ? Math.min(100, Math.round((totalRecebimentoProducao / totalProducao) * 100)) : 0}%` }} />
               </div>
               {(totalProducao > 0 ? Math.round((totalRecebimentoProducao / totalProducao) * 100) : 0) >= 75 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-3xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                   ✓ Alta conversão
                 </span>
               )}
@@ -661,10 +661,10 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="p-4 bg-white">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle size={14} className="text-amber-600" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">A Receber</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-amber-600">A Receber</span>
             </div>
             <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalAReceberProducao)}</div>
-            <p className="text-[10px] text-gray-500 mb-3">produção realizada ainda não paga</p>
+            <p className="text-3xs text-gray-500 mb-3">produção realizada ainda não paga</p>
             <div className="border-t border-gray-100 pt-2 space-y-1.5">
               {convenioAReceber > 0 && (
                 <div className="flex items-center justify-between text-xs">
@@ -699,7 +699,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       </div>
 
       {/* ── AGENDA & PACIENTES ── */}
-      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Agenda & Pacientes — Novos no Mês</p>
+      <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Agenda & Pacientes — Novos no Mês</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Card principal */}
         <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
@@ -707,11 +707,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="p-4 bg-white">
             <div className="flex items-center gap-2 mb-1">
               <Calendar size={14} className="text-red-500" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Agendamentos Novos</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-red-500">Agendamentos Novos</span>
             </div>
             <div className="text-4xl font-black text-gray-900 my-1">{Math.max(0, (agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0))}</div>
             {agendamentosMesAnterior && (
-              <p className="text-[10px] text-gray-400 mb-2">
+              <p className="text-3xs text-gray-400 mb-2">
                 vs mês anterior: {(agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)} ·{' '}
                 <span className={((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) >= ((agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
                   {(((((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) / Math.max(1, (agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0))) - 1) * 100).toFixed(1)}%
@@ -737,7 +737,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               </div>
               {novosPacientesLista.length > 0 && (
                 <button onClick={() => setNovosPacientesModalOpen(true)}
-                  className="mt-1.5 w-full py-1.5 text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
+                  className="mt-1.5 w-full py-1.5 text-2xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
                   Ver {novosPacientesLista.length} pacientes novos ↗
                 </button>
               )}
@@ -749,14 +749,14 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
           <div style={{ height: 3, backgroundColor: '#6B7280' }} />
           <div className="p-4 bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Comparativo mês anterior</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Comparativo mês anterior</p>
             <div className="text-2xl font-black text-gray-900 mb-1">{Math.max(0, (agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0))}</div>
-            <p className="text-[10px] text-gray-500 mb-3">
+            <p className="text-3xs text-gray-500 mb-3">
               {agendamentosMes && agendamentosMesAnterior
                 ? `${((((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) / Math.max(1, (agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) - 1) * 100).toFixed(1)}% ${((agendamentosMes?.leads ?? 0) + (agendamentosMes?.novos ?? 0)) >= ((agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0)) ? 'a mais' : 'a menos'} que o mês anterior`
                 : '—'}
             </p>
-            <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">estável</span>
+            <span className="inline-flex text-3xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">estável</span>
           </div>
         </div>
 
@@ -767,9 +767,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
               <div style={{ height: 3, backgroundColor: '#0EA5E9' }} />
               <div className="p-4 bg-white">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Taxa de novos</p>
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Taxa de novos</p>
                 <div className="text-2xl font-black text-gray-900 mb-1">{pct}%</div>
-                <p className="text-[10px] text-gray-400 mb-2">% de agendamentos de novos pacientes</p>
+                <p className="text-3xs text-gray-400 mb-2">% de agendamentos de novos pacientes</p>
                 <div className="h-[4px] w-full bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: '#0EA5E9' }} />
                 </div>
@@ -785,9 +785,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
               <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
               <div className="p-4 bg-white">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Taxa de retorno</p>
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Taxa de retorno</p>
                 <div className="text-2xl font-black text-gray-900 mb-1">{pct}%</div>
-                <p className="text-[10px] text-gray-400 mb-2">% de retornos após 45+ dias</p>
+                <p className="text-3xs text-gray-400 mb-2">% de retornos após 45+ dias</p>
                 <div className="h-[4px] w-full bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: '#F59E0B' }} />
                 </div>
@@ -798,7 +798,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       </div>
 
       {/* ── CAIXA FINANCEIRO ── */}
-      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Caixa Financeiro · Regime de Caixa</p>
+      <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Caixa Financeiro · Regime de Caixa</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {([
           { label: 'Caixa total',   value: totalCaixa, color: '#10B981', sub: 'inclui vendas de pacotes e antecipações' },
@@ -811,9 +811,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div key={kpi.label} className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
             <div style={{ height: 3, backgroundColor: kpi.color }} />
             <div className="p-3 bg-white">
-              <p className="text-[10px] text-gray-500 font-semibold mb-1">{kpi.label}</p>
+              <p className="text-3xs text-gray-500 font-semibold mb-1">{kpi.label}</p>
               <p className="text-lg font-black leading-tight" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{kpi.sub}</p>
+              <p className="text-3xs text-gray-400 mt-0.5 leading-tight">{kpi.sub}</p>
             </div>
           </div>
         ))}
@@ -839,8 +839,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Por Tipo */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Caixa · Por Tipo</p>
-          <p className="text-[10px] text-gray-400 mb-3">dinheiro recebido no período</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-500">Caixa · Por Tipo</p>
+          <p className="text-3xs text-gray-400 mb-3">dinheiro recebido no período</p>
           <BreakdownList items={[
             { label: 'Pacote',     value: cash.breakdown.pacote,     color: 'purple' },
             { label: 'Particular', value: cash.breakdown.particular, color: 'blue'   },
@@ -855,8 +855,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* Por Método */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Caixa · Por Método</p>
-          <p className="text-[10px] text-gray-400 mb-3">forma de pagamento recebida</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-500">Caixa · Por Método</p>
+          <p className="text-3xs text-gray-400 mb-3">forma de pagamento recebida</p>
           <BreakdownList items={[
             { label: 'PIX',      value: cash.byMethod.pix,      color: 'sky'     },
             { label: 'Cartão',   value: cash.byMethod.cartao,   color: 'blue'    },
@@ -867,31 +867,31 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             <span className="inline-flex items-center gap-1.5 text-xs text-gray-600">
               <strong>{topMethod.label}</strong> lidera · {topPct.toFixed(1)}% das entradas
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ saudável</span>
+            <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ saudável</span>
           </div>
         </div>
       </div>
 
       {/* Detalhamento de Pacotes */}
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Detalhamento de Pacotes no Caixa</p>
+        <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Detalhamento de Pacotes no Caixa</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] text-gray-500 font-semibold mb-1">Vendas de pacotes (contratos)</p>
+            <p className="text-3xs text-gray-500 font-semibold mb-1">Vendas de pacotes (contratos)</p>
             <p className="text-xl font-black text-gray-900">{formatCurrency(cash.breakdown.packageSales || 0)}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{cash.breakdown.packageSalesCount || 0} contratos fechados</p>
+            <p className="text-3xs text-gray-400 mt-0.5">{cash.breakdown.packageSalesCount || 0} contratos fechados</p>
           </div>
           <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] text-gray-500 font-semibold mb-1">Sessões de pacote pagas</p>
+            <p className="text-3xs text-gray-500 font-semibold mb-1">Sessões de pacote pagas</p>
             <p className="text-xl font-black text-gray-900">{formatCurrency(Math.max(0, (cash.breakdown.pacote || 0) - (cash.breakdown.packageSales || 0)))}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">pagamento por sessão realizada</p>
+            <p className="text-3xs text-gray-400 mt-0.5">pagamento por sessão realizada</p>
           </div>
           <div className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
             <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
             <div className="p-4 bg-white">
-              <p className="text-[10px] text-gray-500 font-semibold mb-1">Total em pacotes</p>
+              <p className="text-3xs text-gray-500 font-semibold mb-1">Total em pacotes</p>
               <p className="text-xl font-black" style={{ color: '#7C3AED' }}>{formatCurrency(cash.breakdown.pacote || 0)}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">vendas + sessões pagas</p>
+              <p className="text-3xs text-gray-400 mt-0.5">vendas + sessões pagas</p>
             </div>
           </div>
         </div>
@@ -905,8 +905,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Por Tipo */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Produção · Por Tipo</p>
-          <p className="text-[10px] text-gray-400 mb-3">atendimentos realizados (não é caixa)</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-500">Produção · Por Tipo</p>
+          <p className="text-3xs text-gray-400 mb-3">atendimentos realizados (não é caixa)</p>
           <BreakdownList items={[
             { label: 'Pacote',     value: revenue.byMethod.pacote,     color: 'purple' },
             { label: 'Particular', value: revenue.byMethod.particular, color: 'blue'   },
@@ -921,8 +921,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* Status de Pagamento */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Status de Pagamento</p>
-          <p className="text-[10px] text-gray-400 mb-3">da produção clínica do mês</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-500">Status de Pagamento</p>
+          <p className="text-3xs text-gray-400 mb-3">da produção clínica do mês</p>
           <div className="space-y-2">
             {[
               {
@@ -947,8 +947,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <div key={item.label} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
                 style={{ backgroundColor: item.bg }}>
                 <div className="flex-1 min-w-0 pr-3">
-                  <p className="text-[10px] font-black text-white uppercase tracking-wide leading-tight">{item.label}</p>
-                  <p className="text-[10px] text-white/70 mt-0.5 leading-snug">{item.desc}</p>
+                  <p className="text-3xs font-black text-white uppercase tracking-wide leading-tight">{item.label}</p>
+                  <p className="text-3xs text-white/70 mt-0.5 leading-snug">{item.desc}</p>
                 </div>
                 <span className="text-xl font-black text-white shrink-0">{formatCurrency(item.value)}</span>
               </div>
@@ -977,11 +977,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Comissões por Profissional</p>
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-400">Comissões por Profissional</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs text-gray-500">{comRegra} com regra</span>
                   {semRegra > 0 && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⚠ {semRegra} sem regra</span>
+                    <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⚠ {semRegra} sem regra</span>
                   )}
                 </div>
               </div>
@@ -991,11 +991,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50">
-                    <th className="px-5 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">Profissional</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Sessões</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Produção</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">%</th>
-                    <th className="px-5 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">Comissão</th>
+                    <th className="px-5 py-2.5 text-left text-3xs font-black uppercase tracking-widest text-gray-400">Profissional</th>
+                    <th className="px-4 py-2.5 text-right text-3xs font-black uppercase tracking-widest text-gray-400">Sessões</th>
+                    <th className="px-4 py-2.5 text-right text-3xs font-black uppercase tracking-widest text-gray-400">Produção</th>
+                    <th className="px-4 py-2.5 text-right text-3xs font-black uppercase tracking-widest text-gray-400">%</th>
+                    <th className="px-5 py-2.5 text-right text-3xs font-black uppercase tracking-widest text-gray-400">Comissão</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1006,7 +1006,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                       <td className="px-4 py-3 text-right text-gray-700">{c.productionBase > 0 ? formatCurrency(c.productionBase) : '—'}</td>
                       <td className="px-4 py-3 text-right">
                         {c.commissionRate > 0 ? (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">{c.commissionRate}%</span>
+                          <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-amber-100 text-amber-700">{c.commissionRate}%</span>
                         ) : '—'}
                       </td>
                       <td className="px-5 py-3 text-right font-bold text-gray-900">{formatCurrency(c.total)}</td>
@@ -1015,7 +1015,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-100 bg-gray-50">
-                    <td className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Total</td>
+                    <td className="px-5 py-3 text-3xs font-black uppercase tracking-widest text-gray-400">Total</td>
                     <td className="px-4 py-3 text-right text-gray-500 text-xs font-semibold">
                       {expenses.breakdown.detalheComissoes.reduce((s, c) => s + c.sessions, 0)}
                     </td>
@@ -1115,7 +1115,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="p-5 flex items-start gap-4" style={{ backgroundColor: heroBg }}>
             {/* Coluna esquerda */}
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Meta do Mês</p>
+              <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Meta do Mês</p>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="text-4xl font-black leading-none" style={{ color: heroColor }}>
                   {Math.min(pctRealizado, 100).toFixed(0)}%
@@ -1175,7 +1175,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* ── BREAKDOWN FINANCEIRO ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Breakdown Financeiro</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Breakdown Financeiro</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
               { label: 'Caixa recebido',  value: caixaTotal,  color: '#10B981', sub: (totalRetroativos > 0 || totalAntecipacoes > 0) ? `inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação` : null].filter(Boolean).join(' + ')}` : 'dinheiro real recebido',
@@ -1194,15 +1194,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                     cortava o popover do InfoTooltip, que precisa renderizar fora da caixa do card */}
                 <div className="rounded-t-xl" style={{ height: 3, backgroundColor: kpi.color }} />
                 <div className="p-3">
-                  <p className="text-[10px] text-gray-500 font-semibold mb-1">{kpi.label}<InfoTooltip>{kpi.info}</InfoTooltip></p>
+                  <p className="text-3xs text-gray-500 font-semibold mb-1">{kpi.label}<InfoTooltip>{kpi.info}</InfoTooltip></p>
                   <p className="text-lg font-black leading-tight" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{kpi.sub}</p>
+                  <p className="text-3xs text-gray-400 mt-0.5 leading-tight">{kpi.sub}</p>
                 </div>
               </div>
             ))}
           </div>
           {totalAReceberProducao > 0 && (
-            <p className="text-[10px] text-gray-400 italic mt-1.5 text-center">
+            <p className="text-3xs text-gray-400 italic mt-1.5 text-center">
               Caixa {formatCurrency(caixaTotal)} + A receber {formatCurrency(totalAReceberProducao)} = {formatCurrency(resultadoEcon)} reconhecido
             </p>
           )}
@@ -1213,8 +1213,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
           {/* CARD 1: Composição da Receita */}
           <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Produção por Tipo<InfoTooltip><>Valor produzido (sessões realizadas) no mês, separado por tipo de cobrança.<br/><br/><strong>Fonte:</strong> sessões concluídas do mês, agrupadas por convênio/particular/pacote/liminar.<br/><br/><strong>Não inclui:</strong> se já foi pago ou não — isso é produção, não caixa.</></InfoTooltip></p>
-            <p className="text-[10px] text-gray-400 mb-3">Serviços executados por tipo (não é caixa recebido)</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-3">Produção por Tipo<InfoTooltip><>Valor produzido (sessões realizadas) no mês, separado por tipo de cobrança.<br/><br/><strong>Fonte:</strong> sessões concluídas do mês, agrupadas por convênio/particular/pacote/liminar.<br/><br/><strong>Não inclui:</strong> se já foi pago ou não — isso é produção, não caixa.</></InfoTooltip></p>
+            <p className="text-3xs text-gray-400 mb-3">Serviços executados por tipo (não é caixa recebido)</p>
             <div className="space-y-3">
               {Object.entries(metas.porTipo || {})
                 .sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)
@@ -1237,7 +1237,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                           <div className="h-full rounded-full transition-all duration-500"
                             style={{ width: `${pct}%`, backgroundColor: color }} />
                         </div>
-                        <span className="text-[10px] font-black w-7 text-right shrink-0" style={{ color }}>{pct}%</span>
+                        <span className="text-3xs font-black w-7 text-right shrink-0" style={{ color }}>{pct}%</span>
                       </div>
                     </div>
                   );
@@ -1246,7 +1246,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             {(() => {
               const top = Object.entries(metas.porTipo || {}).sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)[0];
               return top ? (
-                <p className="text-[10px] text-gray-500 mt-3 pt-2 border-t border-gray-100">
+                <p className="text-3xs text-gray-500 mt-3 pt-2 border-t border-gray-100">
                   <span className="font-bold">Maior motor:</span> {tipoIcons[top[0]]} {tipoLabels[top[0]] || top[0]} ({(top[1] as any).percentualDoTotal}% do caixa)
                 </p>
               ) : null;
@@ -1255,8 +1255,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
           {/* CARD 2: Qualidade da Receita */}
           <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Qualidade da Receita</p>
-            <p className="text-[10px] text-gray-400 mb-3">Quanto do produzido já virou dinheiro</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-3">Qualidade da Receita</p>
+            <p className="text-3xs text-gray-400 mb-3">Quanto do produzido já virou dinheiro</p>
             <div className="space-y-3">
               {([
                 { label: 'Recebido da produção',       value: totalRecebimentoProducao,            color: '#10B981', icon: '💵',
@@ -1283,12 +1283,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                           style={{ width: `${pct}%`, backgroundColor: item.color }} />
                       </div>
                     </div>
-                    <p className="text-[10px] text-gray-400">{formatCurrency(item.value)}</p>
+                    <p className="text-3xs text-gray-400">{formatCurrency(item.value)}</p>
                   </div>
                 );
               })}
             </div>
-            <div className={`mt-3 pt-2 border-t border-gray-100 p-2 rounded-lg text-[10px] ${convenioAReceber > caixaTotal * 0.2 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+            <div className={`mt-3 pt-2 border-t border-gray-100 p-2 rounded-lg text-3xs ${convenioAReceber > caixaTotal * 0.2 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
               {convenioAReceber > caixaTotal * 0.2
                 ? `⚠️ ${producaoTotal > 0 ? Math.round((convenioAReceber / producaoTotal) * 100) : 0}% da produção depende de repasse de convênio`
                 : '✅ Boa qualidade — maior parte já convertida em caixa'}
@@ -1299,7 +1299,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
             <div style={{ height: 3, backgroundColor: metas?.projecao?.bateMeta ? '#10B981' : '#F59E0B' }} />
             <div className="p-4 bg-white">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Projeção Conservadora</p>
+              <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-2">Projeção Conservadora</p>
               <p className="text-3xl font-black text-gray-900 leading-tight mb-2">{formatCurrency(metas?.projecao?.esperada ?? metas?.projecao?.final ?? 0)}</p>
               <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${metas?.projecao?.bateMeta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
                 {metas?.projecao?.bateMeta
@@ -1320,7 +1320,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   <span className="font-bold text-gray-700">{metas?.gap?.diasRestantes ?? 0} dias</span>
                 </div>
                 {(metas?.configuracao?.metaDiariaNecessaria ?? 0) > 0 && (metas?.ritmo?.mediaDiariaAtual ?? 0) > 0 && (
-                  <div className={`mt-2 text-center py-1 rounded-full text-[10px] font-black ${(metas?.ritmo?.mediaDiariaAtual ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                  <div className={`mt-2 text-center py-1 rounded-full text-3xs font-black ${(metas?.ritmo?.mediaDiariaAtual ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
                     {(metas?.ritmo?.mediaDiariaAtual ?? 0) >= (metas?.configuracao?.metaDiariaNecessaria ?? 0)
                       ? `+${((((metas?.ritmo?.mediaDiariaAtual ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% acima do necessário`
                       : `${((((metas?.ritmo?.mediaDiariaAtual ?? 0) / (metas?.configuracao?.metaDiariaNecessaria ?? 1)) - 1) * 100).toFixed(0)}% abaixo do necessário`}
@@ -1378,11 +1378,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                     <div key={item.name} className="text-center">
                       <p className="text-xs font-semibold text-gray-500 mb-0.5">{item.name}</p>
                       <p className="text-sm font-black text-gray-900">{formatCurrency(item.atual)}</p>
-                      <p className={`text-[11px] font-bold mt-0.5 ${isGood ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      <p className={`text-2xs font-bold mt-0.5 ${isGood ? 'text-emerald-600' : 'text-rose-500'}`}>
                         {isUp ? '↑' : '↓'} {Math.abs(diff).toFixed(1)}%
                       </p>
                       {item.name === 'Caixa' && totalAntecipacoes > 0 && (
-                        <p className="text-[10px] text-sky-500 mt-0.5 leading-tight">
+                        <p className="text-3xs text-sky-500 mt-0.5 leading-tight">
                           ↩ {formatCurrency(totalAntecipacoes)} retroativos
                         </p>
                       )}
@@ -1516,7 +1516,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* ── 1. COMPARATIVO MENSAL ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Comparativo Mensal</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Comparativo Mensal</p>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
             {/* Caixa — col-span-3, border-left verde */}
@@ -1524,7 +1524,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               style={{ borderLeft: '4px solid #10B981' }}>
               <div className="p-5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Caixa Real</span>
+                  <span className="text-3xs font-black uppercase tracking-widest text-emerald-700">Caixa Real</span>
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${varCaixa >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                     {varCaixa >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                     {varCaixa >= 0 ? '+' : ''}{varCaixa}% vs anterior
@@ -1546,7 +1546,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                     <div className="h-full bg-emerald-500 rounded-full transition-all duration-700"
                       style={{ width: `${Math.min(pctMetaProducao, 100)}%` }} />
                   </div>
-                  <div className="flex justify-between text-[10px] text-gray-400">
+                  <div className="flex justify-between text-3xs text-gray-400">
                     <span>Caixa {pctMetaCaixa}%</span>
                     <span>Meta: {formatCurrency(metaMensal)}</span>
                   </div>
@@ -1560,8 +1560,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
                 <div className="p-4 bg-white">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Produção</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${varProducao >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <span className="text-3xs font-black uppercase tracking-widest text-blue-600">Produção</span>
+                    <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${varProducao >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                       {varProducao >= 0 ? '+' : ''}{varProducao}% vs anterior
                     </span>
                   </div>
@@ -1591,8 +1591,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <div style={{ height: 3, backgroundColor: '#EF4444' }} />
                 <div className="p-4 bg-white">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600">Despesas</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${varDespesas <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <span className="text-3xs font-black uppercase tracking-widest text-red-600">Despesas</span>
+                    <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${varDespesas <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                       {varDespesas >= 0 ? '+' : ''}{varDespesas}% vs anterior
                     </span>
                   </div>
@@ -1602,15 +1602,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                       <div className="text-xl font-black" style={{ color: margemPct >= 35 ? '#10B981' : margemPct >= 20 ? '#F59E0B' : '#EF4444' }}>
                         {margemPct.toFixed(1)}%
                       </div>
-                      <p className="text-[10px] text-gray-400">Margem</p>
+                      <p className="text-3xs text-gray-400">Margem</p>
                     </div>
                   </div>
                   {expenses.breakdown && (
-                    <p className="text-[10px] text-gray-500 mb-2">
+                    <p className="text-3xs text-gray-500 mb-2">
                       {formatCurrency(expenses.breakdown.expenses ?? 0)} despesas · {formatCurrency(expenses.breakdown.comissoes ?? 0)} comissões
                     </p>
                   )}
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${margemStatus.cls}`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-3xs font-bold ${margemStatus.cls}`}>
                     {margemStatus.text}
                     {varDespesas !== 0 && (
                       <span className={`ml-1.5 ${varDespesas < 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -1626,20 +1626,20 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* ── 2. RECEBÍVEIS ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Recebíveis</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Recebíveis</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* 1. Particular em aberto */}
             <div className="rounded-2xl border border-blue-200 bg-blue-50/60 px-4 py-3 flex flex-col justify-between gap-2">
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
                   <DollarSign size={14} className="text-blue-600" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Particular em aberto</p>
+                  <p className="text-3xs font-black uppercase tracking-widest text-blue-700">Particular em aberto</p>
                 </div>
                 <span className="text-xl font-black text-gray-800">{loadingDebitosTotal ? '…' : formatCurrency(particularEmAberto)}</span>
-                <p className="text-[10px] text-blue-600/70 mt-1">Débitos pendentes de pacientes</p>
+                <p className="text-3xs text-blue-600/70 mt-1">Débitos pendentes de pacientes</p>
               </div>
               <button onClick={() => openDebitosModal('total')}
-                className="shrink-0 py-1.5 px-3 rounded-lg text-[11px] font-bold bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 transition-colors w-fit">
+                className="shrink-0 py-1.5 px-3 rounded-lg text-2xs font-bold bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 transition-colors w-fit">
                 Ver débitos ↗
               </button>
             </div>
@@ -1649,13 +1649,13 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
                   <Briefcase size={14} className="text-purple-600" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-purple-700">Convênio não faturado</p>
+                  <p className="text-3xs font-black uppercase tracking-widest text-purple-700">Convênio não faturado</p>
                 </div>
                 <span className="text-xl font-black text-gray-800">{loadingInsuranceHistorical ? '…' : formatCurrency(convenioNaoFaturado)}</span>
-                <p className="text-[10px] text-purple-600/70 mt-1">Sessões concluídas aguardando faturamento</p>
+                <p className="text-3xs text-purple-600/70 mt-1">Sessões concluídas aguardando faturamento</p>
               </div>
               <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set('financialTab', 'convenios'); return n; })}
-                className="shrink-0 py-1.5 px-3 rounded-lg text-[11px] font-bold bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 transition-colors w-fit">
+                className="shrink-0 py-1.5 px-3 rounded-lg text-2xs font-bold bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 transition-colors w-fit">
                 Ver convênios ↗
               </button>
             </div>
@@ -1665,13 +1665,13 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
                   <Send size={14} className="text-cyan-600" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-700">Convênio faturado</p>
+                  <p className="text-3xs font-black uppercase tracking-widest text-cyan-700">Convênio faturado</p>
                 </div>
                 <span className="text-xl font-black text-gray-800">{loadingInsuranceHistorical ? '…' : formatCurrency(convenioFaturado)}</span>
-                <p className="text-[10px] text-cyan-600/70 mt-1">Lotes enviados aguardando pagamento</p>
+                <p className="text-3xs text-cyan-600/70 mt-1">Lotes enviados aguardando pagamento</p>
               </div>
               <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set('financialTab', 'convenios'); return n; })}
-                className="shrink-0 py-1.5 px-3 rounded-lg text-[11px] font-bold bg-white text-cyan-700 border border-cyan-200 hover:bg-cyan-50 transition-colors w-fit">
+                className="shrink-0 py-1.5 px-3 rounded-lg text-2xs font-bold bg-white text-cyan-700 border border-cyan-200 hover:bg-cyan-50 transition-colors w-fit">
                 Ver convênios ↗
               </button>
             </div>
@@ -1681,12 +1681,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
                   <TrendingUp size={14} className="text-gray-600" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-600">Total de recebíveis</p>
+                  <p className="text-3xs font-black uppercase tracking-widest text-gray-600">Total de recebíveis</p>
                 </div>
                 <span className="text-xl font-black text-gray-800">
                   {loadingDebitosTotal || loadingInsuranceHistorical ? '…' : formatCurrency(totalRecebiveis)}
                 </span>
-                <p className="text-[10px] text-gray-500 mt-1">Soma das fontes oficiais</p>
+                <p className="text-3xs text-gray-500 mt-1">Soma das fontes oficiais</p>
               </div>
             </div>
           </div>
@@ -1700,14 +1700,14 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   <strong>{manualReviewCount}</strong> Payment(s) de convênio em revisão manual
                 </span>
               </div>
-              <span className="text-[10px] text-amber-600">Visível apenas para administradores</span>
+              <span className="text-3xs text-amber-600">Visível apenas para administradores</span>
             </div>
           )}
         </div>
 
         {/* ── 3. CENTRAL DE ATENÇÃO — lista de riscos ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Central de Atenção · Riscos Operacionais</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Central de Atenção · Riscos Operacionais</p>
           <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-white divide-y divide-gray-100">
             {riscoItems.map((item, idx) => (
               <div key={idx} className="flex items-start gap-3 p-4">
@@ -1724,7 +1724,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-bold text-gray-800 leading-tight">{item.title}</p>
-                    <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${nivelBadge(item.nivel)}`}>
+                    <span className={`shrink-0 text-3xs font-black px-2 py-0.5 rounded-full ${nivelBadge(item.nivel)}`}>
                       {item.nivel}
                     </span>
                   </div>
@@ -1732,7 +1732,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   {item.showAgendaBtn && (
                     <button
                       onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set(DASHBOARD_TAB_PARAM, 'ranking'); return n; })}
-                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                      className="mt-2 inline-flex items-center gap-1 text-2xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
                       Ver agendas ↗
                     </button>
                   )}
@@ -1745,7 +1745,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         {/* ── 4. AÇÕES EXECUTIVAS ── */}
         {acoesExecutivas.length > 0 && (
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Ações Executivas</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Ações Executivas</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {acoesExecutivas.map((acao, idx) => {
                 const priorColor = getAcaoColor(acao.prioridade);
@@ -1756,7 +1756,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div style={{ color: accentHex }}>{getAcaoIcon(acao.tipo)}</div>
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-${priorColor}-100 text-${priorColor}-700`}>
+                        <span className={`text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-${priorColor}-100 text-${priorColor}-700`}>
                           {acao.prioridade}
                         </span>
                       </div>
@@ -1766,7 +1766,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         <p className="text-xs font-semibold text-gray-700">Impacto: {formatCurrency(acao.impactoEstimado)}</p>
                       )}
                       <div className="mt-2 pt-2 border-t border-gray-100">
-                        <p className="text-[10px] text-gray-400">Próximo passo</p>
+                        <p className="text-3xs text-gray-400">Próximo passo</p>
                         <p className="text-xs font-semibold text-gray-800">{acao.acaoSugerida}</p>
                       </div>
                     </div>
@@ -1779,7 +1779,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* ── 5. PENDÊNCIAS DE CONVÊNIO ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">🏥 Pendências de Convênio</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">🏥 Pendências de Convênio</p>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {loadingInsurance ? (
               <div className="p-6 text-center text-gray-500">Carregando...</div>
@@ -1881,7 +1881,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                       {prof.isDestaque ? `${prof.contribPct}%` : `${prof.abaixoPct}%↓`}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 truncate">
+                  <p className="text-3xs text-gray-400 truncate">
                     {prof.especialidade}
                     {prof.isDestaque ? ` · puxando ${prof.contribPct}% do caixa total` :
                      prof.abaixoPct === 100 ? ' · sem produção registrada' : ' · abaixo da média de produção'}
@@ -1909,7 +1909,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             {criticos.length > 0 && (
               <div className="rounded-xl overflow-hidden border border-rose-900/20" style={{ backgroundColor: '#2d0a0a' }}>
                 <div className="px-4 pt-3 pb-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-1">
+                  <p className="text-3xs font-black uppercase tracking-widest text-rose-400 mb-1">
                     Crítico · {criticos.length} profissionais &gt;75% abaixo
                   </p>
                   <p className="text-xs text-rose-300">
@@ -1918,7 +1918,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 </div>
                 <div className="px-4 pb-3 border-t border-rose-900/30 pt-2">
                   <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set(DASHBOARD_TAB_PARAM, 'ranking'); return n; })}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-300 hover:text-rose-100 transition-colors">
+                    className="inline-flex items-center gap-1 text-2xs font-bold text-rose-300 hover:text-rose-100 transition-colors">
                     Ver agendas ↗
                   </button>
                 </div>
@@ -1928,7 +1928,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             {atencao.length > 0 && (
               <div className="rounded-xl overflow-hidden border border-amber-900/20" style={{ backgroundColor: '#2d1800' }}>
                 <div className="px-4 pt-3 pb-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-1">
+                  <p className="text-3xs font-black uppercase tracking-widest text-amber-400 mb-1">
                     Atenção · {atencao.length} profissionais entre 37–74% abaixo
                   </p>
                   <p className="text-xs text-amber-300">
@@ -1937,7 +1937,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 </div>
                 <div className="px-4 pb-3 border-t border-amber-900/30 pt-2">
                   <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.set(DASHBOARD_TAB_PARAM, 'ranking'); return n; })}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 hover:text-amber-100 transition-colors">
+                    className="inline-flex items-center gap-1 text-2xs font-bold text-amber-300 hover:text-amber-100 transition-colors">
                     Ver agendas ↗
                   </button>
                 </div>
@@ -1954,7 +1954,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             {destaques.map(prof => (
               <div key={prof.id} className="rounded-xl overflow-hidden border border-emerald-900/20" style={{ backgroundColor: '#0a2d18' }}>
                 <div className="px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">
+                  <p className="text-3xs font-black uppercase tracking-widest text-emerald-400 mb-0.5">
                     Destaque · {prof.nome.split(' ')[0]} {prof.nome.split(' ').slice(-1)[0]}
                   </p>
                   <p className="text-xs text-emerald-300">
@@ -1968,7 +1968,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* ── 2. Ranking de Profissionais — Produtividade ── */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Ranking de Profissionais · Produtividade</p>
+          <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Ranking de Profissionais · Produtividade</p>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {(profissionais?.ranking || []).slice(0, 3).map((prof, idx) => (
@@ -1982,7 +1982,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-gray-800 truncate">{prof.nome}</p>
-                        <p className="text-[10px] text-gray-400 truncate">{prof.especialidade}</p>
+                        <p className="text-3xs text-gray-400 truncate">{prof.especialidade}</p>
                       </div>
                     </div>
                     <div className="space-y-1 text-xs border-t border-gray-100 pt-2">
@@ -2020,7 +2020,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-gray-800 truncate">{prof.nome}</p>
-                          <p className="text-[10px] text-gray-400">{prof.especialidade}</p>
+                          <p className="text-3xs text-gray-400">{prof.especialidade}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs border-t border-gray-100 pt-2">
@@ -2052,7 +2052,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         {/* ── 3. Ranking por Lucro ── */}
         {(profissionais?.rankingPorLucro || []).length > 0 && (
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Ranking · Lucro por Profissional</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Ranking · Lucro por Profissional</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {(profissionais?.rankingPorLucro || []).slice(0, 5).map((prof, idx) => {
                 const _color = prof.lucro >= 0 ? _positionColors[Math.min(idx, 4)] : '#EF4444';
@@ -2067,7 +2067,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-gray-800">{prof.nome}</p>
-                          <p className="text-[10px] text-gray-400">{prof.especialidade}</p>
+                          <p className="text-3xs text-gray-400">{prof.especialidade}</p>
                         </div>
                       </div>
                       <div className="space-y-1 text-xs border-t border-gray-100 pt-2">
@@ -2103,7 +2103,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                 <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
                 <div className="p-4 bg-white">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Insights</p>
+                  <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Insights</p>
                   <ul className="space-y-2">
                     {(insights?.insights || []).map((text, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-xs text-gray-700">
@@ -2119,7 +2119,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                 <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
                 <div className="p-4 bg-white">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Alertas</p>
+                  <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Alertas</p>
                   <div className="space-y-2">
                     {(insights?.alertas || []).map((alerta, idx) => (
                       <div key={idx} className={`p-2.5 rounded-xl text-xs ${
@@ -2127,7 +2127,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         alerta.nivel === 'medio' ? 'bg-amber-50 text-amber-800' : 'bg-sky-50 text-sky-800'
                       }`}>
                         <p className="font-semibold">{alerta.mensagem}</p>
-                        <p className="text-[10px] mt-0.5 opacity-80">Ação: {alerta.acao}</p>
+                        <p className="text-3xs mt-0.5 opacity-80">Ação: {alerta.acao}</p>
                       </div>
                     ))}
                   </div>
@@ -2141,7 +2141,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
             <div style={{ height: 3, backgroundColor: '#10B981' }} />
             <div className="p-4 bg-white">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Recomendações</p>
+              <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">Recomendações</p>
               <ul className="space-y-2">
                 {(insights?.recomendacoes || []).map((text, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-xs text-gray-700">
@@ -2352,7 +2352,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                               <div className="flex items-center gap-2">
                                 <span className={`text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
                                 <span className="font-semibold text-gray-800">{paciente}</span>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isConvenio ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                                <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${isConvenio ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
                                   {isConvenio ? 'Convênio' : 'Particular'}
                                 </span>
                                 <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{group.count} sessão(ões)</span>
@@ -2509,15 +2509,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{apt.patient?.fullName || 'Sem nome'}</p>
-                          <p className="text-[11px] text-gray-500">
+                          <p className="text-2xs text-gray-500">
                             {apt.date ? new Date(apt.date).toLocaleDateString('pt-BR') : '—'} · {apt.time || '—'} · {apt.specialty || '—'}
                           </p>
-                          <p className="text-[10px] text-gray-400">
+                          <p className="text-3xs text-gray-400">
                             Prof: {apt.doctor?.fullName || '—'} · Tel: {apt.patient?.phone || '—'} · Criado em: {apt.createdAt ? new Date(apt.createdAt).toLocaleDateString('pt-BR') : '—'} · Valor: {formatCurrency(apt.sessionValue || 0)}
                           </p>
                         </div>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      <span className={`px-2 py-0.5 rounded-full text-3xs font-bold uppercase ${
                         apt.operationalStatus === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                         apt.operationalStatus === 'scheduled' ? 'bg-blue-100 text-blue-700' :
                         apt.operationalStatus === 'pre_agendado' ? 'bg-amber-100 text-amber-700' :

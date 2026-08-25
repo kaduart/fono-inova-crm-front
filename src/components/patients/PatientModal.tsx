@@ -44,7 +44,7 @@ export const PatientModal = ({
     >
       {/* Cabeçalho */}
       <DialogTitle className="p-0">
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 text-white shadow-sm">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-sm">
           <div className="flex items-center gap-2">
             <UserPlus2 className="w-5 h-5 text-white/90" />
             <span className="font-semibold text-lg tracking-wide">

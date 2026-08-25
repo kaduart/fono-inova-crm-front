@@ -149,7 +149,7 @@ export const ListaPacientesVIP: React.FC<ListaPacientesVIPProps> = ({
                   </Avatar>
                   {rank <= 3 && (
                     <div
-                      className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm"
+                      className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center text-3xs font-bold shadow-sm"
                       style={{
                         backgroundColor: rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32',
                         color: rank === 1 ? '#92400E' : '#FFFFFF',

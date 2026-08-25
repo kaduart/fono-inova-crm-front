@@ -471,9 +471,9 @@ export default function PatientDashboard() {
           <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Atendimentos</p>
+              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Atendimentos</p>
               <p className="mt-1 text-2xl font-extrabold text-slate-900">{totalApts}</p>
-              <p className="mt-0.5 text-[11px] text-slate-500">{totalDone} concluídos</p>
+              <p className="mt-0.5 text-2xs text-slate-500">{totalDone} concluídos</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Activity size={18} /></div>
           </div>
@@ -482,11 +482,11 @@ export default function PatientDashboard() {
           <div className={`absolute inset-x-0 top-0 h-0.5 ${totalPending > 0 ? 'bg-amber-500' : 'bg-slate-300'}`} />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
+              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
               <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
                 {totalPending > 0 ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ 0,00'}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">valor a receber</p>
+              <p className="mt-0.5 text-2xs text-slate-500">valor a receber</p>
             </div>
             <div className="rounded-xl bg-amber-50 p-2.5 text-amber-600"><CreditCard size={18} /></div>
           </div>
@@ -495,11 +495,11 @@ export default function PatientDashboard() {
           <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500" />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Próxima sessão</p>
+              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Próxima sessão</p>
               <p className="mt-1 text-xl font-extrabold text-slate-900">
                 {nextAptDate ? nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Sem agenda'}
               </p>
-              <p className="mt-0.5 truncate text-[11px] text-slate-500">
+              <p className="mt-0.5 truncate text-2xs text-slate-500">
                 {nextAptDate ? `${nextApt.time || 'Horário pendente'} · ${nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}` : 'Nenhuma sessão futura'}
               </p>
             </div>
@@ -510,13 +510,13 @@ export default function PatientDashboard() {
           <div className="absolute inset-x-0 top-0 h-0.5 bg-violet-500" />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Classificações</p>
+              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Classificações</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {ptTags.length > 0 ? ptTags.map((tag: string) => (
-                  <span key={tag} className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${tag === 'debito' ? 'bg-red-100 text-red-700' : tag === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
+                  <span key={tag} className={`rounded-full px-2 py-1 text-3xs font-bold uppercase ${tag === 'debito' ? 'bg-red-100 text-red-700' : tag === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
                 )) : <span className="text-sm font-bold text-emerald-700">Regular</span>}
               </div>
-              <p className="mt-1.5 text-[11px] text-slate-500">situação atual do paciente</p>
+              <p className="mt-1.5 text-2xs text-slate-500">situação atual do paciente</p>
             </div>
             <div className="rounded-xl bg-violet-50 p-2.5 text-violet-600"><ShieldCheck size={18} /></div>
           </div>
@@ -593,7 +593,7 @@ export default function PatientDashboard() {
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Nenhum agendamento hoje</h4>
                 {nextApt && nextAptDate ? (
                   <div className="mt-3 mx-auto max-w-xs bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-left">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Próxima sessão</p>
+                    <p className="text-3xs font-bold uppercase tracking-widest text-blue-400 mb-1">Próxima sessão</p>
                     <p className="text-sm font-bold text-blue-800">
                       {nextAptDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
                       {nextApt.time && ` às ${nextApt.time}`}
@@ -799,7 +799,7 @@ export default function PatientDashboard() {
 
     const InfoItem = ({ label, value }: { label: string; value?: string | boolean }) => (
       <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-3xs font-bold uppercase tracking-wider text-slate-400">{label}</p>
         <p className="mt-1 break-words text-sm font-semibold text-slate-800">
           {typeof value === 'boolean' ? (value ? 'Sim' : 'Não') : value || 'Não informado'}
         </p>
@@ -814,7 +814,7 @@ export default function PatientDashboard() {
               <UserRound size={26} />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700">Perfil do paciente</p>
+              <p className="text-2xs font-bold uppercase tracking-widest text-emerald-700">Perfil do paciente</p>
               <h2 className="truncate text-xl font-extrabold text-slate-900">{patientInfo.fullName}</h2>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span>{birthDate}</span>

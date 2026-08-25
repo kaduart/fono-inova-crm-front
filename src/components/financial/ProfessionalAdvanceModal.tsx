@@ -169,7 +169,7 @@ export const ProfessionalAdvanceModal = ({
           </div>
 
           {/* Aviso */}
-          <p className="text-[11px] text-gray-400 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+          <p className="text-2xs text-gray-400 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
             ⚠️ O valor será abatido automaticamente da comissão no fechamento mensal.
           </p>
         </div>

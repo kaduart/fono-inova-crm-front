@@ -64,7 +64,7 @@ export const DashboardEspecialidades: React.FC = () => {
 
     return (
         <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-3">
                 Receita por Especialidade · {format(new Date(), 'MMMM yyyy', { locale: ptBR })}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -76,13 +76,13 @@ export const DashboardEspecialidades: React.FC = () => {
                         <div key={spec.specialty} className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                             <div style={{ height: 3, backgroundColor: color }} />
                             <div className="p-4 bg-white">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">{label}</p>
+                                <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">{label}</p>
                                 <p className="text-2xl font-black text-gray-900 mb-3">{formatCurrency(spec.totalRevenue)}</p>
                                 <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                    <span className="inline-flex items-center text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center text-2xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
                                         {spec.totalSessions} sessões
                                     </span>
-                                    <span className="inline-flex items-center text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                                    <span className="inline-flex items-center text-2xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
                                         Ticket {formatCurrency(spec.averageTicket)}
                                     </span>
                                 </div>
@@ -97,7 +97,7 @@ export const DashboardEspecialidades: React.FC = () => {
                                 {spec.specialty.toUpperCase() === 'OUTROS' && spec.totalSessions > 0 && (
                                     <button
                                         onClick={() => setDetailSpecialty(spec.specialty)}
-                                        className="mt-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                        className="mt-1 text-2xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
                                         Ver composição ↗
                                     </button>
                                 )}

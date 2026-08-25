@@ -186,7 +186,7 @@ function PatientCard({ patient }: { patient: RetentionPatient }) {
             {patient.patientName}
           </Typography>
           <span
-            className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            className="text-2xs font-semibold px-2 py-0.5 rounded-full"
             style={{ color: cfg.color, backgroundColor: `${cfg.color}18` }}
           >
             {cfg.emoji} {cfg.label}

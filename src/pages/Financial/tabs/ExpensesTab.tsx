@@ -331,7 +331,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
           <div style={{ height: 3, backgroundColor: '#10B981' }} />
           <div className="p-4 bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Total Pago</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Total Pago</p>
             <p className="text-2xl font-black text-emerald-700 mb-1">
               R$ {totals.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
@@ -343,7 +343,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
           <div style={{ height: 3, backgroundColor: '#9CA3AF' }} />
           <div className="p-4 bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Total Pendente</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Total Pendente</p>
             <p className="text-2xl font-black text-gray-700 mb-1">
               R$ {totals.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
@@ -355,7 +355,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
           <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
           <div className="p-4 bg-white">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Total Geral</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Total Geral</p>
             <p className="text-2xl font-black text-violet-700 mb-1">
               R$ {(totals.totalPaid + totals.totalPending).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
@@ -538,7 +538,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                               <Tooltip title="Ver atendimentos da comissão">
                                 <button
                                   onClick={() => openCommissionSessions(expense)}
-                                  className="p-1 rounded hover:bg-gray-100 text-amber-600"
+                                  className="p-2 rounded hover:bg-gray-100 text-amber-600"
                                 >
                                   <Info size={16} />
                                 </button>
@@ -550,7 +550,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                   setEditingExpense(expense);
                                   setModalOpen(true);
                                 }}
-                                className="p-1 rounded hover:bg-gray-100 text-blue-600"
+                                className="p-2 rounded hover:bg-gray-100 text-blue-600"
                               >
                                 <Edit2 size={16} />
                               </button>
@@ -563,7 +563,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                     fetchExpenses(filters);
                                   }
                                 }}
-                                className="p-1 rounded hover:bg-gray-100 text-red-600"
+                                className="p-2 rounded hover:bg-gray-100 text-red-600"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -804,14 +804,14 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                     <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                       <div style={{ height: 3, backgroundColor: '#6B7280' }} />
                       <div className="p-4 bg-white">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
+                        <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
                         <p className="text-2xl font-black text-gray-800">{items.length}</p>
                       </div>
                     </div>
                     <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                       <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
                       <div className="p-4 bg-white">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Valor total atendido</p>
+                        <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Valor total atendido</p>
                         <p className="text-2xl font-black text-blue-700">
                           R$ {totalAtendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>
@@ -820,7 +820,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                     <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                       <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
                       <div className="p-4 bg-white">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Comissão a repassar</p>
+                        <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Comissão a repassar</p>
                         <p className="text-2xl font-black text-amber-700">
                           R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>

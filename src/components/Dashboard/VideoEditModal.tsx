@@ -142,7 +142,7 @@ export function VideoEditModal({ video, onClose, onApply, applying }: VideoEditM
                     onChange={e => setSubtitleFontSize(Number(e.target.value))}
                     className="w-full accent-indigo-600"
                   />
-                  <div className="flex justify-between text-[10px] text-indigo-400 mt-0.5">
+                  <div className="flex justify-between text-3xs text-indigo-400 mt-0.5">
                     <span>Pequena</span>
                     <span>Grande</span>
                   </div>
@@ -208,7 +208,7 @@ export function VideoEditModal({ video, onClose, onApply, applying }: VideoEditM
                   onChange={e => setMusicVolume(Number(e.target.value) / 100)}
                   className="w-full accent-indigo-600"
                 />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <div className="flex justify-between text-3xs text-gray-400 mt-0.5">
                   <span>Suave</span>
                   <span>Forte</span>
                 </div>

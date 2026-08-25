@@ -111,19 +111,19 @@ const PatientEvolutionPage = ({ patientId, patients }) => {
                         <TabsList className="grid grid-cols-4 bg-gray-100 p-1 sm:p-2 rounded-lg">
                             <TabsTrigger value="evolution" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
                                 <LineChart className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                                <span className="text-[11px] sm:text-sm truncate">Evolução</span>
+                                <span className="text-2xs sm:text-sm truncate">Evolução</span>
                             </TabsTrigger>
                             <TabsTrigger value="notes" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
                                 <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                                <span className="text-[11px] sm:text-sm truncate">Notas</span>
+                                <span className="text-2xs sm:text-sm truncate">Notas</span>
                             </TabsTrigger>
                             <TabsTrigger value="sessions" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
                                 <Stethoscope className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                                <span className="text-[11px] sm:text-sm truncate">Sessões</span>
+                                <span className="text-2xs sm:text-sm truncate">Sessões</span>
                             </TabsTrigger>
                             <TabsTrigger value="history" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 sm:py-2">
                                 <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                                <span className="text-[11px] sm:text-sm truncate">Histórico</span>
+                                <span className="text-2xs sm:text-sm truncate">Histórico</span>
                             </TabsTrigger>
                         </TabsList>
 

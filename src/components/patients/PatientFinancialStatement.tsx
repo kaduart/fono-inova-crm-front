@@ -102,7 +102,7 @@ export default function PatientFinancialStatement({ patientId, patientName, onCl
         </div>
 
         {/* Resumo Cards */}
-        <div className="p-6 grid grid-cols-3 gap-4">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -197,7 +197,7 @@ export default function PatientFinancialStatement({ patientId, patientName, onCl
                         {formatCurrency(m.amount)}
                       </p>
                       <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        className={`text-3xs px-2 py-0.5 rounded-full font-medium ${
                           m.status === 'pending'
                             ? 'bg-amber-100 text-amber-700'
                             : 'bg-emerald-100 text-emerald-700'

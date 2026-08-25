@@ -192,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     {/* ✅ badge (corrigi a classe aqui) */}
                                     {unread > 0 && !isActive && (
                                         <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 border-2 border-gray-900 rounded-full flex items-center justify-center">
-                                            <span className="text-[10px] text-white font-bold">
+                                            <span className="text-3xs text-white font-bold">
                                                 {unread > 99 ? "99+" : unread}
                                             </span>
                                         </div>

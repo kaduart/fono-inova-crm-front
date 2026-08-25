@@ -623,7 +623,7 @@ const FinancialDashboard = ({
             <Paper
                 elevation={2}
                 sx={{
-                    p: { xs: 2, md: 4 },
+                    p: { xs: 2, md: 3 },
                     borderRadius: 3,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
                     border: `1px solid ${theme.palette.divider}`,
@@ -631,21 +631,21 @@ const FinancialDashboard = ({
                 }}
             >
                 <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
-                    <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 items-center gap-3">
                         <div
-                            className="p-3 rounded-2xl"
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
                             style={{
                                 backgroundColor: 'rgba(55, 171, 135, 0.15)',
                                 backdropFilter: 'blur(10px)'
                             }}
                         >
-                            <DollarSign size={28} style={{ color: '#00B57A' }} />
+                            <DollarSign size={24} style={{ color: '#00B57A' }} />
                         </div>
                         <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800" gutterBottom>
+                            <Typography variant="h4" fontWeight="bold" color="grey.800" sx={{ fontSize: { xs: '1.5rem', md: '1.875rem' }, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
                                 Painel Financeiro
                             </Typography>
-                            <Typography variant="body1" color="grey.600" sx={{ opacity: 0.8 }}>
+                            <Typography variant="body1" color="grey.600" sx={{ opacity: 0.86, fontSize: '0.875rem', lineHeight: 1.5, maxWidth: '68ch' }}>
                                 Dia a dia: lançamentos, despesas, convênios, extrato e análise estratégica
                             </Typography>
                         </div>
@@ -686,10 +686,10 @@ const FinancialDashboard = ({
 
             {/* Tabs */}
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-3 pt-3 pb-0 border-b border-gray-100">
-                    <div className="flex gap-1 overflow-x-auto bg-gray-100 rounded-xl p-1">
+                <div className="border-b border-gray-100 px-3 py-2">
+                    <div role="tablist" aria-label="Módulos financeiros" className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
                         {allTabs.map((tab, index) => (
-                            <button key={tab.id} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
+                            <button key={tab.id} type="button" role="tab" aria-selected={currentTab === index} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
                                     currentTab === index
                                         ? 'bg-white text-gray-900 shadow-sm font-semibold'

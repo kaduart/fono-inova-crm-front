@@ -484,7 +484,8 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                         {selectedCard === 'patients' && (
                           patients.length === 0
                             ? <p className="text-sm text-gray-400">Nenhum dado de paciente disponível.</p>
-                            : <table className="w-full text-sm">
+            : <div className="overflow-x-auto">
+                              <table className="w-full min-w-[640px] text-sm">
                                 <thead><tr className="text-left text-xs text-gray-400 border-b">
                                   <th className="pb-2 font-medium">Paciente</th>
                                   <th className="pb-2 font-medium text-right">Sessões</th>
@@ -506,6 +507,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                                   ))}
                                 </tbody>
                               </table>
+                            </div>
                         )}
 
                         {/* PRODUÇÃO */}

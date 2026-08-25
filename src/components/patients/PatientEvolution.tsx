@@ -277,7 +277,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                                 <Icon size={16} />
                                             </div>
                                             <p className="truncate text-base font-extrabold text-slate-900" title={String(value)}>{value}</p>
-                                            <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{label}</p>
+                                            <p className="mt-0.5 text-2xs font-semibold text-slate-500">{label}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -286,9 +286,9 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
                                         <div>
                                             <h2 className="text-sm font-bold text-slate-900">Evoluções recentes</h2>
-                                            <p className="text-[11px] text-slate-500">Registros clínicos mais recentes do acompanhamento</p>
+                                            <p className="text-2xs text-slate-500">Registros clínicos mais recentes do acompanhamento</p>
                                         </div>
-                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-2xs font-bold text-emerald-700">
                                             {evolutions.length} registros
                                         </span>
                                     </div>
@@ -301,22 +301,22 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                                             <time className="text-xs font-extrabold text-slate-900">
                                                                 {new Date(evolution.date).toLocaleDateString('pt-BR')} {evolution.time ? `às ${evolution.time}` : ''}
                                                             </time>
-                                                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-3xs font-bold text-emerald-700">
                                                                 {getStatusLabel(evolution.treatmentStatus)}
                                                             </span>
                                                             {evolution.specialty && (
-                                                                <span className="text-[11px] font-medium capitalize text-slate-500">{String(evolution.specialty).replaceAll('_', ' ')}</span>
+                                                                <span className="text-2xs font-medium capitalize text-slate-500">{String(evolution.specialty).replaceAll('_', ' ')}</span>
                                                             )}
                                                         </div>
                                                         <p className="mt-1.5 text-sm leading-5 text-slate-700">{evolution.content || 'Sem descrição clínica.'}</p>
-                                                        <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                                                        <p className="mt-1.5 text-2xs font-medium text-slate-500">
                                                             {evolution.doctor?.fullName || 'Profissional não informado'}
                                                         </p>
                                                     </div>
                                                     {(evolution.evaluationAreas || []).length > 0 && (
                                                         <div className="flex shrink-0 flex-wrap gap-1.5 sm:max-w-52 sm:justify-end">
                                                             {evolution.evaluationAreas.map((area: any) => (
-                                                                <span key={area.id} className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+                                                                <span key={area.id} className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-3xs font-bold text-blue-700">
                                                                     {area.name}: {area.score}/10
                                                                 </span>
                                                             ))}
@@ -331,7 +331,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
                                     <div className="mb-1">
                                         <h2 className="text-sm font-bold text-slate-900">Indicadores de evolução</h2>
-                                        <p className="text-[11px] text-slate-500">O gráfico considera apenas registros que possuem avaliação pontuada.</p>
+                                        <p className="text-2xs text-slate-500">O gráfico considera apenas registros que possuem avaliação pontuada.</p>
                                     </div>
                                 <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
                                     <Tab label="Evolução Clínica" />

@@ -312,7 +312,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
             {statusPhrase && (
                 <div className="p-3 rounded-xl flex items-start gap-3" style={{ backgroundColor: `${statusColor}10`, borderLeft: `4px solid ${statusColor}` }}>
                     <div className="flex-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-0.5" style={{ color: statusColor }}>Resumo do mês</p>
+                        <p className="text-3xs font-black uppercase tracking-widest mb-0.5" style={{ color: statusColor }}>Resumo do mês</p>
                         <p className="text-sm font-medium text-gray-800">{statusPhrase}</p>
                         {metaValor > 0 && (
                             <div className="flex flex-wrap gap-4 mt-2">
@@ -339,7 +339,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 {/* HERO: META DO MÊS */}
                 <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
                     <div className="flex items-center justify-between mb-3">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Meta do Mês</p>
+                        <p className="text-3xs font-black uppercase tracking-widest text-emerald-700">Meta do Mês</p>
                         {metaValor > 0 && (
                             <span className={`text-3xl font-black leading-none ${percentualAtual >= 100 ? 'text-emerald-600' : percentualAtual >= 60 ? 'text-amber-500' : 'text-red-600'}`}>
                                 {Math.min(percentualAtual, 100).toFixed(0)}%
@@ -416,7 +416,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
 
                 {/* RITMO NECESSÁRIO */}
                 <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 mb-2">Ritmo Necessário</p>
+                    <p className="text-3xs font-black uppercase tracking-widest text-blue-700 mb-2">Ritmo Necessário</p>
                     <p className="text-3xl font-black text-gray-900 leading-tight mb-2">
                         {diasRestantes > 0 ? `${formatCurrency(ritmoNecessario)}/dia` : '—'}
                     </p>
@@ -465,7 +465,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     onClick={openProjecaoModal}
                 >
                     <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-purple-700">Projeção de Fechamento</p>
+                        <p className="text-3xs font-black uppercase tracking-widest text-purple-700">Projeção de Fechamento</p>
                         <Info size={14} className="text-purple-400" />
                     </div>
                     <p className="text-3xl font-black leading-tight mb-2" style={{ color: '#7C3AED' }}>{formatCurrency(cenarioEsperado)}</p>
@@ -498,7 +498,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
 
             {/* CENÁRIOS DE FECHAMENTO */}
             <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Cenários de Fechamento</p>
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Cenários de Fechamento</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {(() => {
                         const getValor = (a: IAppointment) => (a as any).sessionValue || a.paymentAmount || 0;
@@ -537,7 +537,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                         <p className="text-xs font-black uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
                                     </div>
                                     {isEsperado && (
-                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                                        <span className="text-3xs font-black px-2 py-0.5 rounded-full"
                                             style={{ backgroundColor: `${c.color}15`, color: c.color }}>
                                             Mais provável
                                         </span>
@@ -562,7 +562,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
             {/* ATENÇÃO · PROFISSIONAIS ABAIXO DA MÉDIA */}
             {(dashData?.insights?.insights || []).length > 0 && (
             <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Atenção · Profissionais abaixo da média</p>
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Atenção · Profissionais abaixo da média</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {(dashData.insights.insights as string[]).slice(0, 3).map((insight: string, idx: number) => {
                         const match = insight.match(/Profissional (.+?) está (\d+)% abaixo/);
@@ -586,7 +586,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                         </div>
                                     </div>
                                     <div className="mb-2.5">
-                                        <div className="flex justify-between text-[10px] mb-1" style={{ color: accentColor }}>
+                                        <div className="flex justify-between text-3xs mb-1" style={{ color: accentColor }}>
                                             <span>{100 - pct}% do esperado</span>
                                             <span>{isCritical ? 'crítico' : 'atenção'}</span>
                                         </div>
@@ -734,8 +734,8 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                     {/* 2. Como ele é composto */}
                                     <div>
                                         <h3 className="text-sm font-bold text-gray-800 mb-3">Como ele é composto</h3>
-                                        <div className="rounded-xl border border-gray-100 overflow-hidden">
-                                            <table className="w-full text-sm">
+                                        <div className="rounded-xl border border-gray-100 overflow-x-auto">
+                                            <table className="w-full min-w-[420px] text-sm">
                                                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                                                     <tr>
                                                         <th className="px-4 py-2 text-left font-medium">Origem</th>
@@ -786,7 +786,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                                     <div key={key} className={`rounded-xl border p-3 ${color}`}>
                                                         <p className="text-xs font-semibold opacity-80">{icon} {label}</p>
                                                         <p className="text-lg font-black mt-1">{formatCurrency(item.valor)}</p>
-                                                        <p className="text-[10px] opacity-70">{item.count} sessões</p>
+                                                        <p className="text-3xs opacity-70">{item.count} sessões</p>
                                                     </div>
                                                 );
                                             })}
@@ -811,17 +811,17 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                             <div className="rounded-xl border border-gray-100 p-3 bg-white">
                                                 <p className="text-xs font-semibold text-rose-600 mb-1">Pessimista</p>
                                                 <p className="text-lg font-black text-gray-900">{formatCurrency((dashData?.metas?.projecao?.esperada || 0) * 0.7)}</p>
-                                                <p className="text-[10px] text-gray-400">baixa conversão de agenda</p>
+                                                <p className="text-3xs text-gray-400">baixa conversão de agenda</p>
                                             </div>
                                             <div className="rounded-xl border border-gray-100 p-3 bg-white">
                                                 <p className="text-xs font-semibold text-blue-600 mb-1">Esperado</p>
                                                 <p className="text-lg font-black text-gray-900">{formatCurrency(dashData?.metas?.projecao?.esperada || 0)}</p>
-                                                <p className="text-[10px] text-gray-400">comportamento histórico médio</p>
+                                                <p className="text-3xs text-gray-400">comportamento histórico médio</p>
                                             </div>
                                             <div className="rounded-xl border border-gray-100 p-3 bg-white">
                                                 <p className="text-xs font-semibold text-emerald-600 mb-1">Otimista</p>
                                                 <p className="text-lg font-black text-gray-900">{formatCurrency(dashData?.metas?.projecao?.final || 0)}</p>
-                                                <p className="text-[10px] text-gray-400">conversão máxima observada</p>
+                                                <p className="text-3xs text-gray-400">conversão máxima observada</p>
                                             </div>
                                         </div>
                                     </div>

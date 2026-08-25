@@ -357,10 +357,10 @@ export const PatientsSummaryCard = ({
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
                                                         {apt.isFirstVisit && (
-                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
+                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-3xs font-bold">⭐ 1ª Visita</span>
                                                         )}
                                                         {apt.isReturningAfter45Days && !apt.isFirstVisit && (
-                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">↩ Retorno 45d+</span>
+                                                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-3xs font-bold">↩ Retorno 45d+</span>
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
@@ -385,17 +385,17 @@ export const PatientsSummaryCard = ({
                                                             {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}
                                                         </span>
                                                         {apt.specialty && (
-                                                            <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase tracking-wide font-medium">
+                                                            <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-3xs uppercase tracking-wide font-medium">
                                                                 {apt.specialty}
                                                             </span>
                                                         )}
                                                         {svcText && (
-                                                            <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                                                            <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-3xs font-medium">
                                                                 {svcText}
                                                             </span>
                                                         )}
                                                         {billingText && (
-                                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>
+                                                            <span className={`px-1.5 py-0.5 rounded-full text-3xs font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>
                                                                 {billingText}
                                                             </span>
                                                         )}
@@ -993,7 +993,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                                                     if (!appointmentDate) return <span className="text-xs text-gray-400">—</span>;
                                                     return (
                                                         <div className={`inline-flex flex-col px-2 py-1 rounded-md border ${colors}`}>
-                                                            <span className="text-[10px] font-medium">{formatDateToDMY(appointmentDate)}</span>
+                                                            <span className="text-3xs font-medium">{formatDateToDMY(appointmentDate)}</span>
                                                             {appointmentTime && <span className="text-xs font-bold">{appointmentTime}</span>}
                                                         </div>
                                                     );
@@ -1009,7 +1009,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                                                 {payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                             </td>
                                             <td className="px-3 py-2">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${payment.status === 'paid'
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-3xs font-semibold ${payment.status === 'paid'
                                                     ? 'bg-green-100 text-green-800'
                                                     : payment.status === 'partial'
                                                         ? 'bg-orange-100 text-orange-800'
@@ -1037,7 +1037,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                                                     };
                                                     const config = billingConfig[billingType] || billingConfig.particular;
                                                     return (
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${config.color}`}>
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-medium border ${config.color}`}>
                                                             <span>{config.icon}</span>
                                                             <span>{config.label}</span>
                                                         </span>

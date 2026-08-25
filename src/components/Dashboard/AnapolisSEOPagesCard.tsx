@@ -74,7 +74,7 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-20 bg-gray-100 rounded-lg"></div>
             ))}
@@ -114,7 +114,7 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
       </div>
 
       {/* Métricas Resumidas */}
-      <div className="grid grid-cols-4 gap-4 p-4 border-b border-gray-100">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 border-b border-gray-100">
         <div className="text-center p-3 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-center gap-1 text-gray-500 text-xs mb-1">
             <Users className="w-3 h-3" />

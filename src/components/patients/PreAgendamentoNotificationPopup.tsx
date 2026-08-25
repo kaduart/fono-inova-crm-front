@@ -66,7 +66,7 @@ export const PreAgendamentoNotificationPopup = () => {
                 <h3 className="font-medium text-gray-800 text-sm">
                   Novo pré-agendamento
                 </h3>
-                <p className="text-gray-400 text-[10px] leading-tight">
+                <p className="text-gray-400 text-3xs leading-tight">
                   agora mesmo
                 </p>
               </div>
@@ -90,7 +90,7 @@ export const PreAgendamentoNotificationPopup = () => {
             </div>
             <div className="flex items-center gap-1.5 text-gray-600">
               <Calendar size={13} className="text-gray-500" />
-              <span className="text-[11px]">
+              <span className="text-2xs">
                 {preAgendamentoNotification.specialty} •{" "}
                 {preAgendamentoNotification.preferredDate}
               </span>
@@ -101,13 +101,13 @@ export const PreAgendamentoNotificationPopup = () => {
           <div className="flex gap-2 justify-end">
             <button
               onClick={closePreAgendamentoNotification}
-              className="text-[11px] text-gray-400 hover:text-gray-600 py-1.5 px-2.5 rounded-md transition"
+              className="text-2xs text-gray-400 hover:text-gray-600 py-1.5 px-2.5 rounded-md transition"
             >
               Ignorar
             </button>
             <button
               onClick={handleView}
-              className="text-[11px] text-white bg-amber-500 hover:bg-amber-600 py-1.5 px-3 rounded-md transition font-medium shadow-sm"
+              className="text-2xs text-white bg-amber-500 hover:bg-amber-600 py-1.5 px-3 rounded-md transition font-medium shadow-sm"
             >
               Ver detalhes
             </button>

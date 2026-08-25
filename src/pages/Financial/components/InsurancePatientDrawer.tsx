@@ -77,7 +77,7 @@ export default function InsurancePatientDrawer({
                         </div>
                         <div className="min-w-0">
                             <h2 className="text-lg font-bold text-gray-900 leading-tight truncate">{patientName}</h2>
-                            <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-white/70 border border-white text-[11px] font-semibold text-gray-600">
+                            <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-white/70 border border-white text-2xs font-semibold text-gray-600">
                                 {formatProviderName(provider)}
                             </span>
                         </div>
@@ -93,7 +93,7 @@ export default function InsurancePatientDrawer({
                             <div key={stat.label} className="rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm">
                                 <div style={{ height: 3, backgroundColor: stat.color || '#6B7280' }} />
                                 <div className="px-3 py-2">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{stat.label}</p>
+                                    <p className="text-3xs font-black uppercase tracking-widest text-gray-400">{stat.label}</p>
                                     <p className="text-lg font-black leading-tight" style={{ color: stat.color || '#374151' }}>{stat.value}</p>
                                 </div>
                             </div>

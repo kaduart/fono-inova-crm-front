@@ -12,7 +12,7 @@ interface LoadingSpinnerProps {
 export const LoadingSpinner = ({
     size = 'medium',
     className = '',
-    color = 'border-blue-600',
+    color = 'border-emerald-600',
     fullPage = false,
     centered = false,
 }: LoadingSpinnerProps) => {
@@ -62,7 +62,7 @@ export const LoadingSpinner = ({
 };
 
 // Spinner de modal — centralizado na área de conteúdo, sem padding excessivo
-export const ModalSpinner = ({ color = 'border-blue-500' }: { color?: string }) => (
+export const ModalSpinner = ({ color = 'border-emerald-500' }: { color?: string }) => (
     <div className="flex items-center justify-center w-full h-full min-h-[80px]">
         <div className={`animate-spin rounded-full h-7 w-7 border-4 border-t-transparent ${color}`} />
     </div>

@@ -659,7 +659,7 @@ export function DocumentSendDrawer({
                                                     {log.attachments.map((att, i) => (
                                                         <span
                                                             key={att.documentId || i}
-                                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] bg-white border border-gray-200 text-gray-600"
+                                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-2xs bg-white border border-gray-200 text-gray-600"
                                                             title={att.size ? `${(att.size / 1024).toFixed(0)} KB` : undefined}
                                                         >
                                                             {att.name || 'anexo'}

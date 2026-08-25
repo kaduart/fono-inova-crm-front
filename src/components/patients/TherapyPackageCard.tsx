@@ -590,7 +590,7 @@ export default function TherapyPackageCard({
               }`}>
                 {completedSessions} de {pack.totalSessions}
               </span>
-              <p className="text-[10px] text-gray-400 leading-none">utilizadas</p>
+              <p className="text-3xs text-gray-400 leading-none">utilizadas</p>
             </div>
           </div>
           <div className="w-full bg-white/80 rounded-full h-2 overflow-hidden mt-2">
@@ -730,7 +730,7 @@ export default function TherapyPackageCard({
                     currency: 'BRL'
                   }).format(pack.balance ?? 0)}
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">
+                <p className="text-3xs text-gray-500 mt-1">
                   {pack.sessionsRemaining ?? 0} sessão(ões) restante(s) no pacote
                 </p>
               </div>
@@ -769,7 +769,7 @@ export default function TherapyPackageCard({
                         particularPaid > 0 ? particularPaid : (pack.totalPaid || pack.totalValue || 0)
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5">pago integralmente</p>
+                    <p className="text-3xs text-gray-500 mt-0.5">pago integralmente</p>
                   </>
                 )}
                 {paymentState === 'reserved' && (
@@ -780,7 +780,7 @@ export default function TherapyPackageCard({
                     <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : 'text-amber-600'}`}>
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sessionDebt)}
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5">sessões realizadas não pagas</p>
+                    <p className="text-3xs text-gray-500 mt-0.5">sessões realizadas não pagas</p>
                   </>
                 )}
                 {paymentState === 'partial' && (
@@ -788,13 +788,13 @@ export default function TherapyPackageCard({
                     <div className="text-lg font-bold text-blue-600">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(particularPaid)}
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
+                    <p className="text-3xs text-gray-500 mt-0.5">
                       de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
                     </p>
                   </>
                 )}
                 {paymentState === 'unknown' && (
-                  <p className="text-[10px] text-gray-400 mt-1">Carregando...</p>
+                  <p className="text-3xs text-gray-400 mt-1">Carregando...</p>
                 )}
               </div>
             )

@@ -1,6 +1,7 @@
 import { Calendar, ChartBar, Clipboard, Clock, Cog, DollarSign, Globe, HeartPulse, Hospital, Shield, User, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from './Header';
+import { HeroInstrumentPanel } from './HeroInstrumentPanel';
 
 const Button = ({ children, primary, onClick, ...props }) => (
   <button
@@ -57,9 +58,7 @@ const Home = () => {
                 <Button onClick={() => handleButtonClick('/login')}>Agenda</Button>
               </div>
             </div>
-            <div className="bg-gray-200 w-full h-56 rounded-lg overflow-hidden hidden md:block">
-              <img src="home-1.jpeg" alt="" className="w-full h-full object-cover" />
-            </div>
+            <HeroInstrumentPanel />
           </div>
         </Section>
 

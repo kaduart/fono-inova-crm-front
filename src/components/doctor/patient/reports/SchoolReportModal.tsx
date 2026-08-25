@@ -161,7 +161,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                         value={formData.title}
                                         onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                                         placeholder={`Relatório Escolar - ${patient.fullName}`}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                 </div>
 
@@ -173,7 +173,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                         type="text"
                                         value={formData.schoolYear}
                                         onChange={(e) => setFormData(prev => ({ ...prev, schoolYear: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                 </div>
 
@@ -184,7 +184,7 @@ export default function SchoolReportModal({ open, onClose, onSave, patient, load
                                     <select
                                         value={formData.semester}
                                         onChange={(e) => setFormData(prev => ({ ...prev, semester: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     >
                                         {semesterOptions.map(option => (
                                             <option key={option.value} value={option.value}>

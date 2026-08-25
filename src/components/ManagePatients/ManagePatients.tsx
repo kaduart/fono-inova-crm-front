@@ -82,26 +82,27 @@ const ManagePatients: React.FC = () => {
     };
 
     return (
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
             <Paper
                 elevation={2}
                 sx={{
-                    p: 3,
-                    mb: 3,
-                    borderRadius: 2,
+                    p: { xs: 2, md: 3 },
+                    mb: 2,
+                    borderRadius: 3,
+                    border: `1px solid ${theme.palette.divider}`,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
                 }}
             >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                         <div
-                            className="p-2 rounded-lg"
-                            style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                            style={{ backgroundColor: 'rgba(38,151,123,0.15)' }}
                         >
-                            <Users size={24} style={{ color: '#00C087' }} />
+                            <Users size={24} style={{ color: '#26977B' }} />
                         </div>
                         <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800">
+                            <Typography variant="h4" fontWeight="bold" color="grey.800" sx={{ fontSize: { xs: '1.5rem', md: '1.875rem' }, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
                                 Gestão de Pacientes
                             </Typography>
                             <Typography variant="body2" color="grey.600">
@@ -117,11 +118,11 @@ const ManagePatients: React.FC = () => {
                         sx={{
                             borderRadius: 2,
                             px: 3,
-                            py: 1.5,
+                            minHeight: 44,
                             fontWeight: 'bold',
-                            background: 'linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))',
+                            background: 'linear-gradient(135deg, rgb(38,151,123), rgb(30,122,100))',
                             '&:hover': {
-                                background: 'linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))',
+                                background: 'linear-gradient(135deg, rgb(66,184,152), rgb(22,93,77))',
                                 transform: 'translateY(-1px)',
                                 boxShadow: 4,
                             },

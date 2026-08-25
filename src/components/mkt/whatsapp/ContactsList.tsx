@@ -260,7 +260,7 @@ export default function ContactsList({
                             {contact.unreadCount > 0 && (
                                 <span
                                     className="inline-flex items-center justify-center h-5 min-w-[22px] px-1.5 rounded-full
-                           bg-red-500 text-white text-[10px] font-semibold tracking-wide shadow-sm"
+                           bg-red-500 text-white text-3xs font-semibold tracking-wide shadow-sm"
                                     title={`${contact.unreadCount} não lidas`}
                                 >
                                     {contact.unreadCount > 99 ? "99+" : contact.unreadCount}

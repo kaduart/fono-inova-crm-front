@@ -1114,16 +1114,16 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                                         <span className="text-sm font-black text-indigo-700 uppercase tracking-widest">Resumo</span>
                                         {!metricsOpen && (
                                             <div className="flex items-center gap-1.5 flex-wrap">
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-700">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-violet-100 text-violet-700">
                                                     💜 {fmtBRL(production)} produção
                                                 </span>
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-blue-100 text-blue-700">
                                                     🔵 {fmtBRL(billed)} faturado
                                                 </span>
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-emerald-100 text-emerald-700">
                                                     🟢 {fmtBRL(received)} recebido
                                                 </span>
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-amber-100 text-amber-700">
                                                     🟡 {fmtBRL(pending)} pendente
                                                 </span>
                                             </div>
@@ -1183,7 +1183,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
                             <SlidersHorizontal size={13} />
                             Filtros avançados
                             {hasAdvancedFilters && (
-                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-[10px] font-bold">
+                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-3xs font-bold">
                                     {[filterMonth !== 'all', filterStatus !== 'all', filterSpecialty !== 'all'].filter(Boolean).length}
                                 </span>
                             )}

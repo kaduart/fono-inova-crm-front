@@ -1170,8 +1170,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         <Building2 className="w-5 h-5 text-blue-600" />
                     </div>
                     <div className="min-w-0">
-                        <h2 className="text-lg font-bold text-slate-900">Gestão de Convênios</h2>
-                        <p className="text-xs sm:text-sm text-slate-500">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
+                        <h2 className="text-xl font-bold leading-tight tracking-tight text-slate-900">Gestão de Convênios</h2>
+                        <p className="text-xs leading-5 text-slate-500 sm:text-sm">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-end gap-2 lg:ml-auto">
@@ -1191,15 +1191,17 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     )}
                     <div className="flex items-center gap-2">
                     <button
+                        type="button"
                         onClick={() => setConvenioManagerOpen(true)}
-                        className="h-[38px] px-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-none"
                     >
                         <Building2 size={16} />
                         Gerenciar Convênios
                     </button>
                     <button
+                        type="button"
                         onClick={() => setIsNewModalOpen(true)}
-                        className="h-[38px] px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 whitespace-nowrap transition-colors"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:flex-none"
                     >
                         <Plus size={16} />
                         Novo Atendimento
@@ -1220,11 +1222,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     <div className="border border-slate-200 rounded-xl overflow-hidden mb-3 bg-white">
                         {/* Header clicável */}
                         <button
+                            type="button"
                             onClick={() => setCardsOpen(o => !o)}
+                            aria-expanded={cardsOpen}
+                            aria-controls="insurance-summary-cards"
                             className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
                         >
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                <span className="text-sm font-semibold text-slate-800 mr-1">Painel de Convênios</span>
+                                <span className="mr-1 text-sm font-bold leading-5 text-slate-900">Painel de Convênios</span>
                                 <span className="inline-flex items-center gap-1 rounded-lg border border-purple-100 bg-purple-50 px-2 py-1 text-xs text-purple-700" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
                                     {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} produção
                                 </span>
@@ -1256,13 +1261,13 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         </button>
 
                         <Collapse in={cardsOpen}>
-                            <div className="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch gap-3 p-3">
+                            <div id="insurance-summary-cards" className="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch gap-3 p-3">
                                 {/* Produção Total */}
                                 <div className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full">
                                     <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
                                     <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-purple-700">Produção</span>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-purple-700">Produção</span>
                                             {summary.changePercent !== null && (
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                                     {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -1270,7 +1275,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
+                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
                                             {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} sessões realizadas</p>
@@ -1284,7 +1289,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                 </div>
 
                                 {/* A Faturar */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => openDetailsModal(
                                         'A Faturar',
                                         '#F59E0B',
@@ -1312,14 +1318,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             { key: 'current', label: 'Mês atual', predicate: (r) => !r.highlight },
                                         ]
                                     )}
-                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-amber-300 transition-colors"
+                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
                                     <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-amber-700">A Faturar</span>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">A Faturar</span>
                                         </div>
-                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
+                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
                                             {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingStateGuides.length} guia{pendingStateGuides.length !== 1 ? 's' : ''}</p>
@@ -1332,10 +1338,11 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         )}
                                         <p className="text-2xs text-amber-700 font-semibold mt-auto pt-2">Ver guias →</p>
                                     </div>
-                                </div>
+                                </button>
 
                                 {/* Aguardando Faturamento */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => openDetailsModal(
                                         'Aguardando Faturamento',
                                         '#1D4ED8',
@@ -1348,59 +1355,61 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             }))
                                             .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value)
                                     )}
-                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-blue-300 transition-colors"
+                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#1D4ED8' }} />
                                     <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-blue-700">Aguardando Faturamento</span>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">Aguardando Faturamento</span>
                                         </div>
-                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
+                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
                                             {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.waitingCount} sessões · {waitingBillingGuides.length} guia{waitingBillingGuides.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400 mt-1">documentação já enviada</p>
                                         <p className="text-2xs text-blue-600 font-semibold mt-auto pt-2">Ver guias →</p>
                                     </div>
-                                </div>
+                                </button>
 
                                 {/* Faturado */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => openDetailsModal('Faturado', '#3B82F6', billedPaymentsDetailed)}
-                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-blue-300 transition-colors"
+                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
                                     <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-blue-700">Faturado</span>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">Faturado</span>
                                         </div>
-                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
+                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
                                             {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
                                         <p className="text-xs text-gray-400 mt-1">aguardando repasse</p>
                                         <p className="text-2xs text-blue-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
                                     </div>
-                                </div>
+                                </button>
 
                                 {/* Recebido */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => openDetailsModal('Recebido', '#10B981', receivedPaymentsDetailed)}
-                                    className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full cursor-pointer hover:border-emerald-300 transition-colors"
+                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                                 >
                                     <div style={{ height: 3, backgroundColor: '#10B981' }} />
                                     <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
                                         <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-emerald-700">Recebido</span>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Recebido</span>
                                         </div>
-                                        <div className="text-xl font-bold text-slate-900 tracking-tight my-1.5">
+                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
                                             {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         </div>
                                         <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
                                         <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
                                         <p className="text-2xs text-emerald-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
                                     </div>
-                                </div>
+                                </button>
                             </div>
                         </Collapse>
                     </div>
@@ -1409,8 +1418,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
             {/* Sub-tabs */}
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <div className="p-2 border-b border-slate-100 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div className="flex min-w-max gap-1 bg-slate-100/80 rounded-xl p-1">
+                <div className="overflow-x-auto overscroll-x-contain border-b border-slate-100 p-2 pb-2.5">
+                    <div role="tablist" aria-label="Etapas de convênios" className="flex min-w-max gap-1 rounded-xl bg-slate-100/80 p-1">
                         {[
                             { value: 0, label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
                             { value: 1, label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
@@ -1427,8 +1436,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             { value: 9, label: 'Rascunhos', count: draftSubmissionCount,        icon: <FileClock size={15} />, amber: true },
                             { value: 7, label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
                         ].map(tab => (
-                            <button key={tab.value} onClick={() => setSubTab(tab.value)}
-                                className={`h-9 flex items-center gap-1.5 px-3 rounded-lg text-sm whitespace-nowrap transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                            <button key={tab.value} type="button" role="tab" aria-selected={subTab === tab.value} onClick={() => setSubTab(tab.value)}
+                                className={`flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                                     subTab === tab.value
                                         ? 'bg-white text-gray-900 shadow-sm font-semibold'
                                         : 'text-gray-500 hover:text-gray-700'
@@ -1454,7 +1463,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         bgcolor: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px'
                     }}>
                         <AlertCircle size={18} color="#C2410C" />
-                        <Typography fontSize="0.8rem" color="#9A3412" fontWeight={600}>
+                        <Typography fontSize="0.75rem" lineHeight={1.5} color="#9A3412" fontWeight={600}>
                             {paymentIntegrityConflictCount} sessão{paymentIntegrityConflictCount !== 1 ? 'ões' : ''}
                             {' '}não {paymentIntegrityConflictCount !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
                             porque não {paymentIntegrityConflictCount !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
@@ -1482,7 +1491,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         variant={selectedGuideSummary.guides === totalSelectable ? 'contained' : 'outlined'}
                                         startIcon={<Check size={15} />}
                                         onClick={selectedGuideSummary.guides === totalSelectable ? clearGuideSelection : selectAllGuides}
-                                        sx={{ borderRadius: 2, fontSize: '0.8rem' }}
+                                        sx={{ borderRadius: 2, fontSize: '0.75rem', lineHeight: 1.5 }}
                                     >
                                         {selectedGuideSummary.guides === totalSelectable
                                             ? `Desmarcar todas as ${totalSelectable} guias`
@@ -1494,7 +1503,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                         variant={selectedPayments.size === totalSelectable ? 'contained' : 'outlined'}
                                         startIcon={<Check size={15} />}
                                         onClick={selectedPayments.size === totalSelectable ? clearAllSelection : selectAll}
-                                        sx={{ borderRadius: 2, fontSize: '0.8rem' }}
+                                        sx={{ borderRadius: 2, fontSize: '0.75rem', lineHeight: 1.5 }}
                                     >
                                         {selectedPayments.size === totalSelectable
                                             ? 'Desmarcar Todos'
@@ -1701,7 +1710,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                             }}
                                         >
                                             <Box>
-                                                <Typography fontWeight="800" fontSize="0.95rem" color="#0F172A" sx={{ mb: 0.25 }}>
+                                                <Typography className="text-base" fontWeight="700" lineHeight={1.5} color="#0F172A" sx={{ mb: 0.25 }}>
                                                     {formatProviderName(group._id)}
                                                 </Typography>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -1714,7 +1723,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                                                             px: 0.75, py: 0.2,
                                                             bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 1
                                                         }}>
-                                                            <Typography fontSize="0.68rem" fontWeight={700} color="#15803D">
+                                                            <Typography fontSize="0.75rem" lineHeight={1.5} fontWeight={600} color="#15803D">
                                                                 ✓ {cashDateLabel}
                                                             </Typography>
                                                         </Box>

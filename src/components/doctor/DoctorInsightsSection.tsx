@@ -96,7 +96,7 @@ function KPICard({ title, value, icon, color, subtitle }: KPICardProps) {
             <div>
                 <p className="text-xs font-medium text-gray-600">{title}</p>
                 <p className="text-2xl font-bold text-gray-800 leading-tight">{value}</p>
-                {subtitle && <p className="text-[11px] text-gray-500 mt-0.5">{subtitle}</p>}
+                {subtitle && <p className="text-2xs text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
         </div>
     );
@@ -338,15 +338,15 @@ export default function DoctorInsightsSection({
                         <div className="grid grid-cols-3 gap-2 mt-3 text-center">
                             <div className="bg-emerald-50 rounded-xl p-2">
                                 <p className="text-lg font-bold text-emerald-700">{sessionTotals.attended}</p>
-                                <p className="text-[10px] text-gray-500">Realizadas</p>
+                                <p className="text-3xs text-gray-500">Realizadas</p>
                             </div>
                             <div className="bg-red-50 rounded-xl p-2">
                                 <p className="text-lg font-bold text-red-600">{sessionTotals.canceled}</p>
-                                <p className="text-[10px] text-gray-500">Canceladas</p>
+                                <p className="text-3xs text-gray-500">Canceladas</p>
                             </div>
                             <div className="bg-amber-50 rounded-xl p-2">
                                 <p className="text-lg font-bold text-amber-600">{sessionTotals.pending}</p>
-                                <p className="text-[10px] text-gray-500">Pendentes</p>
+                                <p className="text-3xs text-gray-500">Pendentes</p>
                             </div>
                         </div>
                     </CardContent>

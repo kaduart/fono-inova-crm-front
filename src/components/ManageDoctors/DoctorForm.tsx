@@ -307,7 +307,7 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                                                     </label>
                                                 ))}
                                             </div>
-                                            <p className="mt-1 text-[11px] text-gray-500">
+                                            <p className="mt-1 text-2xs text-gray-500">
                                                 Ex.: psicóloga com especialidade em psicopedagogia e neuropsicologia.
                                             </p>
                                         </div>

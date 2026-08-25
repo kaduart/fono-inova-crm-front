@@ -1,6 +1,5 @@
 import { Box, Typography, useTheme } from '@mui/material';
 
-import { BarChart3, CalendarPlus } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import moment from 'moment-timezone';
@@ -1081,9 +1080,10 @@ export default function AdminDashboard() {
         openModalAppointment,
         closeModalSignal,
         loading: appointmentsLoading,
+        onOpenPreAppointments: () => setActiveTab('Pré-Agendamentos'),
     }), [safeDoctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment,
         handleCompleteAppointment, handleEditAppointment, handleFetchAvailableSlots,
-        handleMonthChange, openModalAppointment, closeModalSignal, appointmentsLoading]);
+        handleMonthChange, openModalAppointment, closeModalSignal, appointmentsLoading, setActiveTab]);
 
     const financialProps = useMemo(() => ({
         patients,
@@ -1144,14 +1144,6 @@ export default function AdminDashboard() {
             case 'Calendário':
                 return (
                     <TabErrorBoundary tabName="Calendário">
-                        <div className="flex justify-end mb-3">
-                            <button
-                                onClick={() => setActiveTab('Pré-Agendamentos')}
-                                className="flex items-center gap-2 bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition-colors"
-                            >
-                                <CalendarPlus size={16} /> Pré-Agendamentos
-                            </button>
-                        </div>
                         <Suspense fallback={<TabSpinner />}>
                             <EnhancedCalendar {...calendarProps} />
                         </Suspense>

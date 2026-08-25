@@ -76,7 +76,8 @@ BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
 
 interface MetricCardProps {
     title: string;
-    value: number | string;
+    value: number;
+    format?: (value: number) => string;
     subtitle: string;
     icon: React.ReactNode;
     colorClass: string;
@@ -85,28 +86,66 @@ interface MetricCardProps {
     actionIcon?: React.ReactNode;
 }
 
+// Números que chegam: quando `value` muda (refresh, nova carga de stats), o
+// card conta do valor antigo pro novo em vez de trocar seco — sinaliza que é
+// telemetria viva, não um número estático. Na primeira montagem from===to,
+// então não conta a partir de zero — só anima mudança real de valor.
 const MetricCard = memo<MetricCardProps>(({
-    title, value, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon
-}) => (
-    <div className="relative rounded-2xl p-5 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
-        <div className="flex items-start justify-between mb-4">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBgClass} shrink-0`}>
-                <span className={colorClass}>{icon}</span>
+    title, value, format, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon
+}) => {
+    const [display, setDisplay] = useState(value);
+    const prevValue = useRef(value);
+
+    useEffect(() => {
+        const from = prevValue.current;
+        const to = value;
+        prevValue.current = value;
+        if (from === to) return;
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduceMotion) {
+            setDisplay(to);
+            return;
+        }
+
+        let raf: number;
+        const duration = 600;
+        const start = performance.now();
+        const tick = (now: number) => {
+            const progress = Math.min(1, (now - start) / duration);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setDisplay(Math.round(from + (to - from) * eased));
+            if (progress < 1) raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [value]);
+
+    return (
+        <div className="relative rounded-2xl p-5 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
+            <div className="flex items-start justify-between mb-4">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBgClass} shrink-0`}>
+                    <span className={colorClass}>{icon}</span>
+                </div>
+                {onAction && actionIcon && (
+                    <button
+                        type="button"
+                        onClick={onAction}
+                        aria-label={`Abrir ação de ${title}`}
+                        className={`rounded-lg p-2 transition-all hover:bg-gray-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${colorClass} opacity-0 group-hover:opacity-100`}
+                    >
+                        {actionIcon}
+                    </button>
+                )}
             </div>
-            {onAction && actionIcon && (
-                <button
-                    onClick={onAction}
-                    className={`p-1.5 rounded-lg hover:bg-gray-100 transition-all ${colorClass} opacity-0 group-hover:opacity-100`}
-                >
-                    {actionIcon}
-                </button>
-            )}
+            <div className={`mb-1 text-3xl font-bold leading-none tracking-tight tabular-nums ${colorClass}`}>
+                {format ? format(display) : display}
+            </div>
+            <p className="text-sm font-semibold leading-5 text-gray-700">{title}</p>
+            <p className="mt-0.5 text-xs leading-4 text-gray-500">{subtitle}</p>
         </div>
-        <div className={`text-3xl font-extrabold ${colorClass} tracking-tight mb-1`}>{value}</div>
-        <p className="text-sm font-semibold text-gray-700 leading-tight">{title}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
-    </div>
-));
+    );
+});
 MetricCard.displayName = 'MetricCard';
 
 // --- AccordionSection ---
@@ -127,14 +166,16 @@ const AccordionSection = memo<AccordionSectionProps>(({
 }) => (
     <div className="mb-4 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-white">
         <button
+            type="button"
             className="flex justify-between items-center w-full px-5 py-4 text-left hover:bg-gray-50/70 transition-colors"
             onClick={onToggle}
+            aria-expanded={isOpen}
         >
             <span className="flex items-center gap-3 flex-wrap">
                 <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconBg} shrink-0`}>
                     <span className={iconColor}>{iconNode}</span>
                 </span>
-                <span className="font-semibold text-gray-800 text-[15px]">{title}</span>
+                <span className="text-base font-semibold leading-6 text-gray-800">{title}</span>
                 {badge}
             </span>
             <ChevronDown
@@ -155,7 +196,7 @@ AccordionSection.displayName = 'AccordionSection';
 
 const SectionLabel = ({ label }: { label: string }) => (
     <div className="flex items-center gap-3 mb-3">
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">{label}</span>
+        <span className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
         <div className="flex-1 h-px bg-gray-100" />
     </div>
 );
@@ -283,7 +324,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* Header */}
             <div className="flex justify-between items-center mb-5 px-1">
                 <div>
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Última atualização</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Última atualização</p>
                     <p className="text-sm font-semibold text-gray-600">
                         {formattedLastUpdated ? `às ${formattedLastUpdated}` : '—'}
                     </p>
@@ -411,7 +452,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <MetricCard
                                     title="Caixa Hoje"
-                                    value={formatCurrency(stats.todayRevenue)}
+                                    value={stats.todayRevenue}
+                                    format={formatCurrency}
                                     subtitle="Recebido hoje"
                                     icon={<DollarSign size={20} />}
                                     colorClass="text-emerald-600"
@@ -419,7 +461,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                 />
                                 <MetricCard
                                     title="Receita Mês"
-                                    value={formatCurrency(stats.monthRevenue)}
+                                    value={stats.monthRevenue}
+                                    format={formatCurrency}
                                     subtitle="Pagamentos confirmados"
                                     icon={<DollarSign size={20} />}
                                     colorClass="text-blue-600"
@@ -460,7 +503,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     {/* Profissionais */}
                     <div className="rounded-2xl border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100">
-                            <h3 className="font-semibold text-gray-800 text-[15px]">Visão Geral dos Profissionais</h3>
+                            <h3 className="text-sm font-bold leading-5 text-gray-800">Visão Geral dos Profissionais</h3>
                         </div>
                         <div className="p-3">
                             {loading ? (
@@ -522,7 +565,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     {/* Próximas Consultas */}
                     <div className="rounded-2xl border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-100">
-                            <h3 className="font-semibold text-gray-800 text-[15px]">Próximas Consultas</h3>
+                            <h3 className="text-sm font-bold leading-5 text-gray-800">Próximas Consultas</h3>
                         </div>
                         <div className="p-3">
                             {loading ? (

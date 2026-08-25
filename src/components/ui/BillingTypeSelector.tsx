@@ -44,7 +44,7 @@ export default function BillingTypeSelector({
                 title="Definido pelo contrato judicial vinculado — não editável aqui"
             >
                 <span className="text-xs font-semibold text-purple-700">Liminar</span>
-                <span className="text-[10px] text-purple-500">(judicial)</span>
+                <span className="text-3xs text-purple-500">(judicial)</span>
             </div>
         );
     }

@@ -601,19 +601,19 @@ export default function TherapyPackageDetails({
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <div className="bg-white rounded-lg px-3 py-2.5 text-left border border-gray-100">
-                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Contratado</span>
+                                    <span className="block text-3xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Contratado</span>
                                     <span className="text-sm font-bold text-gray-900">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
                                     </span>
                                 </div>
                                 <div className="bg-white rounded-lg px-3 py-2.5 text-left border border-gray-100">
-                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Pago</span>
+                                    <span className="block text-3xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Pago</span>
                                     <span className="text-sm font-bold text-emerald-600">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}
                                     </span>
                                 </div>
                                 <div className="bg-white rounded-lg px-3 py-2.5 text-left border border-gray-100">
-                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">{hasCredit ? 'Crédito' : 'Pendente'}</span>
+                                    <span className="block text-3xs font-semibold uppercase tracking-wide text-gray-500 mb-1">{hasCredit ? 'Crédito' : 'Pendente'}</span>
                                     <span className={`text-sm font-bold ${hasCredit ? 'text-blue-600' : pendingValue > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(hasCredit ? balance : pendingValue))}
                                     </span>
@@ -701,7 +701,7 @@ export default function TherapyPackageDetails({
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 shrink-0">
-                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} ${cfg.border} border`}>
+                                                <span className={`text-3xs font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} ${cfg.border} border`}>
                                                     {cfg.label}
                                                 </span>
                                                 <span className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
@@ -805,12 +805,12 @@ export default function TherapyPackageDetails({
                     {/* Step indicator */}
                     <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-center gap-2 text-xs">
                         <span className={`flex items-center gap-1.5 font-medium ${!bulkPreviewOpen ? 'text-emerald-700' : 'text-emerald-600'}`}>
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${!bulkPreviewOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-200 text-emerald-700'}`}>1</span>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-3xs ${!bulkPreviewOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-200 text-emerald-700'}`}>1</span>
                             Escolher alterações
                         </span>
                         <ChevronRight className="w-3.5 h-3.5 text-emerald-300" />
                         <span className={`flex items-center gap-1.5 font-medium ${bulkPreviewOpen ? 'text-emerald-700' : 'text-gray-400'}`}>
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${bulkPreviewOpen ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-3xs ${bulkPreviewOpen ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
                             Revisar impacto
                         </span>
                     </div>
@@ -819,7 +819,7 @@ export default function TherapyPackageDetails({
                     <div className="px-6 py-4 grid grid-cols-3 gap-3 bg-white">
                         <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
                             <p className="text-xl font-bold text-emerald-700">{bulkAffectedSessions.length}</p>
-                            <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold mt-0.5">Sessões afetadas</p>
+                            <p className="text-3xs uppercase tracking-wide text-emerald-600 font-semibold mt-0.5">Sessões afetadas</p>
                         </div>
                         <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
                             <p className="text-sm font-semibold text-gray-700 truncate">
@@ -827,7 +827,7 @@ export default function TherapyPackageDetails({
                                     ? `${formatDate(bulkAffectedSessions[0].date)} – ${formatDate(bulkAffectedSessions[bulkAffectedSessions.length - 1].date)}`
                                     : '—'}
                             </p>
-                            <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mt-0.5">Período</p>
+                            <p className="text-3xs uppercase tracking-wide text-gray-500 font-semibold mt-0.5">Período</p>
                         </div>
                         <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
                             <p className="text-sm font-semibold text-gray-700 truncate">
@@ -838,7 +838,7 @@ export default function TherapyPackageDetails({
                                         || '—')
                                     : '—'}
                             </p>
-                            <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mt-0.5">Profissional atual</p>
+                            <p className="text-3xs uppercase tracking-wide text-gray-500 font-semibold mt-0.5">Profissional atual</p>
                         </div>
                     </div>
 
@@ -1092,7 +1092,7 @@ export default function TherapyPackageDetails({
                                             <span className="text-sm text-gray-800 flex-1">
                                                 {formatDate(s.date)} {s.time ? `às ${s.time}` : ''}
                                             </span>
-                                            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
+                                            <span className={`text-2xs px-2 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
                                                 {style.label}
                                             </span>
                                         </label>
@@ -1209,18 +1209,18 @@ export default function TherapyPackageDetails({
                                                 className={`rounded-xl border px-3.5 py-3 transition-colors ${incomplete ? 'border-amber-300 bg-amber-50/60' : 'border-emerald-200 bg-emerald-50/40'}`}
                                             >
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-[11px] text-gray-500 truncate">
+                                                    <span className="text-2xs text-gray-500 truncate">
                                                         Origem: <strong className="text-gray-700">{formatDate(origin?.date)}</strong>
                                                         {origin?.time ? ` às ${origin.time}` : ''}
                                                     </span>
-                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
+                                                    <span className="text-3xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
                                                         cancelada
                                                     </span>
                                                 </div>
 
                                                 <div className="grid grid-cols-[1fr,7.5rem] gap-2">
                                                     <div>
-                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Nova data</span>
+                                                        <span className="block text-2xs text-gray-500 mb-0.5">Nova data</span>
                                                         <input
                                                             type="date"
                                                             min={todayInputValue}
@@ -1230,7 +1230,7 @@ export default function TherapyPackageDetails({
                                                         />
                                                     </div>
                                                     <div>
-                                                        <span className="block text-[11px] text-gray-500 mb-0.5">Horário</span>
+                                                        <span className="block text-2xs text-gray-500 mb-0.5">Horário</span>
                                                         <input
                                                             type="time"
                                                             value={slot.time}
@@ -1241,7 +1241,7 @@ export default function TherapyPackageDetails({
                                                 </div>
 
                                                 {originPassed && !slot.date && (
-                                                    <p className="text-[11px] text-amber-700 mt-1.5">
+                                                    <p className="text-2xs text-amber-700 mt-1.5">
                                                         A data original já passou — escolha uma nova.
                                                     </p>
                                                 )}

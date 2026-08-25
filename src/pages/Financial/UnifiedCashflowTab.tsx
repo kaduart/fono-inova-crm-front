@@ -32,6 +32,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Pencil, Trash2, Receipt, Banknote } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { confirmToast } from '../../utils/confirmToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
 import { EmitFiscalInvoiceModal } from '../../components/fiscal/EmitFiscalInvoiceModal';
@@ -143,6 +144,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     } | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
+    const [faturarSubFilter, setFaturarSubFilter] = useState<'pacotes' | 'convenios' | 'liminares'>('pacotes');
     const [dashboardOpen, setDashboardOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -173,7 +175,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     };
 
     const handleDeletePayment = async (paymentId: string, label: string) => {
-        if (!window.confirm(`Remover pagamento de ${label}?\n\nO vínculo com agendamento/sessão será limpo automaticamente.`)) return;
+        const confirmed = await confirmToast(
+            `${label}\n\nO vínculo com agendamento/sessão será limpo automaticamente.`,
+            { title: 'Remover pagamento?', confirmText: 'Remover', confirmColor: 'red' }
+        );
+        if (!confirmed) return;
         try {
             await API.delete(`/v2/payments/${paymentId}`);
             toast.success('Pagamento removido');
@@ -185,7 +191,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     };
 
     const handleRegisterDebit = async (paymentId: string, label: string) => {
-        if (!window.confirm(`Marcar ${label} como débito/fiado?\n\nO valor será retirado do caixa do dia e adicionado ao saldo devedor do paciente.`)) return;
+        const confirmed = await confirmToast(
+            `${label}\n\nO valor será retirado do caixa do dia e adicionado ao saldo devedor do paciente.`,
+            { title: 'Marcar como débito/fiado?', confirmText: 'Marcar como débito', confirmColor: 'teal' }
+        );
+        if (!confirmed) return;
         try {
             await API.patch(`/v2/payments/${paymentId}/register-debit`);
             toast.success('Registrado como débito');
@@ -248,7 +258,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
             isFirstRender.current = false;
             return;
         }
-        if (activeTab === 5 && viewMode === 'day') {
+        if (activeTab === 3 && viewMode === 'day') {
             loadDayAppointments();
         }
     }, [activeTab]);
@@ -497,22 +507,22 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     <button
                         onClick={() => setDashboardOpen(open => !open)}
                         className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3 transition-all shadow-sm border border-emerald-200 hover:brightness-95"
-                        style={{ background: 'linear-gradient(90deg, #ecfdf5 0%, #eff6ff 100%)' }}
+                        style={{ background: 'linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%)' }}
                     >
                         <div className="flex items-center gap-3">
-                            <span className="text-sm font-black text-emerald-700 uppercase tracking-widest">Resumo do Dia</span>
+                            <span className="text-sm font-bold uppercase tracking-wide text-emerald-700">Resumo do Dia</span>
                             {!dashboardOpen && data && (() => {
                                 const leadsCount = (analyticsCreatedData?.leads?.length || 0) + (analyticsCreatedData?.novos?.length || 0);
                                 return (
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-emerald-100 text-emerald-700">
                                             💰 {formatCurrency(data.caixa.total)} recebido
                                         </span>
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-blue-100 text-blue-700">
                                             📊 {formatCurrency(data.producao.total)} produção
                                         </span>
                                         {leadsCount > 0 && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-pink-100 text-pink-700">
                                                 🆕 {leadsCount} paciente{leadsCount !== 1 ? 's' : ''} novo{leadsCount !== 1 ? 's' : ''}
                                             </span>
                                         )}
@@ -537,26 +547,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         if (!isLoadingApts && previsto === 0) return null;
                         return (
                             <div className="mb-4 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
-                                <div className="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-4">Receita Prevista × Realizada</div>
+                                <div className="mb-4 text-3xs font-semibold uppercase tracking-wide text-violet-700">Receita Prevista × Realizada</div>
                                 <div className="grid grid-cols-3 gap-4 mb-4">
                                     <div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Previsto</div>
+                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">Previsto</div>
                                         <div className="text-xl font-bold text-violet-700">
                                             {isLoadingApts ? <Skeleton width={80} height={28} sx={{ bgcolor: 'rgba(0,0,0,0.08)' }} /> : formatCurrency(previsto)}
                                         </div>
-                                        <div className="text-[10px] text-gray-400 mt-0.5">{sessaoApts.length} sessões agendadas</div>
+                                        <div className="text-3xs text-gray-400 mt-0.5">{sessaoApts.length} sessões agendadas</div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Realizado</div>
+                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">Realizado</div>
                                         <div className="text-xl font-bold text-emerald-700">{formatCurrency(recebido)}</div>
-                                        <div className="text-[10px] text-gray-400 mt-0.5">{data.transacoes?.length || 0} transações</div>
+                                        <div className="text-3xs text-gray-400 mt-0.5">{data.transacoes?.length || 0} transações</div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{gap > 0 ? 'Não realizado' : 'Saldo'}</div>
+                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">{gap > 0 ? 'Não realizado' : 'Saldo'}</div>
                                         <div className={`text-xl font-bold ${gap > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                             {isLoadingApts ? <Skeleton width={80} height={28} sx={{ bgcolor: 'rgba(0,0,0,0.08)' }} /> : formatCurrency(Math.abs(gap))}
                                         </div>
-                                        <div className={`text-[10px] mt-0.5 font-semibold ${gap > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        <div className={`text-3xs mt-0.5 font-semibold ${gap > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                                             {isLoadingApts ? '...' : gap > 0 ? `${100 - pct}% pendente/a receber` : 'acima do previsto'}
                                         </div>
                                     </div>
@@ -564,7 +574,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div className="w-full bg-violet-100 rounded-full h-2.5 overflow-hidden">
                                     <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: isLoadingApts ? '0%' : `${pct}%` }} />
                                 </div>
-                                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                <div className="flex justify-between text-3xs text-gray-400 mt-1">
                                     <span>{isLoadingApts ? '...' : `${pct}% realizado`}</span>
                                     <span>{!isLoadingApts && pct < 100 ? `${100 - pct}% ainda por entrar` : ''}</span>
                                 </div>
@@ -582,11 +592,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-black text-emerald-700 uppercase tracking-widest">Caixa Hoje</div>
-                                    <div className="text-[11px] text-gray-400 leading-tight">Dinheiro Recebido</div>
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Caixa Hoje</div>
+                                    <div className="text-2xs text-gray-400 leading-tight">Dinheiro Recebido</div>
                                 </div>
                             </div>
-                            <div className="text-[26px] font-extrabold text-emerald-700 leading-none tracking-tight mb-2">
+                            <div className="mb-2 text-2xl font-extrabold leading-none tracking-tight tabular-nums text-emerald-700">
                                 {formatCurrency(data.caixa.total)}
                             </div>
                             {(() => {
@@ -610,7 +620,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 const outros = data.caixa.total - sessoesDoDia - avaliacoesDoDia - sessoesPacote - vendaPacotes;
                                 return (
                                     <div className="pt-3 border-t border-gray-100 space-y-2">
-                                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Origem do Caixa</div>
+                                        <div className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Origem do Caixa</div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />Sessões do dia</span>
                                             <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia)}</span>
@@ -649,11 +659,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-black text-blue-700 uppercase tracking-widest">Produção Hoje</div>
-                                    <div className="text-[11px] text-gray-400 leading-tight">Sessões Realizadas</div>
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">Produção Hoje</div>
+                                    <div className="text-2xs text-gray-400 leading-tight">Sessões Realizadas</div>
                                 </div>
                             </div>
-                            <div className="text-[26px] font-extrabold text-blue-700 leading-none tracking-tight mb-2">
+                            <div className="mb-2 text-2xl font-extrabold leading-none tracking-tight tabular-nums text-blue-700">
                                 {formatCurrency(data.producao.total)}
                             </div>
                             <div className="text-xs text-gray-500 mb-3">
@@ -704,7 +714,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             return (
                                                 <div className="flex flex-wrap gap-1.5 pt-1">
                                                     {items.map(i => (
-                                                        <span key={i.label} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${i.color}`}>
+                                                        <span key={i.label} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-semibold ${i.color}`}>
                                                             {i.label} {formatCurrency(i.value)}
                                                         </span>
                                                     ))}
@@ -729,21 +739,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             <CalendarTodayIcon style={{ fontSize: 20 }} className="text-sky-600" />
                                         </div>
                                         <div>
-                                            <div className="text-xs font-black text-sky-700 uppercase tracking-widest">Agenda Hoje</div>
-                                            <div className="text-[11px] text-gray-400 leading-tight">Consultas do dia</div>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-sky-700">Agenda Hoje</div>
+                                            <div className="text-2xs text-gray-400 leading-tight">Consultas do dia</div>
                                         </div>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-1">
-                                        <span className="text-[26px] font-extrabold text-sky-700 leading-none tracking-tight">{atendidos.length}</span>
+                                        <span className="text-2xl font-extrabold leading-none tracking-tight tabular-nums text-sky-700">{atendidos.length}</span>
                                         <span className="text-sm text-gray-400">/ {agendados.length}</span>
                                     </div>
                                     <div className="pt-3 border-t border-gray-100 flex flex-col gap-y-2">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Atendidos</span>
+                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">Atendidos</span>
                                             <span className="text-sm font-bold text-emerald-600">{atendidos.length}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">Aguardando</span>
+                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">Aguardando</span>
                                             <span className="text-sm font-bold text-amber-600">{aguardando.length}</span>
                                         </div>
                                     </div>
@@ -768,29 +778,29 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             <AddCircleIcon style={{ fontSize: 20 }} className="text-pink-600" />
                                         </div>
                                         <div>
-                                            <div className="text-xs font-black text-pink-700 uppercase tracking-widest">Perfil do Dia</div>
-                                            <div className="text-[11px] text-gray-400 leading-tight">Agendados para o dia</div>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-pink-700">Perfil do Dia</div>
+                                            <div className="text-2xs text-gray-400 leading-tight">Agendados para o dia</div>
                                         </div>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-1">
-                                        <span className="text-[26px] font-extrabold text-pink-700 leading-none tracking-tight">{totalNoDia}</span>
+                                        <span className="text-2xl font-extrabold leading-none tracking-tight tabular-nums text-pink-700">{totalNoDia}</span>
                                     </div>
                                     <div className="pt-3 border-t border-pink-100 flex flex-col gap-y-2">
                                         <button onClick={() => (preAgendados + novosPacientes) > 0 && setNewPatientsModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${(preAgendados + novosPacientes) > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">🟢 Novo Paciente</span>
+                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">🟢 Novo Paciente</span>
                                             <span className="text-sm font-bold text-emerald-600">{preAgendados + novosPacientes}</span>
                                         </button>
                                         <button onClick={() => novosEspCount > 0 && setNewSpecialtyModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${novosEspCount > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">🟣 Nova Especialidade</span>
+                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">🟣 Nova Especialidade</span>
                                             <span className="text-sm font-bold text-violet-600">{novosEspCount}</span>
                                         </button>
                                         <div className="flex items-center justify-between border-t border-pink-100 pt-1">
-                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">↩ Retornos / regulares</span>
+                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">↩ Retornos / regulares</span>
                                             <span className="text-sm font-bold text-gray-700">{retornos}</span>
                                         </div>
                                         {liminarCount > 0 && (
                                             <div className="flex items-center justify-between border-t border-pink-100 pt-1">
-                                                <span className="text-[10px] text-orange-500 uppercase tracking-wide">⚖️ Trat. Liminares</span>
+                                                <span className="text-3xs text-orange-500 uppercase tracking-wide">⚖️ Trat. Liminares</span>
                                                 <span className="text-sm font-bold text-orange-600">{liminarCount}</span>
                                             </div>
                                         )}
@@ -806,8 +816,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     <WarningIcon style={{ fontSize: 20 }} className="text-amber-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-black text-amber-700 uppercase tracking-widest">Pendências Hoje</div>
-                                    <div className="text-[11px] text-gray-400 leading-tight">Ações Necessárias</div>
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pendências Hoje</div>
+                                    <div className="text-2xs text-gray-400 leading-tight">Ações Necessárias</div>
                                 </div>
                             </div>
                             {(() => {
@@ -818,7 +828,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 const totalAberto = particular + convenioTotal;
                                 return (
                                     <>
-                                        <div className="text-[26px] font-extrabold text-amber-700 leading-none tracking-tight mb-1">
+                                        <div className="mb-1 text-2xl font-extrabold leading-none tracking-tight tabular-nums text-amber-700">
                                             {formatCurrency(totalAberto)}
                                         </div>
                                         <div className="text-xs text-gray-500 mb-3">Total em aberto</div>
@@ -858,9 +868,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <ShowChartIcon style={{ fontSize: 18 }} className="text-emerald-600" />
-                                        <h3 className="text-sm font-black text-slate-900">Evolução do Caixa por Horário</h3>
+                                        <h3 className="text-sm font-bold leading-5 text-slate-900">Evolução do Caixa por Horário</h3>
                                     </div>
-                                    <p className="mt-1 text-[11px] text-slate-500">Recebimentos acumulados ao longo do dia comparados ao dia anterior.</p>
+                                    <p className="mt-1 text-2xs text-slate-500">Recebimentos acumulados ao longo do dia comparados ao dia anterior.</p>
                                 </div>
                                 <div className="flex flex-wrap gap-2 text-xs">
                                     <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Hoje {formatCurrency(data.caixa.total)}</span>
@@ -900,29 +910,29 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             <div className="mb-4 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0891B2', backgroundColor: '#ECFEFF' }}>
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
-                                        <div className="text-[10px] font-black text-cyan-700 uppercase tracking-widest">Eficiência Financeira do Dia</div>
-                                        <div className="text-[11px] text-gray-400 leading-tight">{ef.atendimentos} atendimento{ef.atendimentos !== 1 ? 's' : ''} realizado{ef.atendimentos !== 1 ? 's' : ''} hoje</div>
+                                        <div className="text-3xs font-semibold uppercase tracking-wide text-cyan-700">Eficiência Financeira do Dia</div>
+                                        <div className="text-2xs text-gray-400 leading-tight">{ef.atendimentos} atendimento{ef.atendimentos !== 1 ? 's' : ''} realizado{ef.atendimentos !== 1 ? 's' : ''} hoje</div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">💵 Geraram caixa hoje</div>
+                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">💵 Geraram caixa hoje</div>
                                         <div className="text-xl font-bold text-emerald-700">{formatCurrency(ef.geraramCaixaHoje.valor)}</div>
-                                        <div className="text-[11px] text-gray-400 mt-0.5">{ef.geraramCaixaHoje.quantidade} atendimento{ef.geraramCaixaHoje.quantidade !== 1 ? 's' : ''}</div>
+                                        <div className="text-2xs text-gray-400 mt-0.5">{ef.geraramCaixaHoje.quantidade} atendimento{ef.geraramCaixaHoje.quantidade !== 1 ? 's' : ''}</div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">📅 A receber futuramente</div>
+                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">📅 A receber futuramente</div>
                                         <div className="text-xl font-bold text-amber-700">{formatCurrency(ef.aReceberFuturamente.valor)}</div>
-                                        <div className="text-[11px] text-gray-400 mt-0.5">{ef.aReceberFuturamente.quantidade} atendimento{ef.aReceberFuturamente.quantidade !== 1 ? 's' : ''}</div>
+                                        <div className="text-2xs text-gray-400 mt-0.5">{ef.aReceberFuturamente.quantidade} atendimento{ef.aReceberFuturamente.quantidade !== 1 ? 's' : ''}</div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">📦 Consumiram créditos</div>
+                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">📦 Consumiram créditos</div>
                                         <div className="text-xl font-bold text-indigo-700">{formatCurrency(ef.consumiramCredito.valor)}</div>
-                                        <div className="text-[11px] text-gray-400 mt-0.5">{ef.consumiramCredito.quantidade} atendimento{ef.consumiramCredito.quantidade !== 1 ? 's' : ''}</div>
+                                        <div className="text-2xs text-gray-400 mt-0.5">{ef.consumiramCredito.quantidade} atendimento{ef.consumiramCredito.quantidade !== 1 ? 's' : ''}</div>
                                     </div>
                                 </div>
                                 <div className="pt-3 mt-3 border-t border-cyan-100 flex items-center justify-between">
-                                    <span className="text-[11px] text-gray-500">Monetização imediata</span>
+                                    <span className="text-2xs text-gray-500">Monetização imediata</span>
                                     <span className="text-sm font-bold text-cyan-700">{ef.monetizacaoImediataPct}%</span>
                                 </div>
                             </div>
@@ -940,14 +950,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-lg">🚨</span>
-                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Sem próxima sessão</span>
+                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Sem próxima sessão</span>
                                     </div>
                                     {patientsWithoutNext > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-red-400 group-hover:text-red-600 transition-colors" />
                                     )}
                                 </div>
                                 <div className={`text-2xl font-bold ${patientsWithoutNext > 0 ? 'text-red-700' : 'text-gray-400'}`}>{patientsWithoutNext}</div>
-                                <div className="text-[11px] text-gray-500">pacientes</div>
+                                <div className="text-2xs text-gray-500">pacientes</div>
                                 {patientsWithoutNextRecurrent > 0 && (
                                     <div className="mt-2 text-xs text-red-600 font-semibold">
                                         {patientsWithoutNextRecurrent} recorrentes · {formatCurrency(patientsWithoutNextImpact)}/mês
@@ -963,14 +973,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-lg">⚠️</span>
-                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Grade em risco</span>
+                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Grade em risco</span>
                                     </div>
                                     {retentionCritical > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-orange-400 group-hover:text-orange-600 transition-colors" />
                                     )}
                                 </div>
                                 <div className={`text-2xl font-bold ${retentionCritical > 0 ? 'text-orange-700' : 'text-gray-400'}`}>{retentionCritical}</div>
-                                <div className="text-[11px] text-gray-500">horários críticos</div>
+                                <div className="text-2xs text-gray-500">horários críticos</div>
                                 {retentionLoss > 0 && (
                                     <div className="mt-2 text-xs text-orange-600 font-semibold">
                                         Perda potencial: {formatCurrency(retentionLoss)}/mês
@@ -986,32 +996,32 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <WarningIcon style={{ fontSize: 18 }} className={(data.pendentesCobranca?.length || 0) > 0 ? 'text-amber-600' : 'text-gray-400'} />
-                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Cobrança</span>
+                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Cobrança</span>
                                     </div>
                                     {(data.pendentesCobranca?.length || 0) > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-amber-400 group-hover:text-amber-600 transition-colors" />
                                     )}
                                 </div>
                                 <div className={`text-2xl font-bold ${(data.pendentesCobranca?.length || 0) > 0 ? 'text-amber-700' : 'text-gray-400'}`}>{data.pendentesCobranca?.length || 0}</div>
-                                <div className="text-[11px] text-gray-500">pendências</div>
+                                <div className="text-2xs text-gray-500">pendências</div>
                             </button>
 
                             {/* Convênios */}
                             <button
-                                onClick={() => setActiveTab(3)}
+                                onClick={() => { setActiveTab(2); setFaturarSubFilter('convenios'); }}
                                 className={`text-left rounded-xl border p-4 transition-all group ${(data.conveniosAtendidos?.length || 0) > 0 ? 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:shadow-md cursor-pointer' : 'bg-gray-50 border-gray-200 cursor-default'}`}
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <ShowChartIcon style={{ fontSize: 18 }} className={(data.conveniosAtendidos?.length || 0) > 0 ? 'text-purple-600' : 'text-gray-400'} />
-                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Convênios</span>
+                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Convênios</span>
                                     </div>
                                     {(data.conveniosAtendidos?.length || 0) > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-purple-400 group-hover:text-purple-600 transition-colors" />
                                     )}
                                 </div>
                                 <div className={`text-2xl font-bold ${(data.conveniosAtendidos?.length || 0) > 0 ? 'text-purple-700' : 'text-gray-400'}`}>{data.conveniosAtendidos?.length || 0}</div>
-                                <div className="text-[11px] text-gray-500">para faturar</div>
+                                <div className="text-2xs text-gray-500">para faturar</div>
                             </button>
                         </div>
                     )}
@@ -1045,7 +1055,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                                    <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-[10px] font-bold">⭐ 1ª Visita</span>
+                                                                    <span className="bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full text-3xs font-bold">⭐ 1ª Visita</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
                                                                     <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
@@ -1053,9 +1063,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                 </div>
                                                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                                                                     <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
-                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
-                                                                    {apt.serviceType && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcLabel[apt.serviceType] || apt.serviceType}</span>}
-                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
+                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-3xs uppercase font-medium">{apt.specialty}</span>}
+                                                                    {apt.serviceType && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-3xs font-medium">{svcLabel[apt.serviceType] || apt.serviceType}</span>}
+                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-3xs font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
                                                                 </div>
                                                             </div>
                                                             <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -1103,7 +1113,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <p className="font-semibold text-gray-900">{apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}</p>
-                                                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">✨ Nova Especialidade</span>
+                                                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full text-3xs font-bold">✨ Nova Especialidade</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
                                                                     <span>📞 {apt.patientInfo?.phone || apt.patient?.phone || 'Sem telefone'}</span>
@@ -1111,9 +1121,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                 </div>
                                                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                                                                     <span className="text-xs text-gray-500">👤 {apt.doctor?.fullName || apt.professionalName || 'Profissional não informado'}</span>
-                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-[10px] uppercase font-medium">{apt.specialty}</span>}
-                                                                    {apt.serviceType && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">{svcLabel[apt.serviceType] || apt.serviceType}</span>}
-                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
+                                                                    {apt.specialty && <span className="bg-green-200 text-green-700 px-1.5 py-0.5 rounded-full text-3xs uppercase font-medium">{apt.specialty}</span>}
+                                                                    {apt.serviceType && <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-3xs font-medium">{svcLabel[apt.serviceType] || apt.serviceType}</span>}
+                                                                    {apt.billingType && <span className={`px-1.5 py-0.5 rounded-full text-3xs font-medium ${billingColor[apt.billingType] || 'bg-gray-100 text-gray-600'}`}>{apt.billingType === 'particular' ? 'Particular' : apt.billingType === 'convenio' ? 'Convênio' : apt.billingType}</span>}
                                                                 </div>
                                                             </div>
                                                             <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${apt.operationalStatus === 'pre_agendado' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -1154,13 +1164,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                     <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
                                                     <div className="flex flex-wrap gap-1.5 mt-1">
                                                         {p.specialty && (
-                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">{p.specialty}</span>
+                                                            <span className="px-2 py-0.5 rounded-full text-3xs font-medium bg-red-100 text-red-700">{p.specialty}</span>
                                                         )}
                                                         {p.lastSessionTime && (
-                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">🕐 {p.lastSessionTime}</span>
+                                                            <span className="px-2 py-0.5 rounded-full text-3xs font-medium bg-gray-100 text-gray-600">🕐 {p.lastSessionTime}</span>
                                                         )}
                                                         {p.count > 1 && (
-                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700">{p.count} sessões hoje</span>
+                                                            <span className="px-2 py-0.5 rounded-full text-3xs font-medium bg-orange-100 text-orange-700">{p.count} sessões hoje</span>
                                                         )}
                                                     </div>
                                                     {p.phone && (
@@ -1199,22 +1209,22 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         return (
                             <div className="flex flex-wrap gap-2 mb-3 px-1">
                                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-                                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">Atendidos</span>
+                                    <span className="text-3xs font-bold text-emerald-700 uppercase tracking-wide">Atendidos</span>
                                     <span className="text-base font-bold text-emerald-700">{atendidos}</span>
-                                    <span className="text-[10px] text-gray-400">/ {allApts.length}</span>
+                                    <span className="text-3xs text-gray-400">/ {allApts.length}</span>
                                 </div>
                                 <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
-                                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">Ticket Caixa</span>
+                                    <span className="text-3xs font-bold text-blue-700 uppercase tracking-wide">Ticket Caixa</span>
                                     <span className="text-base font-bold text-blue-700">{formatCurrency(ticketCaixa)}</span>
                                 </div>
                                 <div className={`flex items-center gap-2 rounded-xl px-4 py-2 border ${cancelRate > 20 ? 'bg-red-50 border-red-300' : cancelRate > 10 ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wide ${cancelRate > 20 ? 'text-red-700' : cancelRate > 10 ? 'text-amber-700' : 'text-gray-500'}`}>Cancelamentos</span>
+                                    <span className={`text-3xs font-bold uppercase tracking-wide ${cancelRate > 20 ? 'text-red-700' : cancelRate > 10 ? 'text-amber-700' : 'text-gray-500'}`}>Cancelamentos</span>
                                     <span className={`text-base font-bold ${cancelRate > 20 ? 'text-red-700' : cancelRate > 10 ? 'text-amber-700' : 'text-gray-500'}`}>{cancelRate}%</span>
-                                    <span className="text-[10px] text-gray-400">{cancelados.length} sess.</span>
+                                    <span className="text-3xs text-gray-400">{cancelados.length} sess.</span>
                                 </div>
                                 {receitaPerdida > 0 && (
                                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
-                                        <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide">Receita Perdida</span>
+                                        <span className="text-3xs font-bold text-red-700 uppercase tracking-wide">Receita Perdida</span>
                                         <span className="text-base font-bold text-red-700">{formatCurrency(receitaPerdida)}</span>
                                     </div>
                                 )}
@@ -1229,9 +1239,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {[
                                 { label: 'Recebimentos',       count: data.transacoes?.length || 0,                                      icon: <ReceiptIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Pendentes',          count: data.pendentesCobranca?.length || 0,                               icon: <WarningIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Pacotes Consumidos', count: data.pacotesAtendidos?.length || 0,                                icon: <InventoryIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Convênios a Faturar',count: data.conveniosAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Liminares',          count: data.liminaresAtendidos?.length || 0,                              icon: <ShowChartIcon style={{ fontSize: 15 }} /> },
+                                { label: 'A Faturar',          count: (data.pacotesAtendidos?.length || 0) + (data.conveniosAtendidos?.length || 0) + (data.liminaresAtendidos?.length || 0), icon: <InventoryIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Agenda do Dia',      count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Especialidades',     count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Profissionais',      count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
@@ -1245,7 +1253,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     {tab.icon}
                                     <span>{tab.label}</span>
                                     {tab.count > 0 && (
-                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === i ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-500'}`}>
+                                        <span className={`px-1.5 py-0.5 rounded-full text-3xs font-bold ${activeTab === i ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-500'}`}>
                                             {tab.count}
                                         </span>
                                     )}
@@ -1365,11 +1373,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
                                   <div className="w-20 shrink-0">
-                                      <div className="text-[11px] text-gray-400">{t.data}</div>
-                                      <div className="text-[15px] font-semibold text-gray-900 font-mono">{t.hora}</div>
+                                      <div className="text-2xs text-gray-400">{t.data}</div>
+                                      <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                      <div className="text-[15px] font-semibold text-gray-900 truncate">{t.paciente}</div>
+                                      <div className="truncate text-sm font-semibold text-gray-900">{t.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
                                           {[t.profissional, t.especialidade].filter(Boolean).join(' / ')}
                                       </div>
@@ -1381,8 +1389,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                       {isMultiPayment ? (
                                           <>
                                               <div className="text-xs font-medium text-gray-700 truncate cursor-default">{[...new Set((t as any).paymentForms.map((f: any) => methodLabel(f.method)))].join(' + ')}</div>
-                                              <div className="text-[10px] text-gray-400">{(t as any).paymentForms.length} formas</div>
-                                              <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                                              <div className="text-3xs text-gray-400">{(t as any).paymentForms.length} formas</div>
+                                              <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-2xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                                                   <div className="space-y-0.5">
                                                       {(t as any).paymentForms.map((f: any, i: number) => (
                                                           <div key={i} className="flex items-center justify-between gap-3">
@@ -1397,7 +1405,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                       ) : (
                                           <>
                                               <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
-                                              {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                              {prazo && <div className="text-3xs text-gray-400">{prazo}</div>}
                                           </>
                                       )}
                                   </div>
@@ -1476,25 +1484,25 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={t.id} className="grid grid-cols-2 sm:grid-cols-[82px_minmax(0,1fr)_90px_125px_100px] items-center gap-x-3 gap-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
                                   <div>
-                                      <div className="text-[11px] text-gray-400">{t.data}</div>
+                                      <div className="text-2xs text-gray-400">{t.data}</div>
                                       <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
                                   </div>
 
                                   <div className="min-w-0">
                                       <div className="truncate text-sm font-semibold text-gray-800">{t.servico || 'Sessão'}</div>
-                                      <div className="truncate text-[11px] text-gray-400">
+                                      <div className="truncate text-2xs text-gray-400">
                                           {[t.profissional, t.especialidade].filter(Boolean).join(' · ') || 'Sem profissional informado'}
                                       </div>
                                   </div>
 
                                   <div className="text-left sm:text-center">
                                       <div className="text-xs font-medium text-gray-700">{t.metodo}</div>
-                                      {prazo && <div className="text-[10px] text-gray-400">{prazo}</div>}
+                                      {prazo && <div className="text-3xs text-gray-400">{prazo}</div>}
                                   </div>
 
                                   <div className="flex flex-wrap items-center gap-1 sm:flex-col sm:items-start">
-                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tipoCls}`}>{t.tipo}</span>
-                                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${situacaoCls}`}>{situacao}</span>
+                                      <span className={`rounded-full px-2 py-0.5 text-2xs font-medium ${tipoCls}`}>{t.tipo}</span>
+                                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-2xs font-medium ${situacaoCls}`}>{situacao}</span>
                                   </div>
 
                                   <div className="col-span-2 text-right text-sm font-bold text-emerald-600 sm:col-span-1">
@@ -1533,11 +1541,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={g._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
                                   <div className="w-20 shrink-0">
-                                      <div className="text-[11px] text-gray-400">{first.data}</div>
-                                      <div className="text-[15px] font-semibold text-gray-900 font-mono">{first.hora}</div>
+                                      <div className="text-2xs text-gray-400">{first.data}</div>
+                                      <div className="font-mono text-sm font-semibold text-gray-900">{first.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                      <div className="text-[15px] font-semibold text-gray-900 truncate">{first.paciente}</div>
+                                      <div className="truncate text-sm font-semibold text-gray-900">{first.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
                                           {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
                                       </div>
@@ -1547,8 +1555,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   </div>
                                   <div className="w-28 shrink-0 text-center group relative">
                                       <div className="text-xs font-medium text-gray-700 truncate cursor-default">{metodosUnicos}</div>
-                                      <div className="text-[10px] text-gray-400">{g.items.length} formas</div>
-                                      <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                                      <div className="text-3xs text-gray-400">{g.items.length} formas</div>
+                                      <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-2xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                                           <div className="space-y-0.5">
                                               {g.items.map((t: any) => (
                                                   <div key={t.id} className="flex items-center justify-between gap-3">
@@ -1598,13 +1606,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls} hover:bg-gray-100 transition-colors text-left`}
                               >
                                   <div className="w-20 shrink-0">
-                                      <div className="text-[11px] text-gray-400">{first.data}</div>
-                                      <div className="text-[15px] font-semibold text-gray-900 font-mono">{first.hora}</div>
+                                      <div className="text-2xs text-gray-400">{first.data}</div>
+                                      <div className="font-mono text-sm font-semibold text-gray-900">{first.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                      <div className="text-[15px] font-semibold text-gray-900 truncate flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 truncate text-sm font-semibold text-gray-900">
                                           {first.paciente}
-                                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-600">{g.items.length}x</span>
+                                          <span className="px-1.5 py-0.5 rounded-full text-3xs font-bold bg-gray-200 text-gray-600">{g.items.length}x</span>
                                       </div>
                                       <div className="text-xs text-gray-500 truncate">
                                           {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
@@ -1615,7 +1623,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
                                       <div className="text-xs font-medium text-gray-700 truncate">{metodosUnicos}</div>
-                                      <div className="text-[10px] text-gray-400">ver detalhes</div>
+                                      <div className="text-3xs text-gray-400">ver detalhes</div>
                                   </div>
                                   <div className="w-20 shrink-0 text-center">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tipoCls}`}>{first.tipo}</span>
@@ -1657,13 +1665,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 </div>
                                 {/* Header fixo explicando colunas da direita */}
                                 <div className="flex items-center gap-3 px-3 py-1.5 mb-1 border-b border-gray-100">
-                                    <span className="text-[11px] text-gray-400 w-20 shrink-0">Hora</span>
-                                    <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
-                                    <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Serviço</span>
-                                    <span className="text-[11px] text-gray-400 w-28 text-center shrink-0">Método</span>
-                                    <span className="text-[11px] text-gray-400 w-20 text-center shrink-0">Tipo</span>
-                                    <span className="text-[11px] text-gray-400 w-32 text-center shrink-0">Situação</span>
-                                    <span className="text-[11px] text-gray-400 w-28 text-right shrink-0">Valor</span>
+                                    <span className="text-2xs text-gray-400 w-20 shrink-0">Hora</span>
+                                    <span className="flex-1 text-2xs text-gray-400">Paciente / Profissional</span>
+                                    <span className="text-2xs text-gray-400 w-28 text-center shrink-0">Serviço</span>
+                                    <span className="text-2xs text-gray-400 w-28 text-center shrink-0">Método</span>
+                                    <span className="text-2xs text-gray-400 w-20 text-center shrink-0">Tipo</span>
+                                    <span className="text-2xs text-gray-400 w-32 text-center shrink-0">Situação</span>
+                                    <span className="text-2xs text-gray-400 w-28 text-right shrink-0">Valor</span>
                                     {user?.role === 'admin' && <span className="w-32 shrink-0" />}
                                 </div>
                                 <div className="space-y-2.5">
@@ -1791,89 +1799,101 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
-                    {/* Tab 2: Pacotes */}
+                    {/* Tab 2: A Faturar (Pacotes + Convênios + Liminares consolidados, com sub-filtro) */}
                     {activeTab === 2 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">📦 Pacotes Consumidos ({data.pacotesAtendidos?.length || 0})</h3>
-                            {data.pacotesAtendidos?.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {data.pacotesAtendidos.map((p) => {
-                                        const isPendente = p.statusPagamento === 'Pendente';
-                                        const isPrepaid = !isPendente && p.paymentModel === 'prepaid';
-                                        return (
-                                            <div key={p.id} className={`border-l-4 ${isPendente ? 'border-l-red-500' : isPrepaid ? 'border-l-blue-500' : 'border-l-emerald-500'} border border-gray-200 rounded-lg p-3`}>
+                            <div className="flex items-center gap-1.5 mb-3">
+                                {([
+                                    { key: 'pacotes' as const,   label: 'Pacotes',   emoji: '📦', count: data.pacotesAtendidos?.length || 0 },
+                                    { key: 'convenios' as const, label: 'Convênios', emoji: '🏥', count: data.conveniosAtendidos?.length || 0 },
+                                    { key: 'liminares' as const, label: 'Liminares', emoji: '⚖️', count: data.liminaresAtendidos?.length || 0 },
+                                ]).map((f) => (
+                                    <button key={f.key} onClick={() => setFaturarSubFilter(f.key)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                            faturarSubFilter === f.key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}>
+                                        <span>{f.emoji}</span>
+                                        <span>{f.label}</span>
+                                        <span className={`px-1.5 py-0.5 rounded-full text-3xs font-bold ${faturarSubFilter === f.key ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                            {f.count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {faturarSubFilter === 'pacotes' && (
+                                data.pacotesAtendidos?.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {data.pacotesAtendidos.map((p) => {
+                                            const isPendente = p.statusPagamento === 'Pendente';
+                                            const isPrepaid = !isPendente && p.paymentModel === 'prepaid';
+                                            return (
+                                                <div key={p.id} className={`border-l-4 ${isPendente ? 'border-l-red-500' : isPrepaid ? 'border-l-blue-500' : 'border-l-emerald-500'} border border-gray-200 rounded-lg p-3`}>
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <span className="font-semibold text-sm">{p.paciente}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full text-xs ${isPendente ? 'bg-red-100 text-red-800' : isPrepaid ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                                            {isPendente ? 'Pendente' : isPrepaid ? 'Pré-pago' : 'Pago hoje'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">{p.especialidade} • {p.horario}</div>
+                                                    <div className="text-xs text-gray-500 mb-1">{p.professional}</div>
+                                                    <div className="flex justify-between items-baseline">
+                                                        <span className={`text-lg font-bold ${isPendente ? 'text-red-600' : 'text-emerald-700'}`}>{formatCurrency(p.valor)}</span>
+                                                        <span className="text-xs text-gray-500">{isPendente ? 'a receber' : isPrepaid ? 'crédito consumido' : 'recebido hoje'}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <Alert severity="info">Nenhum pacote atendido {isRangeActive ? 'no período' : 'hoje'}</Alert>
+                                )
+                            )}
+
+                            {faturarSubFilter === 'convenios' && (
+                                data.conveniosAtendidos?.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {data.conveniosAtendidos.map((c) => (
+                                            <div key={c.id} className="border border-gray-200 rounded-lg p-3">
                                                 <div className="flex justify-between items-start mb-1">
-                                                    <span className="font-semibold text-sm">{p.paciente}</span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs ${isPendente ? 'bg-red-100 text-red-800' : isPrepaid ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                                                        {isPendente ? 'Pendente' : isPrepaid ? 'Pré-pago' : 'Pago hoje'}
-                                                    </span>
+                                                    <span className="font-semibold text-sm">{c.paciente}</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">{c.convenio}</span>
                                                 </div>
-                                                <div className="text-xs text-gray-500">{p.especialidade} • {p.horario}</div>
-                                                <div className="text-xs text-gray-500 mb-1">{p.professional}</div>
-                                                <div className="flex justify-between items-baseline">
-                                                    <span className={`text-lg font-bold ${isPendente ? 'text-red-600' : 'text-emerald-700'}`}>{formatCurrency(p.valor)}</span>
-                                                    <span className="text-xs text-gray-500">{isPendente ? 'a receber' : isPrepaid ? 'crédito consumido' : 'recebido hoje'}</span>
-                                                </div>
+                                                <div className="text-xs text-gray-500">{c.especialidade} • {c.professional}</div>
+                                                <div className="text-xs text-gray-500">Horário: {c.horario}</div>
+                                                <div className="text-lg font-bold text-blue-700 mt-1">{formatCurrency(c.valor)}</div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <Alert severity="info">Nenhum pacote atendido {isRangeActive ? 'no período' : 'hoje'}</Alert>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Alert severity="info">Nenhum convênio atendido {isRangeActive ? 'no período' : 'hoje'}</Alert>
+                                )
+                            )}
+
+                            {faturarSubFilter === 'liminares' && (
+                                data.liminaresAtendidos?.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {data.liminaresAtendidos.map((l) => (
+                                            <div key={l.id} className="border border-gray-200 rounded-lg p-3">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="font-semibold text-sm">{l.paciente}</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">Liminar</span>
+                                                </div>
+                                                <div className="text-xs text-gray-500">{l.especialidade} • {l.professional}</div>
+                                                <div className="text-xs text-gray-500">Horário: {l.horario}</div>
+                                                <div className="text-lg font-bold text-orange-700 mt-1">{formatCurrency(l.valor)}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Alert severity="info">Nenhuma liminar atendida {isRangeActive ? 'no período' : 'hoje'}</Alert>
+                                )
                             )}
                         </div>
                     )}
 
-                    {/* Tab 3: Convênios */}
+                    {/* Tab 3: Agendamentos {periodTitle} */}
                     {activeTab === 3 && (
-                        <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">🏥 Convênios a Faturar ({data.conveniosAtendidos?.length || 0})</h3>
-                            {data.conveniosAtendidos?.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {data.conveniosAtendidos.map((c) => (
-                                        <div key={c.id} className="border border-gray-200 rounded-lg p-3">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className="font-semibold text-sm">{c.paciente}</span>
-                                                <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">{c.convenio}</span>
-                                            </div>
-                                            <div className="text-xs text-gray-500">{c.especialidade} • {c.professional}</div>
-                                            <div className="text-xs text-gray-500">Horário: {c.horario}</div>
-                                            <div className="text-lg font-bold text-blue-700 mt-1">{formatCurrency(c.valor)}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <Alert severity="info">Nenhum convênio atendido {isRangeActive ? 'no período' : 'hoje'}</Alert>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Tab 4: Liminares */}
-                    {activeTab === 4 && (
-                        <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <h3 className="text-base font-semibold mb-3">⚖️ Liminares Atendidas ({data.liminaresAtendidos?.length || 0})</h3>
-                            {data.liminaresAtendidos?.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {data.liminaresAtendidos.map((l) => (
-                                        <div key={l.id} className="border border-gray-200 rounded-lg p-3">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className="font-semibold text-sm">{l.paciente}</span>
-                                                <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">Liminar</span>
-                                            </div>
-                                            <div className="text-xs text-gray-500">{l.especialidade} • {l.professional}</div>
-                                            <div className="text-xs text-gray-500">Horário: {l.horario}</div>
-                                            <div className="text-lg font-bold text-orange-700 mt-1">{formatCurrency(l.valor)}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <Alert severity="info">Nenhuma liminar atendida {isRangeActive ? 'no período' : 'hoje'}</Alert>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Tab 5: Agendamentos {periodTitle} */}
-                    {activeTab === 5 && (
                         <div className="space-y-3">
                             {/* Título + contadores por status */}
                             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1898,7 +1918,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
                             {/* Legenda de tipos de atendimento */}
                             <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5">
-                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tipos de Atendimento</p>
+                                <p className="mb-1.5 text-3xs font-semibold uppercase tracking-wide text-gray-500">Tipos de Atendimento</p>
                                 <div className="flex flex-wrap gap-1.5">
                                     {[
                                         { icon: '📦', label: 'Pacote pré-pago',    cls: 'bg-violet-100 text-violet-700' },
@@ -1909,7 +1929,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         { icon: '👅', label: 'Teste da Linguinha',  cls: 'bg-teal-100 text-teal-700' },
                                         { icon: '⚖️', label: 'Liminar',            cls: 'bg-orange-100 text-orange-700' },
                                     ].map(t => (
-                                        <span key={t.label} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${t.cls}`}>
+                                        <span key={t.label} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-medium ${t.cls}`}>
                                             {t.icon} {t.label}
                                         </span>
                                     ))}
@@ -1992,21 +2012,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             const isToday = selectedDate === todayStr;
                                             const NowMarker = () => (
                                                 <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-y border-red-100">
-                                                    <span className="text-[11px] text-red-500 font-bold whitespace-nowrap">⏰ agora · {nowStr}</span>
+                                                    <span className="text-2xs text-red-500 font-bold whitespace-nowrap">⏰ agora · {nowStr}</span>
                                                     <div className="flex-1 border-t border-dashed border-red-300" />
-                                                    <span className="text-[10px] text-red-400 whitespace-nowrap">próximos ↓</span>
+                                                    <span className="text-3xs text-red-400 whitespace-nowrap">próximos ↓</span>
                                                 </div>
                                             );
                                             let nowRendered = false;
                                             return (
                                                 <>
                                                 <div className="flex items-center gap-3 px-4 py-1.5 border-b border-gray-100 bg-gray-50/50">
-                                                    <span className="w-14 shrink-0 text-[11px] text-gray-400 text-right">Hora</span>
-                                                    <span className="flex-1 text-[11px] text-gray-400">Paciente / Profissional</span>
-                                                    <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Tipo de Atendimento</span>
-                                                    <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Método</span>
-                                                    <span className="w-32 shrink-0 text-[11px] text-gray-400 text-center">Situação</span>
-                                                    <span className="w-24 shrink-0 text-[11px] text-gray-400 text-right">Valor</span>
+                                                    <span className="w-14 shrink-0 text-2xs text-gray-400 text-right">Hora</span>
+                                                    <span className="flex-1 text-2xs text-gray-400">Paciente / Profissional</span>
+                                                    <span className="w-32 shrink-0 text-2xs text-gray-400 text-center">Tipo de Atendimento</span>
+                                                    <span className="w-32 shrink-0 text-2xs text-gray-400 text-center">Método</span>
+                                                    <span className="w-32 shrink-0 text-2xs text-gray-400 text-center">Situação</span>
+                                                    <span className="w-24 shrink-0 text-2xs text-gray-400 text-right">Valor</span>
                                                 </div>
                                                 <div className="space-y-2.5 py-2 pr-2 pl-7">
                                                     {sortedHours.map((hour, idx) => {
@@ -2172,7 +2192,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                                 ? 'bg-amber-100 text-amber-700 border-amber-200'
                                                                                 : 'bg-violet-100 text-violet-700 border-violet-200';
                                                                             pkgProgress = (
-                                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeCls}`}>
+                                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold border ${badgeCls}`}>
                                                                                     <span>{used}/{total}</span>
                                                                                     {remaining > 0 && <span className="opacity-60">· {remaining} restante{remaining !== 1 ? 's' : ''}{remaining === 1 ? ' ⚠' : ''}</span>}
                                                                                     {used >= total && total > 0 && <span>· encerrado 🔴</span>}
@@ -2188,19 +2208,19 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                                     className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-all hover:opacity-100 hover:shadow-md hover:ring-1 hover:ring-gray-300 hover:-translate-y-px ${isCanceled ? 'opacity-50' : ''} ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : isCompleted ? 'bg-emerald-100/70' : 'bg-gray-50'}`}
                                                                                 >
                                                                                     {aptIdx === 0 && (
-                                                                                        <span className="absolute -left-5 top-1/2 -translate-y-1/2 text-[8px] font-bold text-gray-300 whitespace-nowrap">{String(hour).padStart(2,'0')}H</span>
+                                                                                        <span className="absolute -left-5 top-1/2 -translate-y-1/2 whitespace-nowrap text-3xs font-semibold text-gray-400">{String(hour).padStart(2,'0')}H</span>
                                                                                     )}
                                                                                     <div className="w-14 shrink-0 text-right flex flex-col justify-center">
                                                                                         <div className="flex items-center justify-end gap-1">
                                                                                             {seqNumber != null && (
-                                                                                                <span className="text-[9px] font-bold text-gray-400 bg-gray-100 rounded-full w-4 h-4 inline-flex items-center justify-center shrink-0" title="Ordem de atendimento do dia">{seqNumber}</span>
+                                                                                                <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-3xs font-semibold tabular-nums text-gray-500" title="Ordem de atendimento do dia">{seqNumber}</span>
                                                                                             )}
                                                                                             <span className={`text-sm font-bold font-mono leading-none ${isCanceled ? 'text-gray-300' : 'text-gray-700'}`}>{a.time || '--:--'}</span>
                                                                                         </div>
                                                                                     </div>
                                                                                     <div className="flex-1 min-w-0 self-stretch flex items-center gap-1.5 overflow-hidden">
-                                                                                        <span className={`text-[15px] font-semibold leading-none truncate ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
-                                                                                        {isNew && <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0 ${isEvaluation ? 'bg-pink-500 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{isEvaluation ? '★ 1ª vez' : '1ª vez'}</span>}
+                                                                                        <span className={`truncate text-sm font-semibold leading-none ${isCanceled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{patientName}</span>
+                                                                                        {isNew && <span className={`px-1.5 py-0.5 rounded text-3xs font-bold whitespace-nowrap shrink-0 ${isEvaluation ? 'bg-pink-500 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{isEvaluation ? '★ 1ª vez' : '1ª vez'}</span>}
                                                                                         {phone && (
                                                                                             <button className="shrink-0 text-blue-400 hover:text-blue-600 transition-colors" title={phone}
                                                                                                 onClick={(e) => { e.stopPropagation(); handleOpenWhatsApp(phone); }}>
@@ -2214,7 +2234,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                                     <div className="w-32 shrink-0 text-center group relative flex flex-col justify-center">
                                                                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap mx-auto ${typeCls}`}>{typeLabel}</span>
                                                                                         {pkgProgress && (
-                                                                                            <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                                                                                            <div className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1.5 text-2xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                                                                                                 {pkgProgress}
                                                                                                 <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                                                                                             </div>
@@ -2222,13 +2242,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                                     </div>
                                                                                     <div className="w-32 shrink-0 self-stretch text-center flex flex-col justify-center">
                                                                                         <div className="text-xs font-medium text-gray-700 truncate px-1">{methodBadge || '—'}</div>
-                                                                                        {isCartaoD30 && !isCanceled && <div className="text-[10px] text-amber-600">D+30</div>}
+                                                                                        {isCartaoD30 && !isCanceled && <div className="text-3xs text-amber-600">D+30</div>}
                                                                                     </div>
                                                                                     <div className="w-32 shrink-0 flex flex-col justify-center items-end gap-0.5">
-                                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
+                                                                                        <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${statusLabelCls}`}>{statusLabel}</span>
                                                                                     </div>
                                                                                     <div className="w-24 shrink-0 self-stretch text-right flex flex-col justify-center">
-                                                                                        <span className={`text-sm font-black ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                                                                        <span className={`text-sm font-bold tabular-nums ${isCanceled ? 'text-gray-300 line-through' : valor > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
                                                                                             {valor > 0 ? `R$ ${valor.toLocaleString('pt-BR')}` : '—'}
                                                                                         </span>
                                                                                         {/* Financeiro (Pago/Pendente/Convênio) logo abaixo do valor — sempre
@@ -2237,7 +2257,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                                             atendido, e vice-versa — os dois precisam aparecer sempre juntos
                                                                                             pra não deixar dúvida sobre se o dinheiro entrou ou não. */}
                                                                                         {paymentBadge && (
-                                                                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${paymentCls}`}>{paymentBadge}</span>
+                                                                                            <span className={`text-3xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${paymentCls}`}>{paymentBadge}</span>
                                                                                         )}
                                                                                     </div>
                                                                                 </div>
@@ -2257,33 +2277,33 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         {/* Rodapé · Caixa Real */}
                                         {data && (
                                             <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Resumo do Dia · Caixa Real</p>
+                                                <p className="mb-2 text-3xs font-semibold uppercase tracking-wide text-gray-500">Resumo do Dia · Caixa Real</p>
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                     <div>
-                                                        <p className="text-[10px] text-gray-400">Caixa hoje</p>
-                                                        <p className="text-base font-black text-gray-900">{formatCurrency(data.caixa?.total || 0)}</p>
-                                                        <p className="text-[10px] text-gray-400">{data.estatisticas?.quantidade ?? 0} transaç{(data.estatisticas?.quantidade ?? 0) !== 1 ? 'ões' : 'ão'}</p>
+                                                        <p className="text-3xs text-gray-400">Caixa hoje</p>
+                                                        <p className="text-base font-bold tabular-nums text-gray-900">{formatCurrency(data.caixa?.total || 0)}</p>
+                                                        <p className="text-3xs text-gray-400">{data.estatisticas?.quantidade ?? 0} transaç{(data.estatisticas?.quantidade ?? 0) !== 1 ? 'ões' : 'ão'}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] text-gray-400">Produção</p>
-                                                        <p className="text-base font-black text-blue-600">{formatCurrency(data.producao?.total || 0)}</p>
-                                                        <p className="text-[10px] text-gray-400">{data.estatisticas?.quantidadeAtendimentos ?? 0} atendimento{(data.estatisticas?.quantidadeAtendimentos ?? 0) !== 1 ? 's' : ''}</p>
+                                                        <p className="text-3xs text-gray-400">Produção</p>
+                                                        <p className="text-base font-bold tabular-nums text-blue-600">{formatCurrency(data.producao?.total || 0)}</p>
+                                                        <p className="text-3xs text-gray-400">{data.estatisticas?.quantidadeAtendimentos ?? 0} atendimento{(data.estatisticas?.quantidadeAtendimentos ?? 0) !== 1 ? 's' : ''}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] text-gray-400">vs ontem</p>
-                                                        <p className={`text-base font-black ${(data.comparativos?.variacaoVsOntem ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                        <p className="text-3xs text-gray-400">vs ontem</p>
+                                                        <p className={`text-base font-bold tabular-nums ${(data.comparativos?.variacaoVsOntem ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                                             {(data.comparativos?.variacaoVsOntem ?? 0) > 0 ? '+' : ''}{((data.comparativos?.variacaoVsOntem) ?? 0).toFixed(1)}%
                                                         </p>
-                                                        <p className="text-[10px] text-gray-400">ontem {formatCurrency(data.comparativos?.ontem || 0)}</p>
+                                                        <p className="text-3xs text-gray-400">ontem {formatCurrency(data.comparativos?.ontem || 0)}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] text-gray-400">Acumulado mês</p>
-                                                        <p className="text-base font-black text-gray-900">{formatCurrency(data.comparativos?.totalAcumuladoMes || 0)}</p>
-                                                        <p className="text-[10px] text-gray-400">projeção {formatCurrency(data.comparativos?.projecaoMes || 0)}</p>
+                                                        <p className="text-3xs text-gray-400">Acumulado mês</p>
+                                                        <p className="text-base font-bold tabular-nums text-gray-900">{formatCurrency(data.comparativos?.totalAcumuladoMes || 0)}</p>
+                                                        <p className="text-3xs text-gray-400">projeção {formatCurrency(data.comparativos?.projecaoMes || 0)}</p>
                                                     </div>
                                                 </div>
                                                 {(data.transacoes?.length ?? 0) > 0 && (
-                                                    <div className="flex items-center gap-2 flex-wrap text-[10px] pt-2 mt-2 border-t border-gray-200">
+                                                    <div className="flex items-center gap-2 flex-wrap text-3xs pt-2 mt-2 border-t border-gray-200">
                                                         <span className="text-gray-400 font-medium">Transação registrada:</span>
                                                         <span className="text-gray-700 font-semibold">{data.transacoes[0].paciente}</span>
                                                         <span className="bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full">{data.transacoes[0].servico}</span>
@@ -2300,8 +2320,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
-                    {/* Tab 6: Por Especialidade */}
-                    {activeTab === 6 && (
+                    {/* Tab 4: Por Especialidade */}
+                    {activeTab === 4 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-3">
                             <h3 className="text-base font-semibold mb-3">🏥 Produção por Especialidade</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2327,8 +2347,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
-                    {/* Tab 7: Profissionais */}
-                    {activeTab === 7 && (() => {
+                    {/* Tab 5: Profissionais */}
+                    {activeTab === 5 && (() => {
                         const byProf: Record<string, { receita: number; sessoes: number; cancelados: number; atendimentos: number }> = {};
                         const ensure = (k: string) => {
                             if (!byProf[k]) byProf[k] = { receita: 0, sessoes: 0, cancelados: 0, atendimentos: 0 };
@@ -2424,26 +2444,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visão Gerencial</div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                                    <div className="text-[11px] text-gray-500 mb-0.5">Caixa Real</div>
+                                    <div className="text-2xs text-gray-500 mb-0.5">Caixa Real</div>
                                     <div className="text-xl font-bold text-emerald-700">{formatCurrency(monthResumo.caixaBruto)}</div>
-                                    <div className="text-[10px] text-gray-400 mt-1">dinheiro efetivamente recebido</div>
+                                    <div className="text-3xs text-gray-400 mt-1">dinheiro efetivamente recebido</div>
                                 </div>
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                    <div className="text-[11px] text-gray-500 mb-0.5">Produção Clínica</div>
+                                    <div className="text-2xs text-gray-500 mb-0.5">Produção Clínica</div>
                                     <div className="text-xl font-bold text-blue-700">{formatCurrency(monthResumo.producaoTotal)}</div>
                                     {monthResumo.convenioAReceber > 0 && (
-                                        <div className="text-[10px] text-purple-600 mt-1">
+                                        <div className="text-3xs text-purple-600 mt-1">
                                             inclui {formatCurrency(monthResumo.convenioAReceber)} convênio a receber
                                         </div>
                                     )}
                                 </div>
                                 <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
-                                    <div className="text-[11px] text-gray-500 mb-0.5">Regime de Competência</div>
+                                    <div className="text-2xs text-gray-500 mb-0.5">Regime de Competência</div>
                                     <div className="text-xl font-bold text-violet-700">{formatCurrency(monthResumo.producaoTotal)}</div>
-                                    <div className="text-[10px] text-gray-400 mt-1">serviços entregues · base da meta</div>
+                                    <div className="text-3xs text-gray-400 mt-1">serviços entregues · base da meta</div>
                                 </div>
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                    <div className="text-[11px] text-gray-500 mb-0.5">Produção por tipo</div>
+                                    <div className="text-2xs text-gray-500 mb-0.5">Produção por tipo</div>
                                     <div className="space-y-1 mt-1">
                                         {[
                                             { label: 'Particular', v: monthResumo.porTipo.particular, color: 'text-blue-600' },
@@ -2451,7 +2471,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             { label: 'Convênio', v: monthResumo.porTipo.convenio, color: 'text-purple-600' },
                                             { label: 'Liminar', v: monthResumo.porTipo.liminar, color: 'text-orange-600' },
                                         ].filter(i => i.v > 0).map(i => (
-                                            <div key={i.label} className="flex justify-between text-[11px]">
+                                            <div key={i.label} className="flex justify-between text-2xs">
                                                 <span className="text-gray-500">{i.label}</span>
                                                 <span className={`font-semibold ${i.color}`}>{formatCurrency(i.v)}</span>
                                             </div>
@@ -2581,7 +2601,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1.5">
                                     <span className="text-white/90 font-bold text-sm">{sc.checkmark} {sc.label}</span>
-                                    {isNew && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30">1ª vez</span>}
+                                    {isNew && <span className="px-2 py-0.5 rounded text-3xs font-bold bg-white/20 text-white border border-white/30">1ª vez</span>}
                                     <span className="text-white/70 font-mono text-sm ml-auto">{apt.time || '--:--'}</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-white truncate">{patientName}</h3>
@@ -2626,7 +2646,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {/* Motivo do descarte (pré-agendamento descartado — conceito diferente de cancelamento) */}
                             {isCanceled && apt.discardReason && (
                                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1.5">🗑️ Motivo do descarte</div>
+                                    <div className="text-3xs font-black text-amber-500 uppercase tracking-widest mb-1.5">🗑️ Motivo do descarte</div>
                                     <p className="text-sm text-amber-800 whitespace-pre-line">{apt.discardReason}</p>
                                     {apt.discardedAt && (
                                         <p className="text-xs text-amber-600 mt-2">
@@ -2639,7 +2659,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {/* Motivo do cancelamento */}
                             {isCanceled && !apt.discardReason && (
                                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                                    <div className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1.5">✗ Cancelamento</div>
+                                    <div className="text-3xs font-black text-red-400 uppercase tracking-widest mb-1.5">✗ Cancelamento</div>
                                     {apt.cancelReason
                                         ? <p className="text-sm text-red-800 whitespace-pre-line">{apt.cancelReason}</p>
                                         : <p className="text-sm text-red-400 italic">Nenhum motivo registrado.</p>}
@@ -2659,7 +2679,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {!isCanceled && (
                                 <div className="rounded-xl border border-gray-100 overflow-hidden">
                                     <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">💰 Financeiro</span>
+                                        <span className="text-3xs font-black uppercase tracking-widest text-gray-400">💰 Financeiro</span>
                                     </div>
                                     <div className="px-4 py-3 space-y-2.5">
                                         <div className="flex justify-between items-center">
@@ -2705,7 +2725,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                     ) : (
                                                         <>
                                                             <div className="text-sm font-semibold text-gray-800">{methodLabel[apt.paymentMethod] || apt.paymentMethod}</div>
-                                                            {prazoLabel[apt.paymentMethod] && <div className="text-[11px] text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
+                                                            {prazoLabel[apt.paymentMethod] && <div className="text-2xs text-gray-400">{prazoLabel[apt.paymentMethod]}</div>}
                                                         </>
                                                     )}
                                                 </div>
@@ -2719,7 +2739,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {tx && (
                                 <div className="rounded-xl border border-emerald-200 overflow-hidden">
                                     <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-200">
-                                        <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">✅ Transação Registrada no Caixa</span>
+                                        <span className="text-3xs font-black text-emerald-700 uppercase tracking-widest">✅ Transação Registrada no Caixa</span>
                                     </div>
                                     <div className="px-4 py-3 space-y-2.5">
                                         <div className="flex justify-between items-center">
@@ -2762,7 +2782,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {/* Bloco SESSÃO */}
                             <div className="rounded-xl border border-gray-100 overflow-hidden">
                                 <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">📋 Sessão</span>
+                                    <span className="text-3xs font-black uppercase tracking-widest text-gray-400">📋 Sessão</span>
                                 </div>
                                 <div className="px-4 py-3 space-y-2.5">
                                     {apt.specialty && (
@@ -2795,7 +2815,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {/* Observações */}
                             {apt.notes && (
                                 <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">🗒 Observações</div>
+                                    <div className="text-3xs font-black text-gray-400 uppercase tracking-widest mb-1.5">🗒 Observações</div>
                                     <p className="text-sm text-gray-700 whitespace-pre-line">{apt.notes}</p>
                                 </div>
                             )}

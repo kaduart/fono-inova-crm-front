@@ -873,7 +873,7 @@ export default function TherapyEvolution({
                                                                                                             {evaluation.evaluationTypes.map((type: string) => (
                                                                                                                 <span
                                                                                                                     key={type}
-                                                                                                                    className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-gradient-to-r from-green-100 to-cyan-100 text-green-800 border border-green-200"
+                                                                                                                    className="px-2 py-0.5 text-2xs font-bold rounded-full bg-gradient-to-r from-green-100 to-cyan-100 text-green-800 border border-green-200"
                                                                                                                 >
                                                                                                                     {type}
                                                                                                                 </span>

@@ -421,7 +421,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           </div>
           <div>
             <p className="text-sm font-black text-gray-900">Planejamento Anual</p>
-            <p className="text-[11px] text-gray-500">Defina metas de receita, sessões e acompanhe o progresso</p>
+            <p className="text-2xs text-gray-500">Defina metas de receita, sessões e acompanhe o progresso</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -444,7 +444,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
       {/* NAVEGAÇÃO: Seletor de Meses */}
       <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Período</p>
+        <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Período</p>
         <div className="flex gap-2">
           {last3Months.map((m) => {
             const isSelected = selectedMonthKey === `${m.year}-${m.month}`;
@@ -459,7 +459,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 style={isSelected ? { backgroundColor: '#8B5CF6' } : {}}
               >
                 <div className="text-sm font-bold leading-tight">{m.label}</div>
-                <div className="text-[10px] opacity-70">{m.year}</div>
+                <div className="text-3xs opacity-70">{m.year}</div>
                 {isCurrent && (
                   <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white bg-opacity-20 text-white' : 'bg-violet-100 text-violet-700'}`}>
                     atual
@@ -475,26 +475,26 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       {monthlyOfMonth && (
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">{selectedMonthLabel}</span>
+            <span className="text-3xs font-black uppercase tracking-widest text-violet-600">{selectedMonthLabel}</span>
             {isCurrentMonth && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Em andamento</span>
+              <span className="px-2 py-0.5 rounded-full text-3xs font-bold bg-violet-100 text-violet-700">Em andamento</span>
             )}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {/* Meta do Mês */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #8B5CF6' }}>
-              <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Meta do Mês</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-violet-600">Meta do Mês</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
               </div>
-              <div className="text-[10px] text-gray-400">objetivo do mês</div>
+              <div className="text-3xs text-gray-400">objetivo do mês</div>
             </div>
 
             {/* Produção Realizada */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #10B981' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Produção</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                <span className="text-3xs font-black uppercase tracking-widest text-emerald-600">Produção</span>
+                <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                   {(() => {
                     const real = dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0;
                     const meta = monthlyOfMonth?.targets?.expectedRevenue || 0;
@@ -505,39 +505,39 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0)}
               </div>
-              <div className="text-[10px] text-gray-400">da meta</div>
+              <div className="text-3xs text-gray-400">da meta</div>
             </div>
 
             {/* Caixa Recebido */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Caixa Recebido</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-emerald-700">Caixa Recebido</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(dashData?.resumo?.caixa || 0)}
               </div>
-              <div className="text-[10px] text-gray-400">dinheiro recebido</div>
+              <div className="text-3xs text-gray-400">dinheiro recebido</div>
             </div>
 
             {/* Sessões */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #F59E0B' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Sessões</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                <span className="text-3xs font-black uppercase tracking-widest text-amber-600">Sessões</span>
+                <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
                   {(monthlyOfMonth?.progress?.sessionsPercentage || 0).toFixed(0)}%
                 </span>
               </div>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {monthlyOfMonth?.actual?.completedSessions || 0} / {monthlyOfMonth?.targets?.totalSessions || 0}
               </div>
-              <div className="text-[10px] text-gray-400">realizadas</div>
+              <div className="text-3xs text-gray-400">realizadas</div>
             </div>
 
             {/* Horas */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white col-span-2 md:col-span-1" style={{ borderTop: '3px solid #3B82F6' }}>
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Horas</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-blue-600">Horas</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {monthlyOfMonth?.actual?.workedHours?.toFixed(0) || 0}h / {monthlyOfMonth?.targets?.workHours || 0}h
               </div>
-              <div className="text-[10px] text-gray-400">trabalhadas</div>
+              <div className="text-3xs text-gray-400">trabalhadas</div>
             </div>
           </div>
         </div>
@@ -550,12 +550,12 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       {monthlyOfMonth && (
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Painel Comercial Estratégico</span>
-            <span className="text-[10px] text-gray-300">· Agenda vs. Meta</span>
+            <span className="text-3xs font-black uppercase tracking-widest text-gray-400">Painel Comercial Estratégico</span>
+            <span className="text-3xs text-gray-300">· Agenda vs. Meta</span>
             {isCurrentMonth && strategic.gap > 0 && (
               <button
                 onClick={async () => { const { month, year } = selectedMonthData; await recalculateFutureTargets(month, year); }}
-                className="ml-auto text-[11px] font-bold text-pink-600 border border-pink-200 bg-pink-50 hover:bg-pink-100 px-2 py-0.5 rounded-lg transition-colors"
+                className="ml-auto text-2xs font-bold text-pink-600 border border-pink-200 bg-pink-50 hover:bg-pink-100 px-2 py-0.5 rounded-lg transition-colors"
               >
                 ↻ Recalcular
               </button>
@@ -567,7 +567,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
             <div className="p-4 bg-white">
               <div className="flex items-end justify-between mb-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Cobertura da Meta</p>
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-400">Cobertura da Meta</p>
                 <span className="text-3xl font-black leading-none" style={{ color: strategic.coveragePct >= 100 ? '#10B981' : '#1F2937' }}>
                   {strategic.coveragePct.toFixed(0)}%
                 </span>
@@ -578,7 +578,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 <div className="h-full transition-all duration-700"
                   style={{ width: `${Math.min(100 - strategic.recurringPct, strategic.newPct)}%`, backgroundColor: '#F59E0B' }} />
               </div>
-              <div className="flex items-center gap-4 text-[11px] text-gray-500 flex-wrap">
+              <div className="flex items-center gap-4 text-2xs text-gray-500 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-violet-500" />
                   Base {strategic.recurringPct.toFixed(0)}%
@@ -591,7 +591,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                   <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-gray-300" />
                   Falta {Math.max(0, 100 - strategic.coveragePct).toFixed(0)}%
                 </span>
-                <span className="ml-auto font-semibold text-gray-600 text-[11px]">
+                <span className="ml-auto font-semibold text-gray-600 text-2xs">
                   {formatCurrency(strategic.committedRevenue)} / {formatCurrency(strategic.revenueGoal)}
                 </span>
               </div>
@@ -601,51 +601,51 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
             {/* Card 1: Meta */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #6B7280' }}>
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Meta</span>
+              <span className="text-3xs font-black uppercase tracking-widest text-gray-500">Meta</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.revenueGoal)}</div>
-              <div className="text-[10px] text-gray-400">objetivo do mês</div>
+              <div className="text-3xs text-gray-400">objetivo do mês</div>
             </div>
 
             {/* Card 2: Base Recorrente */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #8B5CF6' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">Base Recorrente</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">{strategic.recurringPct.toFixed(0)}%</span>
+                <span className="text-3xs font-black uppercase tracking-widest text-violet-600">Base Recorrente</span>
+                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">{strategic.recurringPct.toFixed(0)}%</span>
               </div>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.recurringRevenue)}</div>
-              <div className="text-[10px] text-gray-400">pacotes + recorrentes</div>
+              <div className="text-3xs text-gray-400">pacotes + recorrentes</div>
             </div>
 
             {/* Card 3: Nova Captação */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #F59E0B' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Nova Captação</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{strategic.newPct.toFixed(0)}%</span>
+                <span className="text-3xs font-black uppercase tracking-widest text-amber-600">Nova Captação</span>
+                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{strategic.newPct.toFixed(0)}%</span>
               </div>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.newRevenue)}</div>
-              <div className="text-[10px] text-gray-400">avulsos + convênios</div>
+              <div className="text-3xs text-gray-400">avulsos + convênios</div>
             </div>
 
             {/* Card 4: Total Agenda */}
             <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #10B981' }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Total Agenda</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{strategic.coveragePct.toFixed(0)}%</span>
+                <span className="text-3xs font-black uppercase tracking-widest text-emerald-600">Total Agenda</span>
+                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{strategic.coveragePct.toFixed(0)}%</span>
               </div>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.committedRevenue)}</div>
-              <div className="text-[10px] text-gray-400">base + nova</div>
+              <div className="text-3xs text-gray-400">base + nova</div>
             </div>
 
             {/* Card 5: GAP — danger/success */}
             <div className={`rounded-2xl shadow-sm p-4 ${strategic.gap <= 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}
               style={{ borderTop: `3px solid ${strategic.gap <= 0 ? '#10B981' : '#EF4444'}` }}>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span className={`text-3xs font-black uppercase tracking-widest ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                 {strategic.gap <= 0 ? 'Superávit' : 'Gap'}
               </span>
               <div className={`text-2xl font-black tracking-tight my-2 ${strategic.gap <= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                 {formatCurrency(Math.abs(strategic.gap))}
               </div>
-              <div className={`text-[10px] font-semibold ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+              <div className={`text-3xs font-semibold ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                 {strategic.gap <= 0 ? 'meta coberta 🎉' : 'ainda precisa captar'}
               </div>
             </div>
@@ -653,13 +653,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             {/* Card 6: Pacientes Necessários — danger se gap > 0 */}
             <div className={`rounded-2xl shadow-sm p-4 ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-gray-100'}`}
               style={{ borderTop: `3px solid ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? '#EF4444' : '#3B82F6'}` }}>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+              <span className={`text-3xs font-black uppercase tracking-widest ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
                 Pacientes Nec.
               </span>
               <div className={`text-2xl font-black tracking-tight my-2 ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
                 {strategic.patientsNeeded}
               </div>
-              <div className="text-[10px] text-gray-400">
+              <div className="text-3xs text-gray-400">
                 {strategic.ticketForPatients > 0 ? `ticket ${formatCurrency(strategic.ticketForPatients)}` : 'defina ticket comercial'}
               </div>
             </div>
@@ -671,7 +671,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <span className="text-sm font-bold text-amber-800">
                 🎯 Meta semanal: fechar <strong>{strategic.weeklyTarget} pacientes/semana</strong> nas próximas {strategic.weeksRemaining} sem.
               </span>
-              <span className="text-[11px] text-gray-500">{strategic.patientsNeeded} pac. ÷ {strategic.weeksRemaining} sem.</span>
+              <span className="text-2xs text-gray-500">{strategic.patientsNeeded} pac. ÷ {strategic.weeksRemaining} sem.</span>
             </div>
           )}
 
@@ -679,7 +679,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           {projection?.composition && (
             <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-1">
               <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <p className="text-3xs font-black uppercase tracking-widest text-gray-400">
                   Composição da Receita em Agenda · {projection.totalAppointments || 0} agendamentos
                 </p>
               </div>
@@ -698,7 +698,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                       <div className="flex-1 h-[4px] bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: row.color }} />
                       </div>
-                      <span className="text-[11px] text-gray-400 w-10 text-right shrink-0">{pct.toFixed(1)}%</span>
+                      <span className="text-2xs text-gray-400 w-10 text-right shrink-0">{pct.toFixed(1)}%</span>
                       <span className="text-sm font-bold text-gray-900 w-20 text-right shrink-0">{formatCurrency(row.value)}</span>
                     </div>
                   );
@@ -1536,19 +1536,19 @@ const PlanningCard = ({
           {/* Métricas */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="rounded-xl border-2 p-3" style={{ borderColor: typeColors.border, backgroundColor: typeColors.bg }}>
-              <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Meta Receita</div>
+              <div className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Meta Receita</div>
               <div className="text-base font-black text-gray-900 tracking-tight leading-none">
                 {formatCurrency(planning.targets?.expectedRevenue || 0)}
               </div>
             </div>
             <div className="rounded-xl border-2 p-3" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
-              <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Resultado</div>
+              <div className="text-3xs font-black uppercase tracking-widest text-emerald-600 mb-1">Resultado</div>
               <div className="text-base font-black text-gray-900 tracking-tight leading-none">
                 {formatCurrency(dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? planning.actual?.actualRevenue ?? 0)}
               </div>
             </div>
             <div className="rounded-xl border-2 p-3" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
-              <div className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Caixa</div>
+              <div className="text-3xs font-black uppercase tracking-widest text-blue-600 mb-1">Caixa</div>
               <div className="text-base font-black text-gray-900 tracking-tight leading-none">
                 {formatCurrency(dashData?.resumo?.caixa || 0)}
               </div>
@@ -1567,7 +1567,7 @@ const PlanningCard = ({
                 <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full rounded-full flex items-center transition-all duration-700"
                     style={{ width: `${pct}%`, backgroundColor: barColor, minWidth: pct > 0 ? '2.5rem' : 0 }}>
-                    {pct >= 8 && <span className="text-[10px] font-black text-white pl-2 leading-none">{pct.toFixed(0)}%</span>}
+                    {pct >= 8 && <span className="text-3xs font-black text-white pl-2 leading-none">{pct.toFixed(0)}%</span>}
                   </div>
                 </div>
               );
@@ -1582,7 +1582,7 @@ const PlanningCard = ({
                 <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full rounded-full flex items-center transition-all duration-700"
                     style={{ width: `${pct}%`, backgroundColor: barColor, minWidth: pct > 0 ? '2.5rem' : 0 }}>
-                    {pct >= 8 && <span className="text-[10px] font-black text-white pl-2 leading-none">{pct.toFixed(0)}%</span>}
+                    {pct >= 8 && <span className="text-3xs font-black text-white pl-2 leading-none">{pct.toFixed(0)}%</span>}
                   </div>
                 </div>
               );

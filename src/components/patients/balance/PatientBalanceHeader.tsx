@@ -43,11 +43,11 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
           <div className="relative z-10">
             <div className="flex items-center gap-1.5 mb-1 text-red-100">
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Saldo Devedor</span>
+              <span className="text-3xs font-bold uppercase tracking-wider">Saldo Devedor</span>
             </div>
             <p className="text-xl sm:text-2xl font-bold">{formatCurrency(sessionDebt)}</p>
             {pendingCount > 0 && (
-              <p className="text-[11px] text-red-200 mt-1">
+              <p className="text-2xs text-red-200 mt-1">
                 {pendingCount} sessão{pendingCount !== 1 ? 'ões' : ''} em aberto
               </p>
             )}
@@ -60,11 +60,11 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
           <div className="relative z-10">
             <div className="flex items-center gap-1.5 mb-1 text-emerald-100">
               <CheckCircle className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Total Pago</span>
+              <span className="text-3xs font-bold uppercase tracking-wider">Total Pago</span>
             </div>
             <p className="text-xl sm:text-2xl font-bold">{formatCurrency(totalPaid)}</p>
             {paidCount > 0 && (
-              <p className="text-[11px] text-emerald-200 mt-1">
+              <p className="text-2xs text-emerald-200 mt-1">
                 {paidCount} pagamento{paidCount !== 1 ? 's' : ''} quitado{paidCount !== 1 ? 's' : ''}
               </p>
             )}
@@ -78,14 +78,14 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
         <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 p-3 flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-sky-300 flex-shrink-0" />
           <div>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Sessões Realizadas</p>
+            <p className="text-3xs text-slate-400 uppercase tracking-wider">Sessões Realizadas</p>
             <p className="text-sm font-bold text-white">{completedSessions}</p>
           </div>
         </div>
         <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 p-3 flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-amber-400 flex-shrink-0" />
           <div>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Volume Total</p>
+            <p className="text-3xs text-slate-400 uppercase tracking-wider">Volume Total</p>
             <p className="text-sm font-bold text-white">{formatCurrency(volume)}</p>
           </div>
         </div>

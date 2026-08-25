@@ -16,7 +16,7 @@ const Login = () => {
   const [selectedRole, setSelectedRole] = useState('secretary');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -92,7 +92,9 @@ const Login = () => {
 
     } catch (err: any) {
       console.error('Erro no login', err);
-      toast.error(err?.response?.data?.error || 'Erro ao tentar logar');
+      const message = err?.response?.data?.error || 'Erro ao tentar logar';
+      setError(message);
+      toast.error(message);
 
     } finally {
       // Certifique-se de limpar o loading depois de tudo

@@ -105,7 +105,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                         value={formData.title}
                                         onChange={(e) => updateFormData('title', e.target.value)}
                                         placeholder={`Relatório Médico - ${patient.fullName}`}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                 </div>
                                 
@@ -116,7 +116,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                     <select
                                         value={formData.type}
                                         onChange={(e) => updateFormData('type', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     >
                                         {reportTypes.map(type => (
                                             <option key={type.value} value={type.value}>
@@ -134,7 +134,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                         type="date"
                                         value={formData.date}
                                         onChange={(e) => updateFormData('date', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                 </div>
                                 
@@ -145,7 +145,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                     <select
                                         value={formData.status}
                                         onChange={(e) => updateFormData('status', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     >
                                         {statusOptions.map(status => (
                                             <option key={status.value} value={status.value}>

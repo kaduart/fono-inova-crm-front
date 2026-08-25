@@ -946,7 +946,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         <div className="px-4 pt-3 pb-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[11px] font-mono text-gray-400 mb-0.5">#{presentation.number}</div>
+              <div className="text-2xs font-mono text-gray-400 mb-0.5">#{presentation.number}</div>
               <h3 className="font-bold text-[0.95rem] text-gray-900 leading-tight truncate">{presentation.specialtyLabel}</h3>
             </div>
             <div className="flex items-center gap-0.5 shrink-0 -mr-1.5 -mt-1">
@@ -973,7 +973,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {presentation.insuranceLabel && (
               <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-semibold"
                 style={{ backgroundColor: theme.light, color: theme.text }}
               >
                 {presentation.insuranceLabel}
@@ -993,7 +993,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onInactivate(presentation); }}
                 title="Clique para inativar esta guia"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
                 style={{ backgroundColor: severityStyle.bg, color: severityStyle.color, '--tw-ring-color': theme.to }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
@@ -1001,7 +1001,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
               </button>
             ) : (
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wide"
                 style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
@@ -1026,23 +1026,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: theme.text }}>
+            <span className="flex items-center gap-1.5 text-2xs font-semibold" style={{ color: theme.text }}>
               <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
               {usedSessions} concluída{usedSessions !== 1 ? 's' : ''}
             </span>
             {(guide.canceledCount > 0) && (
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-red-500">
+              <span className="flex items-center gap-1.5 text-2xs font-semibold text-red-500">
                 <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
                 {guide.canceledCount} cancelada{guide.canceledCount !== 1 ? 's' : ''}
               </span>
             )}
             {(guide.scheduledCount > 0) && (
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600">
+              <span className="flex items-center gap-1.5 text-2xs font-semibold text-indigo-600">
                 <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" />
                 {guide.scheduledCount} agendada{guide.scheduledCount !== 1 ? 's' : ''}
               </span>
             )}
-            <span className="text-[11px] text-gray-400 ml-auto">/{totalSessions}</span>
+            <span className="text-2xs text-gray-400 ml-auto">/{totalSessions}</span>
           </div>
         </div>
 
@@ -1069,7 +1069,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 <div className="grid grid-cols-2 gap-2">
                   {guide.sessionValue > 0 && (
                     <div className="rounded-lg px-3 py-2" style={{ backgroundColor: theme.light }}>
-                      <span className="flex items-center gap-1 text-[11px] text-gray-500 mb-0.5">
+                      <span className="flex items-center gap-1 text-2xs text-gray-500 mb-0.5">
                         <DollarSign size={11} className="opacity-60" />
                         Valor/sessão
                       </span>
@@ -1080,7 +1080,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   )}
                   {guide.totalValue > 0 && (
                     <div className="rounded-lg px-3 py-2" style={{ backgroundColor: theme.light }}>
-                      <span className="flex items-center gap-1 text-[11px] text-gray-500 mb-0.5">
+                      <span className="flex items-center gap-1 text-2xs text-gray-500 mb-0.5">
                         <DollarSign size={11} className="opacity-60" />
                         Total autorizado
                       </span>
@@ -1099,7 +1099,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   </span>
                   <div className="flex items-center gap-2">
                     {guide.generateEvaluationBilling === false && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">sem cobrança no sistema</span>
+                      <span className="text-3xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">sem cobrança no sistema</span>
                     )}
                     <span className="text-xs font-bold text-gray-900">
                       {Number(guide.evaluationAmount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -1327,7 +1327,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Sessões a gerar</label>
                   <div className="w-full p-3 text-sm border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-between">
                     <span className="font-semibold text-slate-800">{remaining}</span>
-                    <span className="text-[11px] text-slate-400">autorizado</span>
+                    <span className="text-2xs text-slate-400">autorizado</span>
                   </div>
                 </div>
               </div>

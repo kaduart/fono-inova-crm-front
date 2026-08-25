@@ -87,13 +87,13 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda, onDeactivate, onReactivate, 
                                 <h3 className="text-sm font-bold text-gray-900 truncate" title={doctor.fullName}>
                                     {doctor.fullName}
                                 </h3>
-                                <span className={`inline-flex items-center gap-1 text-[11px] font-medium flex-shrink-0 ${st.text}`}>
+                                <span className={`inline-flex items-center gap-1 text-2xs font-medium flex-shrink-0 ${st.text}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                                     {st.label}
                                 </span>
                             </div>
                             {/* Linha 2: especialidade */}
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold mt-1 border ${color.bg} ${color.text} ${color.border}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-semibold mt-1 border ${color.bg} ${color.text} ${color.border}`}>
                                 {getSpecialtyLabel(doctor.specialty)}
                             </span>
                         </div>
@@ -115,17 +115,17 @@ const DoctorCard = ({ doctor, onEdit, onViewAgenda, onDeactivate, onReactivate, 
                 {/* ─── Ocupação (calculada sobre a semana atual, não o mês) ─── */}
                 {occupancy !== null && (
                     <div className="px-4 pb-3">
-                        <p className="text-[11px] text-gray-500 font-medium mb-1">Ocupação da semana</p>
+                        <p className="text-2xs text-gray-500 font-medium mb-1">Ocupação da semana</p>
                         <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-[width] duration-500 ${occupancy >= 90 ? 'bg-emerald-500' : occupancy >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                                 style={{ width: `${Math.min(occupancy, 100)}%` }}
                             />
-                            <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold ${occupancy >= 50 ? 'text-white' : 'text-gray-700'}`}>
+                            <span className={`absolute inset-0 flex items-center justify-center text-3xs font-bold ${occupancy >= 50 ? 'text-white' : 'text-gray-700'}`}>
                                 {occupancy}%
                             </span>
                         </div>
-                        <p className="text-[11px] text-gray-400 mt-1">{weeklySessions} de {maxSlots} vagas desta semana preenchidas</p>
+                        <p className="text-2xs text-gray-400 mt-1">{weeklySessions} de {maxSlots} vagas desta semana preenchidas</p>
                     </div>
                 )}
 

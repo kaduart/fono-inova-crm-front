@@ -154,7 +154,7 @@ export function TimeMultiSelect({
               title={`Paciente recorrente: ${shadow.patientName} (${shadow.occurrences}x neste horário)`}
             >
               <span className="font-medium">{time}</span>
-              <span className="text-[10px] font-semibold text-amber-700 mt-0.5 flex items-center gap-1">
+              <span className="text-3xs font-semibold text-amber-700 mt-0.5 flex items-center gap-1">
                 <AlertTriangle size={10} />
                 {shadow.patientName}
               </span>

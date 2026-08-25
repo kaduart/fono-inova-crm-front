@@ -32,11 +32,11 @@ export const AppointmentPackageProgress: React.FC<AppointmentPackageProgressProp
   return (
     <div className={`flex flex-col gap-0.5 ${className}`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium text-purple-700 truncate flex items-center gap-1">
+        <span className="text-3xs font-medium text-purple-700 truncate flex items-center gap-1">
           <Package className="w-3 h-3" />
           {sessionType}
         </span>
-        <span className="text-[10px] text-purple-600 font-semibold shrink-0">
+        <span className="text-3xs text-purple-600 font-semibold shrink-0">
           {sessionsDone}/{totalSessions}
         </span>
       </div>

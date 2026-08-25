@@ -26,7 +26,7 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
   className = '',
 }) => {
   const sizeClasses = size === 'sm'
-    ? 'px-2.5 py-1.5 text-[10px]'
+    ? 'px-2.5 py-1.5 text-3xs'
     : 'px-3 py-2 text-xs';
 
   return (

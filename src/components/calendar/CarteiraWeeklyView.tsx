@@ -85,7 +85,7 @@ function StabilityTooltip({ slot, children }: { slot: RetentionSlot; children: R
       title={
         <div className="max-w-[260px]">
           <p className="font-bold text-xs mb-1">{STABILITY_CFG[slot.stability].label} — Score {slot.stabilityScore}</p>
-          <p className="text-[11px] leading-relaxed opacity-90">{slot.stabilityReason}</p>
+          <p className="text-2xs leading-relaxed opacity-90">{slot.stabilityReason}</p>
         </div>
       }
       arrow
@@ -205,7 +205,7 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <span
-                className="text-[11px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                className="text-2xs font-bold px-1.5 py-0.5 rounded-full leading-none"
                 style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
               >
                 {cfg.label}
@@ -227,11 +227,11 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
           >
             <span className="text-sm leading-none flex-shrink-0 mt-px">{acao.icon}</span>
             <div className="min-w-0">
-              <span className="text-[11px] font-bold leading-tight block" style={{ color: acaoCfg.text }}>
+              <span className="text-2xs font-bold leading-tight block" style={{ color: acaoCfg.text }}>
                 {acao.text}
               </span>
               {acao.sublabel && (
-                <span className="text-[10px] leading-none block mt-0.5" style={{ color: acaoCfg.text, opacity: 0.75 }}>
+                <span className="text-3xs leading-none block mt-0.5" style={{ color: acaoCfg.text, opacity: 0.75 }}>
                   {acao.sublabel}
                 </span>
               )}
@@ -243,7 +243,7 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
             <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide">presença</span>
             <div className="flex items-center gap-1.5">
               {slot.slotTotalSessions > slot.recurrenceCount + 2 && (
-                <span className="text-[10px] text-gray-400 tabular-nums">{slot.slotTotalSessions} total</span>
+                <span className="text-3xs text-gray-400 tabular-nums">{slot.slotTotalSessions} total</span>
               )}
               <span className="text-xs text-gray-500 tabular-nums">{slot.recurrenceCount} atend.</span>
             </div>
@@ -254,7 +254,7 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
             <div className="flex-1 relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 9999 }} />
             </div>
-            <span className="text-[11px] font-extrabold tabular-nums w-7 text-right leading-none" style={{ color: barColor }}>
+            <span className="text-2xs font-extrabold tabular-nums w-7 text-right leading-none" style={{ color: barColor }}>
               {pct}%
             </span>
           </div>
@@ -277,26 +277,26 @@ function ActiveCell({ slot }: { slot: RetentionSlot }) {
           <div className="flex flex-col gap-1 mt-auto">
             <div className="flex items-center gap-1 flex-wrap">
               {slot.packageRemaining > 0 && (
-                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${slot.packageRemaining <= 2 ? 'text-orange-700 bg-orange-100' : 'text-gray-600 bg-gray-100'}`}>
+                <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded-full leading-none ${slot.packageRemaining <= 2 ? 'text-orange-700 bg-orange-100' : 'text-gray-600 bg-gray-100'}`}>
                   📦 {slot.packageRemaining} sess.
                 </span>
               )}
               {!slot.nextSessionAt ? (
-                <span className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
+                <span className="text-2xs font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
                   sem próx.
                 </span>
               ) : nextLabel && (
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full leading-none">
+                <span className="text-2xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full leading-none">
                   ✓ {nextLabel}
                 </span>
               )}
             </div>
             <div className="flex items-center justify-between gap-1">
               {lastLabel && (
-                <span className="text-[11px] text-gray-500 tabular-nums">{lastLabel}</span>
+                <span className="text-2xs text-gray-500 tabular-nums">{lastLabel}</span>
               )}
               {valorEmRisco && (
-                <span className="text-[11px] font-bold text-rose-600 ml-auto">
+                <span className="text-2xs font-bold text-rose-600 ml-auto">
                   ⚠ R${valorEmRisco.toLocaleString('pt-BR')} risco
                 </span>
               )}
@@ -335,10 +335,10 @@ function VacantCell({ slot }: { slot: RetentionSlot }) {
         <div className="px-3 py-3 flex flex-col gap-2 h-full">
           {/* Header: classificação + score */}
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none" style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}>
+            <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full leading-none" style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}>
               {cfg.label}
             </span>
-            <span className="text-[10px] font-extrabold tabular-nums" style={{ color: cfg.color }}>
+            <span className="text-3xs font-extrabold tabular-nums" style={{ color: cfg.color }}>
               {slot.stabilityScore}
             </span>
           </div>
@@ -347,24 +347,24 @@ function VacantCell({ slot }: { slot: RetentionSlot }) {
           {isCritico && (
             <div className="flex items-start gap-1">
               <ShieldAlert size={12} className="text-red-400 mt-0.5 flex-shrink-0" />
-              <span className="text-[11px] font-bold text-red-700 leading-tight">
+              <span className="text-2xs font-bold text-red-700 leading-tight">
                 Horário em perda
               </span>
             </div>
           )}
           {isTemp && (
-            <span className="text-[11px] font-medium text-amber-700">
+            <span className="text-2xs font-medium text-amber-700">
               Paciente ausente esta semana
             </span>
           )}
           {isLivre && (
-            <span className="text-[11px] font-medium text-gray-500">
+            <span className="text-2xs font-medium text-gray-500">
               Horário livre para encaixe
             </span>
           )}
 
           {/* Histórico */}
-          <div className="text-[10px] text-gray-500 space-y-0.5">
+          <div className="text-3xs text-gray-500 space-y-0.5">
             {firstName && <p>↳ Último paciente: <span className="font-medium text-gray-700">{firstName}</span></p>}
             {slot.slotTotalSessions > 0 && <p>Ocupado {slot.slotTotalSessions}x nas últimas semanas</p>}
             {dsv !== null && <p>Vago há <span className="font-medium">{dsv} dias</span></p>}
@@ -372,7 +372,7 @@ function VacantCell({ slot }: { slot: RetentionSlot }) {
 
           {/* Impacto financeiro */}
           {isCritico && monthlyLoss > 0 && (
-            <div className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-1 rounded">
+            <div className="text-2xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded">
               💸 Perda potencial: R$ {monthlyLoss.toLocaleString('pt-BR')}/mês
             </div>
           )}
@@ -381,21 +381,21 @@ function VacantCell({ slot }: { slot: RetentionSlot }) {
           <div className="mt-auto flex flex-wrap gap-1">
             {isCritico && (
               <>
-                <button className="text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
+                <button className="text-3xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
                   Reativar
                 </button>
-                <button className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                <button className="text-3xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
                   Encaixe
                 </button>
               </>
             )}
             {isLivre && (
-              <button className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+              <button className="text-3xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
                 Oferecer horário
               </button>
             )}
             {isTemp && (
-              <span className="text-[10px] text-gray-400 italic">Próxima sessão confirmada</span>
+              <span className="text-3xs text-gray-400 italic">Próxima sessão confirmada</span>
             )}
           </div>
         </div>
@@ -446,7 +446,7 @@ function PainelResumo({ allSlots, viewFilter, setViewFilter }: {
             <span className="text-xl leading-none">{item.icon}</span>
             <div>
               <div className="text-xl font-bold text-gray-800 leading-tight">{item.count}</div>
-              <div className="text-[11px] text-gray-500 leading-tight">{item.label}</div>
+              <div className="text-2xs text-gray-500 leading-tight">{item.label}</div>
             </div>
           </button>
         );
@@ -670,15 +670,17 @@ export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps)
 
       {/* Loading */}
       {loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 8 }}>
-          <div />
-          {WEEKDAY_ORDER.map(d => <Skeleton key={d} variant="text" width="80%" height={28} />)}
-          {Array.from({ length: 8 }).flatMap((_, row) => [
-            <Skeleton key={`t${row}`} variant="text" width={36} height={20} style={{ justifySelf: 'end' }} />,
-            ...WEEKDAY_ORDER.map(d => (
-              <Skeleton key={`${d}_${row}`} variant="rounded" height={80} />
-            )),
-          ])}
+        <div style={{ overflow: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 8, minWidth: 640 }}>
+            <div />
+            {WEEKDAY_ORDER.map(d => <Skeleton key={d} variant="text" width="80%" height={28} />)}
+            {Array.from({ length: 8 }).flatMap((_, row) => [
+              <Skeleton key={`t${row}`} variant="text" width={36} height={20} style={{ justifySelf: 'end' }} />,
+              ...WEEKDAY_ORDER.map(d => (
+                <Skeleton key={`${d}_${row}`} variant="rounded" height={80} />
+              )),
+            ])}
+          </div>
         </div>
       )}
 

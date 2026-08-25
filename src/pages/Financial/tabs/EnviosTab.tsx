@@ -338,7 +338,7 @@ export default function EnviosTab() {
 
                                     {/* Rodapé compacto — data + anexos, resto fica atrás do clique */}
                                     <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 pl-[52px]">
-                                        <span className="text-[11px] text-slate-400 truncate">
+                                        <span className="text-2xs text-slate-400 truncate">
                                             {/* Sem envio não existe "enviado em" — a data é de quando ficou pronta. */}
                                             {neverSent && sentAt ? <>pronta desde {sentAt}</> : sentAt}
                                             {log.attachments && log.attachments.length > 0 && (
@@ -350,12 +350,12 @@ export default function EnviosTab() {
                                                 <button
                                                     type="button"
                                                     onClick={(e) => { e.stopPropagation(); handleOpenDrawer(log, 'send'); }}
-                                                    className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700 transition hover:bg-violet-100"
+                                                    className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-2xs font-bold text-violet-700 transition hover:bg-violet-100"
                                                 >
                                                     <Send size={11} /> {neverSent ? 'Enviar' : 'Reenviar'}
                                                 </button>
                                             )}
-                                            <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-violet-600 group-hover:text-violet-700">
+                                            <span className="inline-flex items-center gap-0.5 text-2xs font-bold text-violet-600 group-hover:text-violet-700">
                                                 Ver detalhes <ChevronRight size={12} />
                                             </span>
                                             {/* "Ver detalhes" não tem onClick próprio: é o rótulo do clique

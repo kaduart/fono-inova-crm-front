@@ -204,7 +204,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
               key={item.label}
               className="bg-white rounded-xl border border-gray-100 p-3 text-center shadow-sm hover:shadow-md transition-shadow"
             >
-              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">{item.label}</div>
+              <div className="text-3xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{item.label}</div>
               <div className="text-sm font-bold" style={{ color: item.color }}>{item.value}</div>
               <div className="text-[9px] text-gray-400 mt-0.5 leading-tight">{item.sublabel}</div>
             </div>
@@ -236,7 +236,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                 {/* Header */}
                 <div className="flex items-center gap-3 mb-3">
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-3xs font-bold flex-shrink-0"
                     style={{ backgroundColor: rankColor, color: doc.rank! <= 3 ? '#1F2937' : '#FFFFFF' }}
                   >
                     {doc.rank}
@@ -265,7 +265,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                           ? `Fechado em ${new Date(doc.settlement.closedAt).toLocaleString('pt-BR')}`
                           : 'Caixa fechado'
                       }
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-3xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0"
                     >
                       <Lock className="w-3 h-3" />
                       Caixa fechado {closedPeriodLabel}
@@ -306,7 +306,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                           className="w-3 h-3"
                           style={{ color: performance >= 80 ? '#10B981' : performance >= 50 ? '#F59E0B' : '#EF4444' }}
                         />
-                        <span className="text-[10px] font-semibold text-gray-600">{performance}%</span>
+                        <span className="text-3xs font-semibold text-gray-600">{performance}%</span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-[4px] overflow-hidden">
                         <div
@@ -318,7 +318,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                         />
                       </div>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 flex-shrink-0">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-medium bg-gray-100 text-gray-600 flex-shrink-0">
                       <Users className="w-3 h-3" />
                       {doc.patientsTotal}
                     </span>
@@ -336,7 +336,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                         r.billingType === 'package' ? 'Pac.' : r.billingType;
                       const rate = r.commissionType === 'percentage' ? `${r.value}%` : formatCurrency(r.value);
                       return (
-                        <span key={i} className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-medium">
+                        <span key={i} className="text-3xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-medium">
                           {label} {rate}
                         </span>
                       );

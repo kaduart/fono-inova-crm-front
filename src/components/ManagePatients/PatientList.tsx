@@ -92,7 +92,7 @@ const PatientCard: React.FC<PatientCardProps> = ({ patient, onEdit }) => {
                     <p className="text-sm font-bold text-gray-900 truncate leading-tight" title={name}>
                         {name}
                     </p>
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${st.text}`}>
+                    <span className={`inline-flex items-center gap-1 text-2xs font-medium ${st.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                         {st.label}
                     </span>
@@ -102,11 +102,11 @@ const PatientCard: React.FC<PatientCardProps> = ({ patient, onEdit }) => {
             {/* Linha de data — altura fixa 20px, sempre presente */}
             <div className="px-4 h-5 flex-shrink-0">
                 {nextDate ? (
-                    <p className="text-[11px] text-gray-500 truncate">Próx: {nextDate}</p>
+                    <p className="text-2xs text-gray-500 truncate">Próx: {nextDate}</p>
                 ) : lastDate ? (
-                    <p className="text-[11px] text-gray-400 truncate">Última: {lastDate}</p>
+                    <p className="text-2xs text-gray-400 truncate">Última: {lastDate}</p>
                 ) : (
-                    <p className="text-[11px] text-gray-300">Sem agendamento</p>
+                    <p className="text-2xs text-gray-300">Sem agendamento</p>
                 )}
             </div>
 
@@ -123,7 +123,7 @@ const PatientCard: React.FC<PatientCardProps> = ({ patient, onEdit }) => {
                             <span className="truncate" title={patient.email}>{patient.email}</span>
                         </>
                     ) : (
-                        <span className="text-gray-300 text-[11px]">Sem e-mail</span>
+                        <span className="text-gray-300 text-2xs">Sem e-mail</span>
                     )}
                 </div>
             </div>
@@ -206,12 +206,12 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
         <div className="space-y-6">
             {/* Controles */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
                     {TABS.map(({ key, label, Icon }) => (
                         <button
                             key={key}
                             onClick={() => setActiveTab(key)}
-                            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                            className={`shrink-0 whitespace-nowrap px-5 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
                                 activeTab === key
                                     ? 'bg-white text-emerald-700 shadow-sm'
                                     : 'text-gray-600 hover:text-gray-800'

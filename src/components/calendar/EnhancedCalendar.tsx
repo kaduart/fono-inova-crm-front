@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography, useTheme } from '@mui/material';
 import { ptBR } from "date-fns/locale";
-import { AlertCircle, Calendar, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarPlus, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getSpecialtyLabel } from '../../constants/specialties';
@@ -52,6 +52,7 @@ interface EnhancedCalendarProps {
     calendarMode?: CalendarMode;
     permissions?: CalendarPermissions;
     featureFlags?: CalendarFeatureFlags;
+    onOpenPreAppointments?: () => void;
 }
 
 export const PAYMENT_STATUS_CONFIG = {
@@ -233,6 +234,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     calendarMode = 'admin',
     permissions: permissionsProp,
     featureFlags: featureFlagsProp,
+    onOpenPreAppointments,
 }) => {
     // 🎯 CAPABILITY-BASED: defaults seguros (admin = tudo liberado)
     const permissions = permissionsProp ?? getDefaultPermissions(calendarMode);
@@ -1201,7 +1203,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
                 {/* Badges adicionais */}
                 <div className="flex flex-wrap items-center gap-1 mt-auto">
-                    <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded ${isExpanded ? 'text-2xs' : 'text-[9px]'} font-bold flex items-center gap-1`}>
+                    <div className={`${operationalBadge.bg} ${operationalBadge.text} px-2 py-0.5 rounded text-3xs font-semibold leading-4 flex items-center gap-1`}>
                         <OperationalIcon size={isExpanded ? 12 : 9} />
                         <span>{operationalBadge.label}</span>
                     </div>
@@ -1217,7 +1219,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 e.stopPropagation();
                                 onComplete(apptId);
                             }}
-                            className="relative bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm before:absolute before:-inset-2 before:content-['']"
+                            className="relative bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-3xs font-semibold leading-4 shadow-sm before:absolute before:-inset-2 before:content-['']"
                         >
                             Realizar
                         </button>
@@ -1229,40 +1231,40 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 e.stopPropagation();
                                 onComplete(apptId);
                             }}
-                            className="relative bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-[9px] font-bold shadow-sm before:absolute before:-inset-2 before:content-['']"
+                            className="relative bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-3xs font-semibold leading-4 shadow-sm before:absolute before:-inset-2 before:content-['']"
                         >
                             Realizar
                         </button>
                     )}
 
                     {patientHasDebt && (
-                        <div className={`bg-red-600 text-white px-2 py-0.5 rounded ${isExpanded ? 'text-2xs' : 'text-[9px]'} font-bold animate-pulse`} title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
+                        <div className="rounded bg-red-600 px-2 py-0.5 text-3xs font-semibold leading-4 text-white animate-pulse" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
                             ⚠️ Débito R$ {patientBalance.toFixed(0)}
                         </div>
                     )}
                     {isPackageSessionPending && (
-                        <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold animate-pulse" title="Pacote - Receber hoje">
+                        <div className="rounded bg-amber-500 px-2 py-0.5 text-3xs font-semibold leading-4 text-white animate-pulse" title="Pacote - Receber hoje">
                             💰 RECEBER
                         </div>
                     )}
                     {/* Badges de tipo só no compacto — no expandido o bloco de info já cobre */}
                     {!isExpanded && hasPackage && isConvenio && (
-                        <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                        <div className="rounded bg-orange-600 px-2 py-0.5 text-3xs font-semibold leading-4 text-white">
                             📦 Convênio
                         </div>
                     )}
                     {!isExpanded && hasPackage && !isConvenio && isLiminar && (
-                        <div className="bg-amber-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                        <div className="rounded bg-amber-500 px-2 py-0.5 text-3xs font-semibold leading-4 text-white">
                             ⚖️ Liminar
                         </div>
                     )}
                     {!isExpanded && hasPackage && !isConvenio && !isLiminar && (
-                        <div className="bg-green-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                        <div className="rounded bg-green-600 px-2 py-0.5 text-3xs font-semibold leading-4 text-white">
                             📦 Pacote
                         </div>
                     )}
                     {!isExpanded && !hasPackage && isConvenio && (
-                        <div className="bg-orange-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                        <div className="rounded bg-orange-600 px-2 py-0.5 text-3xs font-semibold leading-4 text-white">
                             🏥 Convênio
                         </div>
                     )}
@@ -1610,23 +1612,24 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     },
                 }}
             />
-        <Box sx={{ p: 3, backgroundColor: 'grey.50', minHeight: '100vh' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 }, backgroundColor: 'grey.50', minHeight: '100vh' }}>
             <Paper
                 elevation={2}
                 sx={{
-                    p: 3,
-                    mb: 3,
-                    borderRadius: 2,
+                    p: { xs: 2, md: 3 },
+                    mb: 2,
+                    borderRadius: 3,
+                    border: `1px solid ${theme.palette.divider}`,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`
                 }}
             >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
                             <Calendar size={24} style={{ color: '#00C087' }} />
                         </div>
                         <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800">
+                            <Typography variant="h4" fontWeight="bold" color="grey.800" sx={{ fontSize: { xs: '1.5rem', md: '1.875rem' }, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
                                 Calendário de Agendamentos
                             </Typography>
                             {currentViewDate && (
@@ -1637,15 +1640,26 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </div>
                     </div>
 
-                    {permissions.canCreate && (
-                        <Button
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        {onOpenPreAppointments && (
+                            <Button
+                                variant="outlined"
+                                startIcon={<CalendarPlus size={18} />}
+                                onClick={onOpenPreAppointments}
+                                sx={{ minHeight: 44, borderRadius: 2, px: 2.5, fontWeight: 600, whiteSpace: 'nowrap' }}
+                            >
+                                Pré-Agendamentos
+                            </Button>
+                        )}
+                        {permissions.canCreate && (
+                            <Button
                             variant="contained"
                             startIcon={<Plus size={18} />}
                             onClick={() => handleOpenSchedule(null, 'create')}
                             sx={{
                                 borderRadius: 2,
                                 px: 3,
-                                py: 1.5,
+                                minHeight: 44,
                                 fontWeight: 'bold',
                                 background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
                                 '&:hover': {
@@ -1657,8 +1671,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             }}
                         >
                             Novo Agendamento
-                        </Button>
-                    )}
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </Paper>
 
@@ -1835,10 +1850,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                             cursor: 'not-allowed'
                                         }}>
                                             <span style={{ fontSize: '24px', marginBottom: '8px' }}>🗓️</span>
-                                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#92400e', textAlign: 'center', lineHeight: 1.2 }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#92400e', textAlign: 'center', lineHeight: 1.25 }}>
                                                 {holidayName}
                                             </span>
-                                            <span style={{ fontSize: '11px', color: '#b45309', marginTop: '4px', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '12px', color: '#b45309', marginTop: '4px', textAlign: 'center', lineHeight: 1.5 }}>
                                                 Sem atendimento
                                             </span>
                                         </div>

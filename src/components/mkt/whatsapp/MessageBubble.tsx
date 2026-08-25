@@ -269,7 +269,7 @@ export default function MessageBubble({
         )}
 
         {/* TIMESTAMP e STATUS */}
-        <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMine ? 'text-emerald-200' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-end gap-1 mt-1 text-3xs ${isMine ? 'text-emerald-200' : 'text-gray-400'}`}>
           <span>{timestamp ? formatMessageTimestamp(timestamp) : 'Agora'}</span>
           {isMine && status && (
             <span className="ml-0.5">

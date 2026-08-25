@@ -47,7 +47,7 @@ export default function TabsNavigation({
                         className="flex flex-col items-center justify-center p-1.5 sm:p-3 rounded-md transition-colors data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
                         <span className="mb-0.5 sm:mb-1">{tab.icon}</span>
-                        <span className="text-[10px] sm:text-xs leading-tight truncate w-full text-center">{tab.label}</span>
+                        <span className="text-3xs sm:text-xs leading-tight truncate w-full text-center">{tab.label}</span>
                     </TabsTrigger>
                 ))}
             </TabsList>

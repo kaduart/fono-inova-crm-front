@@ -117,7 +117,7 @@ export default function SmartAgendaPanel({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`${getScoreColor(slot.score)} text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[48px] text-center`}>
+                  <div className={`${getScoreColor(slot.score)} text-white text-3xs font-bold px-2 py-0.5 rounded-full min-w-[48px] text-center`}>
                     {isScheduling ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : getScoreLabel(slot.score)}
                   </div>
 
@@ -137,20 +137,20 @@ export default function SmartAgendaPanel({
                         <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                       )}
                       {slot.isPreferredTime && (
-                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">horário habitual</span>
+                        <span className="text-3xs bg-amber-100 text-amber-700 px-1 rounded">horário habitual</span>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {isScheduling ? (
-                  <span className="text-[10px] text-indigo-500 font-medium">agendando...</span>
+                  <span className="text-3xs text-indigo-500 font-medium">agendando...</span>
                 ) : (
                   <ChevronRight className="w-4 h-4 text-indigo-300 group-hover:text-indigo-600 transition-colors" />
                 )}
               </div>
 
-              <p className="text-[11px] text-indigo-500 mt-1 ml-[60px]">
+              <p className="text-2xs text-indigo-500 mt-1 ml-[60px]">
                 {slot.reason}
               </p>
             </button>

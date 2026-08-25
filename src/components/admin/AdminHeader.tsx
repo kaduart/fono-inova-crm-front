@@ -34,6 +34,38 @@ interface AdminHeaderProps {
     onLogout?: () => void;
 }
 
+// Item do menu mobile (fundo esmeralda escuro) — extraído porque os ~10 itens
+// abaixo eram botões repetidos com o mesmo miolo de classes/ternário.
+// Estilo próprio (não é NavButton/NavDropdownItem): esses assumem fundo claro
+// e ativo em tint suave (emerald-100/700); aqui o fundo já é esmeralda sólido,
+// então o ativo precisa de contraste forte (emerald-600/branco) — reusar os
+// componentes de nav claros deixaria o item ativo quase invisível no mobile.
+const MobileNavItem = ({
+    active,
+    onClick,
+    icon,
+    children,
+    badge,
+    indent = false,
+}: {
+    active: boolean;
+    onClick: () => void;
+    icon: React.ReactNode;
+    children: React.ReactNode;
+    badge?: React.ReactNode;
+    indent?: boolean;
+}) => (
+    <button
+        onClick={onClick}
+        className={`flex items-center gap-3 w-full ${indent ? 'px-6' : 'px-4'} py-3 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-emerald-600 text-white' : 'text-emerald-100 hover:bg-emerald-700'
+            }`}
+    >
+        {icon}
+        <span className="flex-1 text-left">{children}</span>
+        {badge}
+    </button>
+);
+
 const AdminHeader: React.FC<AdminHeaderProps> = ({
     activeTab,
     openMenu,
@@ -108,13 +140,13 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         onClick={() => handleTabChange("Dashboard")}
                     >
                         <div className="h-12 w-12 rounded-lg bg-white flex items-center justify-center overflow-hidden">
-                            <img className="w-12 h-12 object-cover" src="images/logo-padrao-3d-encurtada.png" alt="" />
+                            <img className="h-12 w-12 object-cover" src="images/logo-padrao-3d-encurtada.png" alt="Clínica Fênix" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-xl font-bold text-white leading-tight">
+                            <span className="text-xl font-bold leading-tight tracking-tight text-white">
                                 Fono Inova
                             </span>
-                            <span className="hidden sm:block text-xs text-emerald-100 font-medium">
+                            <span className="hidden text-xs font-medium leading-4 text-emerald-100 sm:block">
                                 Gestão Clínica
                             </span>
                         </div>
@@ -131,7 +163,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 icon={<Users size={16} className="text-purple-500" />}
                                 className={
                                     activeTab === "Add Profissional" || activeTab === "Add Paciente" || activeTab === "Add Secretária"
-                                        ? "bg-blue-100 text-blue-600"
+                                        ? "bg-emerald-100 text-emerald-700"
                                         : "!text-white"
                                 }
                             >
@@ -177,7 +209,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             active={activeTab === "Calendário"}
                             onClick={() => handleTabChange("Calendário")}
                             icon={<Clock className="h-4 w-4 text-amber-500" />}
-                            className={activeTab === "Calendário" ? "bg-blue-100 text-blue-600" : "!text-white"}
+                            className={activeTab === "Calendário" ? "bg-emerald-100 text-emerald-700" : "!text-white"}
                         >
                             <span className="flex items-center gap-1.5">
                                 Agenda
@@ -193,7 +225,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             active={activeTab === "Financeiro"}
                             onClick={() => handleTabChange("Financeiro")}
                             icon={<DollarSign className="h-4 w-4 text-green-500" />}
-                            className={activeTab === "Financeiro" ? "bg-blue-100 text-blue-600" : "!text-white"}
+                            className={activeTab === "Financeiro" ? "bg-emerald-100 text-emerald-700" : "!text-white"}
                         >
                             Financeiro
                         </NavButton>
@@ -204,7 +236,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 onClick={() => toggleMenu("vendas-marketing")}
                                 icon={<Activity className="h-4 w-4 text-cyan-500" />}
                                 hasChevron
-                                className={isVendasMarketingActive ? "bg-blue-100 text-blue-600" : "!text-white"}
+                                className={isVendasMarketingActive ? "bg-emerald-100 text-emerald-700" : "!text-white"}
                             >
                                 <span className="flex items-center gap-1.5">
                                     Vendas & Marketing
@@ -299,7 +331,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 onClick={() => toggleMenu("sistema")}
                                 icon={<Eye className="h-4 w-4 text-orange-500" />}
                                 hasChevron
-                                className={isSistemaActive ? "bg-blue-100 text-blue-600" : "!text-white"}
+                                className={isSistemaActive ? "bg-emerald-100 text-emerald-700" : "!text-white"}
                             >
                                 Sistema
                             </NavButton>
@@ -346,9 +378,11 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                         {/* Hamburguer - mobile */}
                         <button
+                            type="button"
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="md:hidden p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                            className="min-h-11 min-w-11 rounded-lg bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:hidden"
                             aria-label="Menu"
+                            aria-expanded={isMobileMenuOpen}
                         >
                             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                         </button>
@@ -357,21 +391,24 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <div className="relative hidden md:block" ref={profileRef}>
                             <button
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                                aria-label={`Menu de perfil — logado como ${adminInfo?.fullName || "Administrador"}`}
+                                aria-haspopup="true"
+                                aria-expanded={isProfileDropdownOpen}
                                 className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                             >
-                               {/*  <div className="hidden sm:flex flex-col items-end">
-                                    <span className="text-sm font-medium">
+                                <div className="hidden sm:flex flex-col items-end">
+                                    <span className="text-sm font-medium leading-tight">
                                         {adminInfo?.fullName?.split(' ')[0] || "Admin"}
                                     </span>
-                                    <span className="text-xs text-emerald-100">
+                                    <span className="text-xs text-emerald-100 leading-tight">
                                         {adminInfo?.role || "Administrador"}
                                     </span>
                                 </div>
-                                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center border border-white/30">
+                                <div className="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center border border-white/30 flex-shrink-0">
                                     <span className="text-sm font-bold">
                                         {adminInfo?.fullName?.charAt(0) || "A"}
                                     </span>
-                                </div> */}
+                                </div>
                                 <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
 
@@ -420,143 +457,127 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             <p className="text-xs text-emerald-300 truncate">{adminInfo?.email || ""}</p>
                         </div>
 
-                        <button
+                        <MobileNavItem
+                            active={activeTab === "Dashboard"}
                             onClick={() => handleMobileTabChange("Dashboard")}
-                            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Dashboard"
-                                    ? "bg-emerald-600 text-white"
-                                    : "text-emerald-100 hover:bg-emerald-700"
-                                }`}
+                            icon={<Home size={18} className="text-blue-400" />}
                         >
-                            <Home size={18} className="text-blue-400" /> Dashboard
-                        </button>
+                            Dashboard
+                        </MobileNavItem>
 
                         <div className="space-y-1">
                             <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Gestão</p>
-                            <button
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "Add Profissional"}
                                 onClick={() => handleMobileTabChange("Add Profissional")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Add Profissional"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<Stethoscope size={18} className="text-purple-400" />}
                             >
-                                <Stethoscope size={18} className="text-purple-400" /> Profissionais
-                            </button>
-                            <button
+                                Profissionais
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "Add Paciente"}
                                 onClick={() => handleMobileTabChange("Add Paciente")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Add Paciente"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<Users size={18} className="text-blue-400" />}
                             >
-                                <Users size={18} className="text-blue-400" /> Pacientes
-                            </button>
-                            <button
+                                Pacientes
+                            </MobileNavItem>
+                            <MobileNavItem
+                                active={activeTab === "Calendário"}
                                 onClick={() => handleMobileTabChange("Calendário")}
-                                className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Calendário"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<Clock size={18} className="text-amber-400" />}
                             >
-                                <Clock size={18} className="text-amber-400" /> Agenda
-                            </button>
-                            <button
+                                Agenda
+                            </MobileNavItem>
+                            <MobileNavItem
+                                active={activeTab === "Financeiro"}
                                 onClick={() => handleMobileTabChange("Financeiro")}
-                                className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Financeiro"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<DollarSign size={18} className="text-green-400" />}
                             >
-                                <DollarSign size={18} className="text-green-400" /> Financeiro
-                            </button>
+                                Financeiro
+                            </MobileNavItem>
                         </div>
 
                         <div className="space-y-1">
                             <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Vendas & Marketing</p>
-                            <button
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "Leads"}
                                 onClick={() => handleMobileTabChange("Leads")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Leads"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
-                            >
-                                <Users size={18} className="text-cyan-400" />
-                                <span className="flex-1 text-left">Leads & Follow-up</span>
-                                {opCounts.total > 0 && (
+                                icon={<Users size={18} className="text-cyan-400" />}
+                                badge={opCounts.total > 0 && (
                                     <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                                         {opCounts.total}
                                     </span>
                                 )}
-                            </button>
-                            <button
+                            >
+                                Leads & Follow-up
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "SocialMedia"}
                                 onClick={() => handleMobileTabChange("SocialMedia")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "SocialMedia"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<Activity size={18} className="text-pink-400" />}
                             >
-                                <Activity size={18} className="text-pink-400" /> Social Media
-                            </button>
-                            <button
+                                Social Media
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "Analytics"}
                                 onClick={() => handleMobileTabChange("Analytics")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Analytics"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<Activity size={18} className="text-indigo-400" />}
                             >
-                                <Activity size={18} className="text-indigo-400" /> Analytics do Site
-                            </button>
-                            <button
+                                Analytics do Site
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "ROI"}
                                 onClick={() => handleMobileTabChange("ROI")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "ROI"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<DollarSign size={18} className="text-green-400" />}
                             >
-                                <DollarSign size={18} className="text-green-400" /> ROI & Atribuição
-                            </button>
-                            <button
+                                ROI & Atribuição
+                            </MobileNavItem>
+                            <MobileNavItem
+                                active={activeTab === "Mensagens"}
                                 onClick={() => handleMobileTabChange("Mensagens")}
-                                className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Mensagens"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<MessageCircle size={18} className="text-emerald-400" />}
                             >
-                                <MessageCircle size={18} className="text-emerald-400" /> WhatsApp
-                            </button>
+                                WhatsApp
+                            </MobileNavItem>
                         </div>
 
                         <div className="space-y-1">
                             <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Sistema</p>
-                            <button
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "Sistema"}
                                 onClick={() => handleMobileTabChange("Sistema")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "Sistema"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<Activity size={18} className="text-orange-400" />}
                             >
-                                <Activity size={18} className="text-orange-400" /> Sistema
-                            </button>
-                            <button
+                                Sistema
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "AmandaMetrics"}
                                 onClick={() => handleMobileTabChange("AmandaMetrics")}
-                                className={`flex items-center gap-3 w-full px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "AmandaMetrics"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-emerald-100 hover:bg-emerald-700"
-                                    }`}
+                                icon={<MessageCircle size={18} className="text-emerald-400" />}
                             >
-                                <MessageCircle size={18} className="text-emerald-400" /> Amanda AI
-                            </button>
+                                Amanda AI
+                            </MobileNavItem>
                         </div>
 
                         <div className="border-t border-emerald-600 mt-2 pt-2">
-                            <button
+                            <MobileNavItem
+                                active={false}
                                 onClick={() => {
                                     setActiveTab("Profile");
                                     setIsMobileMenuOpen(false);
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-700 transition-colors"
+                                icon={<User size={18} className="text-emerald-300" />}
                             >
-                                <User size={18} className="text-emerald-300" /> Meu Perfil
-                            </button>
+                                Meu Perfil
+                            </MobileNavItem>
                             <button
                                 onClick={handleLogout}
                                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors"

@@ -77,7 +77,7 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
                   <p className="truncate text-sm font-bold text-slate-900">{secretary.fullName}</p>
                   <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-slate-500"><Mail size={13} /> {secretary.email}</p>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Secretária</span>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-2xs font-bold text-emerald-700">Secretária</span>
               </article>
             ))}
           </div>
