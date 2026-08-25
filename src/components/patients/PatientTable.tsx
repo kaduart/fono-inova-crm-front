@@ -239,8 +239,8 @@ const PatientTable: React.FC<PatientTableProps> = ({
 
             <div className="p-4">
                     {/* Busca + filtro de saldo devedor */}
-                    <div className="mb-4 flex flex-col sm:flex-row gap-2">
-                        <div className="relative w-full sm:max-w-xs">
+                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="relative w-full flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
