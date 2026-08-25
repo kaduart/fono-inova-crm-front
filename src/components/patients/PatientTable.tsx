@@ -82,6 +82,8 @@ const PatientTable: React.FC<PatientTableProps> = ({
     const [patients, setPatients] = useState<PatientDTO[]>(initialPatients);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    const [onlyWithDebt, setOnlyWithDebt] = useState(false);
+    const [debtTotal, setDebtTotal] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -93,28 +95,34 @@ const PatientTable: React.FC<PatientTableProps> = ({
         direction: 'ascending',
     });
 
-    // Sincroniza com props apenas quando não há busca ativa (evita sobrescrever filtro)
+    // Sincroniza com props apenas quando não há busca/filtro ativo (evita sobrescrever)
     useEffect(() => {
-        if (searchTerm === '' && initialPatients) {
+        if (searchTerm === '' && !onlyWithDebt && initialPatients) {
             setPatients(initialPatients);
         }
-    }, [initialPatients, searchTerm]);
+    }, [initialPatients, searchTerm, onlyWithDebt]);
 
     // ------------------------------------------------------------
-    // 🚀 V2: Busca na API SOMENTE quando o usuário digitar algo
+    // 🚀 V2: Busca na API quando o usuário digita algo OU ativa "Saldo devedor".
+    // Os 5 pacientes vindos via prop (initialPatients) são só "os últimos mexidos" —
+    // pra filtrar por débito (ou por nome) em TODA a base, precisa bater no backend,
+    // igual a busca por nome já fazia. PatientsView já tem stats.totalPendingParticular
+    // pré-calculado, então o filtro é feito no banco (query param hasDebt), não em memória.
     // ------------------------------------------------------------
     useEffect(() => {
-        if (!searchTerm.trim()) return;
+        if (!searchTerm.trim() && !onlyWithDebt) return;
 
         const fetchPatients = async () => {
             setIsSearching(true);
             try {
                 const result = await patientService.list({
-                    search: searchTerm.trim(),
+                    search: searchTerm.trim() || undefined,
+                    hasDebt: onlyWithDebt,
                     limit: 100
                 });
                 setPatients(mapPatientListResponseDTO(result.patients));
                 setCurrentPage(1);
+                if (onlyWithDebt) setDebtTotal(result.pagination.total);
             } catch (error) {
                 console.error('❌ Erro ao buscar pacientes:', error);
             } finally {
@@ -122,9 +130,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
             }
         };
 
-        const timer = setTimeout(fetchPatients, 500);
+        const timer = setTimeout(fetchPatients, searchTerm.trim() ? 500 : 0);
         return () => clearTimeout(timer);
-    }, [searchTerm]);
+    }, [searchTerm, onlyWithDebt]);
 
     // ------------------------------------------------------------
     // Memo
@@ -154,14 +162,15 @@ const PatientTable: React.FC<PatientTableProps> = ({
     }, [patients, sortConfig]);
 
     // ------------------------------------------------------------
-    // Flag para estado vazio (mas sem early return para manter a busca visível)
-    // ------------------------------------------------------------
-    const isEmpty = !patients || patients.length === 0;
-
-    // ------------------------------------------------------------
-    // Paginação (sem filtro local - dados já vêm filtrados da API)
+    // Paginação — `patients` já vem filtrado do backend (busca por nome e/ou
+    // hasDebt), não há filtro local aqui.
     // ------------------------------------------------------------
     const filteredPatients = sortedPatients;
+
+    // ------------------------------------------------------------
+    // Flag para estado vazio (mas sem early return para manter a busca visível)
+    // ------------------------------------------------------------
+    const isEmpty = filteredPatients.length === 0;
 
     const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -224,25 +233,48 @@ const PatientTable: React.FC<PatientTableProps> = ({
             </div>
 
             <div className="p-4">
-                    {/* Busca */}
-                    <div className="mb-4 relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar por nome, telefone ou CPF..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
-                        />
-                        {isSearching ? (
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600" />
-                            </div>
-                        ) : searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                <X className="w-4 h-4" />
-                            </button>
-                        )}
+                    {/* Busca + filtro de saldo devedor */}
+                    <div className="mb-4 flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Buscar por nome, telefone ou CPF..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
+                            />
+                            {isSearching ? (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600" />
+                                </div>
+                            ) : searchTerm && (
+                                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => {
+                                setOnlyWithDebt(prev => !prev);
+                                if (onlyWithDebt) setDebtTotal(null); // desligando: descarta contagem da última consulta
+                                setCurrentPage(1);
+                            }}
+                            title="Buscar no servidor somente pacientes com saldo devedor"
+                            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                onlyWithDebt
+                                    ? 'bg-red-100 text-red-700 border-red-300'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                            }`}
+                        >
+                            <DollarSign className="w-4 h-4" />
+                            Saldo devedor
+                            {onlyWithDebt && debtTotal !== null && (
+                                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-3xs font-bold bg-red-600 text-white">
+                                    {debtTotal}
+                                </span>
+                            )}
+                        </button>
                     </div>
 
                     {isEmpty ? (
@@ -250,7 +282,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
                             <User className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                             <h3 className="text-base font-semibold text-gray-600 mb-1">Nenhum paciente encontrado</h3>
                             <p className="text-sm text-gray-400">
-                                {searchTerm ? 'Tente buscar com outros termos' : 'Os dados dos pacientes estão sendo carregados...'}
+                                {onlyWithDebt
+                                    ? 'Nenhum paciente com saldo devedor no momento'
+                                    : searchTerm ? 'Tente buscar com outros termos' : 'Os dados dos pacientes estão sendo carregados...'}
                             </p>
                         </div>
                     ) : (

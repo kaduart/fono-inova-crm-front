@@ -459,6 +459,9 @@ export default function PatientDashboard() {
     const totalApts     = pi.totalAppointments ?? pi.stats?.totalAppointments ?? 0;
     const totalDone     = pi.totalCompleted     ?? pi.stats?.totalCompleted     ?? 0;
     const totalPending  = pi.totalPending       ?? pi.stats?.totalPending       ?? 0;
+    const particularPending = pi.totalPendingParticular ?? pi.stats?.totalPendingParticular ?? 0;
+    const convenioAwaitingBilling = pi.stats?.totalPendingConvenioAwaitingBilling ?? Math.max(0, totalPending - particularPending);
+    const convenioBilled = pi.stats?.totalPendingConvenioBilled ?? 0;
     const nextApt       = pi.nextAppointment;
     const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
     const ptTags: string[] = pi.tags || [];
@@ -486,7 +489,21 @@ export default function PatientDashboard() {
               <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
                 {totalPending > 0 ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ 0,00'}
               </p>
-              <p className="mt-0.5 text-2xs text-slate-500">valor a receber</p>
+              {totalPending > 0 ? (
+                <div className="mt-0.5 space-y-0.5 text-2xs text-slate-500">
+                  {particularPending > 0 && (
+                    <p>Particular: R$ {particularPending.toLocaleString('pt-BR')}</p>
+                  )}
+                  {convenioAwaitingBilling > 0 && (
+                    <p>Convênio (aguardando faturamento): R$ {convenioAwaitingBilling.toLocaleString('pt-BR')}</p>
+                  )}
+                  {convenioBilled > 0 && (
+                    <p>Convênio (faturado, aguardando recebimento): R$ {convenioBilled.toLocaleString('pt-BR')}</p>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-0.5 text-2xs text-slate-500">valor a receber</p>
+              )}
             </div>
             <div className="rounded-xl bg-amber-50 p-2.5 text-amber-600"><CreditCard size={18} /></div>
           </div>

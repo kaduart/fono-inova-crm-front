@@ -105,8 +105,9 @@ export const patientService = {
     doctorId?: string;
     status?: string;
     sortBy?: string;
+    hasDebt?: boolean;
   } = {}): Promise<ListPatientsResponse['data']> {
-    const { search, limit = 50, skip = 0, doctorId, status, sortBy } = options;
+    const { search, limit = 50, skip = 0, doctorId, status, sortBy, hasDebt } = options;
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     params.append('limit', limit.toString());
@@ -114,6 +115,7 @@ export const patientService = {
     if (doctorId) params.append('doctorId', doctorId);
     if (status) params.append('status', status);
     if (sortBy) params.append('sortBy', sortBy);
+    if (hasDebt) params.append('hasDebt', 'true');
 
     const response = await API.get<ListPatientsResponse>(`/v2/patients?${params}`);
     return response.data.data;

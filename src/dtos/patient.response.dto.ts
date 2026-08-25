@@ -43,7 +43,9 @@ export interface PatientDTO {
     totalPending: number;            // total pendente geral (particular + convênio)
     totalPendingParticular: number;  // alias de particularPending (compatibilidade)
     particularPending: number;       // pendente particular
-    convenioPending: number;         // pendente convênio
+    convenioPending: number;         // pendente convênio (soma das duas linhas abaixo)
+    convenioPendingAwaitingBilling: number; // convênio: ainda não entrou em lote de faturamento
+    convenioPendingBilled: number;           // convênio: já faturado, aguardando o convênio pagar
     // Stats
     totalAppointments: number;
     totalCompleted: number;
@@ -94,7 +96,7 @@ export function extractPatientDocument(raw: any): string | undefined {
 // Extratores internos
 // ============================================================
 
-function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' | 'particularPending' | 'convenioPending'> {
+function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' | 'totalPendingParticular' | 'particularPending' | 'convenioPending' | 'convenioPendingAwaitingBilling' | 'convenioPendingBilled'> {
     const balanceCurrent = typeof raw.balance?.current === 'number' ? raw.balance.current : undefined;
     const statsTotalPending = typeof raw.stats?.totalPending === 'number' ? raw.stats.totalPending : undefined;
     const statsTotalPendingParticular = typeof raw.stats?.totalPendingParticular === 'number' ? raw.stats.totalPendingParticular : undefined;
@@ -108,12 +110,23 @@ function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' |
     const convenioPending = Math.max(0, totalPending - particularPending);
     const debt = particularPending;
 
+    // Composição do convenioPending — vem pronta do backend (stats.totalPendingConvenio*).
+    // Fallback pra views antigas (antes deste campo existir): trata tudo como
+    // "aguardando faturamento" já que é o estado mais comum, sem inventar um
+    // número que o backend não forneceu.
+    const statsAwaitingBilling = typeof raw.stats?.totalPendingConvenioAwaitingBilling === 'number' ? raw.stats.totalPendingConvenioAwaitingBilling : undefined;
+    const statsBilled = typeof raw.stats?.totalPendingConvenioBilled === 'number' ? raw.stats.totalPendingConvenioBilled : undefined;
+    const convenioPendingAwaitingBilling = statsAwaitingBilling ?? convenioPending;
+    const convenioPendingBilled = statsBilled ?? 0;
+
     return {
         debt: Number(debt.toFixed(2)),
         totalPending: Number(totalPending.toFixed(2)),
         totalPendingParticular: Number(particularPending.toFixed(2)),
         particularPending: Number(particularPending.toFixed(2)),
         convenioPending: Number(convenioPending.toFixed(2)),
+        convenioPendingAwaitingBilling: Number(convenioPendingAwaitingBilling.toFixed(2)),
+        convenioPendingBilled: Number(convenioPendingBilled.toFixed(2)),
     };
 }
 
@@ -182,15 +195,21 @@ export function mapPatientResponseDTO(raw: any): PatientDTO {
         return {
             id: '',
             name: 'Desconhecido',
+            fullName: 'Desconhecido',
+            patientId: '',
             debt: 0,
             totalPending: 0,
+            totalPendingParticular: 0,
             particularPending: 0,
             convenioPending: 0,
+            convenioPendingAwaitingBilling: 0,
+            convenioPendingBilled: 0,
             totalAppointments: 0,
             totalCompleted: 0,
             totalCanceled: 0,
             totalNoShow: 0,
             totalPackages: 0,
+            totalRevenue: 0,
             raw: null,
         };
     }
