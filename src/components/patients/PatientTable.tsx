@@ -1,5 +1,5 @@
 import { Calendar, ChevronDown, ChevronUp, DollarSign, Edit, Eye, FileHeart, List, Package, Phone, Search, Trash2, User, X } from "lucide-react";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from "react-router-dom";
 import patientService from '../../services/patientService';
 import { PatientDTO, mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
@@ -95,6 +95,11 @@ const PatientTable: React.FC<PatientTableProps> = ({
         key: 'nextAppointment',
         direction: 'ascending',
     });
+    // Guarda contra corrida: busca por nome (500ms debounce) e toggle de saldo
+    // devedor (sem debounce) podem disparar 2 requisições que voltam fora de
+    // ordem — a mais lenta (desatualizada) sobrescrevendo a mais recente.
+    // Só aplica a resposta se ainda for a última requisição disparada.
+    const requestSeqRef = useRef(0);
 
     // Sincroniza com props apenas quando não há busca/filtro ativo (evita sobrescrever)
     useEffect(() => {
@@ -111,27 +116,34 @@ const PatientTable: React.FC<PatientTableProps> = ({
     // pré-calculado, então o filtro é feito no banco (query param hasDebt), não em memória.
     // ------------------------------------------------------------
     useEffect(() => {
+        // Invalida qualquer requisição anterior ainda em voo (ex: usuário desligou
+        // o filtro ou limpou a busca antes da resposta chegar) — incrementa sempre,
+        // mesmo quando este efeito não vai disparar uma nova busca.
+        const thisRequestId = ++requestSeqRef.current;
         if (!searchTerm.trim() && !onlyWithDebt) return;
+
+        const isDebtRequest = onlyWithDebt;
 
         const fetchPatients = async () => {
             setIsSearching(true);
             try {
                 const result = await patientService.list({
                     search: searchTerm.trim() || undefined,
-                    hasDebt: onlyWithDebt,
+                    hasDebt: isDebtRequest,
                     limit: 100
                 });
+                if (thisRequestId !== requestSeqRef.current) return; // resposta obsoleta — ignora
                 const mapped = mapPatientListResponseDTO(result.patients);
                 setPatients(mapped);
                 setCurrentPage(1);
-                if (onlyWithDebt) {
+                if (isDebtRequest) {
                     setDebtTotal(result.pagination.total);
                     setDebtTotalAmount(mapped.reduce((sum, p) => sum + (p.debt ?? 0), 0));
                 }
             } catch (error) {
                 console.error('❌ Erro ao buscar pacientes:', error);
             } finally {
-                setIsSearching(false);
+                if (thisRequestId === requestSeqRef.current) setIsSearching(false);
             }
         };
 
