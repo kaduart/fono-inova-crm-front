@@ -127,6 +127,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     }>>([]);
     const [v2ImportLoading, setV2ImportLoading] = useState(false);
     const [selectedDebtIds, setSelectedDebtIds] = useState<Set<string>>(new Set());
+    const [pendingSettlement, setPendingSettlement] = useState<{
+        packageId: string;
+        paymentIds: string[];
+        paymentMethod: string;
+    } | null>(null);
 
     // normaliza especialidade para comparação (fonoaudiologia == Fonoaudiologia == terapia_ocupacional == Terapia Ocupacional)
     const normSpec = (s: string) => (s || '').toLowerCase().replace(/_/g, ' ').trim();
@@ -141,6 +146,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         if (!formData.sessionType) return [];
         return v2ImportedSessions.filter(s => normSpec(s.specialty) !== normSpec(formData.sessionType));
     }, [v2ImportedSessions, formData.sessionType]);
+
+    const selectedDebtTotal = useMemo(
+        () => filteredDebts
+            .filter(debt => selectedDebtIds.has(debt.v2PaymentId))
+            .reduce((sum, debt) => sum + Number(debt.amount || 0), 0),
+        [filteredDebts, selectedDebtIds]
+    );
 
     // Calculados dinamicamente (compatível com string ou número)
     const toNumber = (v: any) => {
@@ -221,14 +233,16 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         const alreadyPaid = selectedExistingAppointment?.payment?.status === 'paid'
             ? Number(selectedExistingAppointment.payment.amount || 0)
             : 0;
-        const futureSessions = calculationMode === 'sessions'
+        const contractualSessions = calculationMode === 'sessions'
             ? toNumber(formData.totalSessions)
             : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
-        const contractualSessions = futureSessions + selectedDebtIds.size;
         const contractualValue = contractualSessions * Number(formData.sessionValue || 0);
         const newPaymentTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         if (newPaymentTotal > Math.max(0, contractualValue - alreadyPaid) + 0.009) {
             baseErrors.payments = `O valor informado ultrapassa o saldo do pacote. Máximo permitido agora: R$ ${Math.max(0, contractualValue - alreadyPaid).toFixed(2)}.`;
+        }
+        if (selectedDebtTotal > 0 && newPaymentTotal + 0.009 < selectedDebtTotal) {
+            baseErrors.payments = `As sessões retroativas selecionadas somam R$ ${selectedDebtTotal.toFixed(2)}. Informe pelo menos esse valor para quitá-las.`;
         }
 
         // Validação de sessões por semana
@@ -255,6 +269,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             if (!total || total < 1 || total > 100) {
                 baseErrors.totalSessions = "Total de sessões deve estar entre 1 e 100";
             }
+        }
+
+        if (selectedDebtIds.size >= contractualSessions && contractualSessions > 0) {
+            baseErrors.totalSessions = `O pacote precisa ter pelo menos 1 sessão futura. Com ${selectedDebtIds.size} retroativas, escolha no mínimo ${selectedDebtIds.size + 1} sessões no total.`;
         }
 
         // Slots adicionais se sessionsPerWeek > 1
@@ -362,7 +380,36 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     useEffect(() => {
         // usa apenas débitos da especialidade atual (filtrados)
         const selected = filteredDebts.filter(s => selectedDebtIds.has(s.v2PaymentId));
-        if (selected.length === 0) return;
+        if (selected.length === 0) {
+            const linkedAppointment = appointments.find(appointment =>
+                String(appointment._id || appointment.id) === String(formData.appointmentId)
+            );
+            const linkedDate = linkedAppointment?.date
+                ? (linkedAppointment.date instanceof Date
+                    ? linkedAppointment.date.toISOString().split('T')[0]
+                    : String(linkedAppointment.date).split('T')[0])
+                : '';
+            setFormData(prev => ({
+                ...prev,
+                date: linkedDate,
+                time: linkedAppointment?.time || '',
+            }));
+            return;
+        }
+
+        const oldestDebt = [...selected].sort((a, b) => {
+            const first = `${String(a.date || '').split('T')[0]}T${a.time || '00:00'}`;
+            const second = `${String(b.date || '').split('T')[0]}T${b.time || '00:00'}`;
+            return first.localeCompare(second);
+        })[0];
+
+        selectedAppointmentIdRef.current = '';
+        setFormData(prev => ({
+            ...prev,
+            appointmentId: '',
+            date: String(oldestDebt.date || '').split('T')[0],
+            time: oldestDebt.time || '',
+        }));
 
         // sessionValue vem do primeiro débito da especialidade correta
         const debtValue = selected[0].amount;
@@ -370,16 +417,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             setFormData(prev => ({ ...prev, sessionValue: debtValue }));
         }
 
-        // recalcula total: (sessões futuras do formulário + retroativas) × valor
-        const sv = formData.sessionValue || debtValue || 0;
-        const futuras = calculationMode === 'sessions'
-            ? toNumber(formData.totalSessions)
-            : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
-        const total = (futuras + selected.length) * sv;
+        // Sugere somente o valor das retroativas. A pessoa pode alterar depois;
+        // mudanças de duração/frequência não sobrescrevem esse campo.
+        const total = selected.reduce((sum, debt) => sum + Number(debt.amount || 0), 0);
         if (total > 0 && payments.length > 0) {
             setPayments(prev => prev.map((p, i) => i === 0 ? { ...p, amount: total } : p));
+            lastSuggestedPaymentAmountRef.current = total;
         }
-    }, [selectedDebtIds]);
+    }, [appointments, filteredDebts, formData.appointmentId, selectedDebtIds]);
 
 
 
@@ -655,6 +700,29 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // O pacote já existe: em caso de falha de rede, repete somente a quitação.
+        // Recriar o pacote aqui produziria duplicidade e manteria o débito pendente.
+        if (pendingSettlement) {
+            setIsLoading(true);
+            try {
+                await API.post(`/v2/packages/${pendingSettlement.packageId}/settle-payments`, {
+                    paymentIds: pendingSettlement.paymentIds,
+                    paymentMethod: pendingSettlement.paymentMethod,
+                });
+                toast.success(`${pendingSettlement.paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
+                const settledPackageId = pendingSettlement.packageId;
+                setPendingSettlement(null);
+                onSubmit(settledPackageId);
+                onClose();
+            } catch (settleErr: unknown) {
+                toast.error(`A quitação ainda não foi concluída. Tente novamente: ${extractErrorMessage(settleErr, 'erro desconhecido')}`);
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
         if (!validateAll()) return;
         setIsLoading(true);
 
@@ -707,9 +775,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             // ============================================================
             // 🧩 Cálculo do total de sessões (daqui pra baixo: só CRIAÇÃO)
             // ============================================================
-            const totalSessions = calculationMode === "sessions"
+            const contractualTotalSessions = calculationMode === "sessions"
                 ? formData.totalSessions
                 : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
+            const numPreConsumed = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
+            const futureSessions = Math.max(0, contractualTotalSessions - numPreConsumed);
 
             // ============================================================
             // 📅 Gera as datas reais
@@ -720,19 +790,34 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 const generatedSlots = generateSessionDates({
                     startDate: formData.date,
                     startTime: formData.time,
-                    totalSessions,
+                    totalSessions: contractualTotalSessions,
                     sessionsPerWeek: formData.sessionsPerWeek,
                     selectedSlots,
                     sameDaySessions,
                     dailySessionTimes,
                     intervalWeeks
                 });
+                // A cadência começa na retroativa mais antiga. As primeiras ocorrências
+                // já foram consumidas e não devem virar novos agendamentos.
+                const futureSlots = generatedSlots.slice(numPreConsumed);
                 const unique = Array.from(
-                    new Map(generatedSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
+                    new Map(futureSlots.map((s) => [`${s.date}|${s.time}`, s])).values()
                 ).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
                 schedule = unique.map((slot) => ({ date: slot.date, time: slot.time }));
                 console.log("📅 Slots gerados localmente:", schedule);
             }
+
+            // Os Payments pendentes originais são a fonte canônica do valor usado
+            // para quitar as retroativas. Só o excedente vira novo receipt do pacote.
+            let debtAmountToAllocate = selectedDebtTotal;
+            const packagePayments = payments
+                .map((payment) => {
+                    const grossAmount = Number(payment.amount || 0);
+                    const debtAllocation = Math.min(grossAmount, debtAmountToAllocate);
+                    debtAmountToAllocate -= debtAllocation;
+                    return { ...payment, amount: grossAmount - debtAllocation };
+                })
+                .filter(payment => payment.amount > 0.009);
 
             const packageData = {
                     patientId: realPatientId,
@@ -746,7 +831,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         calculationMode === "duration"
                             ? formData.durationMonths
                             : durationForSessions(formData.totalSessions, formData.sessionsPerWeek, intervalWeeks),
-                    totalSessions,
+                    totalSessions: futureSessions,
                     frequencyInterval,
                     date: formData.date,
                     time: formData.time,
@@ -755,7 +840,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     // 🔥 Só envia pagamentos se NÃO for per-session
                     payments: formData.paymentType === 'per-session'
                         ? []
-                        : payments.map((p) => ({
+                        : packagePayments.map((p) => ({
                             amount: Number(p.amount),
                             method: p.method,
                             date: p.date,
@@ -773,8 +858,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             console.log("📤 Enviando pacote:", packageData);
 
             // Fluxo particular (therapy/package)
-            const numPreConsumed = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).length;
-            const totalContratual = packageData.totalSessions + numPreConsumed;
             const sv = Number(formData.sessionValue) || 0;
             const therapyData = {
                 ...packageData,
@@ -783,8 +866,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 patientId: realPatientId,
                 sessionType: formData.sessionType as any,
                 appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
-                totalSessions: totalContratual,
-                totalValue: totalContratual * sv,
+                totalSessions: contractualTotalSessions,
+                totalValue: contractualTotalSessions * sv,
                 preConsumedCount: numPreConsumed
             };
 
@@ -804,8 +887,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             paymentMethod: payments[0]?.method || 'pix'
                         });
                         toast.success(`${paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
-                    } catch (settleErr: any) {
-                        toast.warning(`Pacote criado, mas erro ao quitar pendências: ${extractErrorMessage(settleErr, 'erro desconhecido')}`);
+                    } catch (settleErr: unknown) {
+                        setPendingSettlement({
+                            packageId: newPackageId,
+                            paymentIds,
+                            paymentMethod: payments[0]?.method || 'pix',
+                        });
+                        toast.error(`Pacote criado, mas a quitação não foi concluída. Use "Tentar quitação novamente": ${extractErrorMessage(settleErr, 'erro desconhecido')}`);
+                        return;
                     }
                 }
             }
@@ -916,14 +1005,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     console.log('appointments', appointments);
 
     const { totalSessions, totalValuePackage, remainingBalance } = useMemo(() => {
-        const futureSessions =
+        const contractualSessions =
             calculationMode === 'sessions'
                 ? toNumber(formData.totalSessions)
                 : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
 
-        // total contratual = futuras + retroativas selecionadas
-        const sessions = futureSessions + selectedDebtIds.size;
-        const totalValue = toNumber(sessions) * toNumber(formData.sessionValue);
+        // As retroativas consomem o total contratado; não aumentam o pacote.
+        const sessions = contractualSessions;
+        const totalValue = toNumber(contractualSessions) * toNumber(formData.sessionValue);
         const totalPaidNow = payments.reduce((sum, p) => sum + toNumber(p.amount || 0), 0);
         const remaining = Math.max(totalValue - totalPaidNow, 0);
 
@@ -940,7 +1029,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         formData.sessionValue,
         intervalWeeks,
         payments,
-        selectedDebtIds,
     ]);
 
     const selectedExistingAppointment = useMemo(
@@ -956,15 +1044,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const suggestedPaymentAmount = Math.max(0, totalValuePackage - existingAppointmentPaidAmount);
     const newPaymentsTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const overpaymentAmount = Math.max(0, newPaymentsTotal - suggestedPaymentAmount);
+    const uncoveredDebtAmount = Math.max(0, selectedDebtTotal - newPaymentsTotal);
     // Em edição só há um campo gravável: sem mudança real, nada a enviar.
     // Evita o "atualizado com sucesso" sobre uma requisição que não muda nada.
     const notesChanged = isEditing && (formData.notes || '') !== ((initialData as any)?.notes || '');
     const canSubmitForm = isEditing
         ? notesChanged
-        : isFormValid && overpaymentAmount <= 0.009;
+        : isFormValid && overpaymentAmount <= 0.009 && uncoveredDebtAmount <= 0.009;
 
     useEffect(() => {
         if (formData.paymentType === 'per-session' || payments.length !== 1) return;
+        if (selectedDebtIds.size > 0) return;
 
         const currentAmount = Number(payments[0]?.amount || 0);
         const wasAutomaticallySuggested = currentAmount === lastSuggestedPaymentAmountRef.current;
@@ -976,7 +1066,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             ));
         }
         lastSuggestedPaymentAmountRef.current = suggestedPaymentAmount;
-    }, [formData.paymentType, payments, suggestedPaymentAmount]);
+    }, [formData.paymentType, payments, selectedDebtIds.size, suggestedPaymentAmount]);
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 overflow-hidden">
@@ -1369,21 +1459,25 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 <span className={`w-7 h-7 rounded-full flex items-center justify-center ${selectedExistingAppointment ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                     <Clock className="w-4 h-4" />
                                 </span>
-                                {selectedExistingAppointment ? 'Sessão inicial selecionada' : 'Sessão inicial do pacote'}
+                                {selectedDebtIds.size > 0
+                                    ? 'Início histórico do pacote'
+                                    : selectedExistingAppointment ? 'Sessão inicial selecionada' : 'Sessão inicial do pacote'}
                             </h3>
                             <p className="mb-3 ml-9 text-xs text-slate-500">
-                                {selectedExistingAppointment
+                                {selectedDebtIds.size > 0
+                                    ? 'Data e hora da sessão retroativa mais antiga. As novas sessões começam depois das ocorrências já realizadas.'
+                                    : selectedExistingAppointment
                                     ? 'Os dados abaixo pertencem ao agendamento existente e serão usados como a primeira sessão do pacote.'
                                     : 'Defina quando o acompanhamento será iniciado.'}
                             </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="form-label">
-                                            {selectedExistingAppointment ? 'Data do agendamento selecionado' : 'Data *'}
+                                            {selectedDebtIds.size > 0 ? 'Data da retroativa mais antiga' : selectedExistingAppointment ? 'Data do agendamento selecionado' : 'Data *'}
                                         </label>
                                         <DatePicker
                                             selected={formData.date ? buildLocalDateOnly(formData.date) : null}
-                                            disabled={Boolean(selectedExistingAppointment)}
+                                            disabled={Boolean(selectedExistingAppointment) || selectedDebtIds.size > 0}
                                             onChange={(date: Date | null) => {
                                                 if (!date) return;
                                                 const formattedDate = date.toISOString().split('T')[0];
@@ -1392,7 +1486,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             customInput={
                                                 <ReactInputMask
                                                     mask="99/99/9999"
-                                                    className={`w-full p-2 border rounded-lg ${selectedExistingAppointment
+                                                    className={`w-full p-2 border rounded-lg ${selectedExistingAppointment || selectedDebtIds.size > 0
                                                         ? 'border-blue-200 bg-blue-50 text-blue-900 cursor-not-allowed'
                                                         : 'border-gray-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
                                                         }`}
@@ -1406,11 +1500,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                                     <div>
                                         <label className="form-label">
-                                            {selectedExistingAppointment ? 'Hora do agendamento selecionado' : 'Hora *'}
+                                            {selectedDebtIds.size > 0 ? 'Hora da retroativa mais antiga' : selectedExistingAppointment ? 'Hora do agendamento selecionado' : 'Hora *'}
                                         </label>
                                         <DatePicker
                                             selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
-                                            disabled={Boolean(selectedExistingAppointment)}
+                                            disabled={Boolean(selectedExistingAppointment) || selectedDebtIds.size > 0}
                                             onChange={(date: Date | null) => {
                                                 if (!date) return;
                                                 const formattedTime = date.toTimeString().slice(0, 5);
@@ -1425,7 +1519,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             customInput={
                                                 <ReactInputMask
                                                     mask="99:99"
-                                                    className={`w-full p-2 border rounded-lg ${selectedExistingAppointment
+                                                    className={`w-full p-2 border rounded-lg ${selectedExistingAppointment || selectedDebtIds.size > 0
                                                         ? 'border-blue-200 bg-blue-50 text-blue-900 cursor-not-allowed'
                                                         : 'border-gray-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
                                                         }`}
@@ -1785,7 +1879,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             />
                                                             {index === 0 && payments.length === 1 && (
                                                                 <p className="mt-1 text-3xs leading-tight text-slate-400">
-                                                                    Saldo sugerido do pacote; altere se for dividir o pagamento.
+                                                                    {selectedDebtIds.size > 0
+                                                                        ? 'Sugerido pelas sessões retroativas; você pode alterar o valor.'
+                                                                        : 'Saldo sugerido do pacote; altere se for dividir o pagamento.'}
                                                                 </p>
                                                             )}
                                                         </div>
@@ -1849,6 +1945,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     </p>
                                                 </div>
                                             )}
+                                            {uncoveredDebtAmount > 0.009 && (
+                                                <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                                    <p className="font-semibold">Valor insuficiente para quitar as retroativas</p>
+                                                    <p className="mt-0.5">
+                                                        Acrescente R$ {uncoveredDebtAmount.toFixed(2)}. Os débitos selecionados somam R$ {selectedDebtTotal.toFixed(2)}.
+                                                    </p>
+                                                </div>
+                                            )}
 
                                             {/* Total Pago */}
                                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
@@ -1875,9 +1979,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         <span className="text-sm text-gray-600">Sessões totais:</span>
                                         <span className="text-sm font-semibold text-gray-900">
                                             {totalSessions}
-                                            {selectedDebtIds.size > 0 && <span className="text-xs text-rose-500 ml-1">({selectedDebtIds.size} retroativas)</span>}
+                                            {selectedDebtIds.size > 0 && <span className="text-xs text-rose-500 ml-1">({selectedDebtIds.size} já realizadas)</span>}
                                         </span>
                                     </div>
+                                    {selectedDebtIds.size > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-gray-600">Sessões futuras:</span>
+                                            <span className="text-sm font-semibold text-gray-900">
+                                                {Math.max(totalSessions - selectedDebtIds.size, 0)}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-gray-600">Valor por sessão:</span>
                                         <span className="text-sm font-semibold text-gray-900">
@@ -1961,6 +2073,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 ? "Preencha todos os campos obrigatórios (*)"
                                 : overpaymentAmount > 0.009
                                     ? `Pagamento excede o pacote em R$ ${overpaymentAmount.toFixed(2)}`
+                                    : uncoveredDebtAmount > 0.009
+                                        ? `Faltam R$ ${uncoveredDebtAmount.toFixed(2)} para quitar as retroativas selecionadas`
                                     : null}
                     </div>
 
@@ -1974,8 +2088,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={!canSubmitForm || isLoading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!canSubmitForm || isLoading
+                            disabled={(!canSubmitForm && !pendingSettlement) || isLoading}
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${(!canSubmitForm && !pendingSettlement) || isLoading
                                 ? 'bg-gray-400 cursor-not-allowed text-white'
                                 : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
                                 }`}
@@ -1983,12 +2097,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             {isLoading ? (
                                 <div className="flex items-center gap-2">
                                     <LoadingSpinner size="small" color="border-white" />
-                                    <span>Salvando...</span>
+                                    <span>{pendingSettlement ? 'Quitando...' : 'Salvando...'}</span>
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2">
                                     {initialData ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                    {initialData ? 'Atualizar Pacote' : 'Criar Pacote'}
+                                    {pendingSettlement ? 'Tentar quitação novamente' : initialData ? 'Atualizar Pacote' : 'Criar Pacote'}
                                 </div>
                             )}
                         </Button>

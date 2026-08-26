@@ -47,6 +47,8 @@ export const InputCurrency = ({ name, value, label, onChange, disabled, classNam
                 name={name}
                 value={formattedValue}
                 onChange={handleChange}
+                onFocus={(event) => event.currentTarget.select()}
+                inputMode="numeric"
                 disabled={disabled}
                 className={`mt-1 block w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 ease-in-out ${className}`}
 
