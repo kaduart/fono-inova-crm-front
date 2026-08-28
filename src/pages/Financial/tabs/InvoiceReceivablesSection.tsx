@@ -122,11 +122,10 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
     );
     const allVisibleInvoices = view === 'pending' ? pendingInvoices : receivedInvoices;
 
-    // Paginação no cliente: a lista já vem inteira do backend (é ela que alimenta
-    // os totais do topo — Saldo e Recebido precisam somar TODAS as notas, não só
-    // a página aberta). O que estava faltando era só não despejar tudo na tela:
-    // cada NF renderiza um card expansível com guias dentro, e a lista cresce a
-    // cada faturamento.
+    // Paginação no cliente: a lista já vem inteira do backend, já mesclada por
+    // número de NF (ver mergeReceivablesByInvoice em InsuranceBatchReceiptService).
+    // Cada item aqui é uma NF; se ela cobriu mais de um lançamento/remessa, isso
+    // já vem somado nas guias e nos totais — o front só exibe.
     const totalPages = Math.max(1, Math.ceil(allVisibleInvoices.length / PER_PAGE));
     const currentPage = Math.min(page, totalPages);
     const visibleInvoices = allVisibleInvoices.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
@@ -148,19 +147,31 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
         return next;
     });
 
+    // Uma NF mesclada pode representar mais de um InsuranceBatch (batchIds).
+    // Não existe transação atômica cruzando batches diferentes, então cada
+    // baixa roda em sequência; se uma falhar no meio, as anteriores já foram
+    // aplicadas (idempotentes numa nova tentativa — reenviar não duplica).
     const confirmReceipt = async () => {
         if (!target) return;
         setReceiving(true);
         try {
-            const guideIds = target.guide?.guideId ? [target.guide.guideId] : undefined;
-            const result = await receiveInvoiceBatch(target.invoice.batchId, { receivedDate, guideIds });
+            const guideId = target.guide?.guideId || undefined;
+            const batchIds = target.guide?.batchIds?.length ? target.guide.batchIds : target.invoice.batchIds;
+            let anyIdempotent = false;
+            for (const batchId of batchIds) {
+                const result = await receiveInvoiceBatch(batchId, {
+                    receivedDate,
+                    guideIds: guideId ? [guideId] : undefined,
+                });
+                if (result.idempotent) anyIdempotent = true;
+            }
             toast.success(target.guide
                 ? `Guia ${target.guide.number} recebida e refletida no financeiro.`
                 : `Baixa da NF ${target.invoice.invoiceNumber} registrada no financeiro.`);
             setTarget(null);
             await load();
             onChanged?.();
-            if (result.idempotent) toast.info('Os pagamentos selecionados já estavam recebidos.');
+            if (anyIdempotent) toast.info('Parte dos pagamentos selecionados já estava recebida.');
         } catch (error) {
             toast.error(extractErrorMessage(error, 'Não foi possível registrar a baixa'));
         } finally {
@@ -168,11 +179,16 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
         }
     };
 
+    // Idem: se a NF mesclada vier de mais de um batch, o número precisa ser
+    // atualizado em todos para continuarem agrupados na próxima consulta.
     const handleUpdateInvoiceNumber = async () => {
         if (!editingInvoice) return;
         setUpdatingInvoice(true);
         try {
-            await updateInvoiceNumber(editingInvoice.batchId, editInvoiceNumber.trim());
+            const batchIds = editingInvoice.batchIds?.length ? editingInvoice.batchIds : [editingInvoice.batchId];
+            for (const batchId of batchIds) {
+                await updateInvoiceNumber(batchId, editInvoiceNumber.trim());
+            }
             toast.success(`Número da NF atualizado para ${editInvoiceNumber.trim()}.`);
             setEditingInvoice(null);
             setEditInvoiceNumber('');
@@ -263,6 +279,11 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                                         <Pencil size={12} />
                                     </button>
                                     <StatusBadge status={invoice.status} />
+                                    {invoice.batchIds.length > 1 && (
+                                        <span className="rounded-full bg-violet-50 px-2 py-0.5 text-3xs font-bold text-violet-700">
+                                            {invoice.batchIds.length} lançamentos
+                                        </span>
+                                    )}
                                     {invoice.origin === 'legacy_reconciliation' && <span className="hidden rounded-full bg-violet-50 px-2 py-0.5 text-3xs font-bold text-violet-700 lg:inline">Legado</span>}
                                 </div>
                                 <p className="mt-0.5 truncate text-xs text-slate-500">

@@ -11,10 +11,18 @@ export interface InvoiceReceivableGuide {
     pendingSessions: number;
     pendingAmount: number;
     status: 'pending' | 'partial' | 'received';
+    // InsuranceBatch(es) de origem desta guia — uma mesma guia pode ter sido
+    // enviada em remessas separadas sob a mesma NF; a baixa precisa acionar
+    // cada batch de origem.
+    batchIds: string[];
 }
 
 export interface InvoiceReceivable {
     batchId: string;
+    // Todos os InsuranceBatch mesclados sob este número de NF (ver
+    // mergeReceivablesByInvoice no backend). Para uma NF sem duplicidade,
+    // é um array de 1 elemento igual a [batchId].
+    batchIds: string[];
     billingSubmissionId: string | null;
     invoiceNumber: string;
     invoiceDate: string | null;
