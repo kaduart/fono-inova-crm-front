@@ -22,6 +22,7 @@ import { extractErrorMessage } from '../../../utils/errorUtils';
 interface Props {
     onChanged?: () => void;
     onCountChange?: (count: number) => void;
+    patientFilter?: string;
 }
 
 function patientNameOf(s: BillingSubmission) {
@@ -53,8 +54,11 @@ function daysSince(iso?: string) {
     return Math.floor(diff / 86400000);
 }
 
-export default function RascunhosTab({ onChanged, onCountChange }: Props) {
+export default function RascunhosTab({ onChanged, onCountChange, patientFilter = '' }: Props) {
     const [items, setItems] = useState<BillingSubmission[]>([]);
+    const filteredItems = patientFilter.trim()
+        ? items.filter(s => patientNameOf(s).toLowerCase().includes(patientFilter.trim().toLowerCase()))
+        : items;
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [target, setTarget] = useState<BillingSubmission | null>(null);
@@ -112,19 +116,21 @@ export default function RascunhosTab({ onChanged, onCountChange }: Props) {
                 <div className="space-y-3">
                     {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} variant="rounded" height={104} />)}
                 </div>
-            ) : items.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                     <FileClock className="w-16 h-16 mx-auto mb-4 opacity-20" />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                        Nenhum preparo em aberto
+                        {items.length === 0 ? 'Nenhum preparo em aberto' : 'Nenhum rascunho encontrado'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        Nenhuma sessão está reservada — todo faturamento iniciado foi concluído ou cancelado.
+                        {items.length === 0
+                            ? 'Nenhuma sessão está reservada — todo faturamento iniciado foi concluído ou cancelado.'
+                            : 'Nenhum resultado para o filtro de paciente aplicado.'}
                     </Typography>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {items.map(s => {
+                    {filteredItems.map(s => {
                         const parado = daysSince(s.createdAt);
                         // 1 dia já é sinal: o preparo é feito e finalizado na mesma sessão de trabalho.
                         const alerta = parado >= 1;

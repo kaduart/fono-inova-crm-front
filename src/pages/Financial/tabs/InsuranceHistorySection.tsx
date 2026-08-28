@@ -811,9 +811,10 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
 interface InsuranceHistorySectionProps {
     activeYear?: number;
     activeMonth?: number;
+    patientFilter?: string;
 }
 
-export default function InsuranceHistorySection({ activeYear, activeMonth }: InsuranceHistorySectionProps) {
+export default function InsuranceHistorySection({ activeYear, activeMonth, patientFilter = '' }: InsuranceHistorySectionProps) {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(activeYear ?? currentYear);
     const [data, setData] = useState<InsuranceHistoryMonth[]>([]);
@@ -837,8 +838,11 @@ export default function InsuranceHistorySection({ activeYear, activeMonth }: Ins
         { open: false, title: '', accentColor: '#6366F1', rows: [] }
     );
 
-    // Filtros primários
+    // Filtros primários. A busca por paciente vem da barra de filtro
+    // compartilhada do painel de Convênios (InsuranceFilterBar/InsuranceTab) —
+    // o input próprio abaixo foi removido para não duplicar a busca.
     const [searchText, setSearchText] = useState('');
+    useEffect(() => { setSearchText(patientFilter); }, [patientFilter]);
 
     const _defaultMonth = (y: number, m?: number) =>
         m ? `${y}-${String(m).padStart(2, '0')}` : 'all';

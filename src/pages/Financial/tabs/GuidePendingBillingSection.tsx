@@ -959,6 +959,17 @@ const GuidePendingBillingSection = ({
     const toggleProvider = (provider: string) => setExpandedProviders(prev => (
         prev[provider] ? {} : { [provider]: true }
     ));
+
+    // Quando o filtro (número da guia/NF ou paciente, aplicado pelo pai antes
+    // de `guides` chegar aqui) reduz o resultado a um único convênio, abre o
+    // acordeon dele direto — sem isso quem já digitou o nome do paciente
+    // ainda precisava clicar pra revelar a linha que o filtro já achou.
+    useEffect(() => {
+        const providers = new Set(guides.map(guide => guide.insurance || 'outros'));
+        if (providers.size === 1) {
+            setExpandedProviders({ [[...providers][0]]: true });
+        }
+    }, [guides]);
     const toggleOrphanProvider = async (p: string) => {
         if (orphanSessionsLoading) return;
         if (orphanSessions.length === 0 && orphanSessionsCount > 0 && onLoadOrphanSessions) {

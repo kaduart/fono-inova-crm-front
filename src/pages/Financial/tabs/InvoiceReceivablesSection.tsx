@@ -42,6 +42,11 @@ interface ReceiptTarget {
 interface Props {
     onCountChange?: (count: number) => void;
     onChanged?: () => void;
+    // Filtro compartilhado com as outras sub-abas de Convênios (ver
+    // InsuranceFilterBar/InsuranceTab) — o valor vive no componente pai para
+    // não se perder ao trocar de aba.
+    nfFilter: string;
+    patientFilter: string;
 }
 
 // React StrictMode monta efeitos duas vezes em desenvolvimento. Compartilhar a
@@ -78,7 +83,7 @@ function StatusBadge({ status }: { status: InvoiceReceivable['status'] }) {
     );
 }
 
-export default function InvoiceReceivablesSection({ onCountChange, onChanged }: Props) {
+export default function InvoiceReceivablesSection({ onCountChange, onChanged, nfFilter, patientFilter }: Props) {
     const [invoices, setInvoices] = useState<InvoiceReceivable[]>([]);
     const [view, setView] = useState<'pending' | 'received'>('pending');
     const [loading, setLoading] = useState(true);
@@ -122,17 +127,32 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
     );
     const allVisibleInvoices = view === 'pending' ? pendingInvoices : receivedInvoices;
 
+    // Filtro por número de NF e por paciente — a lista já cresce rápido (17
+    // notas hoje, tende a virar centenas/milhares) e sem isso fica inviável
+    // achar uma nota específica só rolando a página.
+    const filteredInvoices = useMemo(() => {
+        const nfQuery = nfFilter.trim().toLowerCase();
+        const patientQuery = patientFilter.trim().toLowerCase();
+        if (!nfQuery && !patientQuery) return allVisibleInvoices;
+        return allVisibleInvoices.filter(invoice => {
+            const matchesNf = !nfQuery || (invoice.invoiceNumber || '').toLowerCase().includes(nfQuery);
+            const matchesPatient = !patientQuery || (invoice.patient?.fullName || '').toLowerCase().includes(patientQuery);
+            return matchesNf && matchesPatient;
+        });
+    }, [allVisibleInvoices, nfFilter, patientFilter]);
+
     // Paginação no cliente: a lista já vem inteira do backend, já mesclada por
     // número de NF (ver mergeReceivablesByInvoice em InsuranceBatchReceiptService).
     // Cada item aqui é uma NF; se ela cobriu mais de um lançamento/remessa, isso
     // já vem somado nas guias e nos totais — o front só exibe.
-    const totalPages = Math.max(1, Math.ceil(allVisibleInvoices.length / PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / PER_PAGE));
     const currentPage = Math.min(page, totalPages);
-    const visibleInvoices = allVisibleInvoices.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+    const visibleInvoices = filteredInvoices.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
-    // Trocar Pendentes/Baixadas volta para a primeira página — continuar na
-    // página 3 de uma lista que agora tem uma só deixaria a tela vazia.
-    useEffect(() => { setPage(1); }, [view]);
+    // Trocar Pendentes/Baixadas ou mudar um filtro volta para a primeira
+    // página — continuar na página 3 de uma lista filtrada menor deixaria a
+    // tela vazia.
+    useEffect(() => { setPage(1); }, [view, nfFilter, patientFilter]);
 
     const summary = useMemo(() => ({
         partial: pendingInvoices.filter(invoice => invoice.status === 'partial').length,
@@ -247,19 +267,31 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
                     <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-emerald-700">
                         <CheckCircle2 size={25} />
                     </div>
-                    <h3 className="mt-3 text-base font-black text-slate-900">{view === 'pending' ? 'Tudo certo por aqui' : 'Nenhuma baixa registrada'}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{view === 'pending' ? 'Nenhuma nota fiscal possui saldo aguardando recebimento.' : 'As notas aparecerão aqui depois da baixa financeira.'}</p>
+                    {nfFilter || patientFilter ? (
+                        <>
+                            <h3 className="mt-3 text-base font-black text-slate-900">Nenhuma NF encontrada</h3>
+                            <p className="mt-1 text-sm text-slate-500">Nenhum resultado para os filtros aplicados.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="mt-3 text-base font-black text-slate-900">{view === 'pending' ? 'Tudo certo por aqui' : 'Nenhuma baixa registrada'}</h3>
+                            <p className="mt-1 text-sm text-slate-500">{view === 'pending' ? 'Nenhuma nota fiscal possui saldo aguardando recebimento.' : 'As notas aparecerão aqui depois da baixa financeira.'}</p>
+                        </>
+                    )}
                 </section>
             ) : visibleInvoices.map(invoice => {
                 const isExpanded = expanded.has(invoice.batchId);
                 const progress = invoice.totalNet > 0
                     ? Math.min(100, Math.round((invoice.receivedAmount / invoice.totalNet) * 100))
                     : 0;
+                const cardTone = invoice.status === 'received'
+                    ? 'border-emerald-100 bg-emerald-50/40'
+                    : invoice.status === 'partial'
+                        ? 'border-amber-200 bg-amber-50/40'
+                        : 'border-slate-200 bg-blue-50/30';
                 return (
-                    <article key={invoice.batchId} className={`overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md ${
-                        invoice.status === 'partial' ? 'border-amber-200' : 'border-slate-200'
-                    }`}>
-                        <button type="button" onClick={() => toggleExpanded(invoice.batchId)} className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-3.5 py-3 text-left transition hover:bg-slate-50 sm:px-4">
+                    <article key={invoice.batchId} className={`overflow-hidden rounded-xl border shadow-sm transition-shadow hover:shadow-md ${cardTone}`}>
+                        <button type="button" onClick={() => toggleExpanded(invoice.batchId)} className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/60 sm:px-4">
                             <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${invoice.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                                 <FileText size={18} />
                             </div>
@@ -357,7 +389,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged }: 
             {totalPages > 1 && (
                 <nav className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3" aria-label="Paginação das notas fiscais">
                     <p className="text-xs font-semibold text-slate-500">
-                        {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, allVisibleInvoices.length)} de {allVisibleInvoices.length} nota{allVisibleInvoices.length !== 1 ? 's' : ''}
+                        {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filteredInvoices.length)} de {filteredInvoices.length} nota{filteredInvoices.length !== 1 ? 's' : ''}
                     </p>
                     <div className="flex items-center gap-1.5">
                         <button

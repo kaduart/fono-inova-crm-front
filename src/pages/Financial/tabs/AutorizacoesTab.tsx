@@ -45,6 +45,7 @@ import { useConvenios } from '../../../hooks/useConvenios';
 interface AutorizacoesTabProps {
     month: number;
     year: number;
+    patientFilter?: string;
 }
 
 const STATUS_CONFIG: Record<CommunicationStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -83,9 +84,12 @@ function StatusBadge({ status }: { status: CommunicationStatus }) {
     );
 }
 
-export const AutorizacoesTab = ({ month, year }: AutorizacoesTabProps) => {
+export const AutorizacoesTab = ({ month, year, patientFilter = '' }: AutorizacoesTabProps) => {
     const [activeTab, setActiveTab] = useState<CommunicationStatus>('draft');
     const [authorizations, setAuthorizations] = useState<CommunicationRequest[]>([]);
+    const filteredAuthorizations = patientFilter.trim()
+        ? authorizations.filter(auth => (auth.patientName || '').toLowerCase().includes(patientFilter.trim().toLowerCase()))
+        : authorizations;
     const [loading, setLoading] = useState(false);
     const [selectedAuthorization, setSelectedAuthorization] = useState<CommunicationRequest | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -216,16 +220,18 @@ export const AutorizacoesTab = ({ month, year }: AutorizacoesTabProps) => {
                                 <Skeleton key={i} variant="rounded" height={90} />
                             ))}
                         </div>
-                    ) : authorizations.length === 0 ? (
+                    ) : filteredAuthorizations.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             <FileText className="w-16 h-16 mx-auto mb-4 opacity-20" />
                             <Typography variant="h6" color="text.secondary" gutterBottom>
-                                Nenhuma autorização {STATUS_CONFIG[activeTab]?.label.toLowerCase()}
+                                {authorizations.length === 0
+                                    ? `Nenhuma autorização ${STATUS_CONFIG[activeTab]?.label.toLowerCase()}`
+                                    : 'Nenhum resultado para o filtro de paciente aplicado'}
                             </Typography>
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {authorizations.map((auth) => (
+                            {filteredAuthorizations.map((auth) => (
                                 <Card
                                     key={auth._id}
                                     elevation={0}

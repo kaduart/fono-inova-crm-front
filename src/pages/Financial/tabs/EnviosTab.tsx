@@ -10,7 +10,6 @@ import {
     Typography,
     Chip,
     Skeleton,
-    TextField,
     FormControl,
     InputLabel,
     Select,
@@ -89,7 +88,11 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }>
     not_sent: { label: 'Não enviado', bg: '#FFEDD5', color: '#9A3412' }
 };
 
-export default function EnviosTab() {
+interface Props {
+    patientFilter?: string;
+}
+
+export default function EnviosTab({ patientFilter = '' }: Props) {
     const [items, setItems] = useState<CommunicationEmailLogEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [purpose, setPurpose] = useState<CommunicationPurpose | 'all'>('all');
@@ -98,6 +101,14 @@ export default function EnviosTab() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchText, setSearchText] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    // Busca por paciente agora vem da barra de filtro compartilhada do painel
+    // de Convênios (InsuranceFilterBar/InsuranceTab) — mantém o próprio debounce
+    // e a busca server-side já existentes, só troca a origem do valor.
+    useEffect(() => {
+        setSearchText(patientFilter);
+        setPage(1);
+    }, [patientFilter]);
     const [selected, setSelected] = useState<CommunicationRequest | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [drawerTab, setDrawerTab] = useState<'send' | 'history'>('history');
@@ -198,13 +209,6 @@ export default function EnviosTab() {
 
             {/* Filtros */}
             <div className="flex flex-wrap items-center gap-2.5 mb-4">
-                <TextField
-                    size="small"
-                    placeholder="Buscar paciente..."
-                    value={searchText}
-                    onChange={e => { setSearchText(e.target.value); setPage(1); }}
-                    sx={{ minWidth: 220 }}
-                />
                 <FormControl size="small" sx={{ minWidth: 210 }}>
                     <InputLabel>Situação</InputLabel>
                     <Select value={statusFilter} label="Situação" onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>

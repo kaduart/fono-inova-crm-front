@@ -45,7 +45,7 @@ import {
     FileText,
     FileClock,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
@@ -78,6 +78,7 @@ import { getConvenio } from '../../../services/insuranceService';
 import BillingCommunicationWizard from '../components/BillingCommunicationWizard';
 import { createBillingSubmission, cancelBillingSubmission, listBillingSubmissions, getBillingSubmission } from '../../../services/billingSubmissionService';
 import InvoiceReceivablesSection from './InvoiceReceivablesSection';
+import InsuranceFilterBar from '../components/InsuranceFilterBar';
 import { receiveInvoiceBatch } from '../../../services/insuranceBatchReceiptService';
 import { waitForCashflowLoad } from '../../../services/financialLoadCoordinator';
 import { GuideDetailLoadCache } from '../../../services/guideDetailLoadCache';
@@ -243,6 +244,25 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             return next;
         }, { replace: true });
     };
+    // Filtro compartilhado por todas as sub-abas de Convênios (ver
+    // InsuranceFilterBar) — vive aqui, no pai, para não se perder ao trocar de
+    // sub-aba.
+    const [nfFilter, setNfFilter] = useState('');
+    const [patientFilter, setPatientFilter] = useState('');
+    const filterGuides = useCallback((guides: PendingGuide[]) => {
+        const nfQuery = nfFilter.trim().toLowerCase();
+        const patientQuery = patientFilter.trim().toLowerCase();
+        if (!nfQuery && !patientQuery) return guides;
+        return guides.filter(guide => {
+            const matchesPatient = !patientQuery || (guide.patient?.fullName || '').toLowerCase().includes(patientQuery);
+            const matchesNf = !nfQuery
+                || (guide.number || '').toLowerCase().includes(nfQuery)
+                || (guide.invoiceNumber || '').toLowerCase().includes(nfQuery)
+                || (guide.invoices || []).some(inv => (inv.invoiceNumber || '').toLowerCase().includes(nfQuery));
+            return matchesPatient && matchesNf;
+        });
+    }, [nfFilter, patientFilter]);
+
     const [receivables, setReceivables] = useState<InsuranceReceivableGroup[]>([]);
     const [allReceivables, setAllReceivables] = useState<InsuranceReceivableGroup[]>([]); // Todos os status para os cards
     const [loading, setLoading] = useState(false);
@@ -384,6 +404,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         pendingStateGuides: guidesByPhase.pendingBilling,
         waitingBillingGuides: guidesByPhase.documentationSent
     }), [guidesByPhase]);
+
+    // Memoizados para manter a MESMA referência de array entre renders quando o
+    // filtro não mudou — sem isso, GuidePendingBillingSection recebia um array
+    // novo a cada render (mesmo conteúdo) e não conseguia detectar de forma
+    // estável "o filtro reduziu a 1 convênio, abre ele" (ver useEffect lá).
+    const filteredPendingStateGuides = useMemo(() => filterGuides(pendingStateGuides), [filterGuides, pendingStateGuides]);
+    const filteredWaitingBillingGuides = useMemo(() => filterGuides(waitingBillingGuides), [filterGuides, waitingBillingGuides]);
+    const filteredBilledGuides = useMemo(() => filterGuides(guidesByPhase.billed), [filterGuides, guidesByPhase.billed]);
+    const filteredReceivedGuides = useMemo(() => filterGuides(guidesByPhase.received), [filterGuides, guidesByPhase.received]);
 
     // Detalha QUAIS guias compõem o atraso usando exclusivamente o breakdown da
     // ReadView. O frontend não interpreta datas nem recompõe competência.
@@ -1556,9 +1585,24 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     </Paper>
                 )}
 
+                {subTab !== 7 && (
+                    <Box sx={{ px: 3, pt: 2 }}>
+                        <InsuranceFilterBar
+                            nfValue={nfFilter}
+                            onNfChange={setNfFilter}
+                            patientValue={patientFilter}
+                            onPatientChange={setPatientFilter}
+                            showNfFilter={subTab === 0 || subTab === 1 || subTab === 2 || subTab === 3 || subTab === 8}
+                            nfPlaceholder="Filtrar por número da guia/NF"
+                        />
+                    </Box>
+                )}
+
                 <Box sx={{ p: 3 }}>
                     {subTab === 8 ? (
                         <InvoiceReceivablesSection
+                            nfFilter={nfFilter}
+                            patientFilter={patientFilter}
                             onCountChange={setInvoiceReceivableCount}
                             onChanged={() => {
                                 // Após uma baixa, atualiza os badges de guias.
@@ -1570,6 +1614,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         <ConvenioManagerModal open onClose={() => {}} embedded />
                     ) : subTab === 9 ? (
                         <RascunhosTab
+                            patientFilter={patientFilter}
                             onCountChange={setDraftSubmissionCount}
                             onChanged={() => {
                                 // Cancelar um rascunho libera sessões: as abas de
@@ -1580,14 +1625,14 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                             }}
                         />
                     ) : subTab === 6 ? (
-                        <EnviosTab />
+                        <EnviosTab patientFilter={patientFilter} />
                     ) : subTab === 5 ? (
-                        <AutorizacoesTab month={month} year={year} />
+                        <AutorizacoesTab month={month} year={year} patientFilter={patientFilter} />
                     ) : subTab === 4 ? (
-                        <InsuranceHistorySection activeYear={year} activeMonth={month} />
+                        <InsuranceHistorySection activeYear={year} activeMonth={month} patientFilter={patientFilter} />
                     ) : subTab === 0 || subTab === 1 ? (
                         <GuidePendingBillingSection
-                            guides={subTab === 0 ? pendingStateGuides : waitingBillingGuides}
+                            guides={subTab === 0 ? filteredPendingStateGuides : filteredWaitingBillingGuides}
                             selectedGuides={selectedGuides}
                             orphanSessions={subTab === 0 ? orphanSessions : []}
                             orphanSessionsCount={subTab === 0 ? orphanSessionsCount : 0}
@@ -1615,7 +1660,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         // Faturados preserva o command de recebimento; somente Recebidos
                         // é read-only. A fonte de leitura não remove ação existente.
                         <GuidePendingBillingSection
-                            guides={subTab === 2 ? guidesByPhase.billed : guidesByPhase.received}
+                            guides={subTab === 2 ? filteredBilledGuides : filteredReceivedGuides}
                             selectedGuides={selectedGuides}
                             orphanSessions={[]}
                             orphanSessionsCount={0}
