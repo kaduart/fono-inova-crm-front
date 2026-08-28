@@ -33,6 +33,13 @@ import { validateObject, required, betweenNumber, minNumber } from "../../utils/
 
 const WEEKS_PER_MONTH = 4;
 
+const normSpec = (specialty: string) => (specialty || '').toLowerCase().replace(/_/g, ' ').trim();
+
+const therapyValueForSpecialty = (specialty?: string) => THERAPY_TYPES.find(option =>
+    normSpec(option.value) === normSpec(specialty || '') ||
+    normSpec(option.label) === normSpec(specialty || '')
+)?.value;
+
 // Semanal = ocorrência toda semana (intervalWeeks=1). Quinzenal = ocorrência a
 // cada 2 semanas (intervalWeeks=2) — mesma "Sessões por Semana"/slots dentro da
 // semana ativa, só espaçados o dobro. Centraliza a matemática de duração↔sessões
@@ -100,6 +107,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const [errors, setErrors] = useState<FormErrors>({});
     const [formData, setFormData] = useState(initialFormState);
     const selectedAppointmentIdRef = useRef<string>(''); // ref para garantir valor no submit
+    const specialtyDerivedFromDebtRef = useRef(false);
+    const previousSessionTypeRef = useRef('');
     const [appointments, setAppointments] = useState<IAppointment[]>([]);
     const [calculationMode, setCalculationMode] = useState('duration');
     const [frequencyInterval, setFrequencyInterval] = useState<'weekly' | 'biweekly'>('weekly');
@@ -121,6 +130,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         date: string;
         time?: string;
         specialty: string;
+        doctorId?: string;
         doctorName?: string;
         status: string;
         source: string;
@@ -134,8 +144,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     } | null>(null);
 
     // normaliza especialidade para comparação (fonoaudiologia == Fonoaudiologia == terapia_ocupacional == Terapia Ocupacional)
-    const normSpec = (s: string) => (s || '').toLowerCase().replace(/_/g, ' ').trim();
-
     // débitos filtrados pela especialidade selecionada no formulário
     const filteredDebts = useMemo(() => {
         if (!formData.sessionType) return v2ImportedSessions;
@@ -308,7 +316,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const realPatientId = patient?.patientId || patient?._id;
 
     useEffect(() => {
-        console.log('[TherapyPackageFormModal] Patient mudou:', patient, '→ realPatientId:', realPatientId);
+        console.log('[TherapyPackageFormModal] Carregando paciente:', realPatientId);
         if (realPatientId) {
             setFormData(prev => ({
                 ...prev,
@@ -316,7 +324,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             }));
             fetchAppointmentsByPatient(realPatientId);
         }
-    }, [patient]);
+    }, [realPatientId]);
 
     // Popular formulário quando estiver editando um pacote existente
     useEffect(() => {
@@ -370,9 +378,27 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
     // Auto-carrega débitos ao selecionar especialidade; limpa seleção e sessionValue anterior
     useEffect(() => {
-        if (!formData.sessionType || !realPatientId) return;
-        setSelectedDebtIds(new Set());
-        setFormData(prev => ({ ...prev, sessionValue: 0 })); // reseta valor ao trocar especialidade
+        const currentSessionType = formData.sessionType;
+        const previousSessionType = previousSessionTypeRef.current;
+
+        if (!currentSessionType || !realPatientId) {
+            previousSessionTypeRef.current = currentSessionType;
+            return;
+        }
+        if (specialtyDerivedFromDebtRef.current) {
+            specialtyDerivedFromDebtRef.current = false;
+            previousSessionTypeRef.current = currentSessionType;
+            return;
+        }
+
+        const specialtyActuallyChanged = previousSessionType !== ''
+            && normSpec(previousSessionType) !== normSpec(currentSessionType);
+        previousSessionTypeRef.current = currentSessionType;
+
+        if (specialtyActuallyChanged) {
+            setSelectedDebtIds(new Set());
+            setFormData(prev => ({ ...prev, sessionValue: 0 }));
+        }
         handleImportFromV2();
     }, [formData.sessionType]);
 
@@ -402,13 +428,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             const second = `${String(b.date || '').split('T')[0]}T${b.time || '00:00'}`;
             return first.localeCompare(second);
         })[0];
+        const debtSessionType = therapyValueForSpecialty(oldestDebt.specialty);
 
         selectedAppointmentIdRef.current = '';
+        if (debtSessionType && formData.sessionType !== debtSessionType) {
+            specialtyDerivedFromDebtRef.current = true;
+        }
         setFormData(prev => ({
             ...prev,
             appointmentId: '',
             date: String(oldestDebt.date || '').split('T')[0],
             time: oldestDebt.time || '',
+            doctorId: oldestDebt.doctorId || prev.doctorId,
+            sessionType: debtSessionType || prev.sessionType,
         }));
 
         // sessionValue vem do primeiro débito da especialidade correta
@@ -489,7 +521,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     date: item.serviceDate || item.appointment?.date || item.paymentDate,
                     time: item.appointment?.time,
                     specialty: item.specialty,
-                    doctorName: item.doctor?.fullName,
+                    doctorId: item.session?.doctor?._id || item.appointment?.doctor?._id || item.doctor?._id,
+                    doctorName: item.session?.doctor?.fullName || item.appointment?.doctor?.fullName || item.doctor?.fullName,
                     status: 'PENDING',
                 }));
 
