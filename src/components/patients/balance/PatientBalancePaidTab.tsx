@@ -25,25 +25,29 @@ const translateMethod = (method?: string | null): string => {
   return map[method] || method;
 };
 
-const PaymentMethodBadge = ({ payment }: { payment: PaymentItem }) => {
+const PaymentMethodInline = ({ payment }: { payment: PaymentItem }) => {
   if (payment.splitMethods && payment.splitMethods.length >= 2) {
     return (
-      <div className="text-xs text-green-700 dark:text-green-300 mt-1">
-        <span className="font-semibold">Split:</span>{' '}
-        {payment.splitMethods.map((s, i) => (
-          <span key={i}>
-            {translateMethod(s.method)} {formatCurrency(s.amount)}
-            {i < payment.splitMethods!.length - 1 ? ' + ' : ''}
-          </span>
-        ))}
-      </div>
+      <>
+        <span className="text-gray-300">•</span>
+        <span className="text-green-700 font-medium">
+          Split:{' '}
+          {payment.splitMethods.map((s, i) => (
+            <span key={i}>
+              {translateMethod(s.method)} {formatCurrency(s.amount)}
+              {i < payment.splitMethods!.length - 1 ? ' + ' : ''}
+            </span>
+          ))}
+        </span>
+      </>
     );
   }
   if (payment.paymentMethod) {
     return (
-      <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-        💳 {translateMethod(payment.paymentMethod)}
-      </p>
+      <>
+        <span className="text-gray-300">•</span>
+        <span className="text-green-700">💳 {translateMethod(payment.paymentMethod)}</span>
+      </>
     );
   }
   return null;
@@ -83,41 +87,37 @@ export const PatientBalancePaidTab: React.FC<Props> = ({ payments }) => {
       {payments.map((payment) => (
         <div
           key={payment.id}
-          className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
+          className="p-3 rounded-xl border border-green-200 bg-green-50/30"
         >
-          <div className="flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {payment.description || 'Pagamento'}
-                  </p>
-                  <div className="mt-1.5 space-y-0.5">
-                    {payment.appointment && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        📅 {formatSessionDate(payment.appointment.date)}
-                        {payment.appointment.time && (
-                          <span className="text-gray-500"> às {payment.appointment.time}</span>
-                        )}
-                      </p>
+          <div className="flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-gray-900 truncate">
+                  {payment.description || 'Pagamento'}
+                </p>
+                <p className="font-bold text-lg text-green-600 flex-shrink-0">
+                  {formatCurrency(payment.amount)}
+                </p>
+              </div>
+              <div className="mt-1 flex items-center gap-x-2 gap-y-0.5 flex-wrap text-xs text-gray-500">
+                {payment.appointment && (
+                  <span className="text-gray-600">
+                    📅 {formatSessionDate(payment.appointment.date)}
+                    {payment.appointment.time && (
+                      <span className="text-gray-500"> às {payment.appointment.time}</span>
                     )}
-                    <p className="text-xs text-gray-500 dark:text-gray-500">
-                      Registrado em: {formatDateTime(payment.createdAt)}
-                    </p>
-                    {payment.paidAt && (
-                      <p className="text-xs text-green-600 dark:text-green-400">
-                        Quitado em: {formatDateTime(payment.paidAt)}
-                      </p>
-                    )}
-                    <PaymentMethodBadge payment={payment} />
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-bold text-lg text-green-600 dark:text-green-400">
-                    {formatCurrency(payment.amount)}
-                  </p>
-                </div>
+                  </span>
+                )}
+                {payment.appointment && <span className="text-gray-300">•</span>}
+                <span>Registrado: {formatDateTime(payment.createdAt)}</span>
+                {payment.paidAt && (
+                  <>
+                    <span className="text-gray-300">•</span>
+                    <span className="text-green-600">Quitado: {formatDateTime(payment.paidAt)}</span>
+                  </>
+                )}
+                <PaymentMethodInline payment={payment} />
               </div>
             </div>
           </div>

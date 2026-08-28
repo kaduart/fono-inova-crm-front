@@ -25,14 +25,14 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
   const volume = sessionDebt + totalPaid;
 
   return (
-    <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 text-white flex-shrink-0">
+    <div className="bg-white p-5 text-gray-900 flex-shrink-0 border-b border-gray-200">
       <div className="flex justify-between items-start">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-amber-400" />
+            <Wallet className="w-6 h-6 text-amber-500" />
             Sessões em aberto
           </h2>
-          <p className="text-slate-300 text-sm mt-0.5">{patientName}</p>
+          <p className="text-gray-500 text-sm mt-0.5">{patientName}</p>
         </div>
       </div>
 
@@ -45,7 +45,7 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
               <AlertTriangle className="w-3.5 h-3.5" />
               <span className="text-3xs font-bold uppercase tracking-wider">Saldo Devedor</span>
             </div>
-            <p className="text-xl sm:text-2xl font-bold">{formatCurrency(sessionDebt)}</p>
+            <p className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(sessionDebt)}</p>
             {pendingCount > 0 && (
               <p className="text-2xs text-red-200 mt-1">
                 {pendingCount} sessão{pendingCount !== 1 ? 'ões' : ''} em aberto
@@ -62,7 +62,7 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
               <CheckCircle className="w-3.5 h-3.5" />
               <span className="text-3xs font-bold uppercase tracking-wider">Total Pago</span>
             </div>
-            <p className="text-xl sm:text-2xl font-bold">{formatCurrency(totalPaid)}</p>
+            <p className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(totalPaid)}</p>
             {paidCount > 0 && (
               <p className="text-2xs text-emerald-200 mt-1">
                 {paidCount} pagamento{paidCount !== 1 ? 's' : ''} quitado{paidCount !== 1 ? 's' : ''}
@@ -75,18 +75,18 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
 
       {/* Sessões realizadas + Volume */}
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 p-3 flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-sky-300 flex-shrink-0" />
+        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 flex items-center gap-2">
+          <ClipboardList className="w-4 h-4 text-sky-500 flex-shrink-0" />
           <div>
-            <p className="text-3xs text-slate-400 uppercase tracking-wider">Sessões Realizadas</p>
-            <p className="text-sm font-bold text-white">{completedSessions}</p>
+            <p className="text-3xs text-gray-500 uppercase tracking-wider">Sessões Realizadas</p>
+            <p className="text-sm font-bold text-gray-900">{completedSessions}</p>
           </div>
         </div>
-        <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 p-3 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-amber-400 flex-shrink-0" />
+        <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-amber-500 flex-shrink-0" />
           <div>
-            <p className="text-3xs text-slate-400 uppercase tracking-wider">Volume Total</p>
-            <p className="text-sm font-bold text-white">{formatCurrency(volume)}</p>
+            <p className="text-3xs text-gray-500 uppercase tracking-wider">Volume Total</p>
+            <p className="text-sm font-bold text-gray-900">{formatCurrency(volume)}</p>
           </div>
         </div>
       </div>

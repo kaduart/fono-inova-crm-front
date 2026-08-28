@@ -21,29 +21,31 @@ export const PatientBalanceAddTab: React.FC<Props> = ({
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Valor (R$)
-        </label>
-        <InputCurrency
-          name="addAmount"
-          value={amount}
-          onChange={(e) => onAmountChange(Number(e.target.value))}
-          className="w-full"
-        />
-      </div>
+      <div className="flex gap-3">
+        <div className="w-36 flex-shrink-0">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Valor (R$)
+          </label>
+          <InputCurrency
+            name="addAmount"
+            value={amount}
+            onChange={(e) => onAmountChange(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Descrição
-        </label>
-        <input
-          type="text"
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Ex: Sessão extra - pagamento pendente"
-          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-        />
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Descrição
+          </label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="Ex: Sessão extra - pagamento pendente"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white text-gray-900"
+          />
+        </div>
       </div>
 
       <button

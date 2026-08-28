@@ -1288,14 +1288,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           }
                         }
 
-                        // Agrupar recebimentos repetidos (mesmo paciente/serviço/valor, sessões distintas —
-                        // ex: paciente quitando várias sessões atrasadas de uma vez). Diferente do agrupamento
-                        // acima (splitGroupId/venda de pacote): aqui não é "1 pagamento em várias formas",
-                        // é "N pagamentos distintos iguais" — por isso vira modal de detalhe, não breakdown inline.
+                        // Agrupar recebimentos repetidos por paciente + tipo + especialidade (sessões distintas,
+                        // pacotes distintos ou valores distintos — ex: paciente quitando várias sessões avulsas
+                        // da mesma área ao longo do dia). Diferente do agrupamento acima (splitGroupId/venda de
+                        // pacote): aqui não é "1 pagamento em várias formas", é "N pagamentos distintos da mesma
+                        // especialidade" — por isso vira modal de detalhe, não breakdown inline.
                         const recebimentoGroups = new Map<string, any[]>();
                         const trulySingles: any[] = [];
                         for (const t of singles) {
-                          const key = `${t.paciente}|${t.packageId || ''}|${t.tipo}|${t.valor}`;
+                          const key = `${t.paciente}|${t.tipo}|${t.especialidade || ''}`;
                           if (!recebimentoGroups.has(key)) recebimentoGroups.set(key, []);
                           recebimentoGroups.get(key)!.push(t);
                         }
