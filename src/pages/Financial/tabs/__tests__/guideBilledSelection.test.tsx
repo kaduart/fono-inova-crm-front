@@ -121,11 +121,11 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
         expect(onPrepareBilling).toHaveBeenCalledWith(['guide-billed']);
     });
 
-    it('inclui automaticamente todas as guias do mês no modo mensal', () => {
+    it('exige marcar as guias do mês no modo mensal antes de faturar (mesmo padrão de checkbox do modo por guia)', () => {
         const onPrepareBilling = vi.fn();
         const monthlyGuides: PendingGuide[] = [
-            { ...billedGuide, guideId: 'guide-month-1', number: '3001', billingMode: 'per_month' },
-            { ...billedGuide, guideId: 'guide-month-2', number: '3002', billingMode: 'per_month' }
+            { ...billedGuide, guideId: 'guide-month-1', number: '3001', billingMode: 'per_month', sessions: [{ sessionId: 's1', paymentId: 'pay-1', phase: 'billed', value: 140, date: '2026-08-05' }] },
+            { ...billedGuide, guideId: 'guide-month-2', number: '3002', billingMode: 'per_month', sessions: [{ sessionId: 's2', paymentId: 'pay-2', phase: 'billed', value: 140, date: '2026-08-06' }] }
         ];
 
         render(
@@ -147,10 +147,13 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
             />
         );
 
-        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-        expect(screen.getByText(/todas as sessões do mês serão incluídas automaticamente/i)).toBeInTheDocument();
+        // Antes de marcar nada, tem checkbox (igual ao modo por guia) e o botão fica desabilitado.
+        expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+        expect(screen.getByRole('button', { name: /preparar faturamento/i })).toBeDisabled();
+
+        fireEvent.click(screen.getAllByRole('checkbox')[0]);
         fireEvent.click(screen.getByRole('button', { name: /preparar faturamento/i }));
-        expect(onPrepareBilling).toHaveBeenCalledWith(['guide-month-1', 'guide-month-2']);
+        expect(onPrepareBilling).toHaveBeenCalledWith(['guide-month-1', 'guide-month-2'], '2026-08');
     });
 
     it('abre a competência pendente mais antiga quando o mês selecionado não possui sessões', () => {
@@ -185,6 +188,7 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
         fireEvent.click(screen.getByText('Bradesco Saúde'));
         fireEvent.click(screen.getByText('Paciente Atrasado'));
         expect(screen.getByText('Competência 2026-06')).toBeInTheDocument();
+        fireEvent.click(screen.getAllByRole('checkbox')[0]);
         fireEvent.click(screen.getByRole('button', { name: /preparar faturamento/i }));
         expect(onPrepareBilling).toHaveBeenCalledWith(['guide-overdue'], '2026-06');
     });

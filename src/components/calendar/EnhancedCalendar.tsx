@@ -972,7 +972,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     {isConvenio && (
                         <p className="text-xs text-gray-700 mt-2 flex items-center gap-1 bg-white/60 rounded-lg px-2 py-1">
                             <span>🏥</span>
-                            <span>{insuranceProviderName || 'Convênio'}</span>
+                            <span>{insuranceProviderName || 'Convênio'}{appointment.insuranceGuideNumber ? ` · Guia #${appointment.insuranceGuideNumber}` : ''}</span>
                         </p>
                     )}
                     {!hasPackage && !isConvenio && reason && (
@@ -1166,6 +1166,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                                 <div className="text-2xs text-gray-700">
                                     {insuranceProviderName && <div>{insuranceProviderName}</div>}
+                                    {appointment.insuranceGuideNumber && <div>Guia #{appointment.insuranceGuideNumber}</div>}
                                     {appointment.insuranceValue > 0 && (
                                         <div>Valor tabela: R$ {appointment.insuranceValue.toFixed(2)}</div>
                                     )}
@@ -1501,6 +1502,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                                 <div className="text-3xs text-slate-300">
                                     <div className="font-semibold text-white">{insuranceProviderName}</div>
+                                    {arg.event.extendedProps.insuranceGuideNumber && (
+                                        <div>Guia #{arg.event.extendedProps.insuranceGuideNumber}</div>
+                                    )}
                                     <div>💳 Valor tabela: R$ {arg.event.extendedProps.insuranceValue?.toFixed(2) || '0,00'}</div>
                                 </div>
                             </div>

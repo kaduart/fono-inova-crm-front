@@ -385,25 +385,12 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
     const isBillingMode = drawerAction === 'bill';
     const isPerGuide = guides[0]?.billingMode === 'per_guide';
     const isAutomaticMonthlySelection = !isPerGuide && (isDocumentMode || isBillingMode);
-    const allSelected  = isAutomaticMonthlySelection || guides.every(g => selectedGuides.has(g.guideId));
-    const someSelected = !isAutomaticMonthlySelection && guides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
-    const selectedHere = isAutomaticMonthlySelection ? guides : guides.filter(g => selectedGuides.has(g.guideId));
-    const selectedSessions = selectedHere.reduce((sum, guide) => sum + (guide.pendingSessions || 0), 0);
-    const selectedValue = selectedHere.reduce((sum, guide) => sum + resolveGuidePendingTotal(guide), 0);
     const phasePresentation = {
         pendingBilling: { title: 'A faturar · documentos pendentes', sessions: 'sessões a faturar', value: 'a faturar', color: '#6D28D9', bg: '#EDE9FE', border: '#C4B5FD' },
         documentationSent: { title: 'Documentos enviados · pronto para faturar', sessions: 'sessões documentadas', value: 'pronto para faturar', color: '#1D4ED8', bg: '#DBEAFE', border: '#93C5FD' },
         billed: { title: 'Faturados · aguardando recebimento', sessions: 'sessões faturadas', value: 'a receber', color: '#047857', bg: '#D1FAE5', border: '#6EE7B7' },
         received: { title: 'Recebidos · conferência', sessions: 'sessões recebidas', value: 'recebido', color: '#047857', bg: '#D1FAE5', border: '#6EE7B7' }
     }[phase];
-
-    const toggleAllGuides = () => {
-        if (allSelected) {
-            guides.forEach(g => onToggleGuide(g.guideId));
-            return;
-        }
-        guides.filter(g => !selectedGuides.has(g.guideId)).forEach(g => onToggleGuide(g.guideId));
-    };
 
     const [expandedGuides, setExpandedGuides] = useState<Set<string>>(new Set());
 
@@ -469,8 +456,73 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
         })()
         : [];
 
-    const renderGuideCard = (guide: PendingGuide) => {
-        const isSelected  = selectedGuides.has(guide.guideId);
+    // Seleção por checkbox igual ao modo por guia (achado do usuário: o modo
+    // mensal não tinha checkbox nenhum, todas as sessões eram sempre "tudo
+    // selecionado" e cada competência tinha seu próprio botão sempre ativo).
+    // Como uma MESMA guia pode ter sessões pendentes em mais de uma
+    // competência (backlog), a seleção aqui não pode ser só por guideId — usa
+    // chave composta competência+guia, local a este drawer.
+    const [scopedSelection, setScopedSelection] = useState<Set<string>>(new Set());
+    const scopedKey = (competence: string, guideId: string) => `${competence}::${guideId}`;
+    const allScopedEntries = competenceGroups.flatMap(group =>
+        group.guides.map(guide => ({ competence: group.competence, guide }))
+    );
+
+    const allSelected = isAutomaticMonthlySelection
+        ? allScopedEntries.length > 0 && allScopedEntries.every(e => scopedSelection.has(scopedKey(e.competence, e.guide.guideId)))
+        : guides.length > 0 && guides.every(g => selectedGuides.has(g.guideId));
+    const someSelected = isAutomaticMonthlySelection
+        ? allScopedEntries.some(e => scopedSelection.has(scopedKey(e.competence, e.guide.guideId))) && !allSelected
+        : guides.some(g => selectedGuides.has(g.guideId)) && !allSelected;
+    const selectedScopedEntries = allScopedEntries.filter(e => scopedSelection.has(scopedKey(e.competence, e.guide.guideId)));
+    const selectedHere = isAutomaticMonthlySelection ? selectedScopedEntries.map(e => e.guide) : guides.filter(g => selectedGuides.has(g.guideId));
+    const selectedSessions = selectedHere.reduce((sum, guide) => sum + (guide.pendingSessions || 0), 0);
+    const selectedValue = selectedHere.reduce((sum, guide) => sum + resolveGuidePendingTotal(guide), 0);
+
+    const toggleAllGuides = () => {
+        if (isAutomaticMonthlySelection) {
+            setScopedSelection(allSelected
+                ? new Set()
+                : new Set(allScopedEntries.map(e => scopedKey(e.competence, e.guide.guideId))));
+            return;
+        }
+        if (allSelected) {
+            guides.forEach(g => onToggleGuide(g.guideId));
+            return;
+        }
+        guides.filter(g => !selectedGuides.has(g.guideId)).forEach(g => onToggleGuide(g.guideId));
+    };
+
+    const toggleScopedGuide = (competence: string, guideId: string) => {
+        const key = scopedKey(competence, guideId);
+        setScopedSelection(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
+
+    // Um clique em "Enviar" pode juntar guias de competências diferentes (é
+    // permitido marcar mais de uma) — mas o faturamento é 1 lote por
+    // competência, então despacha uma chamada por competência representada
+    // na seleção atual.
+    const submitScopedSelection = () => {
+        const byCompetence = new Map<string, string[]>();
+        selectedScopedEntries.forEach(e => {
+            if (!byCompetence.has(e.competence)) byCompetence.set(e.competence, []);
+            byCompetence.get(e.competence)!.push(e.guide.guideId);
+        });
+        byCompetence.forEach((guideIds, competence) => onDrawerAction?.(guideIds, competence));
+    };
+
+    const renderGuideCard = (guide: PendingGuide, competence?: string) => {
+        const isSelected  = isAutomaticMonthlySelection
+            ? scopedSelection.has(scopedKey(competence!, guide.guideId))
+            : selectedGuides.has(guide.guideId);
+        const handleToggleSelected = () => isAutomaticMonthlySelection
+            ? toggleScopedGuide(competence!, guide.guideId)
+            : onToggleGuide(guide.guideId);
         const isExpanded  = expandedGuides.has(guide.guideId);
         const hasSessions = (guide.sessions || []).length > 0;
         const billingState = getGuideBillingState(guide);
@@ -500,10 +552,10 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                     {/* Row 1: checkbox + número + badge + valor */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.25 }}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                            {!readOnly && !isAutomaticMonthlySelection && (
+                            {!readOnly && (
                                 <Checkbox
                                     checked={isSelected}
-                                    onChange={() => onToggleGuide(guide.guideId)}
+                                    onChange={handleToggleSelected}
                                     size="small"
                                     sx={{ p: 0.25, mt: 0.1 }}
                                 />
@@ -798,80 +850,54 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 </Box>
             </Box>
 
-            {isAutomaticMonthlySelection ? (
-                /* ── Agrupado por competência ───────────────────────────
-                   Cada competência pendente vira sua própria seção com seu
-                   próprio botão de ação — nenhuma sessão fica escondida por
-                   trás de um mês só. */
-                <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {competenceGroups.map(group => (
-                        <Box key={group.competence}>
-                            <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', px: 0.5, mb: 1 }}>
-                                <Typography fontSize="0.78rem" fontWeight={800} color="#334155" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                    Competência {group.competence}
-                                </Typography>
-                                <Typography fontSize="0.75rem" color="#64748B" fontWeight={600}>
-                                    {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''} · {formatCurrency(group.value)}
-                                </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                                {group.guides.map(renderGuideCard)}
-                            </Box>
-                            {drawerAction && !readOnly && (
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.25 }}>
-                                    <Button
-                                        variant="contained" size="small"
-                                        startIcon={<Send size={15} />}
-                                        onClick={() => onDrawerAction?.(group.guides.map(g => g.guideId), group.competence)}
-                                        sx={{
-                                            bgcolor: isBillingMode ? '#2563EB' : '#7C3AED',
-                                            '&:hover': { bgcolor: isBillingMode ? '#1D4ED8' : '#6D28D9' },
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        {isBillingMode ? 'Continuar faturamento' : 'Preparar faturamento'}
-                                    </Button>
-                                </Box>
-                            )}
+            {/* ── Selecionar todas ───────────────────────────────── */}
+            <Box sx={{
+                px: 3, py: 1.25,
+                bgcolor: 'white',
+                borderBottom: '1px solid #E2E8F0',
+                display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0
+            }}>
+                {!readOnly && (
+                    <Checkbox
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onChange={toggleAllGuides}
+                        size="small"
+                        sx={{ p: 0.5 }}
+                    />
+                )}
+                <Typography fontSize="0.8rem" color="#475569" fontWeight={500}>
+                    {readOnly
+                        ? `${guides.length} guia${guides.length !== 1 ? 's' : ''} nesta fase`
+                        : allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${isAutomaticMonthlySelection ? allScopedEntries.length : guides.length})`}
+                </Typography>
+            </Box>
+
+            {/* ── Lista de guias — agrupada por competência no modo mensal,
+                flat no modo por guia. Seleção por checkbox nos dois casos. */}
+            <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: isAutomaticMonthlySelection ? 2 : 1.25 }}>
+                {isAutomaticMonthlySelection ? competenceGroups.map(group => (
+                    <Box key={group.competence}>
+                        <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', px: 0.5, mb: 1 }}>
+                            <Typography fontSize="0.78rem" fontWeight={800} color="#334155" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Competência {group.competence}
+                            </Typography>
+                            <Typography fontSize="0.75rem" color="#64748B" fontWeight={600}>
+                                {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''} · {formatCurrency(group.value)}
+                            </Typography>
                         </Box>
-                    ))}
-                </Box>
-            ) : (
-                <>
-                    {/* ── Selecionar todas ───────────────────────────────── */}
-                    <Box sx={{
-                        px: 3, py: 1.25,
-                        bgcolor: 'white',
-                        borderBottom: '1px solid #E2E8F0',
-                        display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0
-                    }}>
-                        {!readOnly && (
-                            <Checkbox
-                                checked={allSelected}
-                                indeterminate={someSelected}
-                                onChange={toggleAllGuides}
-                                size="small"
-                                sx={{ p: 0.5 }}
-                            />
-                        )}
-                        <Typography fontSize="0.8rem" color="#475569" fontWeight={500}>
-                            {readOnly
-                                ? `${guides.length} guia${guides.length !== 1 ? 's' : ''} nesta fase`
-                                : allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${guides.length})`}
-                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                            {group.guides.map(guide => renderGuideCard(guide, group.competence))}
+                        </Box>
                     </Box>
+                )) : guides.map(guide => renderGuideCard(guide))}
+            </Box>
 
-                    {/* ── Lista de guias ─────────────────────────────────── */}
-                    <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                        {guides.map(renderGuideCard)}
-                    </Box>
-                </>
-            )}
-
-            {/* Ação contextual: conclui a baixa sem obrigar o usuário a voltar à tela.
-                Só aparece no modo flat (per_guide/read-only) — no modo automático por
-                competência, cada grupo já tem seu próprio botão de ação acima. */}
-            {!isAutomaticMonthlySelection && drawerAction && !readOnly && (
+            {/* Ação contextual: conclui a baixa sem obrigar o usuário a voltar à
+                tela. Compartilhada pelos dois modos — no mensal, o clique
+                despacha uma chamada por competência marcada na seleção
+                (faturamento continua sendo 1 lote por competência). */}
+            {drawerAction && !readOnly && (
                 <Box sx={{
                     px: 2.5, py: 1.75,
                     bgcolor: 'white',
@@ -889,7 +915,11 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             {selectedHere.length > 0 && (
-                                <Button size="small" variant="text" onClick={() => selectedHere.forEach(g => onToggleGuide(g.guideId))}>
+                                <Button
+                                    size="small"
+                                    variant="text"
+                                    onClick={() => isAutomaticMonthlySelection ? setScopedSelection(new Set()) : selectedHere.forEach(g => onToggleGuide(g.guideId))}
+                                >
                                     Limpar
                                 </Button>
                             )}
@@ -897,7 +927,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 variant="contained"
                                 startIcon={isReceiveMode ? <CheckCircle size={16} /> : <Send size={16} />}
                                 disabled={selectedHere.length === 0}
-                                onClick={() => onDrawerAction?.(selectedHere.map(g => g.guideId))}
+                                onClick={() => isAutomaticMonthlySelection ? submitScopedSelection() : onDrawerAction?.(selectedHere.map(g => g.guideId))}
                                 sx={{
                                     bgcolor: isReceiveMode ? '#059669' : isBillingMode ? '#2563EB' : '#7C3AED',
                                     '&:hover': { bgcolor: isReceiveMode ? '#047857' : isBillingMode ? '#1D4ED8' : '#6D28D9' },
