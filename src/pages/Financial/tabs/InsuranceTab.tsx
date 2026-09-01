@@ -928,11 +928,15 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     }, [currentSelectableGuides, selectedGuides]);
     const activeSelectionCount = isGuideMode ? selectedGuideSummary.guides : selectedPayments.size;
 
-    const handleOpenBillingWizard = async (guideIds?: string[], competenceOverride?: string) => {
+    // Retorna se a preparação teve sucesso (abriu o wizard de faturamento) ou
+    // falhou — o drawer do paciente só deve fechar no sucesso; num erro (ex:
+    // BILLING_SUBMISSION_PAYMENT_PROVIDER_MISMATCH) a pessoa precisa continuar
+    // vendo o que selecionou pra tentar de novo, não voltar pra estaca zero.
+    const handleOpenBillingWizard = async (guideIds?: string[], competenceOverride?: string): Promise<boolean> => {
         const guideSelection = guideIds ? new Set(guideIds) : selectedGuides;
         if (guideSelection.size === 0) {
             toast.warn('Selecione pelo menos uma guia');
-            return;
+            return false;
         }
 
         setBillingWizardLoading(true);
@@ -942,19 +946,19 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             let selected = sourceGuides.filter(g => guideSelection.has(g.guideId));
             if (selected.length === 0) {
                 toast.error('Guias selecionadas não encontradas');
-                return;
+                return false;
             }
 
             const uniqueInsurances = new Set(selected.map(g => g.insurance));
             if (uniqueInsurances.size > 1) {
                 toast.error('Selecione apenas guias do mesmo convênio para enviar documentos em lote');
-                return;
+                return false;
             }
 
             const patientIds = new Set(selected.map(guide => guide.patient?._id).filter(Boolean));
             if (patientIds.size !== 1) {
                 toast.error('Cada envio precisa pertencer a exatamente um paciente');
-                return;
+                return false;
             }
 
             const isMonthlyBilling = selected.every(guide => guide.billingMode === 'per_month');
@@ -972,7 +976,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             ))];
             if (sessionIds.length === 0) {
                 toast.error('Nenhuma sessão pendente encontrada nas guias selecionadas');
-                return;
+                return false;
             }
 
             const convenio = await getConvenio(selected[0].insurance);
@@ -984,8 +988,10 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             });
             setBillingSubmissionId(response.data.data._id);
             setBillingWizardOpen(true);
+            return true;
         } catch (error) {
             toast.error(extractErrorMessage(error, 'Erro ao preparar envio de documentos'));
+            return false;
         } finally {
             setBillingWizardLoading(false);
         }
@@ -1081,7 +1087,10 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
         setSelectedCloseGuides(new Set(guides.map(g => g.guideId)));
     };
 
-    const handleOpenReceberLoteModal = async (guideIds?: string[]) => {
+    // Mesmo motivo do handleOpenBillingWizard: só sinaliza sucesso quando o
+    // modal de recebimento realmente abriu, pra não fechar o drawer do
+    // paciente num erro.
+    const handleOpenReceberLoteModal = async (guideIds?: string[]): Promise<boolean> => {
         const selectedIds = new Set(guideIds || [...selectedGuides]);
         setGuideDetailsActionLoading(true);
         try {
@@ -1100,14 +1109,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             const targets = [...byBatch.entries()].map(([batchId, ids]) => ({ batchId, guideIds: [...ids] }));
             if (targets.length === 0) {
                 toast.warn('As guias selecionadas não possuem NF pendente vinculada');
-                return;
+                return false;
             }
             setReceiptTargets(targets);
             setReceiptSessionsCount(selected.reduce((sum, guide) => sum + guide.pendingSessions, 0));
             setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
             setReceberLoteModalOpen(true);
+            return true;
         } catch (error) {
             toast.error(extractErrorMessage(error, 'Erro ao carregar detalhes para recebimento'));
+            return false;
         } finally {
             setGuideDetailsActionLoading(false);
         }

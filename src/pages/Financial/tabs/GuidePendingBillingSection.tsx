@@ -163,7 +163,9 @@ interface GuidePendingBillingSectionProps {
     phaseLabel?: string;
     /** Ação operacional exibida no rodapé fixo do drawer. */
     drawerAction?: 'send_documents' | 'bill' | 'receive';
-    onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void;
+    // Pode retornar (ou resolver para) `false` quando a ação falhou — o drawer
+    // do paciente só fecha quando não é explicitamente `false`.
+    onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void | boolean | Promise<void | boolean>;
     onLoadGuideDetails?: (guideIds: string[]) => Promise<PendingGuide[]>;
     detailsLoading?: boolean;
     phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
@@ -336,7 +338,9 @@ interface PatientDrawerProps {
     readOnly?: boolean;
     phaseLabel?: string;
     drawerAction?: 'send_documents' | 'bill' | 'receive';
-    onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void;
+    // Pode retornar (ou resolver para) `false` quando a ação falhou — o drawer
+    // do paciente só fecha quando não é explicitamente `false`.
+    onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void | boolean | Promise<void | boolean>;
     phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
     onToggleGuide: (guideId: string) => void;
     onEditGuide: (guide: PendingGuide) => void;
@@ -1558,10 +1562,13 @@ const GuidePendingBillingSection = ({
                     readOnly={readOnly}
                     phaseLabel={phaseLabel}
                     drawerAction={drawerAction}
-                    onDrawerAction={(guideIds, competence) => {
+                    onDrawerAction={async (guideIds, competence) => {
                         if (detailsLoading) return;
-                        setDrawerPatient(null);
-                        onDrawerAction?.(guideIds, competence);
+                        const result = await onDrawerAction?.(guideIds, competence);
+                        // Só fecha no sucesso — um erro (ex: convênio incompatível no
+                        // Payment) precisa deixar a pessoa ver o que selecionou e
+                        // tentar de novo, não voltar pra estaca zero sem aviso.
+                        if (result !== false) setDrawerPatient(null);
                     }}
                     phase={phase}
                 />
