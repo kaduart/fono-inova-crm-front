@@ -932,9 +932,18 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 bg: '#15803D', border: '#166534',
               },
               {
+                // 🚨 FIX (2026-09-01): liminar entrava somado aqui embora o rótulo/desc
+                // só fale de convênio. Liminar não segue o mesmo ciclo de faturamento
+                // "sessão entregue aguardando repasse" — o processo judicial paga em
+                // parcelas periódicas (Payment kind='package_receipt'), reconhecidas no
+                // dia em que o valor entra, não por sessão individual (ver
+                // classification-rules.md, categoria JUDICIAL_LIMINAR, e ADR-011 em
+                // DOMAIN_INVARIANTS.md, que já trata liminar à parte por essa mesma
+                // razão). Já existe card próprio de "Liminar" em A Receber (Visão
+                // Geral) — não precisa duplicar aqui misturado com convênio.
                 label: 'A faturar ao plano',
                 desc: `sessões entregues aguardando repasse · Conv. ${formatCurrency(convenioAReceber)}`,
-                value: convenioAReceber + liminarAReceber,
+                value: convenioAReceber,
                 bg: '#B45309', border: '#92400E',
               },
               {

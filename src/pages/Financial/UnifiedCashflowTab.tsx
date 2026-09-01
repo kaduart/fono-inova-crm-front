@@ -2110,7 +2110,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                             paymentBadge?.startsWith('🟡') ? 'bg-cyan-100 text-cyan-700' :
                                                                             paymentBadge === '📦 Pacote quitado' ? 'bg-violet-100 text-violet-700' :
                                                                             paymentBadge?.startsWith('✓') ? 'bg-emerald-100 text-emerald-700' :
-                                                                            paymentBadge?.startsWith('⌛') ? 'bg-amber-100 text-amber-700' :
+                                                                            // 🚨 FIX (2026-09-01): amber-100/amber-700 quase sumia em cima da linha
+                                                                            // de atendimento concluído (fundo bg-emerald-100/70) — caso comum,
+                                                                            // já que "Atendido" + "Pendente" é a combinação mais frequente.
+                                                                            // Mais saturado + borda pra destacar independente do fundo da linha.
+                                                                            paymentBadge?.startsWith('⌛') ? 'bg-amber-200 text-amber-900 border border-amber-400' :
                                                                             paymentBadge?.startsWith('◑') ? 'bg-orange-100 text-orange-700' :
                                                                             'bg-sky-100 text-sky-700';
 
@@ -2206,7 +2210,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                                             <React.Fragment key={a.id}>
                                                                                 <div
                                                                                     onClick={() => setSelectedApt(a)}
-                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-all hover:opacity-100 hover:shadow-md hover:ring-1 hover:ring-gray-300 hover:-translate-y-px ${isCanceled ? 'opacity-50' : ''} ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isFirstEval ? 'bg-pink-50/60' : isCompleted ? 'bg-emerald-100/70' : 'bg-gray-50'}`}
+                                                                                    className={`relative flex items-stretch gap-3 px-3 py-2.5 min-h-[54px] rounded-lg border border-gray-200 border-l-[3px] cursor-pointer transition-all hover:opacity-100 hover:shadow-md hover:ring-1 hover:ring-gray-300 hover:-translate-y-px ${isCanceled ? 'opacity-50' : ''} ${leftBorder} ${isCanceled ? 'bg-rose-50/40' : isCompleted ? 'bg-emerald-100/70' : isFirstEval ? 'bg-pink-50/60' : 'bg-gray-50'}`}
                                                                                 >
                                                                                     {aptIdx === 0 && (
                                                                                         <span className="absolute -left-5 top-1/2 -translate-y-1/2 whitespace-nowrap text-3xs font-semibold text-gray-400">{String(hour).padStart(2,'0')}H</span>

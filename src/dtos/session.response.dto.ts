@@ -117,7 +117,15 @@ export function extractSessionDate(raw: any): string {
 }
 
 export function extractSessionType(raw: any): string {
-    const st = raw?.sessionType || 'fonoaudiologia';
+    // 🚨 FIX (2026-09-01): retornava 'fonoaudiologia' aqui dentro sempre que
+    // raw.sessionType faltava — isso mascarava o fallback pra context.sessionType
+    // em mapSessionResponseDTO (`extractSessionType(raw) || context?.sessionType
+    // || 'fonoaudiologia'`), porque essa função nunca devolvia um valor falsy pra
+    // a cadeia continuar. Resultado real: editar sessão de um pacote de Psicologia
+    // cuja session bruta não trazia `sessionType` (só `specialty`) mostrava
+    // "Fonoaudiologia" no modal, ignorando a especialidade real do pacote.
+    const st = raw?.sessionType || raw?.specialty;
+    if (!st) return '';
     return st.toString().replace(/\s+/g, '_').toLowerCase();
 }
 

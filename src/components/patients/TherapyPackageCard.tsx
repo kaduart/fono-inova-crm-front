@@ -296,7 +296,12 @@ export default function TherapyPackageCard({
         start: `${isoDate}T${s.time || '08:00'}`,
         doctor: packageDoctorName ? { fullName: packageDoctorName } : undefined,
         operationalStatus: ns === 'pending' ? 'scheduled' : ns,
-        specialty: s.sessionType || s.specialty,
+        // 🚨 FIX (2026-09-01): sessão individual do pacote nem sempre carrega o
+        // próprio sessionType/specialty — cai pro nível do pacote (mesma fonte
+        // já usada no título do modal, "Sessões — {pack.sessionType}", e no
+        // context de openModalWithAction). Sem isso, PatientMiniCalendar recebia
+        // specialty undefined e getSpecialtyLabel mostrava "N/A" no card.
+        specialty: s.sessionType || s.specialty || pack.sessionType || (pack as any).specialty,
         __session: s,
       };
     })
