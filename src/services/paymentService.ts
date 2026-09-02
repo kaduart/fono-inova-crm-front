@@ -312,6 +312,7 @@ export const getInsuranceGuidesView = (params?: {
     insurance?: string;
     patientId?: string;
     guideId?: string;
+    guideIds?: string[];
     guideStatus?: string;
     phase?: InsuranceSessionPhase | 'all';
     phases?: InsuranceSessionPhase[] | string;
@@ -323,7 +324,8 @@ export const getInsuranceGuidesView = (params?: {
 }) => {
     const normalizedParams = {
         ...params,
-        phases: Array.isArray(params?.phases) ? params.phases.join(',') : params?.phases
+        phases: Array.isArray(params?.phases) ? params.phases.join(',') : params?.phases,
+        guideIds: Array.isArray(params?.guideIds) ? params.guideIds.join(',') : params?.guideIds
     };
     const key = `insurance-guides-view:${JSON.stringify(normalizedParams)}`;
     return deduped(key, () => API.get<{

@@ -453,14 +453,9 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
         else next.add(key);
         return next;
     });
-    // Quando há só uma NF no paciente, o agrupamento não ajuda a desafogar
-    // nada — abre direto pra não custar um clique extra à toa.
-    useEffect(() => {
-        if (invoiceGroups.length === 1) {
-            setExpandedInvoiceGroups(new Set([invoiceGroups[0].key]));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [guides, phase]);
+    // 🚨 FIX (2026-09-02): antes abria automaticamente o grupo quando só havia
+    // 1 NF no paciente — pedido do usuário pra guia vir sempre fechada por
+    // padrão, em qualquer aba, sem exceção por contagem de grupos.
 
     const accentColor = isPerGuide ? '#059669' : '#D97706';
     const accentBg    = isPerGuide ? '#ECFDF5' : '#FFFBEB';

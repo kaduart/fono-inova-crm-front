@@ -309,7 +309,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const [paymentIntegrityConflictCount, setPaymentIntegrityConflictCount] = useState(0);
     const [loadingGuideDetails, setLoadingGuideDetails] = useState<Set<string>>(new Set());
     const [guideDetailsActionLoading, setGuideDetailsActionLoading] = useState(false);
-    const guideDetailLoader = useRef(new GuideDetailLoadCache<PendingGuide>());
+    const guideDetailLoader = useRef(new GuideDetailLoadCache<PendingGuide[]>());
     const invalidateGuideDetails = () => {
         guideDetailLoader.current.invalidate();
     };
@@ -603,16 +603,23 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
         setLoadingGuideDetails(previous => new Set([...previous, ...missing]));
         try {
-            const loaded = await Promise.all(missing.map(async guideId => {
-                const key = `${guideId}:${phase}`;
-                return guideDetailLoader.current.load(key, async () => {
-                    const response = await getInsuranceGuidesView({ guideId, phase, detail: 'full' });
-                    const guide = response.data.data?.[0];
-                    if (!guide) throw new Error(`Detalhes da guia ${guideId} não encontrados`);
-                    if (!Array.isArray(guide.sessionDetails)) throw new Error(`Detalhes incompletos da guia ${guideId}`);
-                    return adaptGuideViewToPendingGuide(guide, phase);
-                });
-            }));
+            // 🚀 PERF (2026-09-02): antes era 1 request por guia em paralelo (N+1) —
+            // abrir o drawer de um paciente com 3-4 guias disparava 3-4 chamadas,
+            // cada uma com vários round-trips no backend, somando ~3s. Backend agora
+            // aceita `guideIds` (lista) numa chamada só; a chave do loader usa o
+            // conjunto ordenado pra ainda deduplicar cliques duplos na mesma leva.
+            const batchKey = `batch:${[...missing].sort().join(',')}:${phase}`;
+            const loaded = missing.length > 0
+                ? await guideDetailLoader.current.load(batchKey, async () => {
+                    const response = await getInsuranceGuidesView({ guideIds: missing, phase, detail: 'full' });
+                    const guidesRaw = response.data.data || [];
+                    if (guidesRaw.length === 0) throw new Error('Detalhes das guias não encontrados');
+                    return guidesRaw.map(guide => {
+                        if (!Array.isArray(guide.sessionDetails)) throw new Error(`Detalhes incompletos da guia ${guide.guideId}`);
+                        return adaptGuideViewToPendingGuide(guide, phase);
+                    });
+                })
+                : [];
             const loadedById = new Map(loaded.map(guide => [guide.guideId, guide]));
             setGuidesByPhase(previous => ({
                 ...previous,
