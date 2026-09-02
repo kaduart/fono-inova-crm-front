@@ -732,13 +732,20 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
 
 
     const toggleGuideSelection = (guideId: string) => {
-        const newSelected = new Set(selectedGuides);
-        if (newSelected.has(guideId)) {
-            newSelected.delete(guideId);
-        } else {
-            newSelected.add(guideId);
-        }
-        setSelectedGuides(newSelected);
+        // Atualização funcional é obrigatória aqui: "selecionar/desmarcar
+        // todas" chama esta função em loop síncrono (guides.forEach), e todas
+        // as chamadas dentro do mesmo ciclo veriam o mesmo `selectedGuides`
+        // desatualizado se lêssemos do closure — só o último item do loop
+        // sobreviveria.
+        setSelectedGuides(prev => {
+            const next = new Set(prev);
+            if (next.has(guideId)) {
+                next.delete(guideId);
+            } else {
+                next.add(guideId);
+            }
+            return next;
+        });
     };
 
     const clearGuideSelection = () => setSelectedGuides(new Set());

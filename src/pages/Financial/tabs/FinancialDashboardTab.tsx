@@ -244,7 +244,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   };
 
   // Débitos: modal + dados totais
-  interface DebitoItem { _id: string; date: string; time?: string; paciente: string; paymentStatus: string; valor: number; tipo?: string; }
+  interface DebitoItem { _id: string; date: string; dataExibicao?: string; time?: string; paciente: string; paymentStatus: string; valor: number; tipo?: string; }
   const [debitosModalOpen, setDebitosModalOpen] = useState(false);
   const [debitosModalType, setDebitosModalType] = useState<'mes' | 'total'>('mes');
   const [debitosTotalData, setDebitosTotalData] = useState<DebitoItem[]>([]);
@@ -260,6 +260,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     (items || []).map(item => ({
       _id: item._id,
       date: item.date,
+      dataExibicao: item.dataExibicao,
       time: item.time,
       paciente: item.paciente,
       paymentStatus: item.paymentStatus,
@@ -2387,7 +2388,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         convenioGroupsMap[key].total += it.valor || 0;
         convenioGroupsMap[key].count += 1;
         convenioGroupsMap[key].items.push({
-          _id: it.sessionId, amount: it.valor, provider: it.convenio, status: it.status, data: it.data, time: it.hora,
+          _id: it.sessionId, amount: it.valor, provider: it.convenio, status: it.status, data: it.data, dataExibicao: it.dataExibicao, time: it.hora,
           specialty: it.specialty, doctorName: it.doctorName, guideNumber: it.guideNumber
         });
       }
@@ -2557,7 +2558,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                                       <div className="min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span className="text-2xs text-gray-400 font-medium tabular-nums">
-                                            {item.data ? `${new Date(item.data).toLocaleDateString('pt-BR')} ${item.time || ''}` : '—'}
+                                            {item.dataExibicao ? `${item.dataExibicao} ${item.time || ''}` : '—'}
                                           </span>
                                           {item.specialty && item.specialty !== 'N/A' && (
                                             <button
@@ -2644,7 +2645,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                                 return (
                                   <div key={item._id || i} className="flex items-center justify-between gap-3 px-4 py-2.5 pl-8">
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <span className="text-2xs text-gray-400 font-medium w-24 shrink-0 tabular-nums">{item.date ? `${new Date(item.date).toLocaleDateString('pt-BR')} ${item.time || ''}` : '—'}</span>
+                                      <span className="text-2xs text-gray-400 font-medium w-24 shrink-0 tabular-nums">{item.dataExibicao ? `${item.dataExibicao} ${item.time || ''}` : '—'}</span>
                                       <span className={`shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold ${tc}`}>
                                         {tipoLabel[item.tipo || ''] || item.tipo || '—'}
                                       </span>

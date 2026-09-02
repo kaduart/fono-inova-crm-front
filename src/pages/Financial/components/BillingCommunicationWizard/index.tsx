@@ -118,6 +118,22 @@ function allocationInput(allocation: BillingSubmissionAllocation): BillingAlloca
     };
 }
 
+function invoiceNumbersSummary(allocations: BillingSubmissionAllocation[]): string {
+    const numbers = [...new Set(
+        allocations
+            .map(allocation => allocation.invoice?.invoiceNumber?.trim())
+            .filter((value): value is string => Boolean(value))
+    )];
+    return numbers.join(', ');
+}
+
+function appendInvoiceNumbers(message: string, allocations: BillingSubmissionAllocation[]): string {
+    const invoiceNumbers = invoiceNumbersSummary(allocations);
+    if (!invoiceNumbers) return message;
+    const label = invoiceNumbers.includes(',') ? 'NFs' : 'NF';
+    return `${message}\n\n${label}: ${invoiceNumbers}`;
+}
+
 function sameIds(left: string[], right: string[]) {
     if (left.length !== right.length) return false;
     const expected = new Set(left);
@@ -392,6 +408,7 @@ export function BillingCommunicationWizard({
 
         setSending(true);
         try {
+            const invoiceNumbers = invoiceNumbersSummary(effectiveAllocations);
             let currentCommunicationId = communicationId;
             if (!currentCommunicationId) {
                 const response = await createCommunication({
@@ -400,7 +417,8 @@ export function BillingCommunicationWizard({
                     purpose: 'billing',
                     billingSubmissionId: currentSubmission._id,
                     billingAllocationIds: effectiveAllocations.map(allocation => allocation._id),
-                    notes: `Envio da competência ${currentSubmission.billingCompetence}`
+                    notes: `Envio da competência ${currentSubmission.billingCompetence}`,
+                    invoiceNumber: invoiceNumbers || undefined
                 });
                 currentCommunicationId = response.data.data._id;
                 setCommunicationId(currentCommunicationId);
@@ -412,7 +430,9 @@ export function BillingCommunicationWizard({
             const response = await sendCommunication(currentCommunicationId, {
                 to: deliveryMethod === 'email' ? to.trim() : undefined,
                 subject: subject.trim(),
-                message: message.trim(),
+                // O número da NF entra no corpo para ficar buscável depois (ex: no
+                // Gmail) — o backend não injeta esse dado automaticamente no envio.
+                message: appendInvoiceNumbers(message.trim(), effectiveAllocations),
                 deliveryMethod,
                 reason: deliveryMethod === 'external' ? externalReason.trim() : undefined
             });

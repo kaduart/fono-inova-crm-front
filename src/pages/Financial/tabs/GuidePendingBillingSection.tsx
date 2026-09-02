@@ -408,6 +408,60 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
         });
     };
 
+    // Nas fases 'billed'/'received' cada guia carrega a(s) NF(s) que a cobrem
+    // (guide.invoices). Sem agrupar por NF, um paciente com vários tipos de
+    // atendimento vira uma lista plana de guias sem relação visível entre si —
+    // achado do usuário: "se a paciente tiver 10 tipos de atendimento diferente
+    // em faturados vira um caos". Uma mesma guia pode aparecer em mais de um
+    // grupo (faturada mês a mês, cada mês numa NF diferente); a seleção
+    // continua por guideId inteiro, igual à lista plana — agrupar é só exibição.
+    interface InvoiceGroup {
+        key: string;
+        invoiceNumber: string | null;
+        invoiceDate: string | Date | null;
+        guides: PendingGuide[];
+        sessions: number;
+        value: number;
+    }
+    const useInvoiceGrouping = (phase === 'billed' || phase === 'received') && !isAutomaticMonthlySelection;
+    const invoiceGroups: InvoiceGroup[] = useInvoiceGrouping
+        ? (() => {
+            const byInvoice = new Map<string, InvoiceGroup>();
+            guides.forEach(guide => {
+                const guideInvoices = (guide.invoices && guide.invoices.length > 0)
+                    ? guide.invoices
+                    : [{ batchId: guide.guideId, invoiceNumber: null, invoiceDate: null, origin: null, batchStatus: null, sessions: guide.pendingSessions, amount: guide.pendingValue }];
+                guideInvoices.forEach(nf => {
+                    const key = nf.invoiceNumber || 'sem-nf';
+                    if (!byInvoice.has(key)) {
+                        byInvoice.set(key, { key, invoiceNumber: nf.invoiceNumber, invoiceDate: nf.invoiceDate, guides: [], sessions: 0, value: 0 });
+                    }
+                    const group = byInvoice.get(key)!;
+                    if (!group.guides.some(g => g.guideId === guide.guideId)) group.guides.push(guide);
+                    group.sessions += nf.sessions;
+                    group.value += nf.amount;
+                });
+            });
+            return [...byInvoice.values()].sort((a, b) => (a.invoiceNumber || '').localeCompare(b.invoiceNumber || ''));
+        })()
+        : [];
+
+    const [expandedInvoiceGroups, setExpandedInvoiceGroups] = useState<Set<string>>(new Set());
+    const toggleInvoiceGroup = (key: string) => setExpandedInvoiceGroups(prev => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+    });
+    // Quando há só uma NF no paciente, o agrupamento não ajuda a desafogar
+    // nada — abre direto pra não custar um clique extra à toa.
+    useEffect(() => {
+        if (invoiceGroups.length === 1) {
+            setExpandedInvoiceGroups(new Set([invoiceGroups[0].key]));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [guides, phase]);
+
     const accentColor = isPerGuide ? '#059669' : '#D97706';
     const accentBg    = isPerGuide ? '#ECFDF5' : '#FFFBEB';
     const accentBorder = isPerGuide ? '#6EE7B7' : '#FDE68A';
@@ -878,8 +932,9 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
             </Box>
 
             {/* ── Lista de guias — agrupada por competência no modo mensal,
-                flat no modo por guia. Seleção por checkbox nos dois casos. */}
-            <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: isAutomaticMonthlySelection ? 2 : 1.25 }}>
+                por NF nas fases faturado/recebido, flat no modo por guia
+                (documentos pendentes). Seleção por checkbox em todos os casos. */}
+            <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: isAutomaticMonthlySelection || useInvoiceGrouping ? 2 : 1.25 }}>
                 {isAutomaticMonthlySelection ? competenceGroups.map(group => (
                     <Box key={group.competence}>
                         <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', px: 0.5, mb: 1 }}>
@@ -894,7 +949,57 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             {group.guides.map(guide => renderGuideCard(guide, group.competence))}
                         </Box>
                     </Box>
-                )) : guides.map(guide => renderGuideCard(guide))}
+                )) : useInvoiceGrouping ? invoiceGroups.map(group => {
+                    const isGroupExpanded = expandedInvoiceGroups.has(group.key);
+                    const groupSelectedCount = group.guides.filter(g => selectedGuides.has(g.guideId)).length;
+                    const groupAllSelected = group.guides.length > 0 && groupSelectedCount === group.guides.length;
+                    const groupSomeSelected = groupSelectedCount > 0 && !groupAllSelected;
+                    return (
+                        <Box key={group.key} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, overflow: 'hidden', bgcolor: 'white', flexShrink: 0 }}>
+                            <Box
+                                onClick={() => toggleInvoiceGroup(group.key)}
+                                sx={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+                                    px: 1.5, py: 1.1, cursor: 'pointer',
+                                    bgcolor: isGroupExpanded ? '#F8FAFC' : 'white',
+                                    '&:hover': { bgcolor: '#F8FAFC' }
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                    {!readOnly && (
+                                        <Checkbox
+                                            checked={groupAllSelected}
+                                            indeterminate={groupSomeSelected}
+                                            onClick={e => e.stopPropagation()}
+                                            onChange={() => {
+                                                const targets = groupAllSelected ? group.guides : group.guides.filter(g => !selectedGuides.has(g.guideId));
+                                                targets.forEach(g => onToggleGuide(g.guideId));
+                                            }}
+                                            size="small"
+                                            sx={{ p: 0.5 }}
+                                        />
+                                    )}
+                                    <FileText size={15} color="#475569" style={{ flexShrink: 0 }} />
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography fontWeight={800} fontSize="0.85rem" color="#0F172A" noWrap>
+                                            {group.invoiceNumber ? `NF ${group.invoiceNumber}` : 'Sem NF informada'}
+                                        </Typography>
+                                        <Typography fontSize="0.71rem" color="#64748B" fontWeight={500}>
+                                            {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''} · {formatCurrency(group.value)}
+                                            {group.invoiceDate ? ` · ${formatDate(group.invoiceDate)}` : ''}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                {isGroupExpanded ? <ChevronUp size={16} color="#94A3B8" /> : <ChevronDown size={16} color="#94A3B8" />}
+                            </Box>
+                            <Collapse in={isGroupExpanded} timeout="auto" unmountOnExit>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, p: 1.25, pt: 0, bgcolor: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
+                                    {group.guides.map(guide => renderGuideCard(guide))}
+                                </Box>
+                            </Collapse>
+                        </Box>
+                    );
+                }) : guides.map(guide => renderGuideCard(guide))}
             </Box>
 
             {/* Ação contextual: conclui a baixa sem obrigar o usuário a voltar à
