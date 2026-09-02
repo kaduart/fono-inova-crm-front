@@ -251,6 +251,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const [debitosTotalValue, setDebitosTotalValue] = useState(0);
   const [loadingDebitosTotal, setLoadingDebitosTotal] = useState(false);
   const debitosTotalLoaded = useRef(false);
+  const [debitoSpecialtyFilter, setDebitoSpecialtyFilter] = useState<string | null>(null);
 
   const LEGACY_DEBITOS_URL = '/financial/dashboard/debitos';
   const V2_DEBITOS_URL = '/v2/financial/dashboard/debitos';
@@ -308,6 +309,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
   const openDebitosModal = (type: 'mes' | 'total') => {
     setDebitosModalType(type);
+    setDebitoSpecialtyFilter(null);
     if (type === 'total') {
       fetchDebitosTotal();
     } else {
@@ -2384,12 +2386,27 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         }
         convenioGroupsMap[key].total += it.valor || 0;
         convenioGroupsMap[key].count += 1;
-        convenioGroupsMap[key].items.push({ _id: it.sessionId, amount: it.valor, provider: it.convenio, status: it.status, data: it.data, time: it.hora });
+        convenioGroupsMap[key].items.push({
+          _id: it.sessionId, amount: it.valor, provider: it.convenio, status: it.status, data: it.data, time: it.hora,
+          specialty: it.specialty, doctorName: it.doctorName, guideNumber: it.guideNumber
+        });
       }
       const convenioGroupsList: any[] = Object.values(convenioGroupsMap);
 
-      const mergedGroupsList = [...v2GroupsList, ...convenioGroupsList];
-      const usingV2Groups = mergedGroupsList.length > 0;
+      const mergedGroupsListAll = [...v2GroupsList, ...convenioGroupsList];
+      // 🆕 (2026-09-02) filtro por especialidade — clicar num badge de especialidade
+      // filtra a lista inteira pra essa especialidade só (pedido: "clicar mostra só
+      // daquele especialidade" pra facilitar conferência quando tem médico/guia
+      // diferente por sessão dentro do mesmo paciente). Os chips do header (Convênio/
+      // Particular) continuam refletindo o mês inteiro — só a lista de baixo filtra.
+      const allSpecialties = Array.from(new Set(mergedGroupsListAll.flatMap((g: any) => g.items.map((it: any) => it.specialty).filter(Boolean)))) as string[];
+      const mergedGroupsList = debitoSpecialtyFilter
+        ? mergedGroupsListAll
+            .map((g: any) => ({ ...g, items: g.items.filter((it: any) => it.specialty === debitoSpecialtyFilter) }))
+            .filter((g: any) => g.items.length > 0)
+            .map((g: any) => ({ ...g, count: g.items.length, total: g.items.reduce((s: number, it: any) => s + (it.amount || 0), 0) }))
+        : mergedGroupsListAll;
+      const usingV2Groups = mergedGroupsListAll.length > 0;
       const totalVal = usingV2Groups
         ? mergedGroupsList.reduce((s, g) => s + (g.total || 0), 0)
         : (isMes ? (resumo?.pendentes?.vencidos?.total || 0) : debitosTotalValue);
@@ -2408,8 +2425,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         billed: 'Faturado ao plano',
       };
 
-      const convenioSubtotal = mergedGroupsList.filter((g: any) => g.tipo === 'convenio').reduce((s: number, g: any) => s + (g.total || 0), 0);
-      const particularSubtotal = mergedGroupsList.filter((g: any) => g.tipo === 'particular').reduce((s: number, g: any) => s + (g.total || 0), 0);
+      const convenioSubtotal = mergedGroupsListAll.filter((g: any) => g.tipo === 'convenio').reduce((s: number, g: any) => s + (g.total || 0), 0);
+      const particularSubtotal = mergedGroupsListAll.filter((g: any) => g.tipo === 'particular').reduce((s: number, g: any) => s + (g.total || 0), 0);
+      const specialtyLabel: Record<string, string> = {
+        fonoaudiologia: 'Fonoaudiologia', psicologia: 'Psicologia', terapia_ocupacional: 'Terapia Ocupacional',
+      };
+      const specialtyColor: Record<string, string> = {
+        fonoaudiologia: 'bg-emerald-100 text-emerald-700', psicologia: 'bg-violet-100 text-violet-700',
+        terapia_ocupacional: 'bg-orange-100 text-orange-700',
+      };
 
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setDebitosModalOpen(false)}>
@@ -2454,12 +2478,35 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               </div>
             </div>
 
+            {/* Filtro por especialidade */}
+            {usingV2Groups && allSpecialties.length > 1 && (
+              <div className="px-4 py-2.5 border-b border-gray-100 bg-white flex items-center gap-1.5 overflow-x-auto shrink-0">
+                <button
+                  onClick={() => setDebitoSpecialtyFilter(null)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-3xs font-bold transition-colors ${!debitoSpecialtyFilter ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                >
+                  Todas
+                </button>
+                {allSpecialties.map(spec => (
+                  <button
+                    key={spec}
+                    onClick={() => setDebitoSpecialtyFilter(debitoSpecialtyFilter === spec ? null : spec)}
+                    className={`shrink-0 px-2.5 py-1 rounded-full text-3xs font-bold transition-colors ${debitoSpecialtyFilter === spec ? (specialtyColor[spec] || 'bg-gray-700 text-white') + ' ring-2 ring-offset-1 ring-gray-400' : (specialtyColor[spec] || 'bg-gray-100 text-gray-500 hover:bg-gray-200')}`}
+                  >
+                    {specialtyLabel[spec] || spec}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Body */}
             <div className="overflow-auto flex-1 bg-gray-50/70">
               {isLoading ? (
                 <div className="p-10 text-center text-gray-400 text-sm">Carregando...</div>
               ) : !usingV2Groups && rows.length === 0 ? (
                 <div className="p-10 text-center text-emerald-600 font-semibold text-sm">✅ Nenhum débito encontrado</div>
+              ) : usingV2Groups && mergedGroupsList.length === 0 ? (
+                <div className="p-10 text-center text-gray-400 text-sm">Nenhuma sessão de {specialtyLabel[debitoSpecialtyFilter || ''] || debitoSpecialtyFilter} em aberto.</div>
               ) : (() => {
                 if (usingV2Groups) {
                   const sortedGroups = mergedGroupsList.slice().sort((a: any, b: any) => b.total - a.total);
@@ -2503,25 +2550,38 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                             {isOpen && (
                               <div className="border-t border-gray-100 bg-gray-50/60 divide-y divide-gray-100">
                                 {group.items.map((item: any, i: number) => {
-                                  const specColor: Record<string, string> = {
-                                    'Fonoaudiologia': 'bg-emerald-100 text-emerald-700',
-                                    'Psicologia': 'bg-violet-100 text-violet-700',
-                                    'Terapia Ocupacional': 'bg-orange-100 text-orange-700',
-                                  };
-                                  const label = isConvenio ? (item.provider || '—') : (item.specialty || '—');
-                                  const sc = isConvenio ? 'bg-violet-100 text-violet-700' : (specColor[item.specialty] || 'bg-gray-100 text-gray-600');
                                   const statusDot: Record<string, string> = { pending: 'bg-amber-500', billed: 'bg-sky-500' };
+                                  const doctorDisplay = item.doctorName || item.doctor?.fullName;
                                   return (
                                     <div key={item._id || i} className="flex items-center justify-between gap-3 px-4 py-2.5 pl-8">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span className="text-2xs text-gray-400 font-medium w-24 shrink-0 tabular-nums">
-                                          {item.data ? `${new Date(item.data).toLocaleDateString('pt-BR')} ${item.time || ''}` : '—'}
-                                        </span>
-                                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold ${sc}`}>{label}</span>
-                                        <span className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold bg-gray-100 text-gray-500">
-                                          <span className={`w-1.5 h-1.5 rounded-full ${statusDot[item.status] || 'bg-rose-400'}`} />
-                                          {statusLabel[item.status] || item.status}
-                                        </span>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-2xs text-gray-400 font-medium tabular-nums">
+                                            {item.data ? `${new Date(item.data).toLocaleDateString('pt-BR')} ${item.time || ''}` : '—'}
+                                          </span>
+                                          {item.specialty && item.specialty !== 'N/A' && (
+                                            <button
+                                              onClick={() => setDebitoSpecialtyFilter(debitoSpecialtyFilter === item.specialty ? null : item.specialty)}
+                                              className={`shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-shadow ${specialtyColor[item.specialty] || 'bg-gray-100 text-gray-600'}`}
+                                              title="Filtrar por essa especialidade"
+                                            >
+                                              {specialtyLabel[item.specialty] || item.specialty}
+                                            </button>
+                                          )}
+                                          <span className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold bg-gray-100 text-gray-500">
+                                            <span className={`w-1.5 h-1.5 rounded-full ${statusDot[item.status] || 'bg-rose-400'}`} />
+                                            {statusLabel[item.status] || item.status}
+                                          </span>
+                                        </div>
+                                        {(doctorDisplay || item.provider || item.guideNumber) && (
+                                          <p className="text-3xs text-gray-400 mt-0.5">
+                                            {doctorDisplay && <span>{doctorDisplay}</span>}
+                                            {doctorDisplay && (item.provider || item.guideNumber) && <span> · </span>}
+                                            {item.provider && <span>{item.provider}</span>}
+                                            {item.provider && item.guideNumber && <span> · </span>}
+                                            {item.guideNumber && <span>Guia #{item.guideNumber}</span>}
+                                          </p>
+                                        )}
                                       </div>
                                       <span className="font-bold text-gray-800 text-sm shrink-0">{formatCurrency(item.amount)}</span>
                                     </div>
