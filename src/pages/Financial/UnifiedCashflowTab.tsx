@@ -1345,7 +1345,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
                         const renderSingle = (t: any) => {
                           const subTipo = (t as any).isPackageSale ? 'Venda de Pacote' : (t.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
-                          const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                          // 🚨 FIX (2026-09-02): esta lista só recebe Payment com status='paid' (ver
+                          // unifiedFinancialService.v2.js — "convenio entra no caixa apenas quando
+                          // status='paid'"), então toda linha aqui já é dinheiro recebido. Rotular
+                          // convênio como 'A Faturar' fazia uma guia já baixada/recebida parecer
+                          // pendente na aba Recebimentos.
+                          const situacao = t.tipo === 'Convênio' ? 'Recebido do Convênio'
                               : t.tipo === 'Liminar' && t.kind === 'liminar_contract_receipt' ? 'Crédito'
                               : t.tipo === 'Liminar' ? 'Judicial'
                               : (t as any).isPackageSale ? 'Pré-antecipado'
@@ -1353,8 +1358,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                               : (t as any).isPrepago ? 'Pré-pago'
                               : 'Pago na Sessão';
                           const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
-                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
-                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Pago na Sessão' || situacao === 'Recebido do Convênio' ? 'bg-emerald-100 text-emerald-700'
                               : situacao === 'Crédito' ? 'bg-amber-100 text-amber-700'
                               : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
                               : 'bg-gray-100 text-gray-600';
@@ -1459,7 +1463,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         // Não reutilizar renderSingle aqui: suas colunas fixas exigem mais de
                         // 900px e criavam overflow horizontal, cortando valor e ações.
                         const renderReceiptDetail = (t: any) => {
-                          const situacao = t.tipo === 'Convênio' ? 'A Faturar'
+                          // Ver nota em renderSingle: esta lista só tem Payment status='paid'.
+                          const situacao = t.tipo === 'Convênio' ? 'Recebido do Convênio'
                               : t.tipo === 'Liminar' && t.kind === 'liminar_contract_receipt' ? 'Crédito'
                               : t.tipo === 'Liminar' ? 'Judicial'
                               : t.isPackageSale ? 'Pré-antecipado'
@@ -1467,8 +1472,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                               : t.isPrepago ? 'Pré-pago'
                               : 'Pago na Sessão';
                           const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
-                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
-                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Pago na Sessão' || situacao === 'Recebido do Convênio' ? 'bg-emerald-100 text-emerald-700'
                               : situacao === 'Crédito' ? 'bg-amber-100 text-amber-700'
                               : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
                               : 'bg-gray-100 text-gray-600';
@@ -1516,7 +1520,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         const renderGroup = (g: any) => {
                           const first = g.items[0];
                           const subTipo = (first as any).isPackageSale ? 'Venda de Pacote' : (first.tipo === 'Pacote' ? 'Sessão de Pacote' : null);
-                          const situacao = first.tipo === 'Convênio' ? 'A Faturar'
+                          // Ver nota em renderSingle: esta lista só tem Payment status='paid'.
+                          const situacao = first.tipo === 'Convênio' ? 'Recebido do Convênio'
                               : first.tipo === 'Liminar' && first.kind === 'liminar_contract_receipt' ? 'Crédito'
                               : first.tipo === 'Liminar' ? 'Judicial'
                               : (first as any).isPackageSale ? 'Pré-antecipado'
@@ -1524,8 +1529,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                               : (first as any).isPrepago ? 'Pré-pago'
                               : 'Pago na Sessão';
                           const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
-                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
-                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Pago na Sessão' || situacao === 'Recebido do Convênio' ? 'bg-emerald-100 text-emerald-700'
                               : situacao === 'Crédito' ? 'bg-amber-100 text-amber-700'
                               : situacao === 'Judicial' ? 'bg-orange-100 text-orange-700'
                               : 'bg-gray-100 text-gray-600';
@@ -1584,13 +1588,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         const renderRecebimentoGroup = (g: any) => {
                           const first = g.items[0];
                           const subTipo = first.tipo === 'Pacote' ? 'Sessão de Pacote' : null;
-                          const situacao = first.tipo === 'Convênio' ? 'A Faturar'
+                          // Ver nota em renderSingle: esta lista só tem Payment status='paid'.
+                          const situacao = first.tipo === 'Convênio' ? 'Recebido do Convênio'
                               : first.tipo === 'Pacote' && (first as any).paymentModel === 'prepaid' ? 'Pré-pago'
                               : (first as any).isPrepago ? 'Pré-pago'
                               : 'Pago na Sessão';
                           const situacaoCls = situacao === 'Pré-pago' ? 'bg-indigo-100 text-indigo-700'
-                              : situacao === 'Pago na Sessão' ? 'bg-emerald-100 text-emerald-700'
-                              : situacao === 'A Faturar' ? 'bg-purple-100 text-purple-700'
+                              : situacao === 'Pago na Sessão' || situacao === 'Recebido do Convênio' ? 'bg-emerald-100 text-emerald-700'
                               : 'bg-gray-100 text-gray-600';
                           const borderCls = first.tipo === 'Pacote' ? 'border-green-500'
                               : first.tipo === 'Convênio' ? 'border-amber-400'

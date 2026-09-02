@@ -297,13 +297,17 @@ function BillingModeBadge({ mode }: { mode?: 'per_month' | 'per_guide' }) {
  * Estado derivado do faturamento da guia, calculado no backend a partir de
  * InsuranceCommunication, InsuranceBatch, Payment.insurance.status e
  * InsuranceGuide.closedAt. Sem campo mutável `billingStatus` na guia.
+ *
+ * guideStatus (ciclo de vida da autorização) NUNCA sobrescreve este rótulo —
+ * mesma regra documentada em insuranceGuidesReadView.js. Antes, toda guia
+ * cancelada virava "requer correção" mesmo já faturada/recebida (achado
+ * 2026-09-02: guia com NF emitida e só aguardando recebimento do convênio
+ * aparecia com selo vermelho de erro). Cancelamento da autorização não impede
+ * faturar sessões já realizadas — é sinalizado à parte, ver `guideStatus` no
+ * card.
  */
 function getGuideBillingState(guide: PendingGuide): { emoji: string; label: string; bg: string; color: string; border: string } {
     const state = guide.billingState || 'pending';
-
-    if (guide.guideStatus === 'cancelled') {
-        return { emoji: '🔴', label: 'Guia cancelada · requer correção', bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' };
-    }
 
     switch (state) {
         case 'no_sessions':
@@ -578,6 +582,11 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
             : onToggleGuide(guide.guideId);
         const isExpanded  = expandedGuides.has(guide.guideId);
         const hasSessions = (guide.sessions || []).length > 0;
+        // Achado do usuário: cards mostravam só "N sessões a faturar", sem dizer
+        // quantas a guia autoriza no total — comercial não sabia se, ao faturar
+        // aquele lote, a guia ficava esgotada (ex: 12/12) e já podia ser fechada.
+        const isGuideExhausted = typeof guide.totalSessions === 'number'
+            && (guide.usedSessions ?? 0) >= guide.totalSessions;
         const billingState = getGuideBillingState(guide);
         const convenio = convenios.find(c => c.code === guide.insurance);
         const cycleReason = guide.guideStatus !== 'cancelled' ? getBillingCycleReason(convenio) : null;
@@ -619,6 +628,26 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                         Guia {guide.number}
                                     </Typography>
                                     <BillingModeBadge mode={guide.billingMode} />
+                                    {typeof guide.totalSessions === 'number' && (
+                                        <Box
+                                            component="span"
+                                            title={
+                                                isGuideExhausted
+                                                    ? 'Guia esgotada — todas as sessões autorizadas já foram usadas, pode enviar para faturamento final'
+                                                    : 'Sessões já usadas / total autorizado na guia'
+                                            }
+                                            sx={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                fontSize: '0.65rem', fontWeight: 700, lineHeight: 1,
+                                                padding: '3px 7px', borderRadius: 999,
+                                                bgcolor: isGuideExhausted ? '#D1FAE5' : '#F1F5F9',
+                                                color: isGuideExhausted ? '#065F46' : '#64748B',
+                                            }}
+                                        >
+                                            {isGuideExhausted && <CheckCircle size={10} strokeWidth={2.5} />}
+                                            {guide.usedSessions ?? 0}/{guide.totalSessions}
+                                        </Box>
+                                    )}
                                     <IconButton
                                         size="small"
                                         onClick={(e) => { e.stopPropagation(); onEditGuide(guide); }}
@@ -673,6 +702,26 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 {billingState.label}
                             </Typography>
                         </Box>
+                        {/* Guia cancelada é informativo, não bloqueio: sessões já
+                            realizadas continuam faturáveis normalmente (ver nota acima em
+                            getGuideBillingState). Tag neutra, separada do estado de faturamento. */}
+                        {guide.guideStatus === 'cancelled' && (
+                            <Box
+                                title="Guia cancelada no convênio — sessões já realizadas continuam faturáveis normalmente"
+                                sx={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 0.6,
+                                    px: 1.25, py: 0.5,
+                                    bgcolor: '#F3F4F6',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: 20,
+                                }}
+                            >
+                                <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>⚪</span>
+                                <Typography fontSize="0.72rem" fontWeight={600} color="#4B5563">
+                                    Guia cancelada
+                                </Typography>
+                            </Box>
+                        )}
                         {/* Notas fiscais que cobrem esta guia. Sem isto o card diz "Faturada"
                             sem dizer por qual documento — e uma guia faturada mês a mês está
                             em várias notas ao mesmo tempo. */}
@@ -980,12 +1029,17 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                             {group.invoiceNumber ? `NF ${group.invoiceNumber}` : 'Sem NF informada'}
                                         </Typography>
                                         <Typography fontSize="0.71rem" color="#64748B" fontWeight={500}>
-                                            {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''} · {formatCurrency(group.value)}
+                                            {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''}
                                             {group.invoiceDate ? ` · ${formatDate(group.invoiceDate)}` : ''}
                                         </Typography>
                                     </Box>
                                 </Box>
-                                {isGroupExpanded ? <ChevronUp size={16} color="#94A3B8" /> : <ChevronDown size={16} color="#94A3B8" />}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                                    <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A" sx={{ textAlign: 'right' }}>
+                                        {formatCurrency(group.value)}
+                                    </Typography>
+                                    {isGroupExpanded ? <ChevronUp size={16} color="#94A3B8" /> : <ChevronDown size={16} color="#94A3B8" />}
+                                </Box>
                             </Box>
                             <Collapse in={isGroupExpanded} timeout="auto" unmountOnExit>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, p: 1.25, pt: 0, bgcolor: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
