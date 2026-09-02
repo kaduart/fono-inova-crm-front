@@ -433,6 +433,18 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const totalAntecipacoes = data?.antecipacoes ?? 0;
   const totalRetroativos = data?.retroativos ?? 0;
   const totalAReceberProducao = data?.aReceberProducao ?? 0;
+  // 🚨 FIX (2026-09-02): Liminar não conta pra meta mensal (crédito judicial já
+  // recebido antecipado — ver nota no card "Meta do Mês"). Essas três variáveis
+  // ficam no escopo compartilhado do componente pra que TODAS as telas que
+  // resumem produção/recebido/a-receber (Visão Geral, Metas, hero de ritmo)
+  // usem a mesma régua sem Liminar — antes cada uma calculava/deixava de
+  // calcular isso separado, e um card excluía Liminar enquanto outro não,
+  // mostrando dois totais "A Receber" diferentes na mesma tela.
+  const liminarProducaoMes = data?.revenue?.byMethod?.liminar ?? 0;
+  const liminarRecebidoMes = Math.max(0, liminarProducaoMes - liminarAReceber);
+  const totalProducaoSemLiminar = Math.max(0, totalProducao - liminarProducaoMes);
+  const totalRecebimentoProducaoSemLiminar = Math.max(0, totalRecebimentoProducao - liminarRecebidoMes);
+  const totalAReceberProducaoSemLiminar = Math.max(0, totalAReceberProducao - liminarAReceber);
 
   // 🎯 RITMO OPERACIONAL — deve ficar ANTES dos early returns (Rules of Hooks)
   const ritmoCardEl = useMemo(() => {
@@ -476,19 +488,24 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <span className="text-gray-500">🏥 Produção: <span className="font-black text-blue-600">{pctRealizado.toFixed(1)}%</span></span>
                 <span className="text-gray-500">💰 Caixa: <span className="font-black text-emerald-700">{pctCaixa.toFixed(1)}%</span></span>
                 <span className="text-gray-400">📈 Dif.: <span className="font-semibold text-gray-500">{(pctCaixa - pctRealizado) >= 0 ? '+' : ''}{(pctCaixa - pctRealizado).toFixed(1)} p.p.</span></span>
-                <span className="text-gray-500">⏳ A Receber: <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducao)}</span></span>
+                <span className="text-gray-500">⏳ A Receber: <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducaoSemLiminar)}</span></span>
               </div>
             </div>
           </div>
           <div className="space-y-2">
             <MetricRow label="Esperado até hoje (produção)" value={formatCurrency(metas.ritmo.esperadoAteAgora ?? 0)} />
-            {/* 🎯 Produção vem da API — não recalcula */}
-            <MetricRow label="Produção realizada" value={formatCurrency(metas.camadas?.producao?.atingido ?? totalProducao)} />
+            {/* 🚨 FIX (2026-09-02): usava metas.camadas.producao.atingido, que é a
+                produção TOTAL (com Liminar) — inconsistente com o % mostrado acima
+                (pctRealizado já vem sem Liminar de metas.ritmo.percentualRealizado).
+                realizadoAteAgora é a mesma base sem Liminar usada no %, e diferenca
+                já vem calculada certa do backend — evita recalcular com bases
+                misturadas aqui. */}
+            <MetricRow label="Produção realizada" value={formatCurrency(metas.ritmo?.realizadoAteAgora ?? totalProducaoSemLiminar)} />
             <MetricRow label="Caixa realizado" value={formatCurrency(totalCaixa)} />
             <MetricRow
               label="Diferença produção"
-              value={formatCurrency((metas.camadas?.producao?.atingido ?? 0) - (metas.ritmo.esperadoAteAgora ?? 0))}
-              valueColor={((metas.camadas?.producao?.atingido ?? 0) - (metas.ritmo.esperadoAteAgora ?? 0)) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+              value={formatCurrency(metas.ritmo?.diferenca ?? 0)}
+              valueColor={(metas.ritmo?.diferenca ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
             />
             <MetricRow label="Gap diário necessário" value={formatCurrency(metas.gap?.porDia ?? 0)} />
           </div>
@@ -606,14 +623,18 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <Briefcase size={14} className="text-blue-600" />
               <span className="text-3xs font-black uppercase tracking-widest text-blue-600">Produção Clínica</span>
             </div>
-            <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalProducao)}</div>
+            {/* 🚨 FIX (2026-09-02): mostrava a produção TOTAL (com Liminar) rotulada
+                como "base da meta mensal" — mas a meta exclui Liminar desde a
+                decisão de negócio confirmada (ver "Meta do Mês"). Cabeçalho agora
+                reflete o valor que realmente conta pra meta; Liminar continua
+                listado no detalhamento abaixo, só marcado como fora da meta. */}
+            <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalProducaoSemLiminar)}</div>
             <p className="text-3xs text-gray-500 mb-3">serviços realizados · <strong className="text-blue-600">base da meta mensal</strong></p>
             <div className="space-y-1.5 border-t border-gray-100 pt-2">
               {([
                 { label: 'Pacote',     value: revenue.byMethod.pacote || 0,     color: '#8B5CF6' },
                 { label: 'Particular', value: revenue.byMethod.particular || 0, color: '#3B82F6' },
                 { label: 'Convênio',   value: revenue.byMethod.convenio || 0,   color: '#06B6D4' },
-                { label: 'Liminar',    value: revenue.byMethod.liminar || 0,    color: '#F97316' },
               ] as const).map(item => (
                 <div key={item.label} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
@@ -623,6 +644,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   <span className="font-semibold text-gray-800">{formatCurrency(item.value)}</span>
                 </div>
               ))}
+              {liminarProducaoMes > 0 && (
+                <div className="flex items-center justify-between text-xs opacity-60">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#F97316' }} />
+                    <span className="text-gray-500">Liminar <span className="italic">(fora da meta)</span></span>
+                  </div>
+                  <span className="font-semibold text-gray-500">{formatCurrency(liminarProducaoMes)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -635,18 +665,18 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <CheckCircle2 size={14} className="text-emerald-600" />
               <span className="text-3xs font-black uppercase tracking-widest text-emerald-600">Recebido da Produção</span>
             </div>
-            <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalRecebimentoProducao)}</div>
-            <p className="text-3xs text-gray-500 mb-3">da produção deste mês já convertida em caixa</p>
+            <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalRecebimentoProducaoSemLiminar)}</div>
+            <p className="text-3xs text-gray-500 mb-3">da produção deste mês (sem Liminar) já convertida em caixa</p>
             <div className="border-t border-gray-100 pt-2">
               <div className="flex justify-between text-xs mb-1.5">
                 <span className="text-gray-500">% da produção recebida</span>
-                <strong className="text-emerald-700">{totalProducao > 0 ? Math.round((totalRecebimentoProducao / totalProducao) * 100) : 0}%</strong>
+                <strong className="text-emerald-700">{totalProducaoSemLiminar > 0 ? Math.round((totalRecebimentoProducaoSemLiminar / totalProducaoSemLiminar) * 100) : 0}%</strong>
               </div>
               <div className="h-[4px] w-full bg-gray-100 rounded-full overflow-hidden mb-2">
                 <div className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${totalProducao > 0 ? Math.min(100, Math.round((totalRecebimentoProducao / totalProducao) * 100)) : 0}%` }} />
+                  style={{ width: `${totalProducaoSemLiminar > 0 ? Math.min(100, Math.round((totalRecebimentoProducaoSemLiminar / totalProducaoSemLiminar) * 100)) : 0}%` }} />
               </div>
-              {(totalProducao > 0 ? Math.round((totalRecebimentoProducao / totalProducao) * 100) : 0) >= 75 && (
+              {(totalProducaoSemLiminar > 0 ? Math.round((totalRecebimentoProducaoSemLiminar / totalProducaoSemLiminar) * 100) : 0) >= 75 && (
                 <span className="inline-flex items-center gap-1 text-3xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                   ✓ Alta conversão
                 </span>
@@ -663,7 +693,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <AlertTriangle size={14} className="text-amber-600" />
               <span className="text-3xs font-black uppercase tracking-widest text-amber-600">A Receber</span>
             </div>
-            <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalAReceberProducao)}</div>
+            {/* 🚨 FIX (2026-09-02): total incluía liminarAReceber sem nenhuma
+                distinção visual — quem olhasse rápido lia "R$1.030 a receber"
+                achando que isso tudo contava pra meta, quando R$470 eram Liminar
+                (fora da meta). Cabeçalho agora é só o que conta; Liminar continua
+                listado, marcado como fora da meta. */}
+            <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalAReceberProducaoSemLiminar)}</div>
             <p className="text-3xs text-gray-500 mb-3">produção realizada ainda não paga</p>
             <div className="border-t border-gray-100 pt-2 space-y-1.5">
               {convenioAReceber > 0 && (
@@ -685,15 +720,25 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 </div>
               )}
               {liminarAReceber > 0 && (
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-xs opacity-60">
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
-                    <span className="text-gray-600">Liminar</span>
+                    <span className="text-gray-500">Liminar <span className="italic">(fora da meta)</span></span>
                   </div>
-                  <span className="font-semibold text-amber-700">{formatCurrency(liminarAReceber)}</span>
+                  <span className="font-semibold text-gray-500">{formatCurrency(liminarAReceber)}</span>
                 </div>
               )}
             </div>
+            {/* 🆕 (2026-09-02) reaproveita a função já usada em "Particular em aberto"
+                (Decisão Executiva) — lista por paciente/data (convênio + particular
+                vencidos do mês, sem Liminar). Achado real: usuário desconfiou do
+                número até ver o detalhe por trás. */}
+            {totalAReceberProducaoSemLiminar > 0 && (
+              <button onClick={() => openDebitosModal('mes')}
+                className="mt-2 w-full py-1.5 px-3 rounded-lg text-2xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">
+                Ver detalhes ↗
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1055,7 +1100,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const caixaTotal       = cash?.total ?? 0;
     const producaoTotal    = revenue?.total ?? 0;
     const pctCaixaMeta     = metas.camadas?.caixa?.percentual ?? (metaValor > 0 ? (caixaTotal / metaValor) * 100 : 0);
-    // convenioAReceber usa o do outer scope (data.convenioAReceber = production.convenio - cash.convenio)
+    // convenioAReceber, totalAReceberProducaoSemLiminar e totalRecebimentoProducaoSemLiminar
+    // usam o escopo compartilhado do componente (mesma régua sem Liminar em toda a tela).
 
     const isVerde   = metas.statusMeta === 'verde';
     const isAmVerde = metas.statusMeta === 'amarelo-verde';
@@ -1147,6 +1193,13 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 </span>
               )}
               <p className="text-xs text-gray-500 italic">{textoExecutivo}</p>
+              {/* 🚨 (2026-09-01) Decisão de negócio: Liminar não conta pra bater a meta —
+                  crédito judicial é recebido antecipado (valor total antes das sessões
+                  começarem), não é produção a perseguir no mês. Deixado explícito aqui
+                  pra não gerar dúvida de "por que a meta não bate com Produção total". */}
+              <p className="text-3xs text-gray-400 mt-1">
+                Meta = Particular + Pacote + Convênio. Liminar não entra (crédito judicial já recebido antecipado).
+              </p>
             </div>
             {/* Coluna direita — breakdown */}
             <div className="w-44 shrink-0 bg-white/70 rounded-xl px-3 py-2.5 space-y-2 border border-gray-100">
@@ -1164,7 +1217,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">A receber</span>
-                <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducao)}</span>
+                {/* 🚨 FIX (2026-09-02): mesmo lugar perdido antes — ainda usava o total
+                    com Liminar (inconsistente com o resto da aba Metas, já corrigido). */}
+                <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducaoSemLiminar)}</span>
               </div>
               <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-1.5">
                 <span className="text-gray-500">Agendamentos</span>
@@ -1187,18 +1242,40 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Breakdown Financeiro</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
-              { label: 'Caixa recebido',  value: caixaTotal,  color: '#10B981', sub: (totalRetroativos > 0 || totalAntecipacoes > 0) ? `inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação` : null].filter(Boolean).join(' + ')}` : 'dinheiro real recebido',
-                info: <>Dinheiro que efetivamente entrou no caixa neste mês.<br/><br/><strong>Fonte:</strong> pagamentos recebidos (Payment pago).<br/><br/><strong>Não inclui:</strong> valores a receber, produção ainda não paga.</> },
+              {
+                // 🚨 FIX (2026-09-02): antes o value era `caixaTotal` (R$2.730, caixa
+                // real, inclui antecipação de pacote) — mas o card ao lado ("A receber")
+                // já é sem Liminar/sem antecipação, então somar os dois na cabeça dava
+                // 2.730+820=3.550, enquanto a Meta do Mês (produção pura) mostra 3.520.
+                // Trocado para `totalRecebimentoProducaoSemLiminar` (R$2.700), que é o
+                // mesmo número já usado na frase de reconciliação abaixo — assim os dois
+                // cards desta linha sempre somam exatamente a Meta.
+                label: 'Recebido da produção', value: totalRecebimentoProducaoSemLiminar, color: '#10B981',
+                sub: `caixa total ${formatCurrency(caixaTotal)}${(totalRetroativos > 0 || totalAntecipacoes > 0) ? ` (inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} retroativo` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} antecipação` : null].filter(Boolean).join(' + ')})` : ''}`,
+                info: <>Pagamentos já recebidos referentes à produção deste mês (sem Liminar).<br/><br/><strong>Fonte:</strong> pagamentos pagos (Payment) vinculados a sessões deste mês.<br/><br/><strong>Não inclui:</strong> antecipação de pacote ainda não consumida, retroativo de convênio, nem Liminar — esses valores estão no caixa total ({formatCurrency(caixaTotal)}) mas fora da meta.</>,
+              },
               { label: 'Produção clínica', value: producaoTotal, color: '#2563EB', sub: 'serviços entregues',
                 info: <>Sessões realizadas nesta competência, independente de já terem sido pagas.<br/><br/><strong>Fonte:</strong> sessões concluídas (Session completed) com data dentro do mês.<br/><br/><strong>Não inclui:</strong> sessões futuras ou de outros meses.</> },
-              { label: 'A receber',        value: totalAReceberProducao, color: '#D97706',
-                sub: convenioAReceber > 0 ? `conv. ${formatCurrency(convenioAReceber)}${totalAReceberProducao - convenioAReceber > 0 ? ` · part. ${formatCurrency(totalAReceberProducao - convenioAReceber)}` : ''}` : 'pendente de recebimento',
-                info: <>Produção deste mês que ainda não virou caixa (convênio aguardando repasse + particular/pacote pendente).<br/><br/><strong>Fonte:</strong> sessões concluídas do mês sem pagamento recebido.<br/><br/><strong>Não inclui:</strong> dívida de meses anteriores (card à parte).</> },
+              { label: 'A receber',        value: totalAReceberProducaoSemLiminar, color: '#D97706',
+                // 🚨 FIX (2026-09-02): "part." estava escondendo o a-receber de Liminar
+                // aqui dentro (totalAReceberProducao incluía liminarAReceber sem
+                // rótulo) — Liminar já não conta pra meta (ver "Meta do Mês" acima),
+                // então também não devia contar como "a receber" desse indicador.
+                // Liminar a receber continua visível no card próprio de A Receber
+                // (Visão Geral).
+                sub: convenioAReceber > 0 ? `conv. ${formatCurrency(convenioAReceber)}${totalAReceberProducaoSemLiminar - convenioAReceber > 0 ? ` · part. ${formatCurrency(totalAReceberProducaoSemLiminar - convenioAReceber)}` : ''}` : 'pendente de recebimento',
+                info: <>Produção deste mês (sem Liminar) que ainda não virou caixa (convênio aguardando repasse + particular/pacote pendente).<br/><br/><strong>Fonte:</strong> sessões concluídas do mês sem pagamento recebido.<br/><br/><strong>Não inclui:</strong> dívida de meses anteriores (card à parte) nem Liminar (crédito judicial, fora da meta).</>,
+                // 🆕 (2026-09-02) mesmo drill-down por paciente/data já usado em
+                // "Particular em aberto" — evita ter que confiar no número sem ver o
+                // detalhe por trás (achado real: usuário desconfiou até ver a lista).
+                onClick: totalAReceberProducaoSemLiminar > 0 ? () => openDebitosModal('mes') : undefined },
               { label: 'Falta para meta', value: Math.max(0, metaValor - resultadoEcon), color: '#DC2626',
                 sub: `${metas?.gap?.diasRestantes ?? 0} dias restantes`,
-                info: <>Quanto falta para atingir a meta do mês.<br/><br/><strong>Fonte:</strong> meta configurada menos resultado reconhecido (Caixa + A receber).<br/><br/><strong>Não inclui:</strong> projeção de fechamento (ver aba Projeção &amp; Cenários).</> },
-            ] as const).map((kpi) => (
-              <div key={kpi.label} className="rounded-xl bg-white border border-gray-100 shadow-sm">
+                info: <>Quanto falta para atingir a meta do mês.<br/><br/><strong>Fonte:</strong> meta configurada menos resultado reconhecido (Recebido da produção + A receber).<br/><br/><strong>Não inclui:</strong> projeção de fechamento (ver aba Projeção &amp; Cenários).</> },
+            ] as ({ label: string; value: number; color: string; sub: string; info: React.ReactNode; onClick?: () => void })[]).map((kpi) => (
+              <div key={kpi.label}
+                className={`rounded-xl bg-white border border-gray-100 shadow-sm ${kpi.onClick ? 'cursor-pointer hover:border-amber-300 hover:shadow-md transition-all' : ''}`}
+                onClick={kpi.onClick}>
                 {/* rounded-t-xl na própria barra (em vez de overflow-hidden no card) — overflow-hidden
                     cortava o popover do InfoTooltip, que precisa renderizar fora da caixa do card */}
                 <div className="rounded-t-xl" style={{ height: 3, backgroundColor: kpi.color }} />
@@ -1206,13 +1283,22 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   <p className="text-3xs text-gray-500 font-semibold mb-1">{kpi.label}<InfoTooltip>{kpi.info}</InfoTooltip></p>
                   <p className="text-lg font-black leading-tight" style={{ color: kpi.color }}>{formatCurrency(kpi.value)}</p>
                   <p className="text-3xs text-gray-400 mt-0.5 leading-tight">{kpi.sub}</p>
+                  {kpi.onClick && <p className="text-3xs text-amber-600 font-bold mt-1">Ver detalhes ↗</p>}
                 </div>
               </div>
             ))}
           </div>
-          {totalAReceberProducao > 0 && (
+          {totalRecebimentoProducaoSemLiminar > 0 && (
             <p className="text-3xs text-gray-400 italic mt-1.5 text-center">
-              Caixa {formatCurrency(caixaTotal)} + A receber {formatCurrency(totalAReceberProducao)} = {formatCurrency(resultadoEcon)} reconhecido
+              {/* 🚨 FIX (2026-09-02): a versão anterior somava Caixa (dinheiro real,
+                  inclui antecipação/retroativo de outras competências) + A receber
+                  (produção pendente) e chamava a soma de "reconhecido" — não batia
+                  matematicamente (ex.: R$2.730 + R$1.030 ≠ R$3.100, a diferença era
+                  a antecipação de pacote + o a-receber de Liminar, que não fazem
+                  parte da meta). Trocado por "Recebido da produção" (já mostrado
+                  como métrica própria em Qualidade da Receita) + A receber sem
+                  Liminar — essa soma bate exatamente com o resultado reconhecido. */}
+              Recebido da produção {formatCurrency(totalRecebimentoProducaoSemLiminar)} + A receber {formatCurrency(totalAReceberProducaoSemLiminar)} = {formatCurrency(resultadoEcon)} reconhecido
             </p>
           )}
         </div>
@@ -2315,33 +2401,70 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         pending: 'Pendente', pending_balance: 'Saldo pendente',
         unpaid: 'Não pago', partial: 'Parcial',
         pending_receipt: 'Aguard. recebimento',
+        // 🚨 FIX (2026-09-02): faltava 'billed' (convênio faturado ao plano,
+        // aguardando reembolso) — sem isso o backend nem incluía essas sessões
+        // na lista (ver fetchPendingPaymentsByDateRange), então nunca precisou
+        // de label; agora que estão incluídas, aparecia o texto cru "billed".
+        billed: 'Faturado ao plano',
       };
 
+      const convenioSubtotal = mergedGroupsList.filter((g: any) => g.tipo === 'convenio').reduce((s: number, g: any) => s + (g.total || 0), 0);
+      const particularSubtotal = mergedGroupsList.filter((g: any) => g.tipo === 'particular').reduce((s: number, g: any) => s + (g.total || 0), 0);
+
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDebitosModalOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setDebitosModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl ring-1 ring-black/5 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={20} className={isMes ? 'text-rose-500' : 'text-amber-500'} />
-                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+            <div className={`relative px-6 pt-5 pb-6 text-white ${isMes ? 'bg-gradient-to-br from-rose-600 via-rose-500 to-orange-500' : 'bg-gradient-to-br from-amber-600 via-amber-500 to-orange-500'}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                    <AlertTriangle size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black tracking-tight">{title}</h2>
+                    <p className="text-2xs text-white/75 font-medium">{displayedCount} sessão(ões) em aberto</p>
+                  </div>
+                </div>
+                <button onClick={() => setDebitosModalOpen(false)} className="p-1.5 rounded-full bg-white/10 hover:bg-white/25 transition-colors">
+                  <X size={18} className="text-white" />
+                </button>
               </div>
-              <button onClick={() => setDebitosModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
-                <X size={20} className="text-gray-500" />
-              </button>
+              <div className="mt-5 flex items-end justify-between">
+                <div>
+                  <p className="text-2xs text-white/70 font-semibold uppercase tracking-widest">Total em aberto</p>
+                  <p className="text-3xl font-black tracking-tight">{formatCurrency(totalVal)}</p>
+                </div>
+                {usingV2Groups && (
+                  <div className="flex gap-2">
+                    {convenioSubtotal > 0 && (
+                      <div className="bg-white/15 backdrop-blur rounded-xl px-3 py-1.5 text-right">
+                        <p className="text-3xs text-white/70 font-semibold">Convênio</p>
+                        <p className="text-sm font-bold">{formatCurrency(convenioSubtotal)}</p>
+                      </div>
+                    )}
+                    {particularSubtotal > 0 && (
+                      <div className="bg-white/15 backdrop-blur rounded-xl px-3 py-1.5 text-right">
+                        <p className="text-3xs text-white/70 font-semibold">Particular</p>
+                        <p className="text-sm font-bold">{formatCurrency(particularSubtotal)}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Body */}
-            <div className="overflow-auto flex-1">
+            <div className="overflow-auto flex-1 bg-gray-50/70">
               {isLoading ? (
-                <div className="p-8 text-center text-gray-500">Carregando...</div>
+                <div className="p-10 text-center text-gray-400 text-sm">Carregando...</div>
               ) : !usingV2Groups && rows.length === 0 ? (
-                <div className="p-8 text-center text-emerald-600 font-medium">✅ Nenhum débito encontrado</div>
+                <div className="p-10 text-center text-emerald-600 font-semibold text-sm">✅ Nenhum débito encontrado</div>
               ) : (() => {
                 if (usingV2Groups) {
                   const sortedGroups = mergedGroupsList.slice().sort((a: any, b: any) => b.total - a.total);
                   return (
-                    <div className="divide-y divide-gray-100">
+                    <div className="p-3 space-y-2">
                       {sortedGroups.map((group: any) => {
                         const paciente = group.patient?.fullName || 'Desconhecido';
                         const groupKey = `${group.tipo}-${group.patientId || paciente}`;
@@ -2353,61 +2476,58 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         });
                         const isConvenio = group.tipo === 'convenio';
                         return (
-                          <div key={groupKey}>
+                          <div key={groupKey} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                             <button
                               onClick={toggle}
-                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/80 text-left transition-colors"
                             >
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
-                                <span className="font-semibold text-gray-800">{paciente}</span>
-                                <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${isConvenio ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
-                                  {isConvenio ? 'Convênio' : 'Particular'}
-                                </span>
-                                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{group.count} sessão(ões)</span>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${isConvenio ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {paciente.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-800 text-sm">{paciente}</span>
+                                    <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${isConvenio ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                                      {isConvenio ? 'Convênio' : 'Particular'}
+                                    </span>
+                                  </div>
+                                  <p className="text-3xs text-gray-400 font-medium mt-0.5">{group.count} sessão(ões) em aberto</p>
+                                </div>
                               </div>
-                              <span className="font-bold text-rose-600">{formatCurrency(group.total)}</span>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <span className="font-black text-rose-600">{formatCurrency(group.total)}</span>
+                                <span className={`text-gray-300 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                              </div>
                             </button>
                             {isOpen && (
-                              <table className="w-full text-sm bg-gray-50">
-                                <thead className="text-xs text-gray-400 uppercase">
-                                  <tr>
-                                    <th className="px-8 py-1 text-left font-medium">Data</th>
-                                    <th className="px-4 py-1 text-left font-medium">{isConvenio ? 'Convênio' : 'Especialidade'}</th>
-                                    <th className="px-4 py-1 text-left font-medium">Status</th>
-                                    <th className="px-4 py-1 text-right font-medium">Valor</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                  {group.items.map((item: any, i: number) => {
-                                    const specColor: Record<string, string> = {
-                                      'Fonoaudiologia': 'bg-emerald-100 text-emerald-700',
-                                      'Psicologia': 'bg-violet-100 text-violet-700',
-                                      'Terapia Ocupacional': 'bg-orange-100 text-orange-700',
-                                    };
-                                    const label = isConvenio ? (item.provider || '—') : (item.specialty || '—');
-                                    const sc = isConvenio ? 'bg-violet-100 text-violet-700' : (specColor[item.specialty] || 'bg-gray-100 text-gray-600');
-                                    return (
-                                      <tr key={item._id || i}>
-                                        <td className="px-8 py-2 text-gray-500 w-28">
-                                          {item.data ? `${new Date(item.data).toLocaleDateString('pt-BR')} ${item.time || '-'}` : '—'}
-                                        </td>
-                                        <td className="px-4 py-2">
-                                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc}`}>
-                                            {label}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-2">
-                                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
-                                            {statusLabel[item.status] || item.status}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatCurrency(item.amount)}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                              <div className="border-t border-gray-100 bg-gray-50/60 divide-y divide-gray-100">
+                                {group.items.map((item: any, i: number) => {
+                                  const specColor: Record<string, string> = {
+                                    'Fonoaudiologia': 'bg-emerald-100 text-emerald-700',
+                                    'Psicologia': 'bg-violet-100 text-violet-700',
+                                    'Terapia Ocupacional': 'bg-orange-100 text-orange-700',
+                                  };
+                                  const label = isConvenio ? (item.provider || '—') : (item.specialty || '—');
+                                  const sc = isConvenio ? 'bg-violet-100 text-violet-700' : (specColor[item.specialty] || 'bg-gray-100 text-gray-600');
+                                  const statusDot: Record<string, string> = { pending: 'bg-amber-500', billed: 'bg-sky-500' };
+                                  return (
+                                    <div key={item._id || i} className="flex items-center justify-between gap-3 px-4 py-2.5 pl-8">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-2xs text-gray-400 font-medium w-24 shrink-0 tabular-nums">
+                                          {item.data ? `${new Date(item.data).toLocaleDateString('pt-BR')} ${item.time || ''}` : '—'}
+                                        </span>
+                                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold ${sc}`}>{label}</span>
+                                        <span className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold bg-gray-100 text-gray-500">
+                                          <span className={`w-1.5 h-1.5 rounded-full ${statusDot[item.status] || 'bg-rose-400'}`} />
+                                          {statusLabel[item.status] || item.status}
+                                        </span>
+                                      </div>
+                                      <span className="font-bold text-gray-800 text-sm shrink-0">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         );
@@ -2427,7 +2547,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 const sortedGroups = Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
 
                 return (
-                  <div className="divide-y divide-gray-100">
+                  <div className="p-3 space-y-2">
                     {sortedGroups.map(([paciente, group]) => {
                       const isOpen = openPatientGroups.has(paciente);
                       const toggle = () => setOpenPatientGroups(prev => {
@@ -2436,44 +2556,47 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         return next;
                       });
                       return (
-                        <div key={paciente}>
+                        <div key={paciente} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                           <button
                             onClick={toggle}
-                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/80 text-left transition-colors"
                           >
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
-                              <span className="font-semibold text-gray-800">{paciente}</span>
-                              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{group.items.length} sessão(ões)</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-black shrink-0">
+                                {paciente.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="font-bold text-gray-800 text-sm">{paciente}</span>
+                                <p className="text-3xs text-gray-400 font-medium mt-0.5">{group.items.length} sessão(ões) em aberto</p>
+                              </div>
                             </div>
-                            <span className="font-bold text-rose-600">{formatCurrency(group.total)}</span>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="font-black text-rose-600">{formatCurrency(group.total)}</span>
+                              <span className={`text-gray-300 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                            </div>
                           </button>
                           {isOpen && (
-                            <table className="w-full text-sm bg-gray-50">
-                              <tbody className="divide-y divide-gray-100">
-                                {group.items.map((item, i) => {
-                                  const tipoLabel: Record<string, string> = { particular: 'Particular', convenio: 'Convênio', pacote: 'Pacote', pix: 'PIX', dinheiro: 'Dinheiro', cartão: 'Cartão' };
-                                  const tipoColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-sky-100 text-sky-700', pacote: 'bg-purple-100 text-purple-700' };
-                                  const tc = tipoColor[item.tipo || ''] || 'bg-gray-100 text-gray-600';
-                                  return (
-                                    <tr key={item._id || i}>
-                                      <td className="px-8 py-2 text-gray-500 w-28">{item.date ? `${new Date(item.date).toLocaleDateString('pt-BR')} ${item.time || '-'}` : '—'}</td>
-                                      <td className="px-4 py-2">
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tc}`}>
-                                          {tipoLabel[item.tipo || ''] || item.tipo || '—'}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-2">
-                                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
-                                          {statusLabel[item.paymentStatus] || item.paymentStatus}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatCurrency(item.valor)}</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                            <div className="border-t border-gray-100 bg-gray-50/60 divide-y divide-gray-100">
+                              {group.items.map((item, i) => {
+                                const tipoLabel: Record<string, string> = { particular: 'Particular', convenio: 'Convênio', pacote: 'Pacote', pix: 'PIX', dinheiro: 'Dinheiro', cartão: 'Cartão' };
+                                const tipoColor: Record<string, string> = { particular: 'bg-blue-100 text-blue-700', convenio: 'bg-sky-100 text-sky-700', pacote: 'bg-purple-100 text-purple-700' };
+                                const tc = tipoColor[item.tipo || ''] || 'bg-gray-100 text-gray-600';
+                                return (
+                                  <div key={item._id || i} className="flex items-center justify-between gap-3 px-4 py-2.5 pl-8">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-2xs text-gray-400 font-medium w-24 shrink-0 tabular-nums">{item.date ? `${new Date(item.date).toLocaleDateString('pt-BR')} ${item.time || ''}` : '—'}</span>
+                                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold ${tc}`}>
+                                        {tipoLabel[item.tipo || ''] || item.tipo || '—'}
+                                      </span>
+                                      <span className="shrink-0 px-2 py-0.5 rounded-full text-3xs font-bold bg-gray-100 text-gray-500">
+                                        {statusLabel[item.paymentStatus] || item.paymentStatus}
+                                      </span>
+                                    </div>
+                                    <span className="font-bold text-gray-800 text-sm shrink-0">{formatCurrency(item.valor)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
                       );
@@ -2484,9 +2607,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             </div>
 
             {/* Footer — sempre reflete a MESMA fonte de dados exibida no corpo acima */}
-            <div className="p-4 border-t flex justify-between items-center">
-              <span className="text-sm text-gray-500">{displayedCount} sessão(ões)</span>
-              <span className="font-bold text-gray-900">Total: {formatCurrency(totalVal)}</span>
+            <div className="px-5 py-3.5 border-t border-gray-100 bg-white flex justify-between items-center shrink-0">
+              <span className="text-2xs text-gray-400 font-semibold">{displayedCount} sessão(ões) no total</span>
+              <span className="font-black text-gray-900">{formatCurrency(totalVal)}</span>
             </div>
           </div>
         </div>
