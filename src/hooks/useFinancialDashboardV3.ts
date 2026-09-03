@@ -403,7 +403,7 @@ export const useFinancialDashboardV3 = () => {
       setCached(cacheKey, data);
       setResponse(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Erro ao carregar dashboard V3');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Erro ao carregar dashboard');
       console.error('useFinancialDashboardV3 error:', err);
     } finally {
       setLoading(false);

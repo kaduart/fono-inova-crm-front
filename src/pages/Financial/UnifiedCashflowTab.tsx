@@ -141,6 +141,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const [monthResumo, setMonthResumo] = useState<{
         caixaBruto: number; producaoTotal: number; convenioAReceber: number;
         porTipo: { particular: number; pacote: number; convenio: number; liminar: number };
+        // 🆕 (2026-09-03) Meta Realizada — ver calculateMetaRealizada no backend.
+        metaRealizada?: {
+            total: number;
+            porTipo: { particular: number; pacote: number; convenio: number; liminar: number };
+            excluido: { retroativoConvenio: number; liminar: number };
+        };
     } | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
@@ -2467,9 +2473,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     )}
                                 </div>
                                 <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
-                                    <div className="text-2xs text-gray-500 mb-0.5">Regime de Competência</div>
-                                    <div className="text-xl font-bold text-violet-700">{formatCurrency(monthResumo.producaoTotal)}</div>
-                                    <div className="text-3xs text-gray-400 mt-1">serviços entregues · base da meta</div>
+                                    {/* Valor pronto do backend (metaRealizada.total) — não recalcular aqui.
+                                        Definição: back/docs/FINANCIAL_SOURCE_OF_TRUTH.md → "Meta Realizada". */}
+                                    <div className="text-2xs text-gray-500 mb-0.5">Meta Realizada</div>
+                                    <div className="text-xl font-bold text-violet-700">
+                                        {formatCurrency(monthResumo.metaRealizada?.total ?? 0)}
+                                    </div>
+                                    <div className="text-3xs text-gray-400 mt-1">receita nova do mês · caixa sem retroativo de convênio nem liminar</div>
                                 </div>
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                                     <div className="text-2xs text-gray-500 mb-0.5">Produção por tipo</div>

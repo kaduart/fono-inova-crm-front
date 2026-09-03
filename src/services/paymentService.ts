@@ -251,9 +251,14 @@ export interface InsuranceGuideViewSession {
 
 export interface InsurancePaymentIntegrityConflict {
     sessionId: string;
+    sessionDate: string | Date | null;
     guideId: string;
+    guideNumber: string | null;
+    guideInsurance: string | null;
     patientId: string | null;
+    patientName: string | null;
     activePayments: number;
+    reason: string;
     paymentStatuses: Array<{
         paymentId: string;
         status: string;

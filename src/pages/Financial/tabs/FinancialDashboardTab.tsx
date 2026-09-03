@@ -436,13 +436,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const totalAntecipacoes = data?.antecipacoes ?? 0;
   const totalRetroativos = data?.retroativos ?? 0;
   const totalAReceberProducao = data?.aReceberProducao ?? 0;
-  // 🚨 FIX (2026-09-02): Liminar não conta pra meta mensal (crédito judicial já
-  // recebido antecipado — ver nota no card "Meta do Mês"). Essas três variáveis
-  // ficam no escopo compartilhado do componente pra que TODAS as telas que
-  // resumem produção/recebido/a-receber (Visão Geral, Metas, hero de ritmo)
-  // usem a mesma régua sem Liminar — antes cada uma calculava/deixava de
-  // calcular isso separado, e um card excluía Liminar enquanto outro não,
-  // mostrando dois totais "A Receber" diferentes na mesma tela.
+  // Liminar não conta pra Meta Realizada (ver back/docs/FINANCIAL_SOURCE_OF_TRUTH.md
+  // → "Meta Realizada"). Escopo compartilhado do componente pra todas as telas
+  // usarem a mesma régua sem Liminar.
   const liminarProducaoMes = data?.revenue?.byMethod?.liminar ?? 0;
   const liminarRecebidoMes = Math.max(0, liminarProducaoMes - liminarAReceber);
   const totalProducaoSemLiminar = Math.max(0, totalProducao - liminarProducaoMes);
@@ -454,7 +450,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const metas = data?.metas;
     if (!metas?.ritmo) return null;
     const pctEsperado = metas.ritmo.percentualEsperado ?? 0;
-    // Meta = produção (regime de competência) — alinhado ao contrato FinancialSemantic.js
+    // Meta Realizada: back/docs/FINANCIAL_SOURCE_OF_TRUTH.md
     const pctRealizado = metas.ritmo?.percentualRealizado ?? metas.camadas?.producao?.percentual ?? 0;
     const pctCaixa     = metas.camadas?.caixa?.percentual ?? 0;
     const diff = pctRealizado - pctEsperado;
@@ -626,13 +622,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               <Briefcase size={14} className="text-blue-600" />
               <span className="text-3xs font-black uppercase tracking-widest text-blue-600">Produção Clínica</span>
             </div>
-            {/* 🚨 FIX (2026-09-02): mostrava a produção TOTAL (com Liminar) rotulada
-                como "base da meta mensal" — mas a meta exclui Liminar desde a
-                decisão de negócio confirmada (ver "Meta do Mês"). Cabeçalho agora
-                reflete o valor que realmente conta pra meta; Liminar continua
-                listado no detalhamento abaixo, só marcado como fora da meta. */}
+            {/* Produção (regime de competência) — NÃO é mais a base da Meta
+                Realizada (essa é caixa, ver back/docs/FINANCIAL_SOURCE_OF_TRUTH.md).
+                Sem Liminar por consistência com o resto da tela. */}
             <div className="text-3xl font-black text-gray-900 mb-1">{formatCurrency(totalProducaoSemLiminar)}</div>
-            <p className="text-3xs text-gray-500 mb-3">serviços realizados · <strong className="text-blue-600">base da meta mensal</strong></p>
+            <p className="text-3xs text-gray-500 mb-3">serviços realizados no mês</p>
             <div className="space-y-1.5 border-t border-gray-100 pt-2">
               {([
                 { label: 'Pacote',     value: revenue.byMethod.pacote || 0,     color: '#8B5CF6' },
@@ -1096,7 +1090,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     if (!metas) return <div className="p-4 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">Dados de metas indisponíveis para este período.</div>;
 
     const metaValor        = metas.configuracao?.metaMensal ?? 0;
-    // Meta = produção (regime de competência) — alinhado ao contrato FinancialSemantic.js (META.base = PRODUCTION)
+    // Meta Realizada: back/docs/FINANCIAL_SOURCE_OF_TRUTH.md
     const pctRealizado     = metas.ritmo?.percentualRealizado ?? metas.camadas?.producao?.percentual ?? 0;
     const metaRealizado    = metas.realizado?.mes ?? metas.camadas?.producao?.atingido ?? totalProducao;
     const resultadoEcon    = metaRealizado;
@@ -1173,7 +1167,10 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="p-5 flex items-start gap-4" style={{ backgroundColor: heroBg }}>
             {/* Coluna esquerda */}
             <div className="flex-1 min-w-0">
-              <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Meta do Mês</p>
+              {/* Valor pronto do backend (metas.realizado.mes) — não recalcular aqui,
+                  mesmo valor do card equivalente em UnifiedCashflowTab.tsx.
+                  Definição: back/docs/FINANCIAL_SOURCE_OF_TRUTH.md → "Meta Realizada". */}
+              <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Meta Realizada</p>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="text-4xl font-black leading-none" style={{ color: heroColor }}>
                   {Math.min(pctRealizado, 100).toFixed(0)}%
@@ -1246,13 +1243,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
               {
-                // 🚨 FIX (2026-09-02): antes o value era `caixaTotal` (R$2.730, caixa
-                // real, inclui antecipação de pacote) — mas o card ao lado ("A receber")
-                // já é sem Liminar/sem antecipação, então somar os dois na cabeça dava
-                // 2.730+820=3.550, enquanto a Meta do Mês (produção pura) mostra 3.520.
-                // Trocado para `totalRecebimentoProducaoSemLiminar` (R$2.700), que é o
-                // mesmo número já usado na frase de reconciliação abaixo — assim os dois
-                // cards desta linha sempre somam exatamente a Meta.
+                // totalRecebimentoProducaoSemLiminar (não caixaTotal) — soma exatamente
+                // com "A receber" abaixo pra bater com Produção clínica sem Liminar.
                 label: 'Recebido da produção', value: totalRecebimentoProducaoSemLiminar, color: '#10B981',
                 sub: `caixa total ${formatCurrency(caixaTotal)}${(totalRetroativos > 0 || totalAntecipacoes > 0) ? ` (inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} retroativo` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} antecipação` : null].filter(Boolean).join(' + ')})` : ''}`,
                 info: <>Pagamentos já recebidos referentes à produção deste mês (sem Liminar).<br/><br/><strong>Fonte:</strong> pagamentos pagos (Payment) vinculados a sessões deste mês.<br/><br/><strong>Não inclui:</strong> antecipação de pacote ainda não consumida, retroativo de convênio, nem Liminar — esses valores estão no caixa total ({formatCurrency(caixaTotal)}) mas fora da meta.</>,
@@ -1260,12 +1252,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               { label: 'Produção clínica', value: producaoTotal, color: '#2563EB', sub: 'serviços entregues',
                 info: <>Sessões realizadas nesta competência, independente de já terem sido pagas.<br/><br/><strong>Fonte:</strong> sessões concluídas (Session completed) com data dentro do mês.<br/><br/><strong>Não inclui:</strong> sessões futuras ou de outros meses.</> },
               { label: 'A receber',        value: totalAReceberProducaoSemLiminar, color: '#D97706',
-                // 🚨 FIX (2026-09-02): "part." estava escondendo o a-receber de Liminar
-                // aqui dentro (totalAReceberProducao incluía liminarAReceber sem
-                // rótulo) — Liminar já não conta pra meta (ver "Meta do Mês" acima),
-                // então também não devia contar como "a receber" desse indicador.
-                // Liminar a receber continua visível no card próprio de A Receber
-                // (Visão Geral).
+                // Sem Liminar (fora da meta) — Liminar a receber continua visível no
+                // card próprio de A Receber (Visão Geral).
                 sub: convenioAReceber > 0 ? `conv. ${formatCurrency(convenioAReceber)}${totalAReceberProducaoSemLiminar - convenioAReceber > 0 ? ` · part. ${formatCurrency(totalAReceberProducaoSemLiminar - convenioAReceber)}` : ''}` : 'pendente de recebimento',
                 info: <>Produção deste mês (sem Liminar) que ainda não virou caixa (convênio aguardando repasse + particular/pacote pendente).<br/><br/><strong>Fonte:</strong> sessões concluídas do mês sem pagamento recebido.<br/><br/><strong>Não inclui:</strong> dívida de meses anteriores (card à parte) nem Liminar (crédito judicial, fora da meta).</>,
                 // 🆕 (2026-09-02) mesmo drill-down por paciente/data já usado em
@@ -1274,7 +1262,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 onClick: totalAReceberProducaoSemLiminar > 0 ? () => openDebitosModal('mes') : undefined },
               { label: 'Falta para meta', value: Math.max(0, metaValor - resultadoEcon), color: '#DC2626',
                 sub: `${metas?.gap?.diasRestantes ?? 0} dias restantes`,
-                info: <>Quanto falta para atingir a meta do mês.<br/><br/><strong>Fonte:</strong> meta configurada menos resultado reconhecido (Recebido da produção + A receber).<br/><br/><strong>Não inclui:</strong> projeção de fechamento (ver aba Projeção &amp; Cenários).</> },
+                info: <>Quanto falta para atingir a meta do mês.<br/><br/><strong>Fonte:</strong> meta configurada menos Meta Realizada (caixa do mês sem convênio retroativo nem Liminar — back/docs/FINANCIAL_SOURCE_OF_TRUTH.md).<br/><br/><strong>Não inclui:</strong> projeção de fechamento (ver aba Projeção &amp; Cenários).</> },
             ] as ({ label: string; value: number; color: string; sub: string; info: React.ReactNode; onClick?: () => void })[]).map((kpi) => (
               <div key={kpi.label}
                 className={`rounded-xl bg-white border border-gray-100 shadow-sm ${kpi.onClick ? 'cursor-pointer hover:border-amber-300 hover:shadow-md transition-all' : ''}`}
@@ -1293,15 +1281,9 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           </div>
           {totalRecebimentoProducaoSemLiminar > 0 && (
             <p className="text-3xs text-gray-400 italic mt-1.5 text-center">
-              {/* 🚨 FIX (2026-09-02): a versão anterior somava Caixa (dinheiro real,
-                  inclui antecipação/retroativo de outras competências) + A receber
-                  (produção pendente) e chamava a soma de "reconhecido" — não batia
-                  matematicamente (ex.: R$2.730 + R$1.030 ≠ R$3.100, a diferença era
-                  a antecipação de pacote + o a-receber de Liminar, que não fazem
-                  parte da meta). Trocado por "Recebido da produção" (já mostrado
-                  como métrica própria em Qualidade da Receita) + A receber sem
-                  Liminar — essa soma bate exatamente com o resultado reconhecido. */}
-              Recebido da produção {formatCurrency(totalRecebimentoProducaoSemLiminar)} + A receber {formatCurrency(totalAReceberProducaoSemLiminar)} = {formatCurrency(resultadoEcon)} reconhecido
+              {/* Decomposição de produção (competência) — não de Meta Realizada
+                  (caixa). Ver back/docs/FINANCIAL_SOURCE_OF_TRUTH.md. */}
+              Recebido da produção {formatCurrency(totalRecebimentoProducaoSemLiminar)} + A receber {formatCurrency(totalAReceberProducaoSemLiminar)} = {formatCurrency(totalProducaoSemLiminar)} de produção reconhecida
             </p>
           )}
         </div>
@@ -1631,8 +1613,20 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <div className="text-5xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(totalCaixa)}</div>
                 <p className="text-xs text-gray-500 mb-1">
                   mês anterior: <span className="font-semibold text-gray-700">{formatCurrency(comparativos?.mesAnterior?.caixa ?? 0)}</span>
-                  {totalAntecipacoes > 0 && (
-                    <span className="ml-2 text-sky-600">· inclui {formatCurrency(totalAntecipacoes)} de retroativos</span>
+                  {/* 🚨 FIX (2026-09-03): mostrava só totalAntecipacoes rotulado como
+                      "retroativos" — trocado, e o retroativo real (totalRetroativos)
+                      nem aparecia. Achado real: card mostrava "inclui R$2.420,00 de
+                      retroativos" quando R$2.420 era antecipação de pacote; o
+                      retroativo de convênio de fato (R$1.800) ficava invisível nesta
+                      linha, só aparecendo no card de Metas. Mesmo padrão de rótulo
+                      já usado corretamente nas linhas 978/1257 deste arquivo. */}
+                  {(totalRetroativos > 0 || totalAntecipacoes > 0) && (
+                    <span className="ml-2 text-sky-600">
+                      · inclui {[
+                        totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null,
+                        totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação de pacote` : null
+                      ].filter(Boolean).join(' + ')}
+                    </span>
                   )}
                 </p>
                 <div className="mt-4 space-y-1.5">

@@ -66,7 +66,8 @@ import {
     InsuranceGuideView,
     InsuranceSessionPhase,
     encerrarGuia,
-    CompetenceBreakdown
+    CompetenceBreakdown,
+    InsurancePaymentIntegrityConflict
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 import { Shield } from 'lucide-react';
@@ -307,6 +308,8 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     const orphanSessionsInflight = useRef<Promise<void> | null>(null);
     const [loadingGuides, setLoadingGuides] = useState(false);
     const [paymentIntegrityConflictCount, setPaymentIntegrityConflictCount] = useState(0);
+    const [paymentIntegrityConflicts, setPaymentIntegrityConflicts] = useState<InsurancePaymentIntegrityConflict[]>([]);
+    const [showPaymentIntegrityConflicts, setShowPaymentIntegrityConflicts] = useState(false);
     const [loadingGuideDetails, setLoadingGuideDetails] = useState<Set<string>>(new Set());
     const [guideDetailsActionLoading, setGuideDetailsActionLoading] = useState(false);
     const guideDetailLoader = useRef(new GuideDetailLoadCache<PendingGuide[]>());
@@ -582,6 +585,7 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
             setOrphanSessionsCount(guideResponse.data.orphanSessionsCount || 0);
             setCompetenceBreakdown(buckets.pendingBilling.competenceBreakdown || null);
             setPaymentIntegrityConflictCount(guideResponse.data.paymentIntegrityConflictCount || 0);
+            setPaymentIntegrityConflicts(guideResponse.data.paymentIntegrityConflicts || []);
             setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
@@ -1513,15 +1517,38 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 {subTab === 0 && paymentIntegrityConflictCount > 0 && (
                     <Paper elevation={0} sx={{
                         mx: { xs: 1.5, sm: 2 }, mt: 1.5, px: 1.5, py: 1,
-                        display: 'flex', alignItems: 'center', gap: 1,
                         bgcolor: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px'
                     }}>
-                        <AlertCircle size={18} color="#C2410C" />
-                        <Typography fontSize="0.75rem" lineHeight={1.5} color="#9A3412" fontWeight={600}>
-                            {paymentIntegrityConflictCount} sessão{paymentIntegrityConflictCount !== 1 ? 'ões' : ''}
-                            {' '}não {paymentIntegrityConflictCount !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
-                            porque não {paymentIntegrityConflictCount !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
-                        </Typography>
+                        <Box
+                            onClick={() => setShowPaymentIntegrityConflicts(v => !v)}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
+                        >
+                            <AlertCircle size={18} color="#C2410C" />
+                            <Typography fontSize="0.75rem" lineHeight={1.5} color="#9A3412" fontWeight={600} sx={{ flex: 1 }}>
+                                {paymentIntegrityConflictCount} sessão{paymentIntegrityConflictCount !== 1 ? 'ões' : ''}
+                                {' '}não {paymentIntegrityConflictCount !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
+                                porque não {paymentIntegrityConflictCount !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
+                                {' '}{showPaymentIntegrityConflicts ? 'Ocultar detalhes.' : 'Ver detalhes.'}
+                            </Typography>
+                            <ChevronDown size={16} color="#9A3412" style={{ transform: showPaymentIntegrityConflicts ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s', flexShrink: 0 }} />
+                        </Box>
+                        <Collapse in={showPaymentIntegrityConflicts}>
+                            <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #FED7AA', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                                {paymentIntegrityConflicts.map(c => (
+                                    <Box key={c.sessionId} sx={{ fontSize: '0.72rem', color: '#7C2D12', display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'baseline' }}>
+                                        <Typography component="span" fontWeight={700} fontSize="inherit">
+                                            {c.patientName || 'Paciente desconhecido'}
+                                        </Typography>
+                                        <Typography component="span" fontSize="inherit" color="text.secondary">
+                                            · sessão de {fmtDateShort(c.sessionDate) || '??/??'}
+                                            {' '}· guia {c.guideNumber || c.guideId}
+                                            {c.guideInsurance ? ` (${c.guideInsurance})` : ''}
+                                            {' '}· {c.reason}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </Collapse>
                     </Paper>
                 )}
 
