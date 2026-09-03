@@ -117,6 +117,7 @@ export const FREQUENCY_OPTIONS = Array.from({ length: 5 }, (_, i) => i + 1);
 export interface ITherapyPackage {
     _id: string;
     packageId?: string; // 🔗 ID real do pacote na collection Package (diferente do _id da view)
+    sequenceNumber?: number | null; // 🆕 identificador amigável, sequencial por paciente+especialidade (ex: 3º pacote de fono do paciente)
     patient: string;
     professional: string;
     sessionType: 'fonoaudiologia' | 'terapia_ocupacional' | 'psicologia' | 'fisioterapia' | 'neuropsicologia';

@@ -40,6 +40,29 @@ type Props = {
 
 type ModalAction = 'edit' | 'use' | null;
 
+// 🆕 (2026-09-03) Abreviação curta pra compor o identificador do pacote
+// (ex: "Fono-3"). Achado real: pacotes particulares só apareciam com o
+// ObjectId truncado ("Pacote 46672b"), impossível de referenciar
+// verbalmente/identificar qual pacote é qual sem abrir o banco.
+const SPECIALTY_SHORT_LABELS: Record<string, string> = {
+  fonoaudiologia: 'Fono',
+  terapia_ocupacional: 'TO',
+  psicologia: 'Psico',
+  fisioterapia: 'Fisio',
+  psicomotricidade: 'Psicomot',
+  musicoterapia: 'Musico',
+  psicopedagogia: 'Psicoped',
+  neuropediatria: 'Neuroped',
+  neuroped: 'Neuroped',
+  pediatria: 'Pediatria',
+  neuropsicologia: 'Neuropsico',
+};
+
+const getSpecialtyShortLabel = (sessionType?: string): string => {
+  if (!sessionType) return 'Pac';
+  return SPECIALTY_SHORT_LABELS[sessionType] || sessionType.charAt(0).toUpperCase() + sessionType.slice(1, 4);
+};
+
 export default function TherapyPackageCard({
   pack,
   patient,
@@ -451,7 +474,16 @@ export default function TherapyPackageCard({
       }
     };
 
-    const chosen = map[status] ?? map.pending;
+    // 🚨 FIX (2026-09-02): status='finished' caía no fallback map.pending — todo
+    // pacote encerrado (sessões todas completed/canceled) aparecia como
+    // "Pendente" na tela do paciente. Achado real: pacote do Álvaro Araújo
+    // Zaneli, 8/8 sessões contabilizadas, status='finished' no banco, mostrando
+    // "Pendente" — contribuiu pra confusão que levou a completar sessão no
+    // pacote errado. 'finished' é tratado como sinônimo de 'completed' aqui —
+    // valor correto no domínio é 'completed'; 'finished' que aparecer nos dados
+    // deve ser corrigido na origem, não ganhar rótulo próprio na UI.
+    const normalizedStatus = status === 'finished' ? 'completed' : status;
+    const chosen = map[normalizedStatus] ?? map.pending;
     return { ...chosen, pill: base.pill + ' ' + chosen.color };
   };
 
@@ -485,15 +517,17 @@ export default function TherapyPackageCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (pack.paymentType !== 'per-session') {
-                  toast.info('Somente pacotes pagos por sessÃ£o podem ser inativados por esta opÃ§Ã£o.');
+                // Pacote pré-pago só bloqueia inativação se ainda tiver sessão pendente
+                // (nada a cancelar quando já está 100% consumido/quitado).
+                if (pack.paymentType !== 'per-session' && (pack.sessionsRemaining ?? 0) > 0) {
+                  toast.info('Pacotes pré-pagos com sessões pendentes não podem ser inativados por esta opção. Cancele ou transfira as sessões restantes primeiro.');
                   return;
                 }
                 setShowInactivateModal(true);
               }}
-              title={pack.paymentType === 'per-session'
+              title={pack.paymentType === 'per-session' || (pack.sessionsRemaining ?? 0) === 0
                 ? 'Clique para inativar este pacote'
-                : 'Somente pacotes pagos por sessÃ£o podem ser inativados'}
+                : 'Pacotes pré-pagos com sessões pendentes não podem ser inativados por esta opção'}
               className={statusConfig.pill + ' order-2 ml-auto cursor-pointer hover:opacity-80 transition-opacity'}
             >
               <StatusIcon className="w-3 h-3" />
@@ -526,59 +560,77 @@ export default function TherapyPackageCard({
           )}
         </div>
 
-        {/* Info: ícone + nome/profissional */}
-        <div className="flex items-start gap-3 mb-2.5">
-          <div className={`p-2 rounded-lg ${
-            pack.type === 'convenio'
-              ? 'bg-blue-100'
-              : pack.type === 'liminar'
-              ? 'bg-emerald-100'
-              : 'bg-emerald-100'
-          }`}>
+        {/* Info: identificador do pacote (linha própria, sem ícone) + profissional (com ícone) — bloco centralizado */}
+        <div className="mb-2.5 text-center">
+          {(() => {
+            const hasSequenceId = (pack.type === 'therapy' || !pack.type) && typeof pack.sequenceNumber === 'number';
+            const patientName = patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado';
+            return (
+              <div className="flex items-center justify-center gap-2 min-w-0">
+                {hasSequenceId ? (
+                  <span
+                    className="inline-block px-3 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 text-sm font-bold tracking-wide rounded-full truncate uppercase"
+                    title="Identificador do pacote — sequencial por paciente e especialidade"
+                  >
+                    {getSpecialtyShortLabel(pack.sessionType)}-{pack.sequenceNumber}
+                  </span>
+                ) : (
+                  <h3 className="font-bold leading-tight truncate text-gray-900">
+                    {patientName}
+                  </h3>
+                )}
+                {pack.type === 'convenio' && (
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                    CONVÊNIO
+                  </span>
+                )}
+                {pack.type === 'liminar' && (
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+                    LIMINAR
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+          {/* Ícone alinhado com o nome do profissional, não com o identificador do
+              pacote — o identificador precisa da linha inteira pra si, sem disputar
+              espaço com o ícone. "Criado em" ganha linha própria (não divide
+              espaço com o nome do profissional): dividir a mesma linha com
+              justify-between quebrava visualmente em cards mais largos da grade
+              (texto sobrepondo a data). Empilhar é menos elegante mas nunca
+              sobrepõe, independente do tamanho do card. O nome do paciente não
+              repete aqui: este card só existe dentro da lista de pacotes de UM
+              paciente (TherapyPackagesSummary sempre passa o mesmo `patient` pra
+              todo card da grade) — repeti-lo em cada card era ruído vertical puro,
+              sem informação nova. */}
+          <div className="flex items-center justify-center gap-1.5 mt-0.5 min-w-0">
             {pack.type === 'convenio' ? (
-              <Building2 className="h-5 w-5 text-blue-600" />
+              <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
             ) : pack.type === 'liminar' ? (
-              <Gavel className="h-5 w-5 text-emerald-600" />
+              <Gavel className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             ) : (
-              <Sprout className="h-5 w-5 text-emerald-600" />
+              <Sprout className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             )}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-gray-900 leading-tight truncate">
-                {patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado'}
-              </h3>
-              {pack.type === 'convenio' && (
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                  CONVÊNIO
-                </span>
-              )}
-              {pack.type === 'liminar' && (
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
-                  LIMINAR
-                </span>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">
+            <p className="text-xs sm:text-sm text-gray-500 truncate min-w-0">
               {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
               <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
             </p>
-            {pack.createdAt && (
-              <p className="text-xs text-gray-400">
-                Criado em {new Date(pack.createdAt).toLocaleDateString('pt-BR')}
-              </p>
-            )}
-            {pack.type === 'convenio' && pack.insuranceProvider && (
-              <p className="text-xs text-blue-600 font-medium mt-1">
-                {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
-              </p>
-            )}
-            {pack.type === 'liminar' && pack.liminarProcessNumber && (
-              <p className="text-xs text-emerald-600 font-medium mt-1">
-                Processo: {pack.liminarProcessNumber}
-              </p>
-            )}
           </div>
+          {pack.createdAt && (
+            <p className="text-2xs text-gray-400 mt-0.5">
+              Criado em {new Date(pack.createdAt).toLocaleDateString('pt-BR')}
+            </p>
+          )}
+          {pack.type === 'convenio' && pack.insuranceProvider && (
+            <p className="text-xs text-blue-600 font-medium mt-1">
+              {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
+            </p>
+          )}
+          {pack.type === 'liminar' && pack.liminarProcessNumber && (
+            <p className="text-xs text-emerald-600 font-medium mt-1">
+              Processo: {pack.liminarProcessNumber}
+            </p>
+          )}
         </div>
 
         {/* Barra de progresso clínico */}
