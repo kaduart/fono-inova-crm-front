@@ -381,6 +381,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [paymentAmount, setPaymentAmount] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('');
     const financialAmounts = resolveAppointmentFinancialAmounts(event);
+    // 🎯 Sinal recebido — registrar um sinal para um agendamento particular que
+    // ainda não tem um (edição). Se já existe (financialAmounts.hasCanonicalBalance
+    // && depositAmount > 0), a UI só exibe, nunca deixa editar/sobrescrever aqui —
+    // mesma regra do backend (domain/payment/depositBalance.js).
+    const [showEditDepositField, setShowEditDepositField] = useState(false);
+    const [editDepositAmount, setEditDepositAmount] = useState(0);
+    const [editDepositPaymentMethod, setEditDepositPaymentMethod] = useState('');
     const [insuranceProvider, setInsuranceProvider] = useState('');
     const [insuranceValue, setInsuranceValue] = useState(0);
     const [authorizationCode, setAuthorizationCode] = useState('');
@@ -388,6 +395,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [insuranceGuide, setInsuranceGuide] = useState<string | null>(null);
     const [insurancePlan, setInsurancePlan] = useState<string | null>(null);
     const [packageId, setPackageId] = useState<string | null>(null);
+    // 🆕 (2026-09-04) event.package.remainingSessions vem pronto do backend
+    // (utils/appointmentMapper.js — mesma fórmula do virtual Package.remainingSessions,
+    // que não sobrevive a .lean()). Só lê o valor, não recalcula a regra aqui.
+    const packageExhausted = !!(event?.package && typeof event.package === 'object' && (event.package as any).remainingSessions <= 0);
 
     // ⚖️ LIMINAR: mover sessão entre especialidades do plano terapêutico
     const [liminarPlan, setLiminarPlan] = useState<any>(null);
@@ -494,7 +505,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setInsuranceGuide(event.insuranceGuide ?? event.insuranceGuideId ?? null);
             setInsurancePlan(event.insurancePlan ?? null);
             setPackageId(event.package?._id ?? event.package ?? null);
-            
+
+            // 🎯 Sinal recebido — reseta ao trocar de agendamento (nunca herda
+            // valor digitado num agendamento anterior).
+            setShowEditDepositField(false);
+            setEditDepositAmount(0);
+            setEditDepositPaymentMethod('');
+
             // 💰 NOVO: Inicializar campos de débito
             setAddToBalance(false);
             setDebitAmount(financialAmounts.amountDueNow);
@@ -847,6 +864,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             toast.error('Selecione o método de pagamento antes de salvar.');
             return;
         }
+        // 🎯 Sinal recebido — validações (mesmas regras do backend, checadas
+        // aqui só para dar feedback imediato; quem garante de verdade é a API).
+        if (showEditDepositField) {
+            if (editDepositAmount <= 0) {
+                toast.error('Informe um valor de sinal recebido maior que zero ou remova o sinal.');
+                return;
+            }
+            if (editDepositAmount > Number(paymentAmount || 0)) {
+                toast.error('O sinal não pode ser maior que o valor total da consulta.');
+                return;
+            }
+            if (!editDepositPaymentMethod) {
+                toast.error('Selecione a forma de pagamento do sinal recebido.');
+                return;
+            }
+        }
 
         setIsEditing(true);
         setProcessingState({ isProcessing: true, message: 'Atualizando agendamento...' });
@@ -898,7 +931,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     grossAmount: insuranceValue || 0,
                     authorizationCode: authorizationCode || null,
                     status: 'pending_billing'
-                } : undefined
+                } : undefined,
+                // 🎯 Sinal recebido — só vai no payload quando a secretária de fato
+                // registrou um valor agora (showEditDepositField true). O DTO
+                // (mapToUpdateAppointmentDTO) já descarta se depositAmount<=0.
+                ...(showEditDepositField ? {
+                    depositAmount: editDepositAmount,
+                    depositPaymentMethod: editDepositPaymentMethod,
+                } : {}),
             });
 
             // 🎯 STATUS ESPECIAIS: redireciona para o handler correto (PATCH /complete ou PATCH /cancel)
@@ -1348,6 +1388,27 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             case 'confirm':
                 return (
                     <div className="space-y-4">
+                        {/* 🆕 (2026-09-04) Bloqueio ANTES de preencher o formulário — antes o
+                            usuário só descobria que o pacote estava esgotado depois de
+                            preencher tudo e tentar enviar (backend rejeitava com
+                            PACKAGE_LIMIT_REACHED). packageExhausted lê um valor pronto do
+                            backend, não decide nada aqui. */}
+                        {packageExhausted ? (
+                            <div className="bg-gradient-to-r from-red-50 to-rose-50 border-l-4 border-red-400 p-3 rounded-xl">
+                                <div className="flex items-start gap-3">
+                                    <XCircle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm text-red-800 font-medium">
+                                            Pacote esgotado — não há sessões disponíveis para completar.
+                                        </p>
+                                        <p className="text-xs text-red-600 mt-0.5">
+                                            Todas as sessões contratadas já foram utilizadas. Contrate um novo pacote ou registre este atendimento como avulso antes de continuar.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                        <>
                         {/* Toda transição desta aba completa o atendimento direto — ver nota
                             "UNIFICADO (2026-07-10)" no topo do arquivo. */}
                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
@@ -1769,6 +1830,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         )}
                         </div>
+                        </>
+                        )}
                     </div>
                 );
 
@@ -2057,7 +2120,64 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             </select>
                                         </div>
                                     </div>
-                                ) : billingType === 'convenio' ? (
+                                ) : null}
+
+                                {/* 🎯 Sinal recebido — só no particular, e só quando este agendamento
+                                    ainda não tem um sinal registrado (backend protege contra
+                                    sobrescrever o sinal já pago; ver DEPOSIT_PAYMENT_PROTECTED). */}
+                                {billingType === 'particular' && !(financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0) && (
+                                    showEditDepositField ? (
+                                        <div className="border border-teal-200 bg-teal-50/50 rounded-xl p-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-teal-800 flex items-center gap-1.5">
+                                                    <DollarSign className="w-3.5 h-3.5" /> Sinal recebido
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowEditDepositField(false); setEditDepositAmount(0); setEditDepositPaymentMethod(''); }}
+                                                    className="text-xs text-red-400 underline"
+                                                >
+                                                    × Remover
+                                                </button>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-[minmax(180px,240px)_minmax(200px,260px)] gap-3 justify-start">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-medium text-gray-500">Valor recebido agora (R$)</label>
+                                                    <InputCurrency name="editDepositAmount" value={editDepositAmount} onChange={(e) => setEditDepositAmount(e.target.value || 0)}
+                                                        className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-400 bg-white" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-medium text-gray-500">Forma de pagamento do sinal</label>
+                                                    <select value={editDepositPaymentMethod} onChange={(e) => setEditDepositPaymentMethod(e.target.value)}
+                                                        className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-400 bg-white">
+                                                        <option value="">Selecione</option>
+                                                        <option value="pix">Pix</option>
+                                                        <option value="dinheiro">Dinheiro</option>
+                                                        <option value="cartao_credito">Cartão de Crédito</option>
+                                                        <option value="cartao_debito">Cartão de Débito</option>
+                                                        <option value="transferencia_bancaria">Transferência</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            {editDepositAmount > Number(paymentAmount || 0) && (
+                                                <p className="text-xs text-red-600 font-medium">O sinal não pode ser maior que o valor total.</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEditDepositField(true)}
+                                            className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border-2 border-dashed border-teal-300 bg-teal-50/40 hover:bg-teal-100/60 hover:border-teal-400 transition-colors text-left"
+                                        >
+                                            <span className="flex items-center gap-2 text-xs font-semibold text-teal-800">
+                                                <DollarSign className="w-3.5 h-3.5" /> Registrar sinal recebido
+                                            </span>
+                                            <span className="text-2xs text-teal-600 hidden sm:inline">Só se o paciente já pagou uma entrada agora</span>
+                                        </button>
+                                    )
+                                )}
+
+                                {billingType === 'convenio' ? (
                                     <div className="space-y-3">
                                         <div className="grid grid-cols-1 sm:grid-cols-[minmax(220px,300px)_minmax(160px,220px)] gap-3 justify-start">
                                             <div className="space-y-1">
@@ -2073,14 +2193,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                             </div>
                                         </div>
                                     </div>
-                                ) : (
+                                ) : billingType === 'liminar' ? (
                                     <LiminarBillingFields
                                         value={paymentAmount}
                                         onChange={setPaymentAmount}
                                         creditBalance={(event?.liminarContract as any)?.creditBalance}
                                         processNumber={(event?.liminarContract as any)?.processNumber}
                                     />
-                                )}
+                                ) : null}
                             </div>
                         )}
 
@@ -2192,6 +2312,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 // bloqueia completar 2x — ver completeSessionService.v2.js). Isso já era a regra
                 // pra convênio (exceção de 2026-07-06); agora vale pra todos os billingTypes.
                 const canCompleteDirectly = !['completed', 'canceled'].includes(opStatus || '');
+
+                // 🆕 (2026-09-04) Some o botão em vez de deixar clicar e levar rejeição
+                // do backend (PACKAGE_LIMIT_REACHED) só depois de preencher tudo.
+                if (canCompleteDirectly && packageExhausted) {
+                    return null;
+                }
 
                 if (canCompleteDirectly) {
                     return (

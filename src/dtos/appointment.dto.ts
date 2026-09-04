@@ -178,6 +178,10 @@ export interface UpdateAppointmentDTO {
     // 🛡️ Preservar referências de guia/plano ao editar (não excluir nada)
     insuranceGuide?: string | null;
     insurancePlan?: string | null;
+    // 🎯 Sinal recebido (2026-09-04) — só enviado quando > 0 (recebimento
+    // confirmado agora); ver domain/payment/depositBalance.js no backend.
+    depositAmount?: number;
+    depositPaymentMethod?: string;
 }
 
 // ============================================================
@@ -267,6 +271,10 @@ export function mapToUpdateAppointmentDTO(data: Partial<ScheduleAppointment> & R
         // 🛡️ Preservar referências de guia/plano ao editar (não excluir nada)
         insuranceGuide: data.insuranceGuide ?? undefined,
         insurancePlan: data.insurancePlan ?? undefined,
+        // 🎯 Sinal recebido — só sai daqui quando > 0 (cleanObject descarta 0/undefined,
+        // o que é o comportamento certo: sem valor digitado, nada é enviado).
+        depositAmount: typeof data.depositAmount === 'number' ? data.depositAmount : undefined,
+        depositPaymentMethod: data.depositPaymentMethod || undefined,
     }, ['paymentAmount', 'sessionValue']) as UpdateAppointmentDTO;
 
     // Convênio: só inclui se billingType === 'convenio'
