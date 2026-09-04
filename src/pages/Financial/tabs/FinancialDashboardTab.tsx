@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Skeleton } from '@mui/material';
+import { Skeleton, Collapse } from '@mui/material';
 import {
   LayoutDashboard,
   DollarSign,
@@ -126,8 +126,8 @@ const InfoTooltip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const DASHBOARD_TAB_PARAM = 'dashboardTab';
 
 const getDashboardTabs = () => [
-  { id: 'decisao', label: 'Decisão Executiva', icon: <Zap size={18} /> },
   { id: 'visao-geral', label: 'Visão Geral', icon: <LayoutDashboard size={18} /> },
+  { id: 'decisao', label: 'Decisão Executiva', icon: <Zap size={18} /> },
   { id: 'caixa', label: 'Caixa', icon: <DollarSign size={18} /> },
   { id: 'producao', label: 'Produção', icon: <Briefcase size={18} /> },
   { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
@@ -252,6 +252,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const [loadingDebitosTotal, setLoadingDebitosTotal] = useState(false);
   const debitosTotalLoaded = useRef(false);
   const [debitoSpecialtyFilter, setDebitoSpecialtyFilter] = useState<string | null>(null);
+  // 🆕 (2026-09-04) pendentes.previousCompetenceDebt já era calculado no backend
+  // (dívida de sessões completadas em meses anteriores, ainda sem pagamento) mas
+  // nunca era exibido em lugar nenhum do front — casos como Isis Caldas
+  // Rebelatto (R$420, 3 sessões de agosto) ficavam invisíveis assim que o mês
+  // virava, mesmo a dívida sendo real e rastreada.
+  const [showPrevDebt, setShowPrevDebt] = useState(false);
 
   const LEGACY_DEBITOS_URL = '/financial/dashboard/debitos';
   const V2_DEBITOS_URL = '/v2/financial/dashboard/debitos';
@@ -602,7 +608,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   if (error) return <div className="p-4 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">{error}</div>;
   if (!data || !resumo) return <div className="p-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">Nenhum dado disponível</div>;
 
-  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente, recebimentoProducao, recebimentosAntecipados, aReceberProducao } = data;
+  const { cash, revenue, expenses, metas, profissionais, insights, comparativos, riscoOperacional, acoesExecutivas, drillDown, indicadores, convenioAReceber, particularPendente, pacotePendente, recebimentoProducao, recebimentosAntecipados, aReceberProducao, pendentes } = data;
   // ─── 🎯 APENAS RENDERIZAR — nenhum recálculo semântico aqui ───
   // Todos os valores abaixo vêm PRONTOS da API. Frontend não recalcula.
   // NOTA: totalCaixa/totalProducao já declarados acima (antes do ritmoCardEl) para evitar TDZ.
@@ -966,13 +972,32 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
           <p className="text-3xs font-black uppercase tracking-widest text-gray-500">Status de Pagamento</p>
           <p className="text-3xs text-gray-400 mb-3">da produção clínica do mês</p>
           <div className="space-y-2">
+            {/* RECEBIDO DA PRODUÇÃO — quebrado por tipo (particular/pacote/convênio).
+                🚨 (2026-09-04) Liminar NÃO entra nesta soma nem na quebra: seu
+                "recebido" reconciliado por produção pode mostrar crédito de um mês
+                anterior como se fosse deste mês (o crédito judicial entra de uma
+                vez, sessões consomem depois) — teria o mesmo problema que a Meta já
+                teve. Liminar tem linha própria abaixo, sempre em caixa real do mês. */}
+            <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: '#15803D' }}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-3xs font-black text-white uppercase tracking-wide leading-tight">Recebido da produção</p>
+                <span className="text-lg font-black text-white shrink-0 whitespace-nowrap">{formatCurrency(totalRecebimentoProducaoSemLiminar)}</span>
+              </div>
+              <div className="mt-1.5 pt-1.5 border-t border-white/20 grid grid-cols-3 gap-1">
+                {([
+                  ['Particular', recebimentoProducao?.particular || 0],
+                  ['Pacote',     recebimentoProducao?.pacote     || 0],
+                  ['Convênio',   recebimentoProducao?.convenio   || 0],
+                ] as const).map(([lbl, val]) => (
+                  <div key={lbl}>
+                    <p className="text-3xs text-white/60 leading-tight">{lbl}</p>
+                    <p className="text-3xs font-bold text-white/90 leading-tight">{formatCurrency(val)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {[
-              {
-                label: 'Recebido da produção',
-                desc: `pago de sessões deste mês · caixa total ${formatCurrency(cash.total)}${(totalRetroativos > 0 || totalAntecipacoes > 0) ? ` (inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} de retroativos` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} de antecipação de pacote` : null].filter(Boolean).join(' + ')})` : ''}`,
-                value: totalRecebimentoProducao,
-                bg: '#15803D', border: '#166534',
-              },
               {
                 // 🚨 FIX (2026-09-01): liminar entrava somado aqui embora o rótulo/desc
                 // só fale de convênio. Liminar não segue o mesmo ciclo de faturamento
@@ -984,26 +1009,94 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 // razão). Já existe card próprio de "Liminar" em A Receber (Visão
                 // Geral) — não precisa duplicar aqui misturado com convênio.
                 label: 'A faturar ao plano',
-                desc: `sessões entregues aguardando repasse · Conv. ${formatCurrency(convenioAReceber)}`,
+                desc: 'sessões aguardando repasse',
                 value: convenioAReceber,
                 bg: '#B45309', border: '#92400E',
               },
               {
                 label: 'Não pago',
-                desc: 'particular/pacote com sessão realizada sem pagamento',
+                desc: 'particular/pacote sem pagamento',
                 value: particularPendente + pacotePendente,
                 bg: '#B91C1C', border: '#991B1B',
               },
+              // 🆕 (2026-09-04) pedido explícito: este card não pode "esconder"
+              // liminar — se entrou caixa novo de liminar no mês, precisa aparecer
+              // em algum lugar aqui (igual ao card equivalente em Metas). Linha à
+              // parte (não soma com particular/pacote/convênio acima) e sempre
+              // visível, mesmo em R$0, pra ter um lugar fixo de conferir. Usa caixa
+              // real do mês (cash.breakdown.liminar), não reconciliação de produção.
+              {
+                label: 'Liminar recebida',
+                desc: cash.breakdown.liminar > 0 ? 'crédito judicial recebido este mês' : 'nenhum crédito novo este mês',
+                value: cash.breakdown.liminar || 0,
+                bg: '#4B5563', border: '#374151',
+              },
             ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+              <div key={item.label} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl"
                 style={{ backgroundColor: item.bg }}>
-                <div className="flex-1 min-w-0 pr-3">
-                  <p className="text-3xs font-black text-white uppercase tracking-wide leading-tight">{item.label}</p>
-                  <p className="text-3xs text-white/70 mt-0.5 leading-snug">{item.desc}</p>
+                <div className="min-w-0">
+                  <p className="text-3xs font-black text-white uppercase tracking-wide leading-tight truncate">{item.label}</p>
+                  <p className="text-3xs text-white/70 mt-0.5 truncate">{item.desc}</p>
                 </div>
-                <span className="text-xl font-black text-white shrink-0">{formatCurrency(item.value)}</span>
+                <span className="text-lg font-black text-white shrink-0 whitespace-nowrap">{formatCurrency(item.value)}</span>
               </div>
             ))}
+
+            {/* 🆕 (2026-09-04) Dívida de meses anteriores — sessões completadas
+                antes deste mês, ainda sem pagamento. Não soma com "Não pago"
+                acima (que é só produção NOVA deste mês) — é dinheiro real que o
+                paciente ainda deve, só que de competência passada. Sem isso,
+                casos como Isis Caldas Rebelatto (R$420, sessões de agosto)
+                ficavam invisíveis assim que o mês virava. Fonte:
+                pendentes.previousCompetenceDebt (já calculado no backend,
+                calculatePendentes → fetchPendingPaymentsPreviousCompetence). */}
+            {(pendentes?.previousCompetenceDebt?.total || 0) > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+                <button
+                  onClick={() => setShowPrevDebt(v => !v)}
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left"
+                >
+                  <div className="min-w-0">
+                    <p className="text-3xs font-black text-amber-800 uppercase tracking-wide leading-tight">Dívida de meses anteriores</p>
+                    <p className="text-3xs text-amber-700/80 mt-0.5">
+                      {pendentes?.previousCompetenceDebt?.count || 0} sessão{(pendentes?.previousCompetenceDebt?.count || 0) !== 1 ? 'ões' : ''} de competência passada · {showPrevDebt ? 'ocultar' : 'ver quem deve'}
+                    </p>
+                  </div>
+                  <span className="text-lg font-black text-amber-800 shrink-0 whitespace-nowrap">{formatCurrency(pendentes?.previousCompetenceDebt?.total || 0)}</span>
+                </button>
+                <Collapse in={showPrevDebt}>
+                  <div className="px-3 pb-2.5 pt-1 border-t border-amber-200 space-y-1">
+                    {(pendentes?.previousCompetenceDebt?.items || []).map(item => (
+                      <div key={item._id} className="flex items-center justify-between text-3xs text-amber-800">
+                        <span className="truncate pr-2">{item.paciente}{item.data ? ` · ${new Date(item.data).toLocaleDateString('pt-BR')}` : ''}</span>
+                        <span className="font-bold shrink-0">{formatCurrency(item.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Collapse>
+              </div>
+            )}
+          </div>
+
+          {/* Caixa total do mês — visível em linhas, não escondido em hover
+              (pedido explícito do usuário). */}
+          <div className="mt-3 pt-2 border-t border-gray-100 text-3xs text-gray-500 space-y-0.5">
+            <p className="flex items-center justify-between">
+              <span>Caixa total do mês</span>
+              <span className="font-bold text-gray-700">{formatCurrency(cash.total)}</span>
+            </p>
+            {totalRetroativos > 0 && (
+              <p className="flex items-center justify-between text-gray-400">
+                <span>&nbsp;&nbsp;+ retroativo de convênio</span>
+                <span>{formatCurrency(totalRetroativos)}</span>
+              </p>
+            )}
+            {totalAntecipacoes > 0 && (
+              <p className="flex items-center justify-between text-gray-400">
+                <span>&nbsp;&nbsp;+ antecipação de pacote</span>
+                <span>{formatCurrency(totalAntecipacoes)}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1097,6 +1190,13 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const caixaTotal       = cash?.total ?? 0;
     const producaoTotal    = revenue?.total ?? 0;
     const pctCaixaMeta     = metas.camadas?.caixa?.percentual ?? (metaValor > 0 ? (caixaTotal / metaValor) * 100 : 0);
+    // 🚨 FIX (2026-09-04): "Produção X%" do painel lateral usava pctRealizado
+    // (= Meta Realizada%, caixa) — desde que a Meta virou caixa-based, isso
+    // ficou idêntico ao número grande do hero, só duplicado com rótulo errado
+    // ("Produção" mostrando Meta). O valor de produção clínica de verdade já
+    // existe no backend (metas.camadas.producao.percentual, ver
+    // routes/financialDashboard.v2.js:800/917) só não era usado aqui.
+    const pctProducaoReal  = metas.camadas?.producao?.percentual ?? 0;
     // convenioAReceber, totalAReceberProducaoSemLiminar e totalRecebimentoProducaoSemLiminar
     // usam o escopo compartilhado do componente (mesma régua sem Liminar em toda a tela).
 
@@ -1205,7 +1305,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             <div className="w-44 shrink-0 bg-white/70 rounded-xl px-3 py-2.5 space-y-2 border border-gray-100">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">Produção</span>
-                <span className="font-black text-blue-600">{pctRealizado.toFixed(1)}%</span>
+                <span className="font-black text-blue-600">{pctProducaoReal.toFixed(1)}%</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">Caixa</span>
@@ -1213,7 +1313,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               </div>
               <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-1.5">
                 <span className="text-gray-400">Diferença</span>
-                <span className="font-semibold text-gray-500">{(pctCaixaMeta - pctRealizado) >= 0 ? '+' : ''}{(pctCaixaMeta - pctRealizado).toFixed(1)} p.p.</span>
+                <span className="font-semibold text-gray-500">{(pctCaixaMeta - pctProducaoReal) >= 0 ? '+' : ''}{(pctCaixaMeta - pctProducaoReal).toFixed(1)} p.p.</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">A receber</span>
@@ -1246,8 +1346,15 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 // totalRecebimentoProducaoSemLiminar (não caixaTotal) — soma exatamente
                 // com "A receber" abaixo pra bater com Produção clínica sem Liminar.
                 label: 'Recebido da produção', value: totalRecebimentoProducaoSemLiminar, color: '#10B981',
-                sub: `caixa total ${formatCurrency(caixaTotal)}${(totalRetroativos > 0 || totalAntecipacoes > 0) ? ` (inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} retroativo` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} antecipação` : null].filter(Boolean).join(' + ')})` : ''}`,
-                info: <>Pagamentos já recebidos referentes à produção deste mês (sem Liminar).<br/><br/><strong>Fonte:</strong> pagamentos pagos (Payment) vinculados a sessões deste mês.<br/><br/><strong>Não inclui:</strong> antecipação de pacote ainda não consumida, retroativo de convênio, nem Liminar — esses valores estão no caixa total ({formatCurrency(caixaTotal)}) mas fora da meta.</>,
+                sub: `caixa total ${formatCurrency(caixaTotal)}${(totalRetroativos > 0 || totalAntecipacoes > 0) ? ` (inclui ${[totalRetroativos > 0 ? `${formatCurrency(totalRetroativos)} retroativo` : null, totalAntecipacoes > 0 ? `${formatCurrency(totalAntecipacoes)} antecipação de pacote` : null].filter(Boolean).join(' + ')})` : ''}`,
+                // 🚨 FIX (2026-09-04): dizia que "antecipação de pacote" ficava "fora
+                // da meta" junto com retroativo/Liminar — errado desde a mudança de
+                // base da Meta (2026-09-03): venda de pacote conta 100% na Meta
+                // Realizada no momento em que é paga, mesmo sem consumo. Só
+                // retroativo de convênio e Liminar ficam de fora da Meta. Este card
+                // usa outra régua (produção/competência, não Meta/caixa) — por isso
+                // o valor aqui é menor, não porque a venda "não valha".
+                info: <>Pagamentos recebidos que correspondem a sessões já realizadas neste mês (produção/competência — sem Liminar). Régua diferente da Meta Realizada.<br/><br/><strong>Fonte:</strong> pagamentos pagos (Payment) vinculados a sessões deste mês.<br/><br/><strong>Não inclui:</strong> retroativo de convênio (competência anterior) nem Liminar. <strong>Atenção:</strong> antecipação de pacote (venda ainda não toda consumida) <u>conta 100% na Meta Realizada</u> — só fica de fora desta régua de produção, não da meta. Caixa total do mês: {formatCurrency(caixaTotal)}.</>,
               },
               { label: 'Produção clínica', value: producaoTotal, color: '#2563EB', sub: 'serviços entregues',
                 info: <>Sessões realizadas nesta competência, independente de já terem sido pagas.<br/><br/><strong>Fonte:</strong> sessões concluídas (Session completed) com data dentro do mês.<br/><br/><strong>Não inclui:</strong> sessões futuras ou de outros meses.</> },
@@ -1291,18 +1398,49 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         {/* ── 3 CARDS INTELIGENTES ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
-          {/* CARD 1: Composição da Receita */}
+          {/* CARD 1: Atendido por Tipo (raio-x do mês, produção — não é caixa) */}
+          {/* 🚨 FIX (2026-09-04): passou por 2 versões erradas no mesmo dia.
+              v1 chamava "Produção por Tipo" mas mostrava metas.porTipo (caixa da
+              Meta) — rótulo dizia o oposto do dado. v2 corrigiu o rótulo pra
+              "Meta Realizada por Tipo", mas aí o usuário apontou que queria ver
+              o TOTAL ATENDIDO (produção, independente de pago) nesse card — é o
+              "raio-x do mês", não um espelho da Meta. Solução final: fonte volta
+              a ser produção real (`revenue.<tipo>`, mesmo total de "Produção
+              clínica" acima), com nota de quanto disso já virou caixa
+              (`recebimentoProducao.<tipo>`) — sem tocar na Meta Realizada em si
+              (hero acima, sempre caixa). Ver back/docs/FINANCIAL_SOURCE_OF_TRUTH.md. */}
           <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
-            <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-3">Produção por Tipo<InfoTooltip><>Valor produzido (sessões realizadas) no mês, separado por tipo de cobrança.<br/><br/><strong>Fonte:</strong> sessões concluídas do mês, agrupadas por convênio/particular/pacote/liminar.<br/><br/><strong>Não inclui:</strong> se já foi pago ou não — isso é produção, não caixa.</></InfoTooltip></p>
-            <p className="text-3xs text-gray-400 mb-3">Serviços executados por tipo (não é caixa recebido)</p>
+            <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-3">Atendido no Mês por Tipo<InfoTooltip><>Total de sessões/vendas atendidas no mês, por tipo de cobrança — independente de já ter sido pago ou não.<br/><br/><strong>Fonte:</strong> mesma base de "Produção clínica" acima (sessões concluídas + vendas de pacote do mês), separada por convênio/particular/pacote/liminar.<br/><br/><strong>Exceção Liminar:</strong> não é produção/consumo (o crédito já foi recebido no passado, de uma vez) — aqui mostra caixa NOVO de liminar entrado neste mês específico.<br/><br/><strong>Não é</strong> a Meta Realizada (essa é só o que já virou caixa, sem retroativo nem Liminar).</></InfoTooltip></p>
+            <p className="text-3xs text-gray-400 mb-3">Atendido no mês, independente de pagamento (raio-x, não é caixa)</p>
             <div className="space-y-3">
-              {Object.entries(metas.porTipo || {})
-                .sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)
-                .map(([tipo, dados]: [string, any]) => {
+              {(['convenio', 'particular', 'pacote', 'liminar'] as const)
+                // 🚨 FIX (2026-09-04): Liminar não segue a mesma régua dos outros 3
+                // tipos. "Atendido" (consumo de sessão) não diz nada de novo pra
+                // Liminar — o crédito já foi recebido de uma vez no passado, então
+                // a "produção" do mês pode ser >0 com ZERO dinheiro novo entrando.
+                // O que importa aqui é caixa NOVO de liminar no mês (ex: ganhou uma
+                // ação em setembro, recebeu R$10k — isso é o que deve aparecer).
+                .map(tipo => tipo === 'liminar'
+                  ? {
+                      tipo,
+                      atendido: cash?.breakdown?.liminar || 0,
+                      nota: (cash?.breakdown?.liminar || 0) > 0
+                        ? 'crédito judicial recebido este mês (mesmo assim, fora da meta)'
+                        : 'nenhum crédito novo de liminar este mês',
+                    }
+                  : { tipo, atendido: (revenue?.byMethod as any)?.[tipo] || 0, nota: `recebido: ${formatCurrency((recebimentoProducao as any)?.[tipo] || 0)}${((revenue?.byMethod as any)?.[tipo] || 0) - ((recebimentoProducao as any)?.[tipo] || 0) > 0.005 ? ` · pendente: ${formatCurrency(((revenue?.byMethod as any)?.[tipo] || 0) - ((recebimentoProducao as any)?.[tipo] || 0))}` : ''}` })
+                // Liminar sempre visível mesmo em R$0 — é o único tipo onde "nada
+                // aconteceu esse mês" é a leitura normal (o crédito já foi recebido
+                // no passado), então esconder a linha tiraria o lugar fixo onde
+                // conferir quando entrar um novo (pedido explícito do usuário).
+                .filter(({ tipo, atendido }) => atendido > 0 || tipo === 'liminar')
+                .sort((a, b) => b.atendido - a.atendido)
+                .map(({ tipo, atendido, nota }) => {
                   const color = tipoColors[tipo] || '#6B7280';
-                  const pct   = dados.percentualDoTotal || 0;
                   const label = tipoLabels[tipo] || tipo;
                   const icon  = tipoIcons[tipo] || '';
+                  const totalAtendido = revenue?.total || 0;
+                  const pct = totalAtendido > 0 ? Math.round((atendido / totalAtendido) * 100) : 0;
                   return (
                     <div key={tipo}>
                       <div className="flex items-center justify-between mb-1">
@@ -1310,7 +1448,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                           <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: color }} />
                           <span className="text-xs font-semibold text-gray-700">{icon} {label}</span>
                         </div>
-                        <span className="text-xs font-black text-gray-800">{formatCurrency(dados.realizado)}</span>
+                        <span className="text-xs font-black text-gray-800">{formatCurrency(atendido)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 relative h-[4px] rounded-full bg-gray-100 overflow-hidden">
@@ -1319,15 +1457,21 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                         </div>
                         <span className="text-3xs font-black w-7 text-right shrink-0" style={{ color }}>{pct}%</span>
                       </div>
+                      <p className="text-3xs text-gray-400 mt-0.5">{nota}</p>
                     </div>
                   );
                 })}
             </div>
             {(() => {
-              const top = Object.entries(metas.porTipo || {}).sort(([, a], [, b]) => (b as any).realizado - (a as any).realizado)[0];
-              return top ? (
+              const entries = (['convenio', 'particular', 'pacote', 'liminar'] as const)
+                .map(tipo => ({ tipo, atendido: (revenue?.byMethod as any)?.[tipo] || 0 }))
+                .sort((a, b) => b.atendido - a.atendido);
+              const top = entries[0];
+              const totalAtendido = revenue?.total || 0;
+              const topPct = top && totalAtendido > 0 ? Math.round((top.atendido / totalAtendido) * 100) : 0;
+              return top && top.atendido > 0 ? (
                 <p className="text-3xs text-gray-500 mt-3 pt-2 border-t border-gray-100">
-                  <span className="font-bold">Maior motor:</span> {tipoIcons[top[0]]} {tipoLabels[top[0]] || top[0]} ({(top[1] as any).percentualDoTotal}% do caixa)
+                  <span className="font-bold">Maior motor:</span> {tipoIcons[top.tipo]} {tipoLabels[top.tipo] || top.tipo} ({topPct}% da produção)
                 </p>
               ) : null;
             })()}

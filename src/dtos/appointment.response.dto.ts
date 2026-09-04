@@ -29,6 +29,10 @@ export interface AppointmentDTO {
     patient: PatientDTO;
     doctor: DoctorDTO;
     amount?: number;        // sessionValue / paymentAmount normalizado
+    sessionValue?: number;
+    paymentAmount?: number;
+    depositAmount?: number;
+    remainingAmount?: number | null;
     specialty?: string;
     sessionType?: string;
     serviceType?: string;
@@ -158,6 +162,10 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         },
         doctor: extractDoctorDTO(doctorRaw),
         amount: extractAppointmentAmount(raw),
+        sessionValue: typeof raw.sessionValue === 'number' ? raw.sessionValue : extractAppointmentAmount(raw),
+        paymentAmount: typeof raw.paymentAmount === 'number' ? raw.paymentAmount : extractAppointmentAmount(raw),
+        depositAmount: typeof raw.depositAmount === 'number' ? raw.depositAmount : 0,
+        remainingAmount: typeof raw.remainingAmount === 'number' ? raw.remainingAmount : null,
         specialty: raw.specialty || raw.sessionType || undefined,
         sessionType: raw.sessionType || undefined,
         serviceType: raw.serviceType || undefined,

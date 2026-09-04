@@ -30,6 +30,7 @@ import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import API from '../../services/api';
 import appointmentService from '../../services/appointmentService';
+import { buildParticularCompletionAmounts, resolveAppointmentFinancialAmounts } from '../../utils/appointmentFinancialAmounts';
 import {
     CalendarPermissions,
     getDefaultPermissions,
@@ -379,6 +380,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const [billingType, setBillingType] = useState<'particular' | 'convenio' | 'liminar'>('particular');
     const [paymentAmount, setPaymentAmount] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('');
+    const financialAmounts = resolveAppointmentFinancialAmounts(event);
     const [insuranceProvider, setInsuranceProvider] = useState('');
     const [insuranceValue, setInsuranceValue] = useState(0);
     const [authorizationCode, setAuthorizationCode] = useState('');
@@ -483,7 +485,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('[Modal] event aberto — paymentMethod:', event.paymentMethod, '| billingType:', event.billingType, '| event completo:', event);
             setServiceType(event.serviceType || 'individual_session');
             setBillingType(resolveBillingType(event));
-            setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
+            setPaymentAmount(financialAmounts.amountDueNow);
             setPaymentMethod(event.paymentMethod || '');
             setInsuranceProvider(event.insuranceProvider || '');
             setInsuranceValue(event.insuranceValue || 0);
@@ -495,11 +497,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             
             // 💰 NOVO: Inicializar campos de débito
             setAddToBalance(false);
-            setDebitAmount(event.sessionValue || event.paymentAmount || 0);
+            setDebitAmount(financialAmounts.amountDueNow);
             setDebitDescription(`Sessão ${event.date ? new Date(event.date).toLocaleDateString('pt-BR') : ''} - ${event.startTime || ''}`);
             setPayments([{
                 id: 1,
-                amount: event.sessionValue || event.paymentAmount || 0,
+                amount: financialAmounts.amountDueNow,
                 date: new Date().toISOString().split('T')[0],
                 method: event.paymentMethod || ''
             }]);
@@ -525,9 +527,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             }
             const resolved = resolveBillingType(event);
             if (resolved !== billingType) setBillingType(resolved);
-            if ((event.sessionValue || event.paymentAmount) && 
-                (event.sessionValue !== paymentAmount && event.paymentAmount !== paymentAmount)) {
-                setPaymentAmount(event.sessionValue || event.paymentAmount || 0);
+            const nextFinancialAmounts = resolveAppointmentFinancialAmounts(event);
+            if (nextFinancialAmounts.amountDueNow > 0 && nextFinancialAmounts.amountDueNow !== paymentAmount) {
+                setPaymentAmount(nextFinancialAmounts.amountDueNow);
             }
             // 🛡️ Preservar referências de guia/plano/pacote ao editar (não excluir nada)
             const nextInsuranceGuide = event.insuranceGuide ?? event.insuranceGuideId ?? null;
@@ -537,7 +539,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             const nextPackageId = event.package?._id ?? event.package ?? null;
             if (nextPackageId !== packageId) setPackageId(nextPackageId);
         }
-    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount, event?.insuranceGuide, event?.insuranceGuideId, event?.insurancePlan, event?.package, event?.liminarContract]);
+    }, [event?.paymentMethod, event?.billingType, event?.sessionValue, event?.paymentAmount, event?.depositAmount, event?.remainingAmount, event?.insuranceGuide, event?.insuranceGuideId, event?.insurancePlan, event?.package, event?.liminarContract]);
 
     // 🔄 RESETA O ESTADO QUANDO O MODAL FECHAR
     useEffect(() => {
@@ -730,7 +732,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         ? { _id: event?.extendedProps?.packageId || 'legacy' }
                         : null),
                 liminarContract: event?.liminarContract,
-                sessionValue: (addToBalance && debitAmount > 0) ? debitAmount : (getTotalPaid() > 0 ? getTotalPaid() : (event?.sessionValue ?? event?.paymentAmount ?? null)),
+                sessionValue: financialAmounts.sessionValue || null,
             });
 
             console.log('[Modal] Guard result:', guardResult);
@@ -749,6 +751,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     .map(p => ({ amount: Number(p.amount), date: p.date, method: p.method }))
                 : undefined;
 
+            const particularAmounts = buildParticularCompletionAmounts(
+                financialAmounts.sessionValue,
+                paymentAmount,
+                paymentsPayload
+            );
+
             // Metadados de billing consolidados no complete (Opção A — sem PUT silencioso separado)
             const billingMeta = {
                 billingType,
@@ -757,11 +765,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     : billingType === 'liminar' ? 'liminar_credit'
                     : 'convenio',
                 paymentAmount: billingType === 'particular'
-                    ? (paymentsPayload?.reduce((s, p) => s + p.amount, 0) || paymentAmount)
+                    ? particularAmounts.paymentAmount
                     : billingType === 'liminar' ? paymentAmount
                     : insuranceValue,
                 sessionValue: billingType === 'particular'
-                    ? (paymentsPayload?.reduce((s, p) => s + p.amount, 0) || paymentAmount)
+                    ? particularAmounts.sessionValue
                     : billingType === 'liminar' ? paymentAmount
                     : insuranceValue,
                 ...(billingType === 'convenio' && { insuranceProvider, insuranceValue, authorizationCode }),
@@ -1535,10 +1543,34 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             !!(insuranceProvider)
                         ) && (
                             <div className="bg-white rounded-xl border border-gray-200 p-3">
+                                {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0 && (
+                                    <div className="mb-3 grid grid-cols-1 gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-3">
+                                        <div className="min-w-0">
+                                            <span className="block text-xs font-medium text-emerald-700">Valor da consulta</span>
+                                            <strong className="block text-sm tabular-nums text-gray-900">
+                                                R$ {financialAmounts.sessionValue.toFixed(2).replace('.', ',')}
+                                            </strong>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <span className="block text-xs font-medium text-emerald-700">Sinal já recebido</span>
+                                            <strong className="block text-sm tabular-nums text-green-700">
+                                                R$ {financialAmounts.depositAmount.toFixed(2).replace('.', ',')}
+                                            </strong>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <span className="block text-xs font-medium text-emerald-700">Saldo a receber agora</span>
+                                            <strong className="block text-base tabular-nums text-gray-900">
+                                                R$ {financialAmounts.amountDueNow.toFixed(2).replace('.', ',')}
+                                            </strong>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                        Formas de Pagamento
+                                        {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0
+                                            ? 'Pagamento do saldo'
+                                            : 'Formas de Pagamento'}
                                     </h3>
                                     <button
                                         type="button"
@@ -1553,7 +1585,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 {payments.map((payment, index) => (
                                     <div key={payment.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-2 last:mb-0">
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-xs font-medium text-gray-600">Pagamento {index + 1}</span>
+                                            <span className="text-xs font-medium text-gray-600">
+                                                {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0
+                                                    ? `Recebimento agora ${index + 1}`
+                                                    : `Pagamento ${index + 1}`}
+                                            </span>
                                             {payments.length > 1 && (
                                                 <button
                                                     type="button"
@@ -1566,7 +1602,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                                             <div className="md:col-span-4">
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">Valor (R$) *</label>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Valor recebido agora (R$) *</label>
                                                 <InputCurrency
                                                     name={`payment-amount-${payment.id}`}
                                                     value={payment.amount}

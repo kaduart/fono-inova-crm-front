@@ -419,6 +419,8 @@ export interface SelectedEvent {
     serviceType?: string;
     paymentAmount?: number;
     sessionValue?: number;
+    depositAmount?: number;
+    remainingAmount?: number | null;
     paymentMethod?: string;
     specialty?: string;
     paymentOrigin?: string;
@@ -533,6 +535,8 @@ export interface IAppointment {
     sessionValue?: number;
     paymentMethod?: string;
     paymentAmount: number;
+    depositAmount?: number;
+    remainingAmount?: number | null;
     notes?: string;
     serviceType: string;
     paymentStatus: string;

@@ -213,11 +213,15 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const realizados = useMemo(() =>
         appointments.filter((a: IAppointment) => a.operationalStatus === 'completed'),
     [appointments]);
+    // 🚨 FIX (2026-09-04): faltava excluir liminar — sessão futura de liminar
+    // consome um crédito judicial JÁ recebido no passado, não é dinheiro novo
+    // a entrar. Sem esse filtro, valorConfirmados/valorPendentes (usados nos
+    // 3 cenários abaixo) inflavam a projeção com caixa que já entrou há meses.
     const confirmados = useMemo(() =>
-        appointments.filter((a: IAppointment) => a.operationalStatus === 'confirmed'),
+        appointments.filter((a: IAppointment) => a.operationalStatus === 'confirmed' && a.billingType !== 'liminar'),
     [appointments]);
     const pendentes = useMemo(() =>
-        appointments.filter((a: IAppointment) => a.operationalStatus === 'scheduled'),
+        appointments.filter((a: IAppointment) => a.operationalStatus === 'scheduled' && a.billingType !== 'liminar'),
     [appointments]);
 
     const loading = dashLoading || appointmentsLoading;
@@ -249,10 +253,39 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
     const backlogFinanceiro = dashData?.backlogFinanceiro || 0;
     const backlogFinanceiroComFator = dashData?.backlogFinanceiroComFator || 0;
     const backlogContratado = dashData?.backlogContratado || 0;
-    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0; // = receita reconhecida (caixa + convenio a receber)
+    // 🚨 FIX (2026-09-04): comentário dizia "caixa + convênio a receber" — desde
+    // a mudança de base da Meta (2026-09-03), metas.realizado.mes é só caixa
+    // (Meta Realizada), sem accrual de convênio a receber. Ver
+    // back/docs/FINANCIAL_SOURCE_OF_TRUTH.md.
+    const resultadoEconomico = dashData?.metas?.realizado?.mes || 0; // = Meta Realizada (caixa do mês)
     const metaValor = dashData?.metas?.configuracao?.metaMensal || 0;
     const percentualAtual = dashData?.metas?.ritmo?.percentualRealizado || 0;
-    const cenarioEsperado = dashData?.metas?.projecao?.final || 0;
+    // 🚨 (2026-09-04) Extrapolação linear de ritmo (RITMO × diasNoMes, ver
+    // FinancialSemantic.js → PROJECAO_OTIMISTA) — NÃO usa a agenda real, só
+    // assume que o ritmo atual continua igual. Usado abaixo como o cenário
+    // "OTIMISTA" explicitamente (não mais como headline nem como "esperado").
+    const cenarioRitmoLinear = dashData?.metas?.projecao?.final || 0;
+
+    // 🚨 FIX (2026-09-04): os 3 cenários eram calculados por fórmulas distintas
+    // (2 baseadas em agenda real + 1 em extrapolação de ritmo) mas depois eram
+    // ORDENADOS POR VALOR e rotulados Pessimista/Esperado/Otimista pela posição
+    // no ranking — não pela fórmula. Resultado: em meses de ritmo forte, a
+    // extrapolação de ritmo (que ignora se há agenda real pra sustentar aquele
+    // ritmo) virava "OTIMISTA" por acidente, e uma das fórmulas de agenda virava
+    // "ESPERADO"/"Mais provável" só por ter dado o valor do meio — o rótulo
+    // mudava de fórmula mês a mês, sem sentido. Agora cada cenário tem dono fixo:
+    // PESSIMISTA e ESPERADO são sempre baseados na agenda real (pedido do
+    // usuário: "deve pegar todos agendamentos futuros"), OTIMISTA é a
+    // extrapolação de ritmo (assume que o ritmo atual se mantém OU melhora).
+    const getValorAgendamento = (a: IAppointment) => (a as any).sessionValue || a.paymentAmount || 0;
+    const valorConfirmados = confirmados.reduce((sum, a) => sum + getValorAgendamento(a), 0);
+    const valorPendentes = pendentes.reduce((sum, a) => sum + getValorAgendamento(a), 0);
+    const cenarioPessimista = resultadoEconomico + (valorConfirmados * 0.7) + (valorPendentes * 0.2);
+    const cenarioAgendaEsperado = resultadoEconomico + (valorConfirmados * 0.95) + (valorPendentes * 0.7);
+    // Otimista nunca fica abaixo do esperado — extrapolação de ritmo pode ser
+    // menor que a agenda confirmada em meses de agenda cheia mas ritmo fraco
+    // até agora; nesse caso o próprio cenário de agenda já é o teto otimista.
+    const cenarioOtimista = Math.max(cenarioRitmoLinear, cenarioAgendaEsperado);
 
     const hoje = new Date();
     const diasNoMes = new Date(ano, mes, 0).getDate();
@@ -459,6 +492,11 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 </div>
 
                 {/* PROJEÇÃO DE FECHAMENTO */}
+                {/* 🚨 FIX (2026-09-04): mostrava cenarioRitmoLinear (extrapolação de
+                    ritmo, sem olhar a agenda) como se fosse "a" projeção. Trocado
+                    pra cenarioAgendaEsperado — grounded na agenda real confirmada/
+                    pendente (pedido explícito do usuário), mesmo valor do card
+                    "ESPERADO" logo abaixo, então os dois nunca divergem. */}
                 <div
                     className="border-2 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition"
                     style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}
@@ -468,13 +506,13 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         <p className="text-3xs font-black uppercase tracking-widest text-purple-700">Projeção de Fechamento</p>
                         <Info size={14} className="text-purple-400" />
                     </div>
-                    <p className="text-3xl font-black leading-tight mb-2" style={{ color: '#7C3AED' }}>{formatCurrency(cenarioEsperado)}</p>
+                    <p className="text-3xl font-black leading-tight mb-2" style={{ color: '#7C3AED' }}>{formatCurrency(cenarioAgendaEsperado)}</p>
 
                     {metaValor > 0 && (
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${cenarioEsperado >= metaValor ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                            {cenarioEsperado >= metaValor
-                                ? `✅ +${formatCurrency(cenarioEsperado - metaValor)} acima da meta`
-                                : `⚠️ ${formatCurrency(metaValor - cenarioEsperado)} abaixo da meta`}
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${cenarioAgendaEsperado >= metaValor ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {cenarioAgendaEsperado >= metaValor
+                                ? `✅ +${formatCurrency(cenarioAgendaEsperado - metaValor)} acima da meta`
+                                : `⚠️ ${formatCurrency(metaValor - cenarioAgendaEsperado)} abaixo da meta`}
                         </div>
                     )}
 
@@ -488,7 +526,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         />
                     </div>
                     <p className="text-xs text-gray-400">
-                        {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido · Cenário histórico
+                        {(dashData?.metas?.ritmo?.percentualRealizado || 0).toFixed(1)}% atingido · agenda confirmada + pendente
                     </p>
                     <p className="text-xs text-purple-600 mt-1.5 font-semibold">
                         📅 {(dashData?.appointmentCounts?.ativos || 0).toLocaleString('pt-BR')} agendamentos no mês
@@ -501,23 +539,16 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Cenários de Fechamento</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {(() => {
-                        const getValor = (a: IAppointment) => (a as any).sessionValue || a.paymentAmount || 0;
-                        const valorConfirmados = confirmados.reduce((sum, a) => sum + getValor(a), 0);
-                        const valorPendentes = pendentes.reduce((sum, a) => sum + getValor(a), 0);
-
-                        const rawValues = [
-                            { value: resultadoEconomico + (valorConfirmados * 0.7) + (valorPendentes * 0.2), desc: '70% confirmados + 20% pendentes' },
-                            { value: cenarioEsperado || resultadoEconomico, desc: 'Taxa histórica de conversão' },
-                            { value: resultadoEconomico + (valorConfirmados * 0.95) + (valorPendentes * 0.7), desc: '95% confirmados + 70% pendentes' }
-                        ].sort((a, b) => a.value - b.value);
-
+                        // 🚨 FIX (2026-09-04): cada cenário tem fórmula fixa agora — não
+                        // ordena mais por valor. Ver comentário onde cenarioPessimista/
+                        // cenarioAgendaEsperado/cenarioOtimista são calculados acima.
                         const configs = [
-                            { label: 'PESSIMISTA', color: '#DC2626', IconEl: TrendingDown },
-                            { label: 'ESPERADO', color: '#2563EB', IconEl: Target },
-                            { label: 'OTIMISTA', color: '#16A34A', IconEl: TrendingUp }
+                            { label: 'PESSIMISTA', color: '#DC2626', IconEl: TrendingDown, value: cenarioPessimista, desc: '70% confirmados + 20% pendentes (sem Liminar)' },
+                            { label: 'ESPERADO', color: '#2563EB', IconEl: Target, value: cenarioAgendaEsperado, desc: '95% confirmados + 70% pendentes (sem Liminar)' },
+                            { label: 'OTIMISTA', color: '#16A34A', IconEl: TrendingUp, value: cenarioOtimista, desc: 'ritmo atual mantido até o fim do mês' }
                         ];
 
-                        return configs.map((cfg, i) => ({ ...cfg, value: rawValues[i].value, desc: rawValues[i].desc }));
+                        return configs;
                     })().map((c) => {
                         const IconEl = c.IconEl;
                         const isEsperado = c.label === 'ESPERADO';

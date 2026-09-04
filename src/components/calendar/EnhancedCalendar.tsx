@@ -415,6 +415,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             : prev.billingType,
                         paymentAmount: updatedAppt.paymentAmount || updatedAppt.sessionValue || prev.paymentAmount,
                         sessionValue: updatedAppt.sessionValue || prev.sessionValue,
+                        depositAmount: updatedAppt.depositAmount ?? prev.depositAmount,
+                        remainingAmount: updatedAppt.remainingAmount ?? prev.remainingAmount,
                         // Dados do convênio - só atualiza se tiver valor real
                         insuranceProvider: (updatedAppt.insuranceProvider && updatedAppt.insuranceProvider !== '') 
                             ? updatedAppt.insuranceProvider 
@@ -519,6 +521,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             serviceType: data.serviceType || extendedProps.serviceType || 'individual_session',
             paymentAmount: data.paymentAmount || data.sessionValue || extendedProps.paymentAmount || extendedProps.sessionValue || 0,
             sessionValue: data.sessionValue || data.paymentAmount || extendedProps.sessionValue || extendedProps.paymentAmount || 0,
+            depositAmount: data.depositAmount ?? extendedProps.depositAmount ?? 0,
+            remainingAmount: data.remainingAmount ?? extendedProps.remainingAmount ?? null,
             paymentMethod: data.paymentMethod || extendedProps.paymentMethod || 'dinheiro',
             specialty: data.specialty || data.sessionType || extendedProps.specialty || extendedProps.sessionType || '',
             __isPreAgendamento: data.__isPreAgendamento || extendedProps.__isPreAgendamento || false,
@@ -575,6 +579,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             serviceType: appt.serviceType || appt.sessionType || 'individual_session',
             paymentAmount: appt.sessionValue || appt.paymentAmount || 0,
             sessionValue: appt.sessionValue || appt.paymentAmount || 0,
+            depositAmount: appt.depositAmount ?? 0,
+            remainingAmount: appt.remainingAmount ?? null,
             paymentMethod: appt.paymentMethod || 'dinheiro',
             specialty: appt.specialty || appt.sessionType || '',
             __isPreAgendamento: (appt as any).__isPreAgendamento || false,

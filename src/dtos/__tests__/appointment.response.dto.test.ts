@@ -60,4 +60,22 @@ describe('appointment.response.dto', () => {
         expect(dtos[0].operationalStatus).toBe('confirmed');
         expect(dtos[1].operationalStatus).toBe('completed');
     });
+
+    it('preserva valor total, sinal recebido e saldo retornados pelo backend', () => {
+        const dto = mapAppointmentResponseDTO({
+            _id: 'deposit-appointment',
+            date: '2026-09-10',
+            sessionValue: 500,
+            paymentAmount: 500,
+            depositAmount: 50,
+            remainingAmount: 450,
+        });
+
+        expect(dto).toMatchObject({
+            sessionValue: 500,
+            paymentAmount: 500,
+            depositAmount: 50,
+            remainingAmount: 450,
+        });
+    });
 });
