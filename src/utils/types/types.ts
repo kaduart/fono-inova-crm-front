@@ -222,6 +222,7 @@ export interface ICommissionRules {
     standardSession?: number;
     evaluationSession?: number;
     neuropsychEvaluation?: number;
+    neuropsychCommissionType?: 'fixed' | 'percentage';
     byInsurance?: Record<string, number>;
     customRules?: any[];
     rules?: ICommissionRule[];

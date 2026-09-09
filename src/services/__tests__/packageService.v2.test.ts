@@ -20,6 +20,21 @@ const mockedAPI = API as unknown as {
 describe('packageService V2 — sessões de pacote', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('preserva os vínculos retroativos na mesma requisição de criação', async () => {
+    mockedAPI.post.mockResolvedValue({ data: { success: true, data: { packageId: 'pkg-1' } } });
+    await packageService.createPackage({
+      type: 'therapy', paymentType: 'full', calculationMode: 'sessions',
+      totalSessions: 2, totalValue: 400, sessionValue: 200, preConsumedCount: 1,
+      retroactivePaymentIds: ['payment-1'], retroactivePaymentMethod: 'pix', retroactivePaymentDate: '2026-09-01',
+      payments: [{ amount: 200, method: 'pix', date: '2026-09-01' }]
+    } as any);
+    expect(mockedAPI.post).toHaveBeenCalledTimes(1);
+    expect(mockedAPI.post).toHaveBeenCalledWith('/v2/packages', expect.objectContaining({
+      retroactivePaymentIds: ['payment-1'], preConsumedCount: 1,
+      retroactivePaymentMethod: 'pix', retroactivePaymentDate: '2026-09-01'
+    }));
+  });
+
   it('cria uma nova sessão pelo endpoint canônico de appointments com vínculo do pacote', async () => {
     mockedAPI.post.mockResolvedValue({ data: { success: true, data: { _id: 'appt-1' } } });
 

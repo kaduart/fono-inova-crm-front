@@ -12,6 +12,10 @@ interface DoctorCommissionRulesTabProps {
     doctorId: string;
     rules: ICommissionRule[];
     onChange: (rules: ICommissionRule[]) => void;
+    neuropsychEvaluation?: number;
+    neuropsychCommissionType?: 'fixed' | 'percentage';
+    onNeuropsychCommissionTypeChange?: (value: 'fixed' | 'percentage') => void;
+    onNeuropsychEvaluationChange?: (value: number | undefined) => void;
     readOnly?: boolean;
 }
 
@@ -67,6 +71,10 @@ export function DoctorCommissionRulesTab({
     doctorId,
     rules = [],
     onChange,
+    neuropsychEvaluation,
+    neuropsychCommissionType = 'fixed',
+    onNeuropsychCommissionTypeChange,
+    onNeuropsychEvaluationChange,
     readOnly = false
 }: DoctorCommissionRulesTabProps) {
     const [editingRule, setEditingRule] = useState<ICommissionRule | null>(null);
@@ -185,6 +193,43 @@ export function DoctorCommissionRulesTab({
                     )}
                 </div>
             </div>
+
+            <section className="border border-gray-200 rounded-xl p-4 space-y-3" aria-labelledby="neuropsych-title">
+                <h4 id="neuropsych-title" className="text-sm font-semibold text-gray-700">
+                    Avaliação neuropsicológica em pacote
+                </h4>
+                <p id="neuropsych-help" className="text-sm text-gray-600">
+                    Repasse total ao profissional por pacote completo, não por sessão.
+                    O pacote deve estar cadastrado como avaliação neuropsicológica.
+                </p>
+                <div className="max-w-sm">
+                    <Label htmlFor="neuropsych-type">Regra do pacote</Label>
+                    <Select id="neuropsych-type" value={neuropsychCommissionType}
+                        disabled={readOnly || !onNeuropsychCommissionTypeChange}
+                        onChange={event => onNeuropsychCommissionTypeChange?.(event.target.value as 'fixed' | 'percentage')}>
+                        <option value="fixed">Valor fixo (R$)</option>
+                        <option value="percentage">Percentual do valor total do pacote (%)</option>
+                    </Select>
+                    <Label htmlFor="neuropsych-value">{neuropsychCommissionType === 'percentage' ? 'Percentual do pacote (%)' : 'Valor por pacote (R$)'}</Label>
+                    <Input
+                        id="neuropsych-value"
+                        type="number"
+                        min="0"
+                        max={neuropsychCommissionType === 'percentage' ? 100 : undefined}
+                        step="0.01"
+                        required
+                        value={neuropsychEvaluation ?? ""}
+                        disabled={readOnly || !onNeuropsychEvaluationChange}
+                        aria-describedby="neuropsych-help neuropsych-save"
+                        onChange={event => onNeuropsychEvaluationChange?.(
+                            event.target.value === "" ? undefined : event.target.valueAsNumber
+                        )}
+                    />
+                </div>
+                <p id="neuropsych-save" className="text-xs text-gray-600">
+                    Salve as alterações do profissional para aplicar o valor. Despesas já geradas não são recalculadas automaticamente.
+                </p>
+            </section>
 
             {isAdding && (
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">

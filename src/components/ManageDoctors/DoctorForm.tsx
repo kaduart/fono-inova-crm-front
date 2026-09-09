@@ -52,6 +52,7 @@ const generateTimeSlots = (startHour: number, endHour: number, intervalMinutes: 
 const allTimeSlots = generateTimeSlots(8, 18, 40);
 
 const defaultCommissionRules: ICommissionRules = {
+    neuropsychEvaluation: 1200,
     rules: []
 };
 
@@ -128,6 +129,15 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const neuropsychValue = form.commissionRules?.neuropsychEvaluation;
+        if (neuropsychValue !== undefined && (!Number.isFinite(neuropsychValue) || neuropsychValue < 0 ||
+            (form.commissionRules?.neuropsychCommissionType === 'percentage' && neuropsychValue > 100))) {
+            return toast.error("Informe um repasse válido para a avaliação neuropsicológica.");
+        }
+        if (form.commissionRules?.neuropsychCommissionType === 'percentage' && neuropsychValue === undefined) {
+            setActiveTab('comissoes');
+            return toast.error("Informe o percentual da avaliação neuropsicológica.");
+        }
         console.log('[DoctorForm] handleSubmit disparado. form:', form);
         if (formErrors.fullName) return toast.error("Nome é obrigatório");
         console.log('[DoctorForm] Chamando onSubmitDoctor com:', form);
@@ -421,6 +431,16 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                             <DoctorCommissionRulesTab
                                 doctorId={form._id}
                                 rules={form.commissionRules?.rules || []}
+                                neuropsychEvaluation={form.commissionRules?.neuropsychEvaluation}
+                                neuropsychCommissionType={form.commissionRules?.neuropsychCommissionType}
+                                onNeuropsychCommissionTypeChange={value => setForm(prev => ({
+                                    ...prev,
+                                    commissionRules: { ...prev.commissionRules, rules: prev.commissionRules?.rules || [], neuropsychCommissionType: value, neuropsychEvaluation: undefined }
+                                }))}
+                                onNeuropsychEvaluationChange={value => setForm(prev => ({
+                                    ...prev,
+                                    commissionRules: { ...prev.commissionRules, rules: prev.commissionRules?.rules || [], neuropsychEvaluation: value }
+                                }))}
                                 onChange={updatedRules =>
                                     setForm(prev => ({
                                         ...prev,

@@ -180,6 +180,9 @@ const sanitizeV2Payload = (data: any): any => {
     'selectedDebts',
     // Sessões retroativas absorvidas na criação do pacote
     'preConsumedCount',
+    'retroactivePaymentIds',
+    'retroactivePaymentMethod',
+    'retroactivePaymentDate',
   ];
   
   const sanitized: any = {};

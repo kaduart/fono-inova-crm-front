@@ -137,11 +137,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     }>>([]);
     const [v2ImportLoading, setV2ImportLoading] = useState(false);
     const [selectedDebtIds, setSelectedDebtIds] = useState<Set<string>>(new Set());
-    const [pendingSettlement, setPendingSettlement] = useState<{
-        packageId: string;
-        paymentIds: string[];
-        paymentMethod: string;
-    } | null>(null);
+
 
     // normaliza especialidade para comparação (fonoaudiologia == Fonoaudiologia == terapia_ocupacional == Terapia Ocupacional)
     // débitos filtrados pela especialidade selecionada no formulário
@@ -734,28 +730,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // O pacote já existe: em caso de falha de rede, repete somente a quitação.
-        // Recriar o pacote aqui produziria duplicidade e manteria o débito pendente.
-        if (pendingSettlement) {
-            setIsLoading(true);
-            try {
-                await API.post(`/v2/packages/${pendingSettlement.packageId}/settle-payments`, {
-                    paymentIds: pendingSettlement.paymentIds,
-                    paymentMethod: pendingSettlement.paymentMethod,
-                });
-                toast.success(`${pendingSettlement.paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
-                const settledPackageId = pendingSettlement.packageId;
-                setPendingSettlement(null);
-                onSubmit(settledPackageId);
-                onClose();
-            } catch (settleErr: unknown) {
-                toast.error(`A quitação ainda não foi concluída. Tente novamente: ${extractErrorMessage(settleErr, 'erro desconhecido')}`);
-            } finally {
-                setIsLoading(false);
-            }
-            return;
-        }
-
         if (!validateAll()) return;
         setIsLoading(true);
 
@@ -901,36 +875,16 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 appointmentId: selectedAppointmentIdRef.current || formData.appointmentId || undefined,
                 totalSessions: contractualTotalSessions,
                 totalValue: contractualTotalSessions * sv,
-                preConsumedCount: numPreConsumed
+                preConsumedCount: numPreConsumed,
+                retroactivePaymentIds: v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId)).map(s => s.v2PaymentId),
+                retroactivePaymentMethod: payments[0]?.method,
+                retroactivePaymentDate: payments[0]?.date,
             };
 
             const response = await packageService.createPackage(therapyData);
             const newPackageId = response?.data?.packageId
                 || response?.data?.package?._id
                 || response?.data?._id;
-
-            // Quita pendências importadas vinculando ao pacote recém-criado
-            const selectedSessions = v2ImportedSessions.filter(s => selectedDebtIds.has(s.v2PaymentId));
-            if (newPackageId && selectedSessions.length > 0) {
-                const paymentIds = selectedSessions.map(s => s.v2PaymentId).filter(Boolean);
-                if (paymentIds.length > 0) {
-                    try {
-                        await API.post(`/v2/packages/${newPackageId}/settle-payments`, {
-                            paymentIds,
-                            paymentMethod: payments[0]?.method || 'pix'
-                        });
-                        toast.success(`${paymentIds.length} pendência(s) quitadas e vinculadas ao pacote.`);
-                    } catch (settleErr: unknown) {
-                        setPendingSettlement({
-                            packageId: newPackageId,
-                            paymentIds,
-                            paymentMethod: payments[0]?.method || 'pix',
-                        });
-                        toast.error(`Pacote criado, mas a quitação não foi concluída. Use "Tentar quitação novamente": ${extractErrorMessage(settleErr, 'erro desconhecido')}`);
-                        return;
-                    }
-                }
-            }
 
             toast.success(`Pacote criado com sucesso! 💚`);
             onSubmit(newPackageId);
@@ -2121,8 +2075,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={(!canSubmitForm && !pendingSettlement) || isLoading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${(!canSubmitForm && !pendingSettlement) || isLoading
+                            disabled={!canSubmitForm || isLoading}
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!canSubmitForm || isLoading
                                 ? 'bg-gray-400 cursor-not-allowed text-white'
                                 : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
                                 }`}
@@ -2130,12 +2084,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             {isLoading ? (
                                 <div className="flex items-center gap-2">
                                     <LoadingSpinner size="small" color="border-white" />
-                                    <span>{pendingSettlement ? 'Quitando...' : 'Salvando...'}</span>
+                                    <span>Salvando...</span>
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2">
                                     {initialData ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                    {pendingSettlement ? 'Tentar quitação novamente' : initialData ? 'Atualizar Pacote' : 'Criar Pacote'}
+                                    {initialData ? 'Atualizar Pacote' : 'Criar Pacote'}
                                 </div>
                             )}
                         </Button>
