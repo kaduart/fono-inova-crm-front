@@ -536,29 +536,33 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             {!dashboardOpen && data?.eficienciaFinanceira && (
                                 <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
                                     <span className="pr-3">
-                                        <span className="block text-2xs font-medium text-emerald-700">Caixa hoje</span>
-                                        <strong className="block text-sm tabular-nums text-gray-900">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
+                                        <span className="block text-xs font-medium text-emerald-700">Caixa hoje</span>
+                                        <strong className="block text-base tabular-nums text-emerald-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
                                     </span>
                                     <span className="px-3">
-                                        <span className="block text-2xs font-medium text-emerald-700">A receber</span>
-                                        <strong className="block text-sm tabular-nums text-gray-900">{formatCurrency(data.eficienciaFinanceira.aReceberFuturamente.valor)}</strong>
+                                        <span className="block text-xs font-medium text-emerald-700">A receber</span>
+                                        <strong className="block text-base tabular-nums text-red-600">{formatCurrency(data.eficienciaFinanceira.aReceberFuturamente.valor)}</strong>
                                     </span>
                                     <span className="px-3">
-                                        <span className="block text-2xs font-medium text-emerald-700">Créditos usados</span>
-                                        <strong className="block text-sm tabular-nums text-gray-900">{formatCurrency(data.eficienciaFinanceira.consumiramCredito.valor)}</strong>
+                                        <span className="block text-xs font-medium text-emerald-700">Créditos usados</span>
+                                        <strong className="block text-base tabular-nums text-indigo-700">{formatCurrency(data.eficienciaFinanceira.consumiramCredito.valor)}</strong>
+                                    </span>
+                                    <span className="px-3">
+                                        <span className="block text-xs font-medium text-emerald-700">Produção</span>
+                                        <strong className="block text-base tabular-nums text-blue-700">{formatCurrency(data.producao?.total || 0)}</strong>
                                     </span>
                                     {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length > 0 && (
                                         <span className="px-3">
-                                            <span className="block text-2xs font-medium text-emerald-700">Pacientes novos</span>
-                                            <strong className="block text-sm tabular-nums text-fuchsia-700">
+                                            <span className="block text-xs font-medium text-emerald-700">Pacientes novos</span>
+                                            <strong className="block text-base tabular-nums text-fuchsia-700">
                                                 {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length}
                                             </strong>
                                         </span>
                                     )}
                                     {data.atendimentos && (
                                         <span className="pl-3">
-                                            <span className="block text-2xs font-medium text-emerald-700">Agenda</span>
-                                            <strong className="block text-sm tabular-nums text-gray-900">
+                                            <span className="block text-xs font-medium text-emerald-700">Agenda</span>
+                                            <strong className="block text-base tabular-nums text-gray-900">
                                                 {data.atendimentos.realizados} atendidos
                                                 <span className="ml-1.5 font-medium text-amber-800">· {data.atendimentos.faltantes} aguardando</span>
                                             </strong>
