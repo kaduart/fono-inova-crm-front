@@ -1297,35 +1297,35 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                 {!cardsOpen && (
                                     <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
                                         <span className="pr-3" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
-                                            <span className="block text-2xs font-medium text-emerald-700">Produção</span>
-                                            <strong className="block text-sm tabular-nums text-purple-700">{prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                            <span className="block text-xs font-medium text-emerald-700">Produção</span>
+                                            <strong className="block text-base tabular-nums text-purple-700">{prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                                         </span>
                                         <span className="px-3" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
-                                            <span className="block text-2xs font-medium text-emerald-700">A faturar (total)</span>
-                                            <strong className="block text-sm tabular-nums text-amber-700">{ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                            <span className="block text-xs font-medium text-emerald-700">A faturar (total)</span>
+                                            <strong className="block text-base tabular-nums text-amber-700">{ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                                         </span>
                                         {ms.totalWaiting > 0 && (
                                             <span className="px-3" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
-                                                <span className="block text-2xs font-medium text-emerald-700">Aguardando (total)</span>
-                                                <strong className="block text-sm tabular-nums text-blue-700">{ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                                <span className="block text-xs font-medium text-emerald-700">Aguardando (total)</span>
+                                                <strong className="block text-base tabular-nums text-blue-700">{ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                                             </span>
                                         )}
                                         {ms.totalRecebido > 0 && (
                                             <span className="px-3">
-                                                <span className="block text-2xs font-medium text-emerald-700">Recebido</span>
-                                                <strong className="block text-sm tabular-nums text-emerald-700">{ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                                <span className="block text-xs font-medium text-emerald-700">Recebido</span>
+                                                <strong className="block text-base tabular-nums text-emerald-700">{ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                                             </span>
                                         )}
                                         {ms.closedCount > 0 && (
                                             <span className="px-3">
-                                                <span className="block text-2xs font-medium text-emerald-700">{ms.closedCount === 1 ? 'Guia finalizada' : 'Guias finalizadas'}</span>
-                                                <strong className="block text-sm tabular-nums text-slate-800">{ms.closedCount}</strong>
+                                                <span className="block text-xs font-medium text-emerald-700">{ms.closedCount === 1 ? 'Guia finalizada' : 'Guias finalizadas'}</span>
+                                                <strong className="block text-base tabular-nums text-slate-800">{ms.closedCount}</strong>
                                             </span>
                                         )}
                                         {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
                                             <span className="pl-3" title={`Sessões pendentes de faturamento anteriores a ${competenceBreakdown.referenceMonth}, já incluídas no total a faturar.`}>
-                                                <span className="block text-2xs font-medium text-emerald-700">Em atraso · antes de {competenceBreakdown.referenceMonth}</span>
-                                                <strong className="block text-sm tabular-nums text-rose-700">{competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                                <span className="block text-xs font-medium text-emerald-700">Em atraso · antes de {competenceBreakdown.referenceMonth}</span>
+                                                <strong className="block text-base tabular-nums text-rose-700">{competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                                             </span>
                                         )}
                                     </span>

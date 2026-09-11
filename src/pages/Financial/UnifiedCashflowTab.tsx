@@ -537,7 +537,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
                                     <span className="pr-3">
                                         <span className="block text-xs font-medium text-emerald-700">Caixa hoje</span>
-                                        <strong className="block text-base tabular-nums text-emerald-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
+                                        <strong className="block text-base tabular-nums text-purple-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
                                     </span>
                                     <span className="px-3">
                                         <span className="block text-xs font-medium text-emerald-700">A receber</span>
