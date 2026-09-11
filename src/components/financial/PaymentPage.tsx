@@ -930,7 +930,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                 )}
 
                 {/* Componente de filtros avançados (PaymentsFilters) */}
-                <PaymentsFilters doctors={doctors || []} payments={allPayments} onFilter={setFilteredPayments} onPatientSearch={handlePatientSearch} backendPatientSearchActive={patientSearchActive} />
+                <PaymentsFilters doctors={effectiveDoctors} payments={allPayments} onFilter={setFilteredPayments} onPatientSearch={handlePatientSearch} backendPatientSearchActive={patientSearchActive} />
 
                 {/* Tabela de pagamentos */}
                 {error ? (

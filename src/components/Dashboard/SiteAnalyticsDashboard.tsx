@@ -353,43 +353,43 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     // ============================================
     
     const renderHeader = () => (
-        <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-50 rounded-xl">
-                    <TrendingUp className="w-6 h-6 text-blue-600" />
+        <div className="mb-3 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+            <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                    <TrendingUp size={22} className="text-emerald-600" />
                 </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Site Analytics</h1>
-                    <p className="text-sm text-gray-500">
+                <div className="min-w-0">
+                    <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">Site Analytics</h1>
+                    <p className="mt-0.5 text-sm text-gray-600">
                         Período: {dateRange.startDate} até {dateRange.endDate}
-                        {loading && <span className="ml-2 text-blue-500">(carregando...)</span>}
+                        {loading && <span className="ml-2 text-emerald-600">(carregando...)</span>}
                     </p>
                 </div>
             </div>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="flex flex-wrap items-center gap-2">
                 {/* Usuários em tempo real */}
                 {realtime?.activeUsers !== null && realtime?.activeUsers !== undefined ? (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full">
-                        <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    <div className="flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-green-800">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
                         </span>
                         <span className="text-sm font-medium">{realtime.activeUsers} online</span>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-full" title="Dados realtime requerem configuração da GA4 Realtime API">
-                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                    <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-gray-600" title="Dados realtime requerem configuração da GA4 Realtime API">
+                        <span className="h-2 w-2 rounded-full bg-gray-400"></span>
                         <span className="text-sm font-medium">Realtime não disponível</span>
                     </div>
                 )}
-                
+
                 <button
                     onClick={refetch}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    className="flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
                 >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                     Atualizar
                 </button>
             </div>

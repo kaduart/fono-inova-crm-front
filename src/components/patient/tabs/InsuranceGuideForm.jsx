@@ -19,6 +19,11 @@ const inputClass = (hasError) =>
 const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [], isRenewal = false }) => {
   const isEditing = Boolean(guide) && !isRenewal;
   const hasUsedSessions = isEditing && guide?.usedSessions > 0;
+  const isInactiveStatus = isEditing && guide?.status && !['active', 'linked'].includes(guide.status);
+  // Guia já usada ou inativa (esgotada/vencida/cancelada/substituída): trava campos
+  // que afetam consumo/identificação da guia, mas sempre libera a data de vencimento
+  // e demais campos administrativos para correção.
+  const isLocked = hasUsedSessions || isInactiveStatus;
   const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
 
   const {
@@ -150,12 +155,14 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
 
-            {hasUsedSessions && (
+            {isLocked && (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                 <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-800">
-                  Esta guia já possui <strong>{guide.usedSessions}</strong> sessão(ões) utilizada(s).
-                  Apenas alguns campos podem ser editados.
+                  {hasUsedSessions
+                    ? <>Esta guia já possui <strong>{guide.usedSessions}</strong> sessão(ões) utilizada(s). </>
+                    : <>Esta guia está inativa (<strong>{guide.status}</strong>). </>}
+                  Apenas a data de vencimento e campos administrativos podem ser editados.
                 </p>
               </div>
             )}
@@ -193,8 +200,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                       {...field}
                       type="text"
                       placeholder="Ex: 123456789"
-                      disabled={hasUsedSessions}
-                      className={inputClass(!!errors.number) + (hasUsedSessions ? ' opacity-50 cursor-not-allowed' : '')}
+                      disabled={isLocked}
+                      className={inputClass(!!errors.number) + (isLocked ? ' opacity-50 cursor-not-allowed' : '')}
                       autoFocus={isRenewal}
                     />
                   )}
@@ -216,7 +223,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                       min={1}
                       max={999}
                       placeholder="Ex: 10"
-                      className={inputClass(!!errors.totalSessions)}
+                      disabled={isLocked}
+                      className={inputClass(!!errors.totalSessions) + (isLocked ? ' opacity-50 cursor-not-allowed' : '')}
                     />
                   )}
                 />
@@ -235,7 +243,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                   control={control}
                   rules={{ required: 'Especialidade é obrigatória' }}
                   render={({ field }) => (
-                    <select {...field} className={inputClass(!!errors.specialty) + (isRenewal ? ' opacity-50 cursor-not-allowed' : '')} disabled={isRenewal}>
+                    <select {...field} className={inputClass(!!errors.specialty) + ((isRenewal || isLocked) ? ' opacity-50 cursor-not-allowed' : '')} disabled={isRenewal || isLocked}>
                       <option value="">Selecione</option>
                       {VALID_SPECIALTIES.map(s => (
                         <option key={s.value} value={s.value}>{s.label}</option>
@@ -256,8 +264,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                   render={({ field }) => (
                     <select
                       {...field}
-                      className={inputClass(!!errors.insurance) + (isRenewal ? ' opacity-50 cursor-not-allowed' : '')}
-                      disabled={loadingConvenios || isRenewal}
+                      className={inputClass(!!errors.insurance) + ((isRenewal || isLocked) ? ' opacity-50 cursor-not-allowed' : '')}
+                      disabled={loadingConvenios || isRenewal || isLocked}
                       onChange={(e) => {
                         const selectedCode = e.target.value;
                         field.onChange(selectedCode);

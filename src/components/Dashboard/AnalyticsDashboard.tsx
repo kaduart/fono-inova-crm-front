@@ -1,5 +1,5 @@
 // src/components/Dashboard/AnalyticsDashboard.tsx
-import { Box, Paper, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { Activity, BarChart3, Globe2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -26,7 +26,6 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     registerAppointmentAndPayemntFuture,
     onCancelPayment,
 }) => {
-    const theme = useTheme();
     const [tab, setTab] = useState<'overview' | 'revenue' | 'site' | 'marketing'>('overview');
 
     const overview = useMemo(() => {
@@ -53,35 +52,19 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
     return (
         <Box className="space-y-4">
-            <Paper
-                elevation={2}
-                sx={{
-                    p: 3,
-                    borderRadius: 3,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                    mb: 2,
-                }}
-            >
-                <Box display="flex" alignItems="center" gap={2}>
-                    <Box
-                        sx={{
-                            p: 2,
-                            borderRadius: 3,
-                            backgroundColor: 'rgba(55,171,135,0.15)',
-                        }}
-                    >
-                        <BarChart3 size={22} />
-                    </Box>
-                    <Box>
-                        <Typography variant="h5" fontWeight="bold" color="grey.800">
-                            Analytics da Clínica
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Atendimentos, faturamento, site e marketing em um só lugar.
-                        </Typography>
-                    </Box>
-                </Box>
-            </Paper>
+            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:p-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                    <BarChart3 size={22} className="text-emerald-600" />
+                </div>
+                <div className="min-w-0">
+                    <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+                        Analytics da Clínica
+                    </h1>
+                    <p className="mt-0.5 text-sm text-gray-600">
+                        Atendimentos, faturamento, site e marketing em um só lugar.
+                    </p>
+                </div>
+            </div>
 
             <Paper elevation={1} sx={{ borderRadius: 3 }}>
                 <Tabs

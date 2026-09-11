@@ -13,10 +13,6 @@ import {
   Card,
   CardContent,
   Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   Chip,
   LinearProgress,
@@ -148,23 +144,27 @@ const RevenueTab: React.FC<RevenueTabProps> = ({ startDate, endDate }) => {
   return (
     <Box>
       {/* Header com Filtros */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6" fontWeight="bold">
-          💰 Atribuição de Receita
-        </Typography>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Período</InputLabel>
-          <Select
-            value={period}
-            label="Período"
-            onChange={(e) => setPeriod(e.target.value as any)}
-          >
-            <MenuItem value="7d">Últimos 7 dias</MenuItem>
-            <MenuItem value="30d">Últimos 30 dias</MenuItem>
-            <MenuItem value="90d">Últimos 90 dias</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+      <div className="mb-3 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+            <DollarSign size={22} className="text-emerald-600" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">Atribuição de Receita</h1>
+            <p className="mt-0.5 text-sm text-gray-600">Receita por origem, campanha e canal de aquisição.</p>
+          </div>
+        </div>
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as any)}
+          aria-label="Período"
+          className="h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="7d">Últimos 7 dias</option>
+          <option value="30d">Últimos 30 dias</option>
+          <option value="90d">Últimos 90 dias</option>
+        </select>
+      </div>
 
       {/* KPIs Principais */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

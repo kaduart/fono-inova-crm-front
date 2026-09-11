@@ -17,6 +17,8 @@ import API from '../../services/api';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { createPortal } from 'react-dom';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ReceiptIcon from '@mui/icons-material/Receipt';
@@ -101,6 +103,7 @@ interface UnifiedCashflowTabProps {
     dateRange?: DateRange;
     defaultViewMode?: 'day' | 'month';
     onLoadingChange?: (loading: boolean) => void;
+    refreshTarget?: HTMLDivElement | null;
 }
 
 // 🩹 Recria o status financeiro legado a partir dos dados atuais do agendamento
@@ -133,7 +136,7 @@ const resolveStatusFinanceiro = (a: any): string => {
     return 'Pendente';
 };
 
-const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoadingChange }: UnifiedCashflowTabProps) => {
+const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoadingChange, refreshTarget }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
     const [previousDayCashflow, setPreviousDayCashflow] = useState<CashflowV2Response | null>(null);
 
@@ -149,6 +152,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         };
     } | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     const [faturarSubFilter, setFaturarSubFilter] = useState<'pacotes' | 'convenios' | 'liminares'>('pacotes');
     const [dashboardOpen, setDashboardOpen] = useState(false);
@@ -293,21 +297,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
     useEffect(() => { setTxPage(0); }, [txMetodoFilter, txTipoFilter, txMultiFilter, txPerPage, selectedDate]);
 
-    const loadDayData = async (guard = { active: true }) => {
+    const loadDayData = async (guard = { active: true }, refresh = false) => {
         const finishPriorityLoad = beginCashflowLoad();
         if (!dailyCashflow) setLoading(true);
         onLoadingChange?.(true);
         try {
             let res;
             if (dateRange && !manualDateOverride && dateRange.startDate !== dateRange.endDate) {
-                res = await cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate);
+                res = await cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate, refresh);
                 setPreviousDayCashflow(null);
             } else {
                 const currentDate = dateRange && !manualDateOverride ? dateRange.startDate : selectedDate;
                 const previousDate = format(subDays(parseISO(currentDate), 1), 'yyyy-MM-dd');
                 const [currentResponse, previousResponse] = await Promise.all([
-                    cashflowService.getDailyCashflow(currentDate),
-                    cashflowService.getDailyCashflow(previousDate),
+                    cashflowService.getDailyCashflow(currentDate, refresh),
+                    cashflowService.getDailyCashflow(previousDate, refresh),
                 ]);
                 res = currentResponse;
                 if (guard.active) setPreviousDayCashflow(previousResponse.data);
@@ -317,6 +321,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         } catch (error) {
             if (!guard.active) return;
             console.error('Erro ao carregar dados do dia:', error);
+            if (refresh) toast.error('Não foi possível atualizar o caixa. Tente novamente.');
         } finally {
             finishPriorityLoad();
             if (guard.active) setLoading(false);
@@ -324,19 +329,31 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         }
     };
 
-    const loadMonthData = async () => {
-        setLoading(true);
+    const loadMonthData = async (refresh = false) => {
+        if (!refresh) setLoading(true);
         onLoadingChange?.(true);
         try {
             const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-            const res = await cashflowService.getMonthlyCashflow(monthStr);
+            const res = await cashflowService.getMonthlyCashflow(monthStr, refresh);
             setMonthData(res.data.data);
             if (res.data.resumo) setMonthResumo(res.data.resumo);
         } catch (error) {
             console.error('Erro ao carregar dados do mês:', error);
+            if (refresh) toast.error('Não foi possível atualizar o caixa. Tente novamente.');
         } finally {
             setLoading(false);
             onLoadingChange?.(false);
+        }
+    };
+
+    const handleRefresh = async () => {
+        if (refreshing || loading) return;
+        setRefreshing(true);
+        try {
+            if (viewMode === 'month') await loadMonthData(true);
+            else await loadDayData({ active: true }, true);
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -455,15 +472,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
     return (
         <div>
-            {/* Header com Filtros */}
-            <div className="p-3 mb-4 border border-gray-200 rounded-lg bg-white">
-                <div className="flex flex-wrap justify-between items-center gap-3">
-                    <div className="flex flex-wrap gap-3 items-center">
+            {refreshTarget && createPortal(
+                <div className="flex flex-wrap items-center justify-end gap-3">
                         {/* Toggle Dia/Mês */}
                         <select
                             value={viewMode}
                             onChange={(e) => setViewMode(e.target.value as 'day' | 'month')}
-                            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            className="h-10 border border-gray-300 rounded-md px-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         >
                             <option value="day">📅 {isMultiDayRange ? 'Período' : 'Dia'}</option>
                             <option value="month">📊 Mês</option>
@@ -471,7 +486,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
                         {viewMode === 'day' ? (
                             isMultiDayRange ? (
-                                <span className="px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md">
+                                <span className="inline-flex h-10 items-center px-3 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md">
                                     {formatDateRange(dateRange!)}
                                 </span>
                             ) : (
@@ -482,26 +497,27 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         setSelectedDate(e.target.value);
                                         setManualDateOverride(true);
                                     }}
-                                    className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    className="h-10 border border-gray-300 rounded-md px-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 />
                             )
                         ) : (
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="inline-flex h-10 items-center text-sm font-medium text-gray-700">
                                 {format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}
                             </span>
                         )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-200">
-                        <CalendarTodayIcon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">
-                            {viewMode === 'day' 
-                                ? (isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR }))
-                                : format(new Date(year, month - 1), 'MMMM/yyyy', { locale: ptBR })}
-                        </span>
-                    </div>
+                        <button
+                            type="button"
+                            onClick={handleRefresh}
+                            disabled={refreshing || loading}
+                            aria-busy={refreshing}
+                            aria-label={refreshing ? 'Atualizando caixa e fluxo' : 'Atualizar caixa e fluxo'}
+                            title={refreshing ? 'Atualizando...' : 'Atualizar caixa e fluxo'}
+                            className="inline-flex items-center justify-center h-10 w-10 text-white bg-emerald-700 border border-emerald-700 rounded-md hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            <RefreshIcon fontSize="small" className={refreshing ? 'motion-safe:animate-spin' : ''} />
+                        </button>
                 </div>
-            </div>
+            , refreshTarget)}
 
             {loading ? (
                 <CashflowCardsSkeleton />
@@ -512,32 +528,47 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     {/* Accordion: Resumo do Dia */}
                     <button
                         onClick={() => setDashboardOpen(open => !open)}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3 transition-all shadow-sm border border-emerald-200 hover:brightness-95"
-                        style={{ background: 'linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%)' }}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-3 transition-colors border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                        aria-expanded={dashboardOpen}
                     >
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold uppercase tracking-wide text-emerald-700">Resumo do Dia</span>
-                            {!dashboardOpen && data && (() => {
-                                const leadsCount = (analyticsCreatedData?.leads?.length || 0) + (analyticsCreatedData?.novos?.length || 0);
-                                return (
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-emerald-100 text-emerald-700">
-                                            💰 {formatCurrency(data.caixa.total)} recebido
+                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3 text-left">
+                            <span className="shrink-0 text-sm font-bold uppercase tracking-wide text-emerald-800">Resumo do Dia</span>
+                            {!dashboardOpen && data?.eficienciaFinanceira && (
+                                <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
+                                    <span className="pr-3">
+                                        <span className="block text-2xs font-medium text-emerald-700">Caixa hoje</span>
+                                        <strong className="block text-sm tabular-nums text-gray-900">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
+                                    </span>
+                                    <span className="px-3">
+                                        <span className="block text-2xs font-medium text-emerald-700">A receber</span>
+                                        <strong className="block text-sm tabular-nums text-gray-900">{formatCurrency(data.eficienciaFinanceira.aReceberFuturamente.valor)}</strong>
+                                    </span>
+                                    <span className="px-3">
+                                        <span className="block text-2xs font-medium text-emerald-700">Créditos usados</span>
+                                        <strong className="block text-sm tabular-nums text-gray-900">{formatCurrency(data.eficienciaFinanceira.consumiramCredito.valor)}</strong>
+                                    </span>
+                                    {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length > 0 && (
+                                        <span className="px-3">
+                                            <span className="block text-2xs font-medium text-emerald-700">Pacientes novos</span>
+                                            <strong className="block text-sm tabular-nums text-fuchsia-700">
+                                                {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length}
+                                            </strong>
                                         </span>
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-blue-100 text-blue-700">
-                                            📊 {formatCurrency(data.producao.total)} produção
+                                    )}
+                                    {data.atendimentos && (
+                                        <span className="pl-3">
+                                            <span className="block text-2xs font-medium text-emerald-700">Agenda</span>
+                                            <strong className="block text-sm tabular-nums text-gray-900">
+                                                {data.atendimentos.realizados} atendidos
+                                                <span className="ml-1.5 font-medium text-amber-800">· {data.atendimentos.faltantes} aguardando</span>
+                                            </strong>
                                         </span>
-                                        {leadsCount > 0 && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-pink-100 text-pink-700">
-                                                🆕 {leadsCount} paciente{leadsCount !== 1 ? 's' : ''} novo{leadsCount !== 1 ? 's' : ''}
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-                        </div>
+                                    )}
+                                </span>
+                            )}
+                        </span>
                         <ExpandMoreIcon
-                            className={`text-emerald-600 transition-transform duration-200 ${dashboardOpen ? 'rotate-180' : ''}`}
+                            className={`shrink-0 text-emerald-700 transition-transform duration-200 ${dashboardOpen ? 'rotate-180' : ''}`}
                             style={{ fontSize: 20 }}
                         />
                     </button>
@@ -734,10 +765,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
                         {/* ── Agenda Hoje (Operacional) ── */}
                         {!isMultiDayRange && (() => {
-                            const all = analyticsData?.all || [];
-                            const agendados = all.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
-                            const atendidos = all.filter((a: any) => a.operationalStatus === 'completed');
-                            const aguardando = all.filter((a: any) => a.operationalStatus === 'scheduled');
+                            const attendance = data.atendimentos;
                             return (
                                 <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}>
                                     <div className="flex items-center gap-3 mb-3">
@@ -750,17 +778,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         </div>
                                     </div>
                                     <div className="flex items-baseline gap-2 mb-1">
-                                        <span className="text-2xl font-extrabold leading-none tracking-tight tabular-nums text-sky-700">{atendidos.length}</span>
-                                        <span className="text-sm text-gray-400">/ {agendados.length}</span>
+                                        <span className="text-2xl font-extrabold leading-none tracking-tight tabular-nums text-sky-700">{attendance?.realizados ?? '—'}</span>
+                                        <span className="text-sm text-gray-400">/ {attendance?.total ?? '—'}</span>
                                     </div>
                                     <div className="pt-3 border-t border-gray-100 flex flex-col gap-y-2">
                                         <div className="flex items-center justify-between">
                                             <span className="text-3xs text-gray-500 uppercase tracking-wide">Atendidos</span>
-                                            <span className="text-sm font-bold text-emerald-600">{atendidos.length}</span>
+                                            <span className="text-sm font-bold text-emerald-600">{attendance?.realizados ?? '—'}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <span className="text-3xs text-gray-500 uppercase tracking-wide">Aguardando</span>
-                                            <span className="text-sm font-bold text-amber-600">{aguardando.length}</span>
+                                            <span className="text-sm font-bold text-amber-600">{attendance?.faltantes ?? '—'}</span>
                                         </div>
                                     </div>
                                 </div>

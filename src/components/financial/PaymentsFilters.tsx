@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { IDoctor } from "../../utils/types/types";
-
 interface Filters {
     doctorId?: string;
     patientId?: string;
@@ -11,8 +9,15 @@ interface Filters {
     to?: string;
 }
 
+interface DoctorFilterSource {
+    _id?: string;
+    id?: string;
+    fullName?: string;
+    name?: string;
+}
+
 interface PaymentsFiltersProps {
-    doctors?: IDoctor[];
+    doctors?: DoctorFilterSource[];
     payments: any[];
     onFilter: (filteredPayments: any[]) => void;
     onSort?: (field: string, direction: 'asc' | 'desc') => void;
@@ -31,13 +36,29 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+    const doctorOptions = useMemo(() => {
+        const options = new Map<string, string>();
+        const addDoctor = (doctor: any) => {
+            const id = String(doctor?._id || doctor?.id || '');
+            const name = String(doctor?.fullName || doctor?.name || '').trim();
+            if (id && name && name !== 'Desconhecido') options.set(id, name);
+        };
+
+        (doctors || []).forEach(addDoctor);
+        safePayments.forEach(payment => addDoctor(payment?.doctor));
+
+        return Array.from(options, ([id, name]) => ({ id, name }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    }, [doctors, safePayments]);
+
     // Aplica os filtros sempre que eles ou a lista de pagamentos mudar
     const filteredPayments = useMemo(() => {
         console.log('[PaymentsFilters] Aplicando filtros:', filters, 'em', safePayments.length, 'registros');
         let result = safePayments.filter(payment => {
             // Filtro por profissional
-            if (filters.doctorId && payment.doctor?.id !== filters.doctorId) {
-                return false;
+            if (filters.doctorId) {
+                const paymentDoctorId = String(payment.doctor?.id || payment.doctor?._id || '');
+                if (paymentDoctorId !== filters.doctorId) return false;
             }
 
             // Filtro por paciente — pula se o backend já filtrou (evita dupla filtragem)
@@ -163,9 +184,9 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
     const hasActiveFilters = Object.values(filters).some(value => value !== undefined);
 
     return (
-        <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+                <h3 className="text-base font-semibold text-gray-800">Filtros</h3>
 
                 <div className="flex items-center gap-2">
                     {hasActiveFilters && (
@@ -179,24 +200,23 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                
+            <div className="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
 
                 {/* Filtro por Profissional */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
+                <div className="flex flex-col flex-1 min-w-[110px]">
+                    <label className="text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
                         Profissional
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                            className="w-full h-10 px-3 pr-9 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.doctorId || ""}
                             onChange={(e) => handleFilterChange('doctorId', e.target.value)}
                         >
                             <option value="">Todos Profissionais</option>
-                            {doctors?.map(doctor => (
-                                <option key={doctor._id} value={doctor._id}>
-                                    {doctor.fullName}
+                            {doctorOptions.map(doctor => (
+                                <option key={doctor.id} value={doctor.id}>
+                                    {doctor.name}
                                 </option>
                             ))}
                         </select>
@@ -209,14 +229,14 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 </div>
 
                 {/* Filtro por Paciente */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
+                <div className="flex flex-col flex-1 min-w-[130px]">
+                    <label className="text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
                         Paciente
                     </label>
                     <div className="relative flex items-center">
                         <input
                             type="text"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full h-10 px-3 pr-9 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             placeholder="Nome ou ID"
                             value={filters.patientId || ""}
                             onChange={(e) => handleFilterChange('patientId', e.target.value)}
@@ -228,13 +248,13 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 </div>
 
                 {/* Filtro por Status */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
+                <div className="flex flex-col flex-1 min-w-[100px]">
+                    <label className="text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
                         Status
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                            className="w-full h-10 px-3 pr-9 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.status || ""}
                             onChange={(e) => handleFilterChange('status', e.target.value)}
                         >
@@ -252,13 +272,13 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 </div>
 
                 {/* Filtro por Método de Pagamento */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
+                <div className="flex flex-col flex-1 min-w-[100px]">
+                    <label className="text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
                         Método
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                            className="w-full h-10 px-3 pr-9 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.paymentMethod || ""}
                             onChange={(e) => handleFilterChange('paymentMethod', e.target.value)}
                         >
@@ -276,13 +296,13 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 </div>
 
                 {/* Filtro por Tipo de Serviço */}
-                <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
+                <div className="flex flex-col flex-1 min-w-[130px]">
+                    <label className="text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
                         Tipo de Serviço
                     </label>
                     <div className="relative">
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+                            className="w-full h-10 px-3 pr-9 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
                             value={filters.serviceType || ""}
                             onChange={(e) => handleFilterChange('serviceType', e.target.value)}
                         >
@@ -300,31 +320,32 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
                 </div>
 
                 {/* Botão Limpar Filtros -- Data definida pelo filtro de período acima */}
-                <div className="flex flex-col justify-end h-full">
+                <div className="flex flex-col justify-end shrink-0">
                     <button
                         onClick={clearFilters}
-                        className="w-full p-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                        className="h-9 px-2.5 text-xs font-medium whitespace-nowrap text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={!hasActiveFilters && sortField === 'date' && sortDirection === 'desc'}
+                        title="Limpar todos os filtros"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
-                        Limpar Tudo
+                        Limpar
                     </button>
                 </div>
             </div>
 
             {/* Controles de Ordenação */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <span className="text-sm font-medium text-gray-700">Ordenar por:</span>
+            <div className="mt-4 pt-3 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <span className="text-xs font-medium text-gray-600">Ordenar por:</span>
                         <div className="flex flex-wrap gap-2">
                             {(['date', 'amount', 'patient', 'doctor', 'status', 'method'] as SortField[]).map(field => (
                                 <button
                                     key={field}
                                     onClick={() => handleSort(field)}
-                                    className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1 ${sortField === field
+                                    className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${sortField === field
                                             ? 'bg-blue-100 text-blue-700 border-blue-300'
                                             : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
                                         }`}

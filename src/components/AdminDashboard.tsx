@@ -1249,7 +1249,7 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
             />
 
-            <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-0 overflow-x-hidden">
+            <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-3 md:py-4 overflow-x-hidden">
 
                 {/* <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">

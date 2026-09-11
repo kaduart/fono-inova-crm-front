@@ -19,13 +19,25 @@ TabsList.displayName = TabsPrimitive.List.displayName
 const TabsTrigger = React.forwardRef<
     React.ElementRef<typeof TabsPrimitive.Trigger>,
     React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-    <TabsPrimitive.Trigger
-        ref={ref}
-        className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm ${className}`}
-        {...props}
-    />
-))
+>(({ className = "", ...props }, ref) => {
+    // Se quem chama já define sua própria cor de fundo pro estado ativo (ex: tabs
+    // coloridas por seção), não injeta o default aqui — duas classes Tailwind com a
+    // mesma especificidade (data-[state=active]:bg-white vs :bg-blue-500) disputam a
+    // cascata pela ordem em que o Tailwind gera o CSS, não pela ordem no JSX, e o
+    // default podia silenciosamente vencer, deixando a aba ativa em branco.
+    const hasCustomActiveBg = className.includes("data-[state=active]:bg-");
+    const defaultActive = hasCustomActiveBg
+        ? ""
+        : "data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm";
+
+    return (
+        <TabsPrimitive.Trigger
+            ref={ref}
+            className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${defaultActive} ${className}`}
+            {...props}
+        />
+    );
+})
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
 const TabsContent = React.forwardRef<

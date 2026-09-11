@@ -13,7 +13,12 @@ vi.mock('../../components/financial/PaymentPage', () => ({
 }));
 
 vi.mock('./tabs/InsuranceTab', () => ({
-    default: () => <div data-testid="tab-convenios">Convênios</div>,
+    default: ({ month, year, onPeriodChange }: { month: number; year: number; onPeriodChange: (month: number, year: number) => void }) => (
+        <div data-testid="tab-convenios">
+            <span data-testid="convenios-period">{month}/{year}</span>
+            <button type="button" onClick={() => onPeriodChange(6, 2025)}>Alterar competência interna</button>
+        </div>
+    ),
 }));
 
 vi.mock('./tabs/ExpensesTab', () => ({
@@ -133,6 +138,36 @@ describe('FinancialDashboard - persistência de tab via URL', () => {
             const search = screen.getByTestId('location-search').textContent;
             expect(search).toContain('foo=bar');
             expect(search).toContain('financialTab=despesas');
+        });
+    });
+
+    it('sincroniza o seletor interno de convênios com o cabeçalho e a URL', async () => {
+        renderWithRouter('/admin/financial?financialTab=convenios&financialMonth=9&financialYear=2026');
+
+        await waitFor(() => {
+            expect(screen.getByTestId('convenios-period')).toHaveTextContent('9/2026');
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: /alterar competência interna/i }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('convenios-period')).toHaveTextContent('6/2025');
+            expect(screen.getByRole('combobox', { name: /mês financeiro/i })).toHaveTextContent(/jun/i);
+            expect(screen.getByRole('combobox', { name: /ano financeiro/i })).toHaveTextContent('2025');
+            const search = screen.getByTestId('location-search').textContent;
+            expect(search).toContain('financialMonth=6');
+            expect(search).toContain('financialYear=2025');
+        });
+    });
+
+    it('propaga a alteração do cabeçalho para o filtro interno de convênios', async () => {
+        renderWithRouter('/admin/financial?financialTab=convenios&financialMonth=9&financialYear=2026');
+
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: /mês financeiro/i }));
+        fireEvent.click(await screen.findByRole('option', { name: /jun/i }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('convenios-period')).toHaveTextContent('6/2026');
         });
     });
 });

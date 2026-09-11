@@ -57,6 +57,7 @@ export interface CashflowSummary {
 
 // 🆕 NOVO: Interface para o endpoint V2 de caixa diário
 export interface CashflowV2Data {
+    atendimentos?: { realizados: number; faltantes: number; total: number };
     data: string;
     receitaReal?: number;
     receitaDiferida?: number;
@@ -252,24 +253,24 @@ export const cashflowService = {
         return API.get<CashflowSummary>('/cashflow/summary', { params });
     },
 
-    getDailyCashflow(date?: string) {
-        const key = `cashflow:${date || 'today'}`;
+    getDailyCashflow(date?: string, refresh = false) {
+        const key = `cashflow:${date || 'today'}:${refresh}`;
         return deduped(key, () => API.get<CashflowV2Response>('/v2/cashflow', {
-            params: date ? { date } : undefined
+            params: { date, refresh: refresh || undefined }
         }));
     },
 
-    getCashflowRange(startDate: string, endDate: string) {
-        const key = `cashflow-range:${startDate}:${endDate}`;
+    getCashflowRange(startDate: string, endDate: string, refresh = false) {
+        const key = `cashflow-range:${startDate}:${endDate}:${refresh}`;
         return deduped(key, () => API.get<CashflowV2Response>('/v2/cashflow', {
-            params: { startDate, endDate }
+            params: { startDate, endDate, refresh: refresh || undefined }
         }));
     },
 
-    getMonthlyCashflow(month: string) {
-        const key = `cashflow-month:${month}`;
+    getMonthlyCashflow(month: string, refresh = false) {
+        const key = `cashflow-month:${month}:${refresh}`;
         return deduped(key, () => API.get<{ success: boolean; month: string; data: { date: string; caixa: number; producao: number; atendimentos: number }[] }>('/v2/cashflow/month', {
-            params: { month }
+            params: { month, refresh: refresh || undefined }
         }));
     },
 

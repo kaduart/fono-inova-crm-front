@@ -9,9 +9,8 @@ import { useEffect } from 'react';
 import { useDashboard } from '../../../hooks/useDashboard';
 import { usePatients } from '../../../hooks/usePatients';
 import DashboardContentOptimized from '../DashboardContentOptimized';
-import { Paper, Typography, Skeleton } from '@mui/material';
+import { Skeleton } from '@mui/material';
 import { BarChart3 } from 'lucide-react';
-import { useTheme } from '@mui/material/styles';
 
 interface DashboardTabProps {
     onAddProfessional: () => void;
@@ -28,8 +27,6 @@ export const DashboardTab = ({
     onOpenPaymentModal,
     onOpenAdvancedPayment
 }: DashboardTabProps) => {
-    const theme = useTheme();
-    
     // 🎯 Só carrega quando o componente monta (ou seja, quando a aba é ativada)
     const {
         stats,
@@ -57,35 +54,21 @@ export const DashboardTab = ({
 
     return (
         <>
-            <Paper
-                elevation={2}
-                sx={{
-                    p: 4,
-                    mb: 4,
-                    mt: 2,
-                    borderRadius: 3,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                }}
-            >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                        <div
-                            className="p-3 rounded-2xl"
-                            style={{ backgroundColor: 'rgba(55,171,135,0.15)' }}
-                        >
-                            <BarChart3 size={24} style={{ color: '#00C087' }} />
-                        </div>
-                        <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800">
-                                Visão Geral da Clínica
-                            </Typography>
-                            <Typography variant="body2" color="grey.600">
-                                Acompanhe métricas, desempenho e indicadores do atendimento em tempo real.
-                            </Typography>
-                        </div>
+            <div className="mb-3 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                        <BarChart3 size={22} className="text-emerald-600" />
+                    </div>
+                    <div className="min-w-0">
+                        <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+                            Visão Geral da Clínica
+                        </h1>
+                        <p className="mt-0.5 text-sm text-gray-600">
+                            Acompanhe métricas, desempenho e indicadores do atendimento em tempo real.
+                        </p>
                     </div>
                 </div>
-            </Paper>
+            </div>
 
             <DashboardContentOptimized
                 stats={stats}

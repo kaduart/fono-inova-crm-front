@@ -2,7 +2,7 @@
 
 import { Suspense, lazy, useEffect, startTransition } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Paper, Skeleton, Typography, useTheme, FormControl, Select, MenuItem } from '@mui/material';
+import { Box, Skeleton } from '@mui/material';
 import { LayoutDashboard, DollarSign, Receipt, CreditCard, BarChart3, User, Calendar, FileText, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
@@ -359,6 +359,63 @@ const allTabs = [
     { id: 'configuracao-fiscal', label: 'Config. Fiscal', icon: <Settings size={18} /> },
 ];
 
+// Título/subtítulo do card de topo, por aba — mesmo padrão usado nas demais
+// páginas do sistema (ícone + título + frase de propósito, ex: "Gestão de
+// Profissionais" / "Cadastre e gerencie os profissionais da clínica.").
+const HEADER_ICON_PROPS = { size: 22, className: 'text-emerald-600' };
+const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; subtitle: string }> = {
+    'caixa-unificado': {
+        icon: <LayoutDashboard {...HEADER_ICON_PROPS} />,
+        title: 'Caixa & Fluxo',
+        subtitle: 'Saldo, entradas e saídas do caixa dia a dia.'
+    },
+    'pagamentos': {
+        icon: <DollarSign {...HEADER_ICON_PROPS} />,
+        title: 'Pagamentos',
+        subtitle: 'Lançamentos e recebimentos de sessões, pacotes e convênios.'
+    },
+    'convenios': {
+        icon: <CreditCard {...HEADER_ICON_PROPS} />,
+        title: 'Gestão de Convênios',
+        subtitle: 'Faturamento, guias e recebimentos por convênio.'
+    },
+    'despesas': {
+        icon: <Receipt {...HEADER_ICON_PROPS} />,
+        title: 'Despesas',
+        subtitle: 'Controle os custos fixos e variáveis da clínica.'
+    },
+    'nfse': {
+        icon: <FileText {...HEADER_ICON_PROPS} />,
+        title: 'Notas Fiscais de Serviço',
+        subtitle: 'Emissão e acompanhamento das NFS-e da clínica.'
+    },
+    'dashboard': {
+        icon: <BarChart3 {...HEADER_ICON_PROPS} />,
+        title: 'Indicadores Financeiros',
+        subtitle: 'Métricas e análise estratégica do desempenho financeiro.'
+    },
+    'profissionais': {
+        icon: <User {...HEADER_ICON_PROPS} />,
+        title: 'Financeiro por Profissional',
+        subtitle: 'Produção, repasses e comissões de cada profissional.'
+    },
+    'planejamento': {
+        icon: <Calendar {...HEADER_ICON_PROPS} />,
+        title: 'Planejamento Anual',
+        subtitle: 'Metas e projeção financeira para o ano.'
+    },
+    'configuracao-fiscal': {
+        icon: <Settings {...HEADER_ICON_PROPS} />,
+        title: 'Configuração Fiscal',
+        subtitle: 'Parâmetros fiscais e tributários para emissão de notas.'
+    }
+};
+const DEFAULT_HEADER_META = {
+    icon: <DollarSign {...HEADER_ICON_PROPS} />,
+    title: 'Painel Financeiro',
+    subtitle: 'Dia a dia: lançamentos, despesas, convênios, extrato e análise estratégica'
+};
+
 const FinancialDashboard = ({
     patients,
     doctors,
@@ -409,10 +466,21 @@ const FinancialDashboard = ({
             return next;
         }, { replace: true });
     };
+
+    const setSelectedPeriod = (month: number, year: number) => {
+        setSelectedMonthState(month);
+        setSelectedYearState(year);
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set(MONTH_PARAM_KEY, String(month));
+            next.set(YEAR_PARAM_KEY, String(year));
+            return next;
+        }, { replace: true });
+    };
     const [cashflowRange, setCashflowRange] = useState<{ startDate: string; endDate: string; label: string } | undefined>(undefined);
     const [cashflowViewMode, setCashflowViewMode] = useState<'day' | 'month'>('day');
     const [cashflowLoading, setCashflowLoading] = useState(false);
-    const theme = useTheme();
+    const [cashflowRefreshTarget, setCashflowRefreshTarget] = useState<HTMLDivElement | null>(null);
 
     const [activePeriodKey, setActivePeriodKey] = useState<string | null>(null);
 
@@ -458,13 +526,14 @@ const FinancialDashboard = ({
     }, [searchParams]);
 
     const currentTabId = allTabs[currentTab]?.id;
+    const headerMeta = (currentTabId && TAB_HEADER_META[currentTabId]) || DEFAULT_HEADER_META;
 
     const renderActiveTab = () => {
         switch (currentTabId) {
             case 'caixa-unificado':
                 return (
                     <>
-                    <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-4 p-3 border border-gray-200 rounded-lg bg-white">
                             <span className="text-xs font-medium text-gray-600">Período:</span>
                             {[
                                 { key: 'day', label: 'Hoje' },
@@ -538,6 +607,7 @@ const FinancialDashboard = ({
                                 </button>
                                 );
                             })}
+                            <div ref={setCashflowRefreshTarget} className="ml-auto shrink-0" />
                     </div>
                     <UnifiedCashflowTab
                         month={selectedMonth}
@@ -545,6 +615,7 @@ const FinancialDashboard = ({
                         dateRange={cashflowRange}
                         defaultViewMode={cashflowViewMode}
                         onLoadingChange={setCashflowLoading}
+                        refreshTarget={cashflowRefreshTarget}
                     />
                     </>
                 );
@@ -567,7 +638,11 @@ const FinancialDashboard = ({
             case 'convenios':
                 return (
                     <Suspense fallback={<InsuranceSkeleton />}>
-                        <InsuranceTab month={selectedMonth} year={selectedYear} />
+                        <InsuranceTab
+                            month={selectedMonth}
+                            year={selectedYear}
+                            onPeriodChange={setSelectedPeriod}
+                        />
                     </Suspense>
                 );
             case 'despesas':
@@ -620,69 +695,47 @@ const FinancialDashboard = ({
     return (
         <Box>
             {/* Header */}
-            <Paper
-                elevation={2}
-                sx={{
-                    p: { xs: 2, md: 3 },
-                    borderRadius: 3,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                    border: `1px solid ${theme.palette.divider}`,
-                    mb: 2
-                }}
-            >
-                <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div
-                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                            style={{
-                                backgroundColor: 'rgba(55, 171, 135, 0.15)',
-                                backdropFilter: 'blur(10px)'
-                            }}
-                        >
-                            <DollarSign size={24} style={{ color: '#00B57A' }} />
-                        </div>
-                        <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800" sx={{ fontSize: { xs: '1.5rem', md: '1.875rem' }, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-                                Painel Financeiro
-                            </Typography>
-                            <Typography variant="body1" color="grey.600" sx={{ opacity: 0.86, fontSize: '0.875rem', lineHeight: 1.5, maxWidth: '68ch' }}>
-                                Dia a dia: lançamentos, despesas, convênios, extrato e análise estratégica
-                            </Typography>
-                        </div>
+            <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                        {headerMeta.icon}
                     </div>
-
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', width: { xs: '100%', md: 'auto' } }}>
-                        {/* Seletor global de mês/ano */}
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                            <FormControl size="small" sx={{ minWidth: 100 }}>
-                                <Select
-                                    value={selectedMonth}
-                                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                    sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
-                                >
-                                    {Array.from({ length: 12 }, (_, i) => (
-                                        <MenuItem key={i + 1} value={i + 1}>
-                                            {new Date(2000, i).toLocaleString('pt-BR', { month: 'short' })}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <FormControl size="small" sx={{ minWidth: 80 }}>
-                                <Select
-                                    value={selectedYear}
-                                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                    sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
-                                >
-                                    {[2024, 2025, 2026, 2027].map((y) => (
-                                        <MenuItem key={y} value={y}>{y}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Box>
-
-                    </Box>
+                    <div className="min-w-0">
+                        <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+                            {headerMeta.title}
+                        </h1>
+                        <p className="mt-0.5 max-w-prose text-sm leading-snug text-gray-600">
+                            {headerMeta.subtitle}
+                        </p>
+                    </div>
                 </div>
-            </Paper>
+
+                {/* Seletor global de mês/ano */}
+                <div className="flex items-center gap-2">
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        aria-label="Mês financeiro"
+                        className="h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                        {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                                {new Date(2000, i).toLocaleString('pt-BR', { month: 'short' })}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        aria-label="Ano financeiro"
+                        className="h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                        {[2024, 2025, 2026, 2027].map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
             {/* Tabs */}
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">

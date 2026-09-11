@@ -1107,55 +1107,52 @@ export default function MarketingDashboard() {
         />
       )}
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-red-500 to-red-600 rounded-lg">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Social Media Dashboard</h1>
-                <p className="text-xs text-gray-500">GMB • Instagram • Facebook • Vídeos • Spy de Concorrentes</p>
-              </div>
-            </div>
-            <button
-              onClick={refresh}
-              disabled={loading}
-              className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <RefreshIcon />
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex space-x-1 overflow-x-auto">
-            {Object.entries(TAB_CONFIG).map(([key, config]) => {
-              const Icon = config.icon;
-
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key as any)}
-                  className={`flex items-center gap-2 px-4 py-3 font-medium text-sm border-b-2 transition-all whitespace-nowrap ${activeTab === key
-                    ? config.activeClass
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                >
-                  <Icon size={18} />
-                  {config.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       {/* Conteúdo */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        {/* Header */}
+        <div className="mb-3 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+              <svg className="h-[22px] w-[22px] text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">Social Media Dashboard</h1>
+              <p className="mt-0.5 text-sm text-gray-600">GMB • Instagram • Facebook • Vídeos • Spy de Concorrentes</p>
+            </div>
+          </div>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            aria-label="Atualizar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50"
+          >
+            <RefreshIcon />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+          {Object.entries(TAB_CONFIG).map(([key, config]) => {
+            const Icon = config.icon;
+
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as any)}
+                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-all ${activeTab === key
+                  ? config.activeClass
+                  : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                  }`}
+              >
+                <Icon size={16} />
+                {config.label}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Stats Cards - apenas para abas de posts */}
         {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && <StatsCards />}

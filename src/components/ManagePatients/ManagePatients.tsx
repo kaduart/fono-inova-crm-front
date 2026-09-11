@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Paper, Typography, Button, useTheme } from '@mui/material';
 import { Plus, Users } from 'lucide-react';
 import { IPatient } from '../../utils/types/types';
 import PatientList from './PatientList';
@@ -33,7 +32,6 @@ const EMPTY_PATIENT: IPatient = {
 };
 
 const ManagePatients: React.FC = () => {
-    const theme = useTheme();
     const { updatePatient, createPatient } = usePatients();
     const [patientToEdit, setPatientToEdit] = useState<IPatient | undefined>();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,57 +80,31 @@ const ManagePatients: React.FC = () => {
     };
 
     return (
-        <div className="p-3 sm:p-4">
-            <Paper
-                elevation={2}
-                sx={{
-                    p: { xs: 2, md: 3 },
-                    mb: 2,
-                    borderRadius: 3,
-                    border: `1px solid ${theme.palette.divider}`,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`,
-                }}
-            >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div
-                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                            style={{ backgroundColor: 'rgba(38,151,123,0.15)' }}
-                        >
-                            <Users size={24} style={{ color: '#26977B' }} />
-                        </div>
-                        <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800" sx={{ fontSize: { xs: '1.5rem', md: '1.875rem' }, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-                                Gestão de Pacientes
-                            </Typography>
-                            <Typography variant="body2" color="grey.600">
-                                Visualize e gerencie os pacientes da clínica.
-                            </Typography>
-                        </div>
+        <div>
+            <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                        <Users size={22} className="text-emerald-600" />
                     </div>
-
-                    <Button
-                        variant="contained"
-                        startIcon={<Plus size={18} />}
-                        onClick={openCreate}
-                        sx={{
-                            borderRadius: 2,
-                            px: 3,
-                            minHeight: 44,
-                            fontWeight: 'bold',
-                            background: 'linear-gradient(135deg, rgb(38,151,123), rgb(30,122,100))',
-                            '&:hover': {
-                                background: 'linear-gradient(135deg, rgb(66,184,152), rgb(22,93,77))',
-                                transform: 'translateY(-1px)',
-                                boxShadow: 4,
-                            },
-                            transition: 'all 0.25s ease-in-out',
-                        }}
-                    >
-                        Novo Paciente
-                    </Button>
+                    <div className="min-w-0">
+                        <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+                            Gestão de Pacientes
+                        </h1>
+                        <p className="mt-0.5 text-sm text-gray-600">
+                            Visualize e gerencie os pacientes da clínica.
+                        </p>
+                    </div>
                 </div>
-            </Paper>
+
+                <button
+                    type="button"
+                    onClick={openCreate}
+                    className="flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                >
+                    <Plus size={14} />
+                    Novo Paciente
+                </button>
+            </div>
 
             <PatientList onEdit={openEdit} refreshSignal={refreshSignal} />
 

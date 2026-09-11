@@ -1622,70 +1622,47 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     },
                 }}
             />
-        <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 }, backgroundColor: 'grey.50', minHeight: '100vh' }}>
-            <Paper
-                elevation={2}
-                sx={{
-                    p: { xs: 2, md: 3 },
-                    mb: 2,
-                    borderRadius: 3,
-                    border: `1px solid ${theme.palette.divider}`,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}10)`
-                }}
-            >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                            <Calendar size={24} style={{ color: '#00C087' }} />
-                        </div>
-                        <div>
-                            <Typography variant="h4" fontWeight="bold" color="grey.800" sx={{ fontSize: { xs: '1.5rem', md: '1.875rem' }, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-                                Calendário de Agendamentos
-                            </Typography>
-                            {currentViewDate && (
-                                <Typography variant="body2" color="grey.600">
-                                    Visualizando: {currentViewDate}
-                                </Typography>
-                            )}
-                        </div>
+        <Box sx={{ backgroundColor: 'grey.50', minHeight: '100vh' }}>
+            <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                        <Calendar size={22} className="text-emerald-600" />
                     </div>
-
-                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                        {onOpenPreAppointments && (
-                            <Button
-                                variant="outlined"
-                                startIcon={<CalendarPlus size={18} />}
-                                onClick={onOpenPreAppointments}
-                                sx={{ minHeight: 44, borderRadius: 2, px: 2.5, fontWeight: 600, whiteSpace: 'nowrap' }}
-                            >
-                                Pré-Agendamentos
-                            </Button>
-                        )}
-                        {permissions.canCreate && (
-                            <Button
-                            variant="contained"
-                            startIcon={<Plus size={18} />}
-                            onClick={() => handleOpenSchedule(null, 'create')}
-                            sx={{
-                                borderRadius: 2,
-                                px: 3,
-                                minHeight: 44,
-                                fontWeight: 'bold',
-                                background: `linear-gradient(135deg, rgb(55,171,135), rgb(40,130,100))`,
-                                '&:hover': {
-                                    background: `linear-gradient(135deg, rgb(60,180,140), rgb(35,115,90))`,
-                                    transform: 'translateY(-1px)',
-                                    boxShadow: 4,
-                                },
-                                transition: 'all 0.25s ease-in-out',
-                            }}
-                        >
-                            Novo Agendamento
-                            </Button>
+                    <div className="min-w-0">
+                        <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
+                            Calendário de Agendamentos
+                        </h1>
+                        {currentViewDate && (
+                            <p className="mt-0.5 text-sm text-gray-600">
+                                Visualizando: {currentViewDate}
+                            </p>
                         )}
                     </div>
                 </div>
-            </Paper>
+
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    {onOpenPreAppointments && (
+                        <button
+                            type="button"
+                            onClick={onOpenPreAppointments}
+                            className="flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        >
+                            <CalendarPlus size={14} />
+                            Pré-Agendamentos
+                        </button>
+                    )}
+                    {permissions.canCreate && (
+                        <button
+                            type="button"
+                            onClick={() => handleOpenSchedule(null, 'create')}
+                            className="flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                        >
+                            <Plus size={14} />
+                            Novo Agendamento
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {/* ── Toggle Agenda / Acompanhamento / Recorrência ── */}
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>

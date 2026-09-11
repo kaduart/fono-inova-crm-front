@@ -221,6 +221,7 @@ const fmtDateShort = (d?: string | Date | null) => {
 interface InsuranceTabProps {
     month: number;
     year: number;
+    onPeriodChange: (month: number, year: number) => void;
 }
 
 // Mesmo padrão de front/src/pages/Financial/FinancialDashboard.tsx (useSearchParams pro
@@ -230,7 +231,7 @@ interface InsuranceTabProps {
 const CONVENIO_SUBTAB_PARAM = 'convenioSubTab';
 const SUB_TAB_IDS = ['a-faturar', 'aguardando', 'faturados', 'recebidos', 'historico', 'autorizacoes', 'envios', 'cadastrados', 'notas-fiscais'];
 
-const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
+const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [subTab, setSubTabState] = useState(() => {
         const idx = SUB_TAB_IDS.indexOf(searchParams.get(CONVENIO_SUBTAB_PARAM) || '');
@@ -342,12 +343,19 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
     });
     const [selectedPatient360Id, setSelectedPatient360Id] = useState<string | null>(null);
     const [is360ModalOpen, setIs360ModalOpen] = useState(false);
-    const [selectedMonthYear, setSelectedMonthYear] = useState(`${year}-${String(month).padStart(2, '0')}`);
+    // O período global é a fonte única. Os dois seletores atualizam a mesma
+    // competência, mantendo cabeçalho, conteúdo e URL sincronizados.
+    const selectedMonthYear = `${year}-${String(month).padStart(2, '0')}`;
     const [cardsOpen, setCardsOpen] = useState(false);
 
-    useEffect(() => {
-        setSelectedMonthYear(`${year}-${String(month).padStart(2, '0')}`);
-    }, [month, year]);
+    const handlePeriodChange = (value: string) => {
+        const match = /^(\d{4})-(\d{2})$/.exec(value);
+        if (!match) return;
+        const nextYear = Number(match[1]);
+        const nextMonth = Number(match[2]);
+        if (nextMonth < 1 || nextMonth > 12 || nextYear < 2020 || nextYear > 2100) return;
+        onPeriodChange(nextMonth, nextYear);
+    };
 
     // Estado para modal de finalização de guias após faturamento
     const [postFaturamentoCloseModal, setPostFaturamentoCloseModal] = useState<{ open: boolean; guides: Array<{ guideId: string; number: string; sessionsCount: number }> }>({ open: false, guides: [] });
@@ -1232,18 +1240,16 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                         <p className="text-xs leading-5 text-slate-500 sm:text-sm">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
                     </div>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-end gap-2 lg:ml-auto">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:ml-auto">
                     {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
-                        <div className="flex items-center gap-2 sm:mr-1">
-                            <Calendar size={15} className="text-slate-400 shrink-0" />
-                            <TextField
+                        <div className="relative sm:mr-1">
+                            <Calendar size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
                                 type="month"
-                                label="Mês de referência"
+                                aria-label="Mês de referência"
                                 value={selectedMonthYear}
-                                onChange={(e) => setSelectedMonthYear(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                size="small"
-                                sx={{ width: { xs: '100%', sm: 180 }, '& .MuiInputBase-root': { height: 38, borderRadius: '10px' } }}
+                                onChange={(e) => handlePeriodChange(e.target.value)}
+                                className="h-9 w-full rounded-lg border border-gray-300 bg-white pl-8 pr-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-[150px]"
                             />
                         </div>
                     )}
@@ -1251,17 +1257,17 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                     <button
                         type="button"
                         onClick={() => setConvenioManagerOpen(true)}
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-none"
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-none"
                     >
-                        <Building2 size={16} />
+                        <Building2 size={14} />
                         Gerenciar Convênios
                     </button>
                     <button
                         type="button"
                         onClick={() => setIsNewModalOpen(true)}
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:flex-none"
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:flex-none"
                     >
-                        <Plus size={16} />
+                        <Plus size={14} />
                         Novo Atendimento
                     </button>
                     </div>
@@ -1277,45 +1283,55 @@ const InsuranceTab = ({ month, year }: InsuranceTabProps) => {
                 const ms = getMonthSummary();
                 const prodTotal = ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido;
                 return (
-                    <div className="border border-slate-200 rounded-xl overflow-hidden mb-3 bg-white">
+                    <div className="mb-3">
                         {/* Header clicável */}
                         <button
                             type="button"
                             onClick={() => setCardsOpen(o => !o)}
                             aria-expanded={cardsOpen}
                             aria-controls="insurance-summary-cards"
-                            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset"
+                            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                         >
-                            <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                <span className="mr-1 text-sm font-bold leading-5 text-slate-900">Painel de Convênios</span>
-                                <span className="inline-flex items-center gap-1 rounded-lg border border-purple-100 bg-purple-50 px-2 py-1 text-xs text-purple-700" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
-                                    {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} produção
-                                </span>
-                                <span className="inline-flex rounded-lg border border-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-700" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
-                                    {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} a faturar (total)
-                                </span>
-                                {ms.totalWaiting > 0 && (
-                                    <span className="inline-flex rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-xs text-blue-700" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
-                                        {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} aguardando faturamento (total)
+                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3">
+                                <span className="shrink-0 text-sm font-bold uppercase tracking-wide text-emerald-800">Painel de Convênios</span>
+                                {!cardsOpen && (
+                                    <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
+                                        <span className="pr-3" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
+                                            <span className="block text-2xs font-medium text-emerald-700">Produção</span>
+                                            <strong className="block text-sm tabular-nums text-purple-700">{prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                        </span>
+                                        <span className="px-3" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
+                                            <span className="block text-2xs font-medium text-emerald-700">A faturar (total)</span>
+                                            <strong className="block text-sm tabular-nums text-amber-700">{ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                        </span>
+                                        {ms.totalWaiting > 0 && (
+                                            <span className="px-3" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
+                                                <span className="block text-2xs font-medium text-emerald-700">Aguardando (total)</span>
+                                                <strong className="block text-sm tabular-nums text-blue-700">{ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                            </span>
+                                        )}
+                                        {ms.totalRecebido > 0 && (
+                                            <span className="px-3">
+                                                <span className="block text-2xs font-medium text-emerald-700">Recebido</span>
+                                                <strong className="block text-sm tabular-nums text-emerald-700">{ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                            </span>
+                                        )}
+                                        {ms.closedCount > 0 && (
+                                            <span className="px-3">
+                                                <span className="block text-2xs font-medium text-emerald-700">{ms.closedCount === 1 ? 'Guia finalizada' : 'Guias finalizadas'}</span>
+                                                <strong className="block text-sm tabular-nums text-slate-800">{ms.closedCount}</strong>
+                                            </span>
+                                        )}
+                                        {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
+                                            <span className="pl-3" title={`Sessões pendentes de faturamento anteriores a ${competenceBreakdown.referenceMonth}, já incluídas no total a faturar.`}>
+                                                <span className="block text-2xs font-medium text-emerald-700">Em atraso · antes de {competenceBreakdown.referenceMonth}</span>
+                                                <strong className="block text-sm tabular-nums text-rose-700">{competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                            </span>
+                                        )}
                                     </span>
                                 )}
-                                {ms.totalRecebido > 0 && (
-                                    <span className="inline-flex rounded-lg border border-emerald-100 bg-emerald-50 px-2 py-1 text-xs text-emerald-700 font-semibold">
-                                        {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebido
-                                    </span>
-                                )}
-                                {ms.closedCount > 0 && (
-                                    <span className="inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">
-                                        {ms.closedCount} guia{ms.closedCount !== 1 ? 's' : ''} finalizada{ms.closedCount !== 1 ? 's' : ''}
-                                    </span>
-                                )}
-                                {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
-                                    <span className="inline-flex rounded-lg border border-rose-100 bg-rose-50 px-2 py-1 text-xs text-rose-700 font-semibold" title="Sessões pendentes de faturamento de meses anteriores, dentro do mesmo total acima — guias não são duplicadas.">
-                                        {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado (antes de {competenceBreakdown.referenceMonth})
-                                    </span>
-                                )}
-                            </div>
-                            <ChevronDown size={17} className={`text-slate-500 shrink-0 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
+                            </span>
+                            <ChevronDown size={20} className={`text-emerald-700 shrink-0 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         <Collapse in={cardsOpen}>

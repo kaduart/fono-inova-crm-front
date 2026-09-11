@@ -179,11 +179,6 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   };
 
   const handleEdit = () => {
-    if (selectedGuide.usedSessions > 0) {
-      toast.error('Não é possível editar guia já utilizada');
-      handleCloseMenu();
-      return;
-    }
     setEditingGuide(selectedGuide);
     setIsFormOpen(true);
     handleCloseMenu();
@@ -617,7 +612,6 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       >
         <MenuItem
           onClick={handleEdit}
-          disabled={!selectedPresentation?.canEdit}
           sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5 }}
         >
           <Edit2 size={14} /> Editar
