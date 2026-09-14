@@ -58,7 +58,7 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import { useInsurancePlan, insurancePlanQueryKey } from '../../../hooks/useInsurancePlan';
-import { getGuideAppointments, updateGuideAppointmentsBulk, supersedeGuide, getGuides, moveAppointmentToGuide } from '../../../services/insuranceGuideApi';
+import { getGuide, getGuideAppointments, updateGuideAppointmentsBulk, supersedeGuide, getGuides, moveAppointmentToGuide } from '../../../services/insuranceGuideApi';
 import { buildGuidesPresentation, buildGuidePresentation } from '../../../services/guidePresentationService';
 import API from '../../../services/api';
 import doctorService from '../../../services/doctorService';
@@ -178,10 +178,17 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
     setDetailsGuide(presentation.rawGuide);
   };
 
-  const handleEdit = () => {
-    setEditingGuide(selectedGuide);
-    setIsFormOpen(true);
+  const handleEdit = async () => {
+    if (!selectedGuide?._id) return;
+    const guideId = selectedGuide._id;
     handleCloseMenu();
+    try {
+      const currentGuide = await getGuide(guideId);
+      setEditingGuide(currentGuide);
+      setIsFormOpen(true);
+    } catch (err) {
+      toast.error(err.message || 'Não foi possível carregar a guia para edição');
+    }
   };
 
   const handleRenovarGuia = () => {
