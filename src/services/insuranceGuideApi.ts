@@ -50,6 +50,7 @@ export interface InsuranceGuide {
   evaluationAmount?: number | null;
   generateEvaluationBilling?: boolean;
   evaluationSessionId?: string | null;
+  evaluationAppointment?: { _id: string; date: string; time: string; operationalStatus: string } | null;
   notes?: string | null;
   createdBy?: string;
   createdAt: string;

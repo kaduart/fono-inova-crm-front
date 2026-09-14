@@ -41,7 +41,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
 
     const events = appointments.map(appt => ({
         id: appt._id || appt.id,
-        title: `${getSpecialtyLabel(appt.specialty || (appt as any).sessionType)}${appt.doctor?.fullName ? ` — ${appt.doctor.fullName}` : ''}`,
+        title: `${(appt as any).serviceType === 'evaluation' ? 'Avaliação · ' : ''}${getSpecialtyLabel(appt.specialty || (appt as any).sessionType)}${appt.doctor?.fullName ? ` — ${appt.doctor.fullName}` : ''}`,
         start: appt.start || `${(appt.date || '').substring(0, 10)}T${appt.time || '08:00'}`,
         end: appt.end,
         extendedProps: {
@@ -89,7 +89,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                     const status = arg.event.extendedProps.operationalStatus || '';
                     const cfg = STATUS_STYLE[status] || DEFAULT_STYLE;
                     const clickable = Boolean(onEventClick);
-                    const appt = arg.event.extendedProps.appt as Appointment & { sessionType?: string };
+                    const appt = arg.event.extendedProps.appt as Appointment & { sessionType?: string; serviceType?: string };
                     const specialtyLabel = getSpecialtyLabel(appt?.specialty || appt?.sessionType);
                     const doctorName = appt?.doctor?.fullName;
 
@@ -105,6 +105,9 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                         >
                             {arg.timeText && (
                                 <span className="text-[0.7rem] font-semibold leading-tight opacity-80">{arg.timeText}</span>
+                            )}
+                            {appt.serviceType === 'evaluation' && (
+                                <span className="text-xs font-bold leading-tight">Avaliação</span>
                             )}
                             <span className="text-xs font-bold leading-tight truncate">{specialtyLabel}</span>
                             {doctorName && (

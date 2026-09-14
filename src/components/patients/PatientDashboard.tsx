@@ -141,7 +141,7 @@ export default function PatientDashboard() {
   // 🚀 V2: Busca agendamentos específicos do paciente (Event-Driven)
   useEffect(() => {
     loadAllAppointments();
-  }, [patientId, fetchAppointmentsByPatient]);
+  }, [patientId, fetchAppointmentsByPatient, activeTab]);
   const handleNewAppointment = async (appointmentData: IAppointment) => {
     try {
       const payload: CreateAppointmentParams = {

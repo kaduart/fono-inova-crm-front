@@ -1816,8 +1816,10 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const bulkSelectedDoctor = doctors.find(d => d._id === bulkDoctorId);
   const bulkDayOfWeekLabel = { 0: 'Domingo', 1: 'Segunda-feira', 2: 'Terça-feira', 3: 'Quarta-feira', 4: 'Quinta-feira', 5: 'Sexta-feira', 6: 'Sábado' };
 
-  const completedCount = visibleAppointments.filter(a => ['completed', 'paid'].includes(apptStatus(a))).length;
-  const scheduledCount = visibleAppointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
+  const therapyAppointments = visibleAppointments.filter(a => a.serviceType !== 'evaluation');
+  const evaluationAppointments = visibleAppointments.filter(a => a.serviceType === 'evaluation');
+  const completedCount = therapyAppointments.filter(a => ['completed', 'paid'].includes(apptStatus(a))).length;
+  const scheduledCount = therapyAppointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
   const canceledCount  = visibleAppointments.filter(a => ['canceled', 'cancelled', 'missed'].includes(apptStatus(a))).length;
 
   return (
@@ -2033,6 +2035,13 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
               </Box>
             ) : viewMode === 'calendar' ? (
               <Box sx={{ minHeight: 480 }}>
+                {evaluationAppointments.map(a => (
+                  <div key={a._id} className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    <span className="font-semibold">Avaliação: </span>
+                    {format(parseISO(a.date.substring(0, 10)), 'dd/MM/yyyy')}{a.time ? ` às ${a.time}` : ''}
+                    <span className="ml-2 text-xs">{APPT_STATUS_CONFIG[apptStatus(a)]?.label || apptStatus(a)}</span>
+                  </div>
+                ))}
                 <PatientMiniCalendar
                   appointments={visibleAppointments.map(a => ({
                     ...a,
@@ -2090,6 +2099,7 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                           </Typography>
                           <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0', mt: 0.2 }}>
                             {[
+                              appt.serviceType === 'evaluation' ? 'Avaliação' : 'Sessão',
                               doctorName,
                               appt.sessionType ? appt.sessionType.replace(/_/g, ' ') : null
                             ].filter(Boolean).join(' • ') || '—'}

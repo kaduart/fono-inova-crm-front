@@ -2,7 +2,6 @@
 import React, { useEffect } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
-import { format, addMonths } from 'date-fns';
 
 import { SPECIALTY_OPTIONS } from '../../../constants/specialties';
 import { useConvenios } from '../../../hooks/useConvenios';
@@ -18,6 +17,7 @@ const inputClass = (hasError) =>
 
 const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [], isRenewal = false }) => {
   const isEditing = Boolean(guide) && !isRenewal;
+  const hasExistingEvaluation = isEditing && Boolean(guide?.evaluationSessionId);
   const hasUsedSessions = isEditing && guide?.usedSessions > 0;
   const isInactiveStatus = isEditing && guide?.status && !['active', 'linked'].includes(guide.status);
   // Guia já usada ou inativa (esgotada/vencida/cancelada/substituída): trava campos
@@ -70,11 +70,11 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
           sessionValue:     guide.sessionValue != null ? guide.sessionValue : '',
           evaluationAmount: guide.evaluationAmount != null ? guide.evaluationAmount : '',
           generateEvaluationBilling: guide.generateEvaluationBilling !== false,
-          evaluationDate:   '',
-          evaluationTime:   '',
+          evaluationDate:   !isRenewal && guide.evaluationAppointment?.date ? guide.evaluationAppointment.date.substring(0, 10) : '',
+          evaluationTime:   !isRenewal ? guide.evaluationAppointment?.time || '' : '',
           doctorId:         guide.doctor?._id || guide.doctorId || '',
-          issuedAt:         guide.issuedAt ? format(new Date(guide.issuedAt), 'yyyy-MM-dd') : '',
-          expiresAt:        guide.expiresAt ? format(new Date(guide.expiresAt), 'yyyy-MM-dd') : '',
+          issuedAt:         guide.issuedAt ? new Date(guide.issuedAt).toISOString().substring(0, 10) : '',
+          expiresAt:        guide.expiresAt ? new Date(guide.expiresAt).toISOString().substring(0, 10) : '',
           notes:            guide.notes || ''
         });
       } else {
@@ -99,7 +99,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
 
   const onSubmit = async (data) => {
     try {
-      const hasEval = Number(data.evaluationAmount) > 0 && data.generateEvaluationBilling !== false;
+      const hasEval = hasExistingEvaluation || (Number(data.evaluationAmount) > 0 && data.generateEvaluationBilling !== false);
       await onSave({
         number:        data.number.trim(),
         specialty:     data.specialty.toLowerCase().trim(),
@@ -394,42 +394,53 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
 
             {/* Avaliação: opções de agendamento */}
             {Number(watchedEvaluationAmount) > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-px flex-1 bg-gray-200" />
-                  <span className="text-xs font-medium text-gray-400">Agendamento da avaliação</span>
-                  <div className="h-px flex-1 bg-gray-200" />
+              <div className={`space-y-3 rounded-xl border p-4 transition-colors ${watchedGenerateEvalBilling !== false ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Agendamento da avaliação</h3>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${watchedGenerateEvalBilling !== false ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>
+                    {watchedGenerateEvalBilling !== false ? 'Ativado' : 'Desativado'}
+                  </span>
                 </div>
 
-                <Controller
+                {!hasExistingEvaluation && <Controller
                   name="generateEvaluationBilling"
                   control={control}
                   render={({ field }) => (
-                    <div className="flex flex-col gap-2">
-                      <label className="flex items-center gap-2.5 cursor-pointer">
+                    <div role="radiogroup" aria-label="Agendar avaliação" className="flex flex-col gap-1">
+                      <label className="flex min-h-11 items-center gap-2.5 cursor-pointer">
                         <input
                           type="radio"
+                          name={field.name}
                           checked={field.value === true}
                           onChange={() => field.onChange(true)}
-                          className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                          className="w-4 h-4 accent-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                         />
-                        <span className="text-sm text-gray-700">Criar agendamento na agenda</span>
+                        <span className="text-sm font-medium text-gray-800">Agendar avaliação</span>
                       </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer">
+                      <label className="flex min-h-11 items-center gap-2.5 cursor-pointer">
                         <input
                           type="radio"
+                          name={field.name}
                           checked={field.value === false}
                           onChange={() => field.onChange(false)}
-                          className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                          className="w-4 h-4 accent-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                         />
-                        <span className="text-sm text-gray-700">Não criar agendamento</span>
+                        <span className="text-sm font-medium text-gray-800">Não agendar avaliação</span>
                       </label>
                     </div>
                   )}
-                />
+                />}
 
-                {watchedGenerateEvalBilling !== false && (
-                  <div className="grid grid-cols-2 gap-3">
+                <p className={`text-xs ${watchedGenerateEvalBilling !== false ? 'text-blue-800' : 'text-gray-600'}`}>
+                  {hasExistingEvaluation
+                    ? 'A avaliação já está na agenda. Ao salvar, a data e o horário serão atualizados.'
+                    : watchedGenerateEvalBilling !== false
+                    ? 'Informe a data e o horário para criar o agendamento ao salvar a guia.'
+                    : 'Ao salvar a guia, nenhum agendamento de avaliação será criado.'}
+                </p>
+
+                {(hasExistingEvaluation || watchedGenerateEvalBilling !== false) && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                         Data da avaliação <span className="text-red-400">*</span>

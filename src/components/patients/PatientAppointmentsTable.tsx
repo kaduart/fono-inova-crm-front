@@ -19,6 +19,7 @@ function apptId(appt: IAppointment): string {
 }
 
 const statusLabels: Record<string, string> = {
+  pre_agendado: 'Pré-agendado',
   scheduled: 'Agendado',
   confirmed: 'Confirmado',
   completed: 'Concluído',
@@ -28,6 +29,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
+  pre_agendado: 'bg-indigo-100 text-indigo-700',
   scheduled: 'bg-blue-100 text-blue-700',
   confirmed: 'bg-green-100 text-green-700',
   completed: 'bg-teal-100 text-teal-700',
@@ -463,6 +465,9 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap capitalize">
                     {appt.specialty || appt.sessionType || '—'}
+                    {appt.serviceType === 'evaluation' && (
+                      <span className="ml-2 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Avaliação</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
