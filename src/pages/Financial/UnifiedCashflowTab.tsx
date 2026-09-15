@@ -571,6 +571,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             </strong>
                                         </span>
                                     )}
+                                    {(analyticsData?.novosEspecialidade || []).length > 0 && (
+                                        <span className="px-3">
+                                            <span className="block text-xs font-medium text-emerald-700">Nova especialidade</span>
+                                            <strong className="block text-base tabular-nums text-violet-600">
+                                                {(analyticsData?.novosEspecialidade || []).length}
+                                            </strong>
+                                        </span>
+                                    )}
                                     {data.atendimentos && (
                                         <span className="pl-3">
                                             <span className="block text-xs font-medium text-emerald-700">Agenda</span>
