@@ -1,4 +1,5 @@
 import dayGridPlugin from '@fullcalendar/daygrid';
+import { AppointmentOrigin } from '../patients/AppointmentOrigin';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -308,7 +309,8 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
       authorizationCode: s.authorizationCode,
       // 🛡️ Referências de guia/plano: preservar ao editar
       insuranceGuide: s.insuranceGuide ?? null,
-      insuranceGuideId: s.insuranceGuide?.toString?.() ?? s.insuranceGuideId ?? null,
+      insuranceGuideId: s.insuranceGuide?._id?.toString?.() ?? s.insuranceGuide?.toString?.() ?? s.insuranceGuideId ?? null,
+      insuranceGuideNumber: s.insuranceGuide?.number ?? s.insuranceGuideNumber ?? null,
       insurancePlan: s.insurancePlan ?? null,
       liminarContract: s.liminarContract ?? null,
       package: s.package ?? null,
@@ -589,7 +591,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           {plan ? (
             <>
                 <div className="space-y-2 mb-2">
-                  {Object.entries(plan.therapies ?? {}).map(([specialty, config]: [string, any]) => {
+                  {Object.entries(plan.therapies ?? {}).map(([specialty, config]: [string, any], specialtyIndex) => {
                     const intSp = integrity?.specialties?.[specialty];
                     const completed  = intSp?.completed ?? 0;
                     const generated  = intSp?.generated ?? 0;
@@ -614,7 +616,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold text-xs capitalize flex items-center gap-1.5" style={{ color: spTheme.text }}>
                             <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: spTheme.to }} />
-                            {specialty.replace(/_/g, ' ')}
+                            Liminar {specialtyIndex + 1} · {specialty.replace(/_/g, ' ')}
                           </span>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <span className="text-xs" style={{ color: '#8A99B0' }}>
@@ -1246,7 +1248,10 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                             {session?.doctor?.fullName && (
                               <div className={`truncate opacity-90 ${canceled ? 'line-through' : ''}`}>{session.doctor.fullName}</div>
                             )}
-                            <div className="opacity-90">{canceled ? 'Cancelada' : `R$ ${fmt(session?.sessionValue ?? 0)}`}</div>
+                            <div className="whitespace-normal" title={canceled ? session?.cancelReason || 'Motivo não registrado' : undefined}>
+                              {canceled ? `Cancelada${session?.canceledAt ? ` · ${new Date(session.canceledAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })}` : ''}` : `R$ ${fmt(session?.sessionValue ?? 0)}`}
+                            </div>
+                            <AppointmentOrigin appointment={{ ...session, liminarSpecialtyNumber: session.liminarSpecialtyNumber || (plan ? Object.keys(plan.therapies ?? {}).indexOf(session.specialty) + 1 : undefined) }} />
                           </div>
                         );
                       }}

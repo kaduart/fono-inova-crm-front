@@ -1,5 +1,6 @@
 // src/components/patient/tabs/PatientInsuranceTab.jsx
 import React, { useState, useMemo, useEffect } from 'react';
+import { AppointmentOrigin } from '../../patients/AppointmentOrigin';
 import {
   Box,
   Card,
@@ -2111,6 +2112,7 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                               appt.sessionType ? appt.sessionType.replace(/_/g, ' ') : null
                             ].filter(Boolean).join(' • ') || '—'}
                           </Typography>
+                          <Box sx={{ color: '#334155', mt: 0.5 }}><AppointmentOrigin appointment={appt} /></Box>
                         </Box>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

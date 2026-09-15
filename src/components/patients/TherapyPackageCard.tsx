@@ -325,6 +325,12 @@ export default function TherapyPackageCard({
         // context de openModalWithAction). Sem isso, PatientMiniCalendar recebia
         // specialty undefined e getSpecialtyLabel mostrava "N/A" no card.
         specialty: s.sessionType || s.specialty || pack.sessionType || (pack as any).specialty,
+        insuranceGuide: (s as any).insuranceGuide,
+        insuranceGuideNumber: (s as any).insuranceGuideNumber,
+        package: (s as any).package || pack._id,
+        packageStatus: pack.status,
+        packageNumber: (s as any).packageNumber || pack.sequenceNumber || (pack as any).packageNumber,
+        liminarContract: (s as any).liminarContract || (pack as any).liminarContract,
         __session: s,
       };
     })
@@ -1240,7 +1246,9 @@ export default function TherapyPackageCard({
                     .map((session, sessionNumber) => (
                       <SessionListItem
                         key={session._id}
-                        session={session}
+                        session={{ ...session, package: (session as any).package || pack._id,
+                          packageNumber: (session as any).packageNumber || pack.sequenceNumber || (pack as any).packageNumber,
+                          liminarContract: (session as any).liminarContract || (pack as any).liminarContract } as any}
                         sessionNumber={sessionNumber + 1}
                         onEdit={(session) => { openModalWithAction('edit', session); }}
                         onUse={(session) => { openModalWithAction('use', session); }}

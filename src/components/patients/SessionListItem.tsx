@@ -14,6 +14,7 @@ import {
 import { formatDateToDMY } from "../../utils/dateFormat";
 import { ISession } from '../../utils/types/types';
 import { useState } from 'react';
+import { AppointmentOrigin } from './AppointmentOrigin';
 
 export interface SessionListItemProps {
     session: ISession;
@@ -115,6 +116,7 @@ export const SessionListItem = ({
                         {/* Status e informações de pagamento */}
                         <div className="flex items-center gap-3 mt-1">
                             <StatusBadge status={session.status} isPaid={session.isPaid} />
+                            <AppointmentOrigin appointment={session} />
                             
                             {session.status === 'completed' && !session.isPaid && (
                                 <div className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 rounded-full text-xs">

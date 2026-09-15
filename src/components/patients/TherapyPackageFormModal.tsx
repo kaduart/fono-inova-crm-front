@@ -1150,7 +1150,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             className="accent-rose-500"
                                                         />
                                                         <span className="text-xs text-rose-900 flex-1">
-                                                            {s.date ? new Date(s.date).toLocaleDateString('pt-BR') : 'Sem data'}
+                                                            {s.date ? formatAppointmentDate(s.date) : 'Sem data'}
                                                             {s.time ? ` às ${s.time}` : ''}
                                                             {s.specialty ? ` — ${s.specialty}` : ''}
                                                             {s.amount ? ` — R$ ${Number(s.amount).toFixed(2).replace('.', ',')}` : ''}

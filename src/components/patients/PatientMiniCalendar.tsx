@@ -7,6 +7,7 @@ import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { useRef } from 'react';
 import { Appointment } from '../../utils/types';
 import { getSpecialtyLabel } from '../../constants/specialties';
+import { AppointmentOrigin } from './AppointmentOrigin';
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   completed:    { bg: '#D1FAE5', text: '#065F46', label: 'Realizado' },
@@ -116,6 +117,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                             {cfg.label && (
                                 <span className="text-[0.68rem] leading-tight opacity-75">{cfg.label}</span>
                             )}
+                            <AppointmentOrigin appointment={appt} />
                         </div>
                     );
                 }}
