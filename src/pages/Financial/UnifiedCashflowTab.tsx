@@ -535,9 +535,21 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             <span className="shrink-0 text-sm font-bold uppercase tracking-wide text-emerald-800">Resumo do Dia</span>
                             {!dashboardOpen && data?.eficienciaFinanceira && (
                                 <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
+                                    {/* 🐛 FIX (2026-09-15): esse chip mostrava eficienciaFinanceira.geraramCaixaHoje
+                                        sob o rótulo "Caixa hoje" — uma métrica mais estreita (só o valor das SESSÕES
+                                        de hoje que geraram caixa novo, sem contar venda de pacote pro resto das
+                                        sessões futuras), diferente do caixa real recebido (data.caixa.total, que
+                                        bate com o total de Recebimentos). Rótulo "Caixa hoje" chamando um número
+                                        menor que Recebimentos confundia (casos Bento/Julia, 2026-09-15). Agora
+                                        "Caixa hoje" é sempre o caixa real; a métrica de eficiência ganha rótulo
+                                        próprio, sem prometer ser o total. */}
                                     <span className="pr-3">
                                         <span className="block text-xs font-medium text-emerald-700">Caixa hoje</span>
-                                        <strong className="block text-base tabular-nums text-purple-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
+                                        <strong className="block text-base tabular-nums text-purple-700">{formatCurrency(data.caixa?.total || 0)}</strong>
+                                    </span>
+                                    <span className="px-3">
+                                        <span className="block text-xs font-medium text-emerald-700">Gerado por atendimentos</span>
+                                        <strong className="block text-base tabular-nums text-emerald-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
                                     </span>
                                     <span className="px-3">
                                         <span className="block text-xs font-medium text-emerald-700">A receber</span>
