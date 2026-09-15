@@ -543,50 +543,66 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         menor que Recebimentos confundia (casos Bento/Julia, 2026-09-15). Agora
                                         "Caixa hoje" é sempre o caixa real; a métrica de eficiência ganha rótulo
                                         próprio, sem prometer ser o total. */}
-                                    <span className="pr-3">
-                                        <span className="block text-xs font-medium text-emerald-700">Caixa hoje</span>
-                                        <strong className="block text-base tabular-nums text-purple-700">{formatCurrency(data.caixa?.total || 0)}</strong>
-                                    </span>
-                                    <span className="px-3">
-                                        <span className="block text-xs font-medium text-emerald-700">Gerado por atendimentos</span>
-                                        <strong className="block text-base tabular-nums text-emerald-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
-                                    </span>
-                                    <span className="px-3">
-                                        <span className="block text-xs font-medium text-emerald-700">A receber</span>
-                                        <strong className="block text-base tabular-nums text-red-600">{formatCurrency(data.eficienciaFinanceira.aReceberFuturamente.valor)}</strong>
-                                    </span>
-                                    <span className="px-3">
-                                        <span className="block text-xs font-medium text-emerald-700">Créditos usados</span>
-                                        <strong className="block text-base tabular-nums text-indigo-700">{formatCurrency(data.eficienciaFinanceira.consumiramCredito.valor)}</strong>
-                                    </span>
-                                    <span className="px-3">
-                                        <span className="block text-xs font-medium text-emerald-700">Produção</span>
-                                        <strong className="block text-base tabular-nums text-blue-700">{formatCurrency(data.producao?.total || 0)}</strong>
-                                    </span>
-                                    {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length > 0 && (
-                                        <span className="px-3">
-                                            <span className="block text-xs font-medium text-emerald-700">Pacientes novos</span>
-                                            <strong className="block text-base tabular-nums text-fuchsia-700">
-                                                {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length}
-                                            </strong>
+                                    <Tooltip title="Total de dinheiro que entrou no caixa hoje — soma de tudo que aparece na aba Recebimentos." arrow>
+                                        <span className="pr-3 cursor-help">
+                                            <span className="block text-xs font-medium text-emerald-700">Caixa hoje</span>
+                                            <strong className="block text-base tabular-nums text-purple-700">{formatCurrency(data.caixa?.total || 0)}</strong>
                                         </span>
+                                    </Tooltip>
+                                    <Tooltip title="Da produção de hoje, quanto virou dinheiro novo no caixa hoje mesmo. Não inclui o valor de pacotes vendidos hoje que cobre sessões futuras (isso já está em Caixa hoje, mas não aqui)." arrow>
+                                        <span className="px-3 cursor-help">
+                                            <span className="block text-xs font-medium text-emerald-700">Gerado por atendimentos</span>
+                                            <strong className="block text-base tabular-nums text-emerald-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
+                                        </span>
+                                    </Tooltip>
+                                    <Tooltip title="Valor da produção de hoje que ainda não foi recebido (ex: convênio a faturar, sessão não paga)." arrow>
+                                        <span className="px-3 cursor-help">
+                                            <span className="block text-xs font-medium text-emerald-700">A receber</span>
+                                            <strong className="block text-base tabular-nums text-red-600">{formatCurrency(data.eficienciaFinanceira.aReceberFuturamente.valor)}</strong>
+                                        </span>
+                                    </Tooltip>
+                                    <Tooltip title="Sessões de hoje pagas com crédito recebido em dias anteriores (pacote pré-pago comprado antes de hoje, ou liminar)." arrow>
+                                        <span className="px-3 cursor-help">
+                                            <span className="block text-xs font-medium text-emerald-700">Créditos usados</span>
+                                            <strong className="block text-base tabular-nums text-indigo-700">{formatCurrency(data.eficienciaFinanceira.consumiramCredito.valor)}</strong>
+                                        </span>
+                                    </Tooltip>
+                                    <Tooltip title="Valor total gerado pelos atendimentos de hoje, recebido ou não (Gerado por atendimentos + A receber + Créditos usados)." arrow>
+                                        <span className="px-3 cursor-help">
+                                            <span className="block text-xs font-medium text-emerald-700">Produção</span>
+                                            <strong className="block text-base tabular-nums text-blue-700">{formatCurrency(data.producao?.total || 0)}</strong>
+                                        </span>
+                                    </Tooltip>
+                                    {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length > 0 && (
+                                        <Tooltip title="Pacientes que tiveram o primeiro agendamento/atendimento na clínica hoje." arrow>
+                                            <span className="px-3 cursor-help">
+                                                <span className="block text-xs font-medium text-emerald-700">Pacientes novos</span>
+                                                <strong className="block text-base tabular-nums text-fuchsia-700">
+                                                    {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length}
+                                                </strong>
+                                            </span>
+                                        </Tooltip>
                                     )}
                                     {(analyticsData?.novosEspecialidade || []).length > 0 && (
-                                        <span className="px-3">
-                                            <span className="block text-xs font-medium text-emerald-700">Nova especialidade</span>
-                                            <strong className="block text-base tabular-nums text-violet-600">
-                                                {(analyticsData?.novosEspecialidade || []).length}
-                                            </strong>
-                                        </span>
+                                        <Tooltip title="Pacientes que já eram da clínica e começaram uma especialidade nova hoje (ex: já fazia fono e começou psicologia)." arrow>
+                                            <span className="px-3 cursor-help">
+                                                <span className="block text-xs font-medium text-emerald-700">Nova especialidade</span>
+                                                <strong className="block text-base tabular-nums text-violet-600">
+                                                    {(analyticsData?.novosEspecialidade || []).length}
+                                                </strong>
+                                            </span>
+                                        </Tooltip>
                                     )}
                                     {data.atendimentos && (
-                                        <span className="pl-3">
-                                            <span className="block text-xs font-medium text-emerald-700">Agenda</span>
-                                            <strong className="block text-base tabular-nums text-gray-900">
-                                                {data.atendimentos.realizados} atendidos
-                                                <span className="ml-1.5 font-medium text-amber-800">· {data.atendimentos.faltantes} aguardando</span>
-                                            </strong>
-                                        </span>
+                                        <Tooltip title="Atendimentos já realizados hoje e quantos ainda faltam acontecer, do total agendado pro dia." arrow>
+                                            <span className="pl-3 cursor-help">
+                                                <span className="block text-xs font-medium text-emerald-700">Agenda</span>
+                                                <strong className="block text-base tabular-nums text-gray-900">
+                                                    {data.atendimentos.realizados} atendidos
+                                                    <span className="ml-1.5 font-medium text-amber-800">· {data.atendimentos.faltantes} aguardando</span>
+                                                </strong>
+                                            </span>
+                                        </Tooltip>
                                     )}
                                 </span>
                             )}
