@@ -445,9 +445,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             setFormData(prev => ({ ...prev, sessionValue: debtValue }));
         }
 
-        // Sugere somente o valor das retroativas. A pessoa pode alterar depois;
-        // mudanças de duração/frequência não sobrescrevem esse campo.
-        const total = selected.reduce((sum, debt) => sum + Number(debt.amount || 0), 0);
+        // 🐛 FIX (2026-09-15, caso Julia Boarati): sugeria só a SOMA DAS RETROATIVAS
+        // (ex: R$160), não o valor TOTAL do pacote (ex: R$1.280 = 8 sessões × R$160).
+        // No submit, o valor da(s) retroativa(s) é subtraído do valor digitado aqui pra
+        // achar o "dinheiro novo" a lançar como Payment do pacote (kind: package_receipt).
+        // Sugerir só o valor da retroativa fazia essa subtração zerar (160 − 160 = 0) e
+        // NENHUM Payment do restante do pacote era criado — mesmo quando o paciente pagou
+        // o pacote inteiro. A sugestão precisa ser o valor total contratado (sessões ×
+        // valor por sessão), igual ao que já acontece quando não há retroativa (ver
+        // suggestedPaymentAmount/totalValuePackage mais abaixo).
+        const contractualSessions = calculationMode === 'sessions'
+            ? Number(formData.totalSessions) || 0
+            : sessionsForDuration(formData.durationMonths, formData.sessionsPerWeek, intervalWeeks);
+        const total = contractualSessions * debtValue;
         if (total > 0 && payments.length > 0) {
             setPayments(prev => prev.map((p, i) => i === 0 ? { ...p, amount: total } : p));
             lastSuggestedPaymentAmountRef.current = total;

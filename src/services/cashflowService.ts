@@ -193,6 +193,8 @@ export interface CashflowV2Data {
         professional: string;
         valor: number;
         statusPagamento: string;
+        paymentModel?: string | null;
+        pagoHoje?: boolean;
     }>;
     conveniosAtendidos: Array<{
         id: string;

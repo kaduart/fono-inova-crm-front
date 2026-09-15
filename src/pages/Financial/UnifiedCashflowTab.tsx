@@ -1869,7 +1869,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                         {data.pacotesAtendidos.map((p) => {
                                             const isPendente = p.statusPagamento === 'Pendente';
-                                            const isPrepaid = !isPendente && p.paymentModel === 'prepaid';
+                                            // Pacote pré-pago comprado hoje: dinheiro novo entrando hoje, não
+                                            // consumo de crédito de dias anteriores — trata como "pago hoje".
+                                            const isPrepaid = !isPendente && p.paymentModel === 'prepaid' && !p.pagoHoje;
                                             return (
                                                 <div key={p.id} className={`border-l-4 ${isPendente ? 'border-l-red-500' : isPrepaid ? 'border-l-blue-500' : 'border-l-emerald-500'} border border-gray-200 rounded-lg p-3`}>
                                                     <div className="flex justify-between items-start mb-1">
