@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          globIgnores: ['images/[Ll]ogo-*.png'],  // Ignora imagens grandes originais (case-insensitive)
+          globIgnores: ['images/[Ll]ogo-*.png', 'images/sala-TO-clareada.png'],  // Ignora imagens grandes originais (case-insensitive)
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fono-inova-crm-back\.onrender\.com\/api\//,
