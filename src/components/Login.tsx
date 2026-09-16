@@ -37,10 +37,10 @@ const Login = () => {
 
   const [currentImage, setCurrentImage] = useState(0);
   const images = [
-    'AppointmentPhoto.png',
-    'DoctorsPhoto.png',
-    'NursePhoto.png',
-    'HeartPulsePhoto.png'
+    '/AppointmentPhoto.png',
+    '/DoctorsPhoto.png',
+    '/NursePhoto.png',
+    '/HeartPulsePhoto.png'
   ];
 
   useEffect(() => {
