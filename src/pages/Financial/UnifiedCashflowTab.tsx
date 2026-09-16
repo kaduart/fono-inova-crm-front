@@ -2064,7 +2064,22 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                             ].filter(Boolean));
                                             const getEffectiveStatus = (a: any) => {
                                                 if (a.operationalStatus === 'canceled') return 'canceled';
+                                                // 🐛 FIX (2026-09-16): paymentStatus 'pending_receipt' é usado tanto pra
+                                                // "sessão de convênio já atendida, aguardando repasse" (convenioHandler.js,
+                                                // no complete de verdade) quanto pro shadow NEUTRO de convênio recém-
+                                                // agendado/replanejado, que ainda nem aconteceu (replanInsurancePlanSessions.js
+                                                // grava operationalStatus='pre_agendado' + paymentStatus='pending_receipt'
+                                                // juntos, na criação). Sem checar se o horário já passou, um agendamento de
+                                                // convênio pro fim do dia aparecia "Atendido" logo de manhã, antes de
+                                                // acontecer (achado real: Isabela/Daiane, 16/09/2026).
+                                                const apptDateTime: Date | null = a.date ? new Date(a.date) : null;
+                                                if (apptDateTime && a.time) {
+                                                    const [h, m] = String(a.time).split(':').map(Number);
+                                                    apptDateTime.setHours(h || 0, m || 0, 0, 0);
+                                                }
+                                                const isFuture = !!apptDateTime && apptDateTime.getTime() > Date.now();
                                                 const isConvenioLiminarAtendido =
+                                                    !isFuture &&
                                                     (a.billingType === 'convenio' || a.billingType === 'liminar' || a.insuranceProvider) &&
                                                     (a.paymentStatus === 'pending_receipt' || a.paymentStatus === 'not_applicable');
                                                 if (a.operationalStatus === 'completed' || attendedIds.has(getApptId(a)) || isConvenioLiminarAtendido) return 'completed';
