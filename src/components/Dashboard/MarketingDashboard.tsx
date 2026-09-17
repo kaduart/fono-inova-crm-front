@@ -697,8 +697,11 @@ export default function MarketingDashboard() {
     }
   };
 
-  const handleRepublish = async (postId: string) => {
-    if (!confirm('Deseja republicar este post?')) return;
+  const handleRepublish = async (postId: string, status?: string) => {
+    const msg = status === 'unconfirmed'
+      ? 'Este post pode já ter sido publicado no Google (o Make não confirmou a tempo). Confira no Google Business Profile antes de continuar — republicar sem checar pode criar um post duplicado. Republicar mesmo assim?'
+      : 'Deseja republicar este post?';
+    if (!confirm(msg)) return;
     setRepublishingPost(postId);
     try {
       await API.post(`/gmb/posts/${postId}/republish`);
@@ -997,6 +1000,7 @@ export default function MarketingDashboard() {
       scheduled: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Agendado' },
       published: { bg: 'bg-green-100', text: 'text-green-800', label: 'Publicado' },
       failed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Falhou' },
+      unconfirmed: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Sem confirmação' },
       cancelled: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Cancelado' },
       publishing_retry: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Reenviando...', animate: true },
       processing: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Processando...', animate: true }
@@ -2278,10 +2282,10 @@ export default function MarketingDashboard() {
                               )}
                             </>
                           )}
-                          {/* Republicar - para posts já publicados ou falhos (apenas GMB) */}
-                          {activeTab === 'gmb' && (post.status === 'published' || post.status === 'failed') && (
+                          {/* Republicar - para posts já publicados, falhos ou sem confirmação (apenas GMB) */}
+                          {activeTab === 'gmb' && (post.status === 'published' || post.status === 'failed' || post.status === 'unconfirmed') && (
                             <button
-                              onClick={() => handleRepublish(post._id)}
+                              onClick={() => handleRepublish(post._id, post.status)}
                               disabled={republishingPost === post._id}
                               className="flex items-center gap-1 px-3 py-1.5 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-orange-200 disabled:opacity-50"
                             >

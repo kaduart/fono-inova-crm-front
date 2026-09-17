@@ -15,6 +15,7 @@ export interface GmbPostSample {
 export interface GmbHealth {
   stuckPublished: number;
   failed: number;
+  unconfirmed: number;
   noImage: number;
   retrying: number;
   total: number;
@@ -22,16 +23,18 @@ export interface GmbHealth {
     noImageSample: GmbPostSample[];
     retryingSample: GmbPostSample[];
     failedSample: GmbPostSample[];
+    unconfirmedSample: GmbPostSample[];
   };
 }
 
 const EMPTY: GmbHealth = {
   stuckPublished: 0,
   failed: 0,
+  unconfirmed: 0,
   noImage: 0,
   retrying: 0,
   total: 0,
-  details: { noImageSample: [], retryingSample: [], failedSample: [] },
+  details: { noImageSample: [], retryingSample: [], failedSample: [], unconfirmedSample: [] },
 };
 
 export const useGmbAlert = () => {

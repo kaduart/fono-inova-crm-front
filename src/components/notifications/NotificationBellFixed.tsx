@@ -378,7 +378,8 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
   const hasDetails =
     alert.details.noImageSample.length > 0 ||
     alert.details.retryingSample.length > 0 ||
-    alert.details.failedSample.length > 0;
+    alert.details.failedSample.length > 0 ||
+    alert.details.unconfirmedSample.length > 0;
 
   return (
     <div style={{
@@ -395,6 +396,7 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
           <strong style={{ color: '#9a3412', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
           <div style={{ fontSize: '12px', color: '#9a3412', marginTop: '4px' }}>
             {alert.failed > 0    && <div>❌ {alert.failed} post(s) com falha permanente</div>}
+            {alert.unconfirmed > 0 && <div>❓ {alert.unconfirmed} post(s) sem confirmação do Make — pode já ter publicado, checar no Google</div>}
             {alert.retrying > 0  && <div>🔄 {alert.retrying} falhando repetidamente no Google</div>}
             {alert.stuckPublished > 0 && <div>⏳ {alert.stuckPublished} sem confirmação do Make</div>}
             {alert.noImage > 0   && <div>🖼️ {alert.noImage} sem imagem (bloqueados)</div>}
@@ -410,9 +412,10 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
       {/* Lista de detalhes expandível */}
       {open && hasDetails && (
         <div style={{ padding: '0 16px 12px', maxHeight: '240px', overflowY: 'auto' }}>
-          <PostList posts={alert.details.failedSample}   label="Com falha permanente" />
-          <PostList posts={alert.details.retryingSample} label="Falhando repetidamente" />
-          <PostList posts={alert.details.noImageSample}  label="Sem imagem (amostras)" />
+          <PostList posts={alert.details.failedSample}      label="Com falha permanente" />
+          <PostList posts={alert.details.unconfirmedSample} label="Sem confirmação do Make (verificar no Google)" />
+          <PostList posts={alert.details.retryingSample}    label="Falhando repetidamente" />
+          <PostList posts={alert.details.noImageSample}     label="Sem imagem (amostras)" />
         </div>
       )}
     </div>
