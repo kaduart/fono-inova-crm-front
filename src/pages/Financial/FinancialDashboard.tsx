@@ -485,18 +485,36 @@ const FinancialDashboard = ({
     const [activePeriodKey, setActivePeriodKey] = useState<string | null>(null);
 
     // 🚀 Prefetch all tab chunks on mount so tab switching feels instant
+    //
+    // 🐛 FIX (2026-09-17): tinha 2 mudanças aqui, só 1 sobreviveu a teste real.
+    // (1) removido o import('./UnifiedCashflowTab') — é a primeira aba, já
+    //     importada ESTÁTICA no topo deste arquivo (ver nota abaixo do
+    //     import), reimportar dinamicamente não adianta nada, só soma peso.
+    //     Mantido — inequívoco, não depende de medição.
+    // (2) [REVERTIDO] cheguei a espaçar os imports restantes (150ms entre
+    //     cada), hipótese de que a rajada de fetch+eval de módulo competia
+    //     pela main thread com o render que o usuário esperava ver. Com N=4
+    //     amostras parecia ajudar Financeiro/Calendário; repetido com N=9
+    //     (Puppeteer, build de produção real, mesmo ambiente) o efeito
+    //     desapareceu — ficou empatado ou levemente PIOR nas 3 abas testadas
+    //     (Dashboard 1971→2525ms, Financeiro 1823→1825ms, Calendário
+    //     932→1004ms). Não é o gargalo real; revertido pra não manter uma
+    //     estratégia sem prova. Ver [[project_admin_page_load_performance]].
     useEffect(() => {
         const prefetchChunks = () => {
             import('../../components/financial/PaymentPage');
             import('./tabs/ExpensesTab');
             import('./tabs/InsuranceTab');
             import('./tabs/PlanningTab');
-            import('./UnifiedCashflowTab');
             import('./tabs/FinancialDashboardTab');
             import('./tabs/AnaliseProjecaoTab');
             import('../ProfessionalResults/ProfessionalResultsPage');
         };
-        window.requestIdleCallback?.(prefetchChunks) ?? setTimeout(prefetchChunks, 2000);
+        if (window.requestIdleCallback) {
+            window.requestIdleCallback(prefetchChunks);
+        } else {
+            setTimeout(prefetchChunks, 2000);
+        }
     }, []);
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {

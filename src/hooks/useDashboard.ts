@@ -87,7 +87,18 @@ export const useDashboard = (enabled: boolean = true): UseDashboardReturn => {
 
         const loadPromise = (async () => {
             try {
-                const data = await fetchDashboardOverview(forceRefresh);
+                // 🐛 FIX (2026-09-17): não pede mais 'doctors' aqui — o único consumidor
+                // vivo deste hook (AdminDashboard.tsx) já busca médicos via
+                // useDoctorsOverview() em paralelo, e como os dois efeitos disparam no
+                // mesmo tick, sem essa exclusão o bloco 'doctors' era buscado da rede
+                // DUAS VEZES (uma vez por cada hook) sempre que a aba Dashboard estava
+                // ativa — nenhum dos dois via o cache do outro a tempo, porque nenhuma
+                // resposta tinha voltado ainda quando o segundo pedido saía. `doctors`
+                // deste hook fica sempre vazio agora (único outro leitor é
+                // components/admin/tabs/DashboardTab.tsx, componente órfão — não é
+                // importado/renderizado em lugar nenhum do app, confirmado por busca no
+                // repo — então não há consumidor real afetado).
+                const data = await fetchDashboardOverview(forceRefresh, ['stats', 'charts', 'upcoming']);
                 console.log('📊 useDashboard: Dados recebidos:', {
                     hasStats: !!data.stats,
                     doctorsCount: Array.isArray(data.doctorsOverview) ? data.doctorsOverview.length : 'N/A',
@@ -234,11 +245,15 @@ export const useDoctorsOverview = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchDoctors = useCallback(async () => {
+    // 🐛 FIX (2026-09-17): forceRefresh era sempre false — depois de uma mutação
+    // real (inativar/reativar profissional), chamar refresh() podia só devolver
+    // o cache de até 2 minutos atrás (TTL do bloco 'doctors'), em vez do dado
+    // realmente atualizado. `refresh(true)` agora bypassa o cache de verdade.
+    const fetchDoctors = useCallback(async (forceRefresh = false) => {
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchDashboardOverview(false, ['doctors']);
+            const data = await fetchDashboardOverview(forceRefresh, ['doctors']);
             setDoctors(data.doctorsOverview || []);
         } catch (err: any) {
             setError(err.message);

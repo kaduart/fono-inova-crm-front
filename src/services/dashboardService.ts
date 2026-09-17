@@ -57,108 +57,249 @@ export interface DashboardMeta {
 }
 
 export interface DashboardOverview {
-    stats: DashboardStats;
-    charts: DashboardCharts;
+    stats: DashboardStats | null;
+    charts: DashboardCharts | null;
     doctorsOverview: DoctorOverview[];
     upcomingAppointments: UpcomingAppointment[];
     meta: DashboardMeta;
 }
 
-// ── Cache local ─────────────────────────────────────────────────────────────
+// ── Cache local granular por bloco ──────────────────────────────────────────
+//
+// 🐛 FIX (2026-09-17, parte 1): o cache antigo era um blob único
+// (`cache.overview`), sem distinguir busca parcial (`include=doctors`) de
+// busca completa. Se uma busca parcial resolvesse primeiro, ela preenchia o
+// blob inteiro e uma busca completa posterior recebia esse cache incompleto
+// de volta em vez de buscar o que faltava.
+//
+// 🐛 FIX (2026-09-17, parte 2 — corridas de verdade, não só o caso feliz):
+// a correção da parte 1 sozinha ainda tinha 3 janelas de corrida reais:
+//   (a) uma resposta que começou ANTES de um logout/troca de usuário podia
+//       resolver DEPOIS da limpeza e repopular o cache com dado do usuário
+//       errado — corrigido com `generation`: todo request carimba a geração
+//       vigente no início; se a geração mudou até ele resolver, a escrita
+//       é descartada e nem entra no cache.
+//   (b) duas respostas para o mesmo bloco podiam resolver fora de ordem
+//       (ex: um refresh forçado mais recente terminando ANTES de uma busca
+//       antiga que já estava em voo) — a mais antiga sobrescrevendo a mais
+//       nova. Corrigido com `seq`: contador monotônico por request; um
+//       bloco só é escrito se `seq` for maior que o que já está lá.
+//   (c) o dedupe por chave (`inFlightByBlocks`) fazia `delete(key)` no
+//       finally sem checar se a entrada ainda era A DELE — se uma segunda
+//       chamada (ex: forceRefresh) reaproveitasse a mesma chave enquanto a
+//       primeira ainda rodava, o finally da primeira apagava o rastro da
+//       segunda do Map, e uma terceira chamada logo depois não encontrava
+//       nada em voo e disparava uma quarta requisição redundante. Corrigido
+//       comparando identidade antes de apagar (padrão compare-and-delete).
+//   Bônus: a chave de dedupe agora inclui `generation` — uma consulta feita
+//   depois de uma invalidação nunca reaproveita uma requisição em voo de
+//   antes da invalidação (que está fadada a ser descartada por (a)), sempre
+//   dispara uma busca nova de verdade.
+//
+// O backend (`services/adminDashboard/index.js`) já cacheia cada bloco
+// separado no Redis, com TTL próprio (stats 120s, charts 300s, doctors 120s,
+// upcoming 60s) — este cache local espelha exatamente essa granularidade,
+// só evitando round-trips repetidos dentro da janela de TTL.
 
-const cache: {
-    overview: DashboardOverview | null;
-    timestamp: number;
-    promise: Promise<DashboardOverview> | null;
-} = {
-    overview: null,
-    timestamp: 0,
-    promise: null
+type BlockName = 'stats' | 'charts' | 'doctors' | 'upcoming';
+
+const ALL_BLOCKS: BlockName[] = ['stats', 'charts', 'doctors', 'upcoming'];
+
+const BLOCK_TTL_MS: Record<BlockName, number> = {
+    stats: 120_000,
+    charts: 300_000,
+    doctors: 120_000,
+    upcoming: 60_000,
 };
 
-const CACHE_TTL = 3 * 60 * 1000; // 3 minutos
+interface BlockCacheEntry<T> {
+    data: T;
+    timestamp: number;
+    seq: number; // request (por ordem de início) que escreveu este valor por último
+}
+
+const blockCache: {
+    stats: BlockCacheEntry<DashboardStats> | null;
+    charts: BlockCacheEntry<DashboardCharts> | null;
+    doctors: BlockCacheEntry<DoctorOverview[]> | null;
+    upcoming: BlockCacheEntry<UpcomingAppointment[]> | null;
+} = {
+    stats: null,
+    charts: null,
+    doctors: null,
+    upcoming: null,
+};
+
+// Geração da sessão/cache — incrementada em logout e em invalidação explícita.
+// Uma resposta cuja geração de início não bate mais com a atual é descartada:
+// nunca repopula o cache nem chega a atualizar consumidor nenhum.
+let cacheGeneration = 0;
+
+// Contador monotônico por request — usado só pra ordenar escritas (não é
+// timestamp de parede, evita empate/skew de relógio). Cresce a cada request
+// que efetivamente vai à rede (blocksToFetch não-vazio).
+let requestSeq = 0;
+
+// Dedupe de requisições em andamento — chave inclui a geração vigente E a
+// lista ordenada dos blocos realmente sendo buscados nesta chamada (não a
+// lista pedida pelo caller, que pode incluir blocos já frescos em cache).
+// O valor guarda o próprio objeto-promise pra permitir compare-and-delete no
+// finally (ver nota acima, item c).
+const inFlightByBlocks = new Map<string, Promise<void>>();
+
+function isBlockFresh(block: BlockName): boolean {
+    const entry = blockCache[block];
+    if (!entry) return false;
+    return Date.now() - entry.timestamp < BLOCK_TTL_MS[block];
+}
+
+function composeOverview(included: BlockName[]): DashboardOverview {
+    return {
+        stats: blockCache.stats?.data ?? null,
+        charts: blockCache.charts?.data ?? null,
+        doctorsOverview: blockCache.doctors?.data ?? [],
+        upcomingAppointments: blockCache.upcoming?.data ?? [],
+        meta: {
+            generatedAt: new Date().toISOString(),
+            version: 'v2',
+            included,
+        },
+    };
+}
 
 /**
- * 🎯 Busca visão completa do dashboard V2
+ * 🎯 Busca visão completa (ou parcial) do dashboard V2
  *
- * @param include — blocos a carregar: 'stats' | 'charts' | 'doctors' | 'upcoming'
- * @param forceRefresh — ignorar cache local
+ * @param forceRefresh — ignora cache local E força o backend a recalcular
+ * @param include — blocos a carregar: 'stats' | 'charts' | 'doctors' | 'upcoming'.
+ *                  Omitido = todos. Blocos já frescos em cache não disparam
+ *                  requisição nova (a menos que forceRefresh).
  */
 export const fetchDashboardOverview = async (
     forceRefresh = false,
-    include?: string[]
+    include?: BlockName[]
 ): Promise<DashboardOverview> => {
-    const now = Date.now();
-    console.log('📡 dashboardService: fetchDashboardOverview chamado, forceRefresh=', forceRefresh, 'include=', include);
+    const requested = (include && include.length > 0) ? include : ALL_BLOCKS;
+    const myGeneration = cacheGeneration;
 
-    // Retornar cache se válido
-    if (!forceRefresh && cache.overview && (now - cache.timestamp < CACHE_TTL)) {
-        console.log('📦 dashboardService: Usando cache local');
-        return cache.overview;
-    }
+    const blocksToFetch = forceRefresh
+        ? requested
+        : requested.filter(b => !isBlockFresh(b));
 
-    // Se já está carregando, esperar
-    if (cache.promise) {
-        console.log('⏳ dashboardService: Aguardando promise existente');
-        return cache.promise;
-    }
+    if (blocksToFetch.length > 0) {
+        const mySeq = ++requestSeq;
+        const key = `${myGeneration}|${blocksToFetch.slice().sort().join(',')}${forceRefresh ? '|refresh' : ''}`;
+        const existing = inFlightByBlocks.get(key);
 
-    cache.promise = (async () => {
-        try {
-            const params: Record<string, string> = {};
-            if (include && include.length > 0) {
-                params.include = include.join(',');
-            }
-            if (forceRefresh) {
-                params.refresh = 'true';
-            }
+        let ownEntry: Promise<void>;
+        if (existing) {
+            console.log('⏳ dashboardService: reaproveitando requisição em andamento para', blocksToFetch);
+            ownEntry = existing;
+        } else {
+            ownEntry = (async () => {
+                try {
+                    const params: Record<string, string> = { include: blocksToFetch.join(',') };
+                    if (forceRefresh) {
+                        params.refresh = 'true';
+                    }
 
-            console.log('🌐 dashboardService: Chamando API /v2/admin/dashboard/overview');
-            const response = await API.get<DashboardOverview>('/v2/admin/dashboard/overview', { params });
-            const dashboardData = response.data?.data || response.data;
+                    console.log('🌐 dashboardService: buscando blocos', blocksToFetch, forceRefresh ? '(refresh)' : '');
+                    const response = await API.get<{ success: boolean; data: DashboardOverview }>(
+                        '/v2/admin/dashboard/overview',
+                        { params }
+                    );
 
-            console.log('✅ dashboardService: Resposta recebida:', {
-                hasStats: !!dashboardData.stats,
-                doctorsCount: Array.isArray(dashboardData.doctorsOverview) ? dashboardData.doctorsOverview.length : 'N/A',
-                upcomingCount: Array.isArray(dashboardData.upcomingAppointments) ? dashboardData.upcomingAppointments.length : 'N/A',
-                included: dashboardData.meta?.included
-            });
+                    // (a) Resposta chegou depois de um logout/invalidação — descarta,
+                    // nunca escreve no cache nem "vaza" pro composeOverview de ninguém.
+                    if (cacheGeneration !== myGeneration) {
+                        console.log('🗑️ dashboardService: resposta descartada (geração mudou — logout/invalidação no meio do caminho)', blocksToFetch);
+                        return;
+                    }
 
-            cache.overview = dashboardData;
-            cache.timestamp = now;
+                    const dashboardData = (response.data as any)?.data || response.data;
+                    const now = Date.now();
 
-            return dashboardData;
-        } finally {
-            cache.promise = null;
+                    // (b) Só escreve se ninguém mais novo (seq maior) já escreveu nesse
+                    // bloco enquanto esta request estava em voo — impede resposta antiga
+                    // sobrescrever um refresh mais recente que resolveu primeiro.
+                    const maybeWrite = <T,>(block: BlockName, data: T | undefined) => {
+                        if (data === undefined) return;
+                        const current = (blockCache as any)[block] as BlockCacheEntry<T> | null;
+                        if (current && current.seq > mySeq) {
+                            console.log(`🗑️ dashboardService: escrita de '${block}' descartada (seq ${mySeq} mais antiga que a já cacheada, seq ${current.seq})`);
+                            return;
+                        }
+                        (blockCache as any)[block] = { data, timestamp: now, seq: mySeq };
+                    };
+
+                    maybeWrite('stats', dashboardData.stats);
+                    maybeWrite('charts', dashboardData.charts);
+                    maybeWrite('doctors', dashboardData.doctorsOverview);
+                    maybeWrite('upcoming', dashboardData.upcomingAppointments);
+                } finally {
+                    // (c) Compare-and-delete: só remove a própria entrada, nunca a de
+                    // outra chamada que tenha ocupado a mesma chave nesse meio tempo.
+                    if (inFlightByBlocks.get(key) === ownEntry) {
+                        inFlightByBlocks.delete(key);
+                    }
+                }
+            })();
+            inFlightByBlocks.set(key, ownEntry);
         }
-    })();
 
-    return cache.promise;
+        await ownEntry;
+    }
+
+    // Sempre compõe a partir do estado ATUAL do cache — se a própria resposta
+    // desta chamada foi descartada por (a) ou (b), o que volta aqui já reflete
+    // corretamente o que de fato está válido agora (inclusive "tudo nulo" se
+    // um logout limpou tudo no meio do caminho), sem precisar de sinalização
+    // extra pro chamador.
+    return composeOverview(requested);
 };
 
 /**
- * 🗑️ Invalida cache no backend V2 e limpa cache local
+ * 🗑️ Invalida cache no backend V2 e limpa cache local (todos os blocos)
  */
 export const invalidateDashboardCache = async (): Promise<void> => {
     await API.post('/v2/admin/dashboard/invalidate-cache');
     clearDashboardCache();
 };
 
-export const getCacheState = () => ({
-    hasData: !!cache.overview,
-    timestamp: cache.timestamp,
-    age: Date.now() - cache.timestamp,
-    isLoading: !!cache.promise
-});
+export const getCacheState = () => {
+    const entries = Object.entries(blockCache) as [BlockName, BlockCacheEntry<any> | null][];
+    const cachedEntries = entries.filter(([, v]) => v !== null) as [BlockName, BlockCacheEntry<any>][];
+    return {
+        hasData: cachedEntries.length > 0,
+        generation: cacheGeneration,
+        blocks: Object.fromEntries(entries.map(([k, v]) => [k, v ? { age: Date.now() - v.timestamp, fresh: isBlockFresh(k), seq: v.seq } : null])),
+        isLoading: inFlightByBlocks.size > 0,
+    };
+};
 
 export const clearDashboardCache = (): void => {
-    cache.overview = null;
-    cache.timestamp = 0;
-    cache.promise = null;
-    console.log('🧹 Cache do dashboardService limpo');
+    // Bump ANTES de limpar: qualquer request em voo que carimbou a geração
+    // anterior vai se ver descartado quando resolver (ver comentário (a)
+    // acima), mesmo que a limpeza em si só afete o snapshot local agora.
+    cacheGeneration += 1;
+    blockCache.stats = null;
+    blockCache.charts = null;
+    blockCache.doctors = null;
+    blockCache.upcoming = null;
+    // Não mexe em inFlightByBlocks aqui de propósito: requests em voo continuam
+    // rodando normalmente (não são cancelados de verdade, XHR não tem abort
+    // aqui) — só o resultado delas é que fica inofensivo ao chegar, via (a).
+    console.log('🧹 Cache do dashboardService limpo (geração', cacheGeneration, ')');
 };
 
 if (typeof window !== 'undefined') {
     (window as any).clearDashboardCache = clearDashboardCache;
     (window as any).getDashboardCache = getCacheState;
+
+    // 🐛 FIX (2026-09-17): cache local não era limpo no logout — mesmo padrão
+    // já usado por PatientsContext/DoctorsContext/ContactsContext (evento
+    // disparado em AuthContext.logout()). Sem isso, trocar de usuário no
+    // mesmo navegador podia mostrar dados do dashboard do usuário anterior
+    // até o TTL expirar.
+    window.addEventListener('authLogout', clearDashboardCache);
 }

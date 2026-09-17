@@ -55,138 +55,165 @@ interface EnhancedCalendarProps {
     onOpenPreAppointments?: () => void;
 }
 
-export const PAYMENT_STATUS_CONFIG = {
-    paid: {
-        label: "Pago",
-        color: "#1c7721ff",
-        icon: CheckCircle,
-        bgColor: "#b1eeafff",
-        textColor: "#4da088ff",
-    },
-    package_paid: {
-        label: "Pacote",
-        color: "#16a34a",
-        icon: CheckCircle,
-        bgColor: "#dcfce7",
-        textColor: "#166534",
-    },
-    partial: {
-        label: "Parcial",
-        color: "#f59e0b",
-        icon: AlertCircle,
-        bgColor: "#fef9c3",
-        textColor: "#92400e",
-    },
-    advanced: {
-        label: "Adiantado",
-        color: "#2563eb",
-        icon: DollarSign,
-        bgColor: "#e0f2fe",
-        textColor: "#1e3a8a",
-    },
-    canceled: {
-        label: "Cancelado",
-        color: "#dc2626",
-        icon: XCircle,
-        bgColor: "#a9afb9ff",
-        textColor: "#7f1d1d",
-    },
-    pending: {
-        label: "Pendente",
-        color: "#d97706",
-        icon: DollarSign,
-        bgColor: "#fde68a",
-        textColor: "#92400e",
-    },
-    pending_receipt: {
-        label: "Ag. Recibo",
-        color: "#f59e0b",
-        icon: Clock,
-        bgColor: "#fef3c7",
-        textColor: "#92400e",
-    },
-    unknown: {
-        label: "Não verificado",
-        color: "#6b7280",
-        icon: Clock,
-        bgColor: "#f3f4f6",
-        textColor: "#374151",
-    },
-};
+// 🐛 FIX (2026-09-17): as 3 consts abaixo eram de nível de módulo,
+// referenciando ícones do lucide-react no carregamento do módulo — mesmo bug
+// real de TDZ entre chunks confirmado via sourcemap contra o build de
+// produção (`ReferenceError: Cannot access '<ícone>' before initialization`,
+// achado em appointmentDetailModal.tsx e reproduzido aqui). Corrigido:
+// construção preguiçosa, só no primeiro uso dentro de função — bem depois do
+// grafo de módulos já ter inicializado. Mantidos como `export` (compat com
+// qualquer import externo futuro), agora como função em vez de objeto.
 
-export const OPERATIONAL_STATUS_VISUAL_CONFIG = {
-    scheduled: {
-        label: "Agendado",
-        color: "#3b82f6",
-        icon: Clock,
-    },
-    confirmed: {
-        label: "Confirmado",
-        color: "#10b981",
-        icon: CheckCircle,
-    },
-    in_progress: {
-        label: "Em Andamento",
-        color: "#f59e0b",
-        icon: AlertCircle,
-    },
-    completed: {
-        label: "Concluído",
-        color: "#22c55e",
-        icon: CheckCircle,
-    },
-    canceled: {
-        label: "Cancelado",
-        color: "#6b7280",
-        icon: XCircle,
-    },
-    absent: {
-        label: "Não Compareceu",
-        color: "#ef4444",
-        icon: XCircle,
-    },
-    // 🚨 FIX (2026-08-14): 'missed' é o valor real do enum operationalStatus
-    // (models/Appointment.js) — 'absent' não existe nos dados reais, então
-    // todo appointment com falta automática (auto_expired) caía no fallback
-    // pra 'scheduled' e aparecia como "Agendado" na agenda, mascarando faltas.
-    missed: {
-        label: "Não Compareceu",
-        color: "#ef4444",
-        icon: XCircle,
-    },
-    pre_agendado: {
-        label: "Pré-Agendado",
-        color: "#ec4899", // Rosa
-        icon: Clock,
-    },
-};
+let _paymentStatusConfigCache: Record<string, { label: string; color: string; icon: any; bgColor: string; textColor: string }> | null = null;
+export function getPaymentStatusConfigMap() {
+    if (!_paymentStatusConfigCache) {
+        _paymentStatusConfigCache = {
+            paid: {
+                label: "Pago",
+                color: "#1c7721ff",
+                icon: CheckCircle,
+                bgColor: "#b1eeafff",
+                textColor: "#4da088ff",
+            },
+            package_paid: {
+                label: "Pacote",
+                color: "#16a34a",
+                icon: CheckCircle,
+                bgColor: "#dcfce7",
+                textColor: "#166534",
+            },
+            partial: {
+                label: "Parcial",
+                color: "#f59e0b",
+                icon: AlertCircle,
+                bgColor: "#fef9c3",
+                textColor: "#92400e",
+            },
+            advanced: {
+                label: "Adiantado",
+                color: "#2563eb",
+                icon: DollarSign,
+                bgColor: "#e0f2fe",
+                textColor: "#1e3a8a",
+            },
+            canceled: {
+                label: "Cancelado",
+                color: "#dc2626",
+                icon: XCircle,
+                bgColor: "#a9afb9ff",
+                textColor: "#7f1d1d",
+            },
+            pending: {
+                label: "Pendente",
+                color: "#d97706",
+                icon: DollarSign,
+                bgColor: "#fde68a",
+                textColor: "#92400e",
+            },
+            pending_receipt: {
+                label: "Ag. Recibo",
+                color: "#f59e0b",
+                icon: Clock,
+                bgColor: "#fef3c7",
+                textColor: "#92400e",
+            },
+            unknown: {
+                label: "Não verificado",
+                color: "#6b7280",
+                icon: Clock,
+                bgColor: "#f3f4f6",
+                textColor: "#374151",
+            },
+        };
+    }
+    return _paymentStatusConfigCache;
+}
 
-export const VISUAL_FLAG_CONFIG = {
-    ok: {
-        label: 'Tudo Pago',
-        color: '#22c55e',
-        textColor: '#166534',
-        icon: CheckCircle,
-    },
-    partial: {
-        label: 'Parcial',
-        color: '#f59e0b',
-        textColor: '#92400e',
-        icon: AlertCircle,
-    },
-    pending: {
-        label: 'A receber',
-        color: '#ef4444',
-        textColor: '#991b1b',
-        icon: Clock,
-    },
-    blocked: {
-        label: 'Cancelado',
-        color: '#991b1b',
-        textColor: '#7f1d1d',
-        icon: XCircle,
-    },
-};
+let _operationalStatusVisualConfigCache: Record<string, { label: string; color: string; icon: any }> | null = null;
+export function getOperationalStatusVisualConfigMap() {
+    if (!_operationalStatusVisualConfigCache) {
+        _operationalStatusVisualConfigCache = {
+            scheduled: {
+                label: "Agendado",
+                color: "#3b82f6",
+                icon: Clock,
+            },
+            confirmed: {
+                label: "Confirmado",
+                color: "#10b981",
+                icon: CheckCircle,
+            },
+            in_progress: {
+                label: "Em Andamento",
+                color: "#f59e0b",
+                icon: AlertCircle,
+            },
+            completed: {
+                label: "Concluído",
+                color: "#22c55e",
+                icon: CheckCircle,
+            },
+            canceled: {
+                label: "Cancelado",
+                color: "#6b7280",
+                icon: XCircle,
+            },
+            absent: {
+                label: "Não Compareceu",
+                color: "#ef4444",
+                icon: XCircle,
+            },
+            // 🚨 FIX (2026-08-14): 'missed' é o valor real do enum operationalStatus
+            // (models/Appointment.js) — 'absent' não existe nos dados reais, então
+            // todo appointment com falta automática (auto_expired) caía no fallback
+            // pra 'scheduled' e aparecia como "Agendado" na agenda, mascarando faltas.
+            missed: {
+                label: "Não Compareceu",
+                color: "#ef4444",
+                icon: XCircle,
+            },
+            pre_agendado: {
+                label: "Pré-Agendado",
+                color: "#ec4899", // Rosa
+                icon: Clock,
+            },
+        };
+    }
+    return _operationalStatusVisualConfigCache;
+}
+
+let _visualFlagConfigCache: Record<string, { label: string; color: string; textColor: string; icon: any }> | null = null;
+export function getVisualFlagConfigMap() {
+    if (!_visualFlagConfigCache) {
+        _visualFlagConfigCache = {
+            ok: {
+                label: 'Tudo Pago',
+                color: '#22c55e',
+                textColor: '#166534',
+                icon: CheckCircle,
+            },
+            partial: {
+                label: 'Parcial',
+                color: '#f59e0b',
+                textColor: '#92400e',
+                icon: AlertCircle,
+            },
+            pending: {
+                label: 'A receber',
+                color: '#ef4444',
+                textColor: '#991b1b',
+                icon: Clock,
+            },
+            blocked: {
+                label: 'Cancelado',
+                color: '#991b1b',
+                textColor: '#7f1d1d',
+                icon: XCircle,
+            },
+        };
+    }
+    return _visualFlagConfigCache;
+}
 
 const getRealPaymentStatus = (appt: any): string => {
     if (appt?.payment?.status) return appt.payment.status;
@@ -203,11 +230,13 @@ const getRealPaymentStatus = (appt: any): string => {
     return appt?.paymentStatus || 'unknown';
 };
 
-const getPaymentStatusConfig = (paymentStatus: string) =>
-    PAYMENT_STATUS_CONFIG[paymentStatus as keyof typeof PAYMENT_STATUS_CONFIG] || PAYMENT_STATUS_CONFIG.pending;
+const getPaymentStatusConfig = (paymentStatus: string) => {
+    const map = getPaymentStatusConfigMap();
+    return map[paymentStatus] || map.pending;
+};
 
 const getOperationalStatusConfig = (operationalStatus: string) =>
-    OPERATIONAL_STATUS_VISUAL_CONFIG[operationalStatus as keyof typeof OPERATIONAL_STATUS_VISUAL_CONFIG] || {
+    getOperationalStatusVisualConfigMap()[operationalStatus] || {
         label: 'Indefinido',
         color: '#9ca3af',
         icon: Clock,
@@ -1908,7 +1937,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             Indicado pela cor da borda esquerda
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                            {Object.entries(OPERATIONAL_STATUS_VISUAL_CONFIG).map(([status, config]) => {
+                            {Object.entries(getOperationalStatusVisualConfigMap()).map(([status, config]) => {
                                 const IconComponent = config.icon;
                                 return (
                                     <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1946,7 +1975,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </Typography>
 
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            {Object.entries(PAYMENT_STATUS_CONFIG).map(([status, config]) => {
+                            {Object.entries(getPaymentStatusConfigMap()).map(([status, config]) => {
                                 const IconComponent = config.icon;
                                 return (
                                     <Box

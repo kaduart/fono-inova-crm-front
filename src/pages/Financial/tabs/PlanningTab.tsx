@@ -84,12 +84,23 @@ interface MonthData {
 }
 
 // Configuração de status
-const STATUS_CONFIG = {
-  achieved: { color: '#10B981', bgColor: '#10B98110', label: 'Atingido', icon: CheckCircle },
-  on_track: { color: '#3B82F6', bgColor: '#3B82F610', label: 'No caminho', icon: TrendingUp },
-  at_risk: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Em risco', icon: Warning },
-  behind: { color: '#EF4444', bgColor: '#EF444410', label: 'Atrasado', icon: Warning }
-};
+//
+// 🐛 FIX (2026-09-17): const de nível de módulo referenciando ícones do
+// lucide-react no carregamento do módulo — mesmo bug real de TDZ entre
+// chunks confirmado via sourcemap em appointmentDetailModal.tsx (build de
+// produção). Corrigido: construção preguiçosa, só no primeiro uso em função.
+let _planningStatusConfigCache: Record<string, { color: string; bgColor: string; label: string; icon: any }> | null = null;
+function getPlanningStatusConfigMap() {
+  if (!_planningStatusConfigCache) {
+    _planningStatusConfigCache = {
+      achieved: { color: '#10B981', bgColor: '#10B98110', label: 'Atingido', icon: CheckCircle },
+      on_track: { color: '#3B82F6', bgColor: '#3B82F610', label: 'No caminho', icon: TrendingUp },
+      at_risk: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Em risco', icon: Warning },
+      behind: { color: '#EF4444', bgColor: '#EF444410', label: 'Atrasado', icon: Warning }
+    };
+  }
+  return _planningStatusConfigCache;
+}
 
 interface PlanningTabProps {
   month: number;
@@ -351,7 +362,8 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     `R$ ${value?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const getStatusConfig = (status: string) => {
-    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.behind;
+    const map = getPlanningStatusConfigMap();
+    return map[status] || map.behind;
   };
 
   const toggleCard = (id: string) => {

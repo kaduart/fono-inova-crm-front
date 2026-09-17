@@ -877,11 +877,21 @@ interface RecentOp {
     detail: string | null;
 }
 
-const OP_CONFIG = {
-    deleted:  { label: 'Deletado',   color: 'error'   as const, Icon: Trash2 },
-    canceled: { label: 'Cancelado',  color: 'warning' as const, Icon: Ban    },
-    changed:  { label: 'Editado',    color: 'info'    as const, Icon: Pencil },
-};
+// 🐛 FIX (2026-09-17): const de nível de módulo referenciando ícones do
+// lucide-react no carregamento do módulo — mesmo bug real de TDZ entre
+// chunks confirmado via sourcemap contra o build de produção. Construção
+// preguiçosa, só no primeiro uso em função.
+let _opConfigCache: Record<string, { label: string; color: 'error' | 'warning' | 'info'; Icon: any }> | null = null;
+function getOpConfigMap() {
+    if (!_opConfigCache) {
+        _opConfigCache = {
+            deleted:  { label: 'Deletado',   color: 'error'   as const, Icon: Trash2 },
+            canceled: { label: 'Cancelado',  color: 'warning' as const, Icon: Ban    },
+            changed:  { label: 'Editado',    color: 'info'    as const, Icon: Pencil },
+        };
+    }
+    return _opConfigCache;
+}
 
 function OperationsTab({ ops, loading }: { ops: RecentOp[]; loading: boolean }) {
     if (loading) return <Box sx={{ p: 3 }}><CircularProgress size={24} /></Box>;
@@ -909,7 +919,7 @@ function OperationsTab({ ops, loading }: { ops: RecentOp[]; loading: boolean }) 
                         </TableHead>
                         <TableBody>
                             {ops.map((op, i) => {
-                                const cfg = OP_CONFIG[op.type];
+                                const cfg = getOpConfigMap()[op.type];
                                 const apptDate = op.date ? new Date(op.date).toLocaleDateString('pt-BR') : '—';
                                 const atDate = op.at ? new Date(op.at).toLocaleString('pt-BR') : '—';
                                 return (

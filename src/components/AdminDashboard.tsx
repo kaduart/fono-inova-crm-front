@@ -73,7 +73,7 @@ import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useChatOptional } from '../contexts/ChatContext'; // 🆕 Para mensagens de erro no chat
 import { useAdmin } from '../hooks/useAdmin';
-import { useDashboard } from '../hooks/useDashboard';
+import { useDashboard, useDoctorsOverview } from '../hooks/useDashboard';
 import { usePatients } from '../hooks/usePatients';
 import { usePaymentsContext } from '../contexts/PaymentsContext';
 import { SystemHealthProvider } from '../contexts/SystemHealthContext';
@@ -90,9 +90,20 @@ import SecretariesManagement from './admin/SecretariesManagement';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
-import FinancialDashboard from '../pages/Financial/FinancialDashboard';
 
 // 🚀 LAZY LOADING - Componentes de abas secundárias só carregam quando necessário
+//
+// 🐛 FIX (2026-09-17): FinancialDashboard estava importado ESTÁTICO acima (junto
+// com DashboardContentOptimized/ProfileContent), ao contrário de EnhancedCalendar/
+// FollowupPage/etc, que já eram lazy. Confirmado no dist/index.html: isso gerava
+// <link rel="modulepreload"> forçando o navegador a baixar o chunk feature-financial
+// (453KB) inteiro em QUALQUER aba — Dashboard, Calendário, o que for — mesmo sem
+// ninguém abrir Financeiro. Pior: por causa do ciclo circular de chunks já
+// documentado (feature-calendar -> feature-financial -> vendor-ui -> feature-calendar,
+// aviso real do Rollup — ver TDZ fix nos 7 arquivos de ícone), isso arrastava
+// feature-calendar (483KB) junto pro carregamento eager também, mesmo ele sendo
+// declarado lazy. Corrigido: mesma forma lazyWithRetry já usada pros outros.
+const FinancialDashboard = lazyWithRetry(() => import('../pages/Financial/FinancialDashboard'));
 
 const FollowupPage = lazyWithRetry(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazyWithRetry(() => import('../pages/Secretaria/PreAgendamentosPage'));
@@ -273,32 +284,53 @@ export default function AdminDashboard() {
     }, []);
 
     // 🚀 Prefetch lazy chunks das abas secundárias em background
+    // 🐛 FIX (2026-09-17): cheguei a espaçar estes 4 imports (150ms entre
+    // cada), hipótese de que disparar juntos competia pela main thread com o
+    // render da aba recém-aberta. Testado com Puppeteer contra a build de
+    // produção real (N=9 por variante, não N=4): o espaçamento não mostrou
+    // ganho — ficou igual ou levemente pior nas 3 abas medidas. Revertido pra
+    // não manter estratégia sem prova (ver mesma nota, mais detalhada, em
+    // FinancialDashboard.tsx — [[project_admin_page_load_performance]]).
     useEffect(() => {
-        window.requestIdleCallback?.(() => {
+        const prefetchChunks = () => {
             import('../pages/FollowupPage');
             import('../pages/Secretaria/PreAgendamentosPage');
             import('./calendar/EnhancedCalendar');
             import('./ManageDoctors/ManageDoctors');
-        }) ?? setTimeout(() => {
-            import('../pages/FollowupPage');
-            import('../pages/Secretaria/PreAgendamentosPage');
-            import('./calendar/EnhancedCalendar');
-            import('./ManageDoctors/ManageDoctors');
-        }, 3000);
+        };
+        if (window.requestIdleCallback) {
+            window.requestIdleCallback(prefetchChunks);
+        } else {
+            setTimeout(prefetchChunks, 3000);
+        }
     }, []);
 
     const theme = useTheme();
 
     // 🎯 Hook otimizado do dashboard (substitui múltiplas chamadas)
-    // 🐛 FIX (2026-09-17): só busca overview automaticamente quando a aba Dashboard
-    // está ativa — antes disparava sempre, mesmo abrindo direto em outra aba (ex:
-    // Financeiro), competindo pela rede com o que a aba realmente aberta precisa.
-    // refreshDashboard() continua disponível e é chamado após mutações (completar
-    // agendamento, deletar paciente etc.) pra manter o cache fresco quando a pessoa
-    // eventualmente for pra lá.
+    // 🐛 FIX (2026-09-17): stats/charts/upcoming só são buscados automaticamente
+    // quando a aba Dashboard está ativa — antes disparava sempre, mesmo abrindo
+    // direto em outra aba (ex: Financeiro), competindo pela rede com o que a aba
+    // realmente aberta precisa. refreshDashboard() continua disponível e é chamado
+    // após mutações (completar agendamento, deletar paciente etc.) pra manter o
+    // cache fresco quando a pessoa eventualmente for pra lá.
+    //
+    // `doctors` foi separado de propósito (useDoctorsOverview, não useDashboard):
+    // é consumido por várias abas além da Dashboard (Calendário, Cadastro de
+    // Profissional, Financeiro→Pagamentos — ver dependências mapeadas abaixo nos
+    // *Props), então precisa continuar disponível mesmo com a Dashboard nunca
+    // aberta. Isso só é seguro pra manter sempre ativo porque o backend já cacheia
+    // esse bloco separado do resto (Redis, TTL próprio — ver
+    // services/adminDashboard/index.js) e o dashboardService.ts agora cacheia por
+    // bloco também (antes uma busca parcial "doctors" podia poluir o cache que a
+    // Dashboard completa deveria receber — corrigido junto nesta mudança).
+    const {
+        doctors: doctorsOverview,
+        refresh: refreshDoctorsOverview
+    } = useDoctorsOverview();
+
     const {
         stats,
-        doctors: doctorsOverview,
         upcomingAppointments: upcomingAppts,
         loading: dashboardLoading,
         refresh: refreshDashboard
@@ -1063,9 +1095,13 @@ export default function AdminDashboard() {
         onNewAppointment: handleNewAppointment,
         modalShouldClose,
         closeModalSignal,
-        onDoctorsChange: refreshDashboard, // 🆕 Atualiza lista após inativação/reativação
-    }), [handleSaveDoctor, safeDoctorsOverview, patients, openModal, appointments, handleNewAppointment, 
-        modalShouldClose, closeModalSignal, refreshDashboard]);
+        // 🆕 Atualiza lista após inativação/reativação. doctorsOverview agora vem de
+        // useDoctorsOverview (não mais de useDashboard), então é essa função que
+        // precisa rodar pra lista realmente atualizar aqui — refreshDashboard()
+        // sozinho não alimenta mais safeDoctorsOverview.
+        onDoctorsChange: () => { refreshDoctorsOverview(true); refreshDashboard(); },
+    }), [handleSaveDoctor, safeDoctorsOverview, patients, openModal, appointments, handleNewAppointment,
+        modalShouldClose, closeModalSignal, refreshDoctorsOverview, refreshDashboard]);
 
     const calendarProps = useMemo(() => ({
         // 🐛 FIX: Mapear doctorsOverview para ter fullName em vez de name
@@ -1158,7 +1194,9 @@ export default function AdminDashboard() {
             case 'Financeiro':
                 return (
                     <TabErrorBoundary tabName="Financeiro">
-                        <FinancialDashboard {...financialProps} />
+                        <Suspense fallback={<TabSpinner />}>
+                            <FinancialDashboard {...financialProps} />
+                        </Suspense>
                     </TabErrorBoundary>
                 );
             case 'Leads':

@@ -108,24 +108,47 @@ const STATUS_TRANSLATIONS = {
 };
 
 // 🔧 CONFIGURAÇÃO VISUAL EM PORTUGUÊS
-const STATUS_VISUAL_CONFIG = {
-    operational: {
-        'agendado': { label: 'Agendado', color: '#3b82f6', icon: Clock },
-        'confirmado': { label: 'Confirmado', color: '#10b981', icon: CheckCircle },
-        'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
-        'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
-        'cancelado': { label: 'Cancelado', color: '#6b7280', icon: XCircle },
-        'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle },
-        'pre_agendado': { label: 'Pré-Agendado', color: '#ec4899', icon: Clock }
-    },
-    clinical: {
-        'pendente': { label: 'Pendente', color: '#6b7280', icon: Clock },
-        'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
-        'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
-        'cancelado': { label: 'Cancelado', color: '#ef4444', icon: XCircle },
-        'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle }
+//
+// 🐛 FIX (2026-09-17): isto era uma const de nível de módulo referenciando os
+// componentes de ícone (Clock/CheckCircle/XCircle, importados de lucide-react)
+// no momento em que ESTE módulo carrega. Sob o code-splitting do Rollup (build
+// de produção), isso causava `ReferenceError: Cannot access 'Clock' before
+// initialization` — TDZ real: a ordem de inicialização entre os chunks
+// (feature-calendar vs. o chunk que define os ícones) podia colocar este
+// módulo rodando antes do outro terminar, mesmo os dois sendo importados
+// estaticamente. Confirmado via sourcemap contra o build de produção real
+// (não suposição) — stack apontava exatamente pra esta linha.
+// Corrigido tornando a construção preguiçosa: só monta o objeto na primeira
+// chamada de getStatusVisualConfig(), que só acontece dentro de render/função,
+// bem depois de todo o grafo de módulos já ter inicializado.
+let _statusVisualConfigCache: {
+    operational: Record<string, { label: string; color: string; icon: typeof Clock }>;
+    clinical: Record<string, { label: string; color: string; icon: typeof Clock }>;
+} | null = null;
+
+function getStatusVisualConfig() {
+    if (!_statusVisualConfigCache) {
+        _statusVisualConfigCache = {
+            operational: {
+                'agendado': { label: 'Agendado', color: '#3b82f6', icon: Clock },
+                'confirmado': { label: 'Confirmado', color: '#10b981', icon: CheckCircle },
+                'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
+                'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
+                'cancelado': { label: 'Cancelado', color: '#6b7280', icon: XCircle },
+                'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle },
+                'pre_agendado': { label: 'Pré-Agendado', color: '#ec4899', icon: Clock }
+            },
+            clinical: {
+                'pendente': { label: 'Pendente', color: '#6b7280', icon: Clock },
+                'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
+                'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
+                'cancelado': { label: 'Cancelado', color: '#ef4444', icon: XCircle },
+                'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle }
+            }
+        };
     }
-};
+    return _statusVisualConfigCache;
+}
 
 // 🔧 MAPA DE MENSAGENS DE ERRO — traduz códigos do backend em texto claro para a secretária
 const ERROR_MESSAGES: Record<string, string> = {
@@ -169,7 +192,7 @@ const translateStatus = (status: string | undefined | null, type: 'operational' 
 
 const getStatusConfig = (status: string | undefined | null, type: 'operational' | 'clinical' = 'operational') => {
     const translatedStatus = translateStatus(status, type);
-    return STATUS_VISUAL_CONFIG[type]?.[translatedStatus] || {
+    return getStatusVisualConfig()[type]?.[translatedStatus] || {
         label: translatedStatus ? translatedStatus.charAt(0).toUpperCase() + translatedStatus.slice(1) : 'Desconhecido',
         color: '#9ca3af',
         icon: Clock
@@ -177,13 +200,23 @@ const getStatusConfig = (status: string | undefined | null, type: 'operational' 
 };
 
 // 🏷️ Helper: badges informativos de tipo de atendimento/cobrança na aba confirm
-const SERVICE_TYPE_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
-    convenio:      { label: 'Convênio',       icon: Stethoscope, color: '#1d4ed8', bg: '#dbeafe' },
-    liminar:       { label: 'Liminar',        icon: Scale,       color: '#7e22ce', bg: '#f3e8ff' },
-    avaliacao:     { label: 'Avaliação',      icon: ClipboardCheck, color: '#b45309', bg: '#fef3c7' },
-    pacote:        { label: 'Pacote Pago',    icon: Package,     color: '#047857', bg: '#d1fae5' },
-    sessao_avulsa: { label: 'Sessão Avulsa',  icon: Calendar,    color: '#4b5563', bg: '#f3f4f6' },
-};
+//
+// 🐛 FIX (2026-09-17): mesma classe de bug de TDZ entre chunks do
+// getStatusVisualConfig() acima — const de nível de módulo referenciando
+// ícones no carregamento do módulo. Construção preguiçosa.
+let _serviceTypeConfigCache: Record<string, { label: string; icon: any; color: string; bg: string }> | null = null;
+function getServiceTypeConfig() {
+    if (!_serviceTypeConfigCache) {
+        _serviceTypeConfigCache = {
+            convenio:      { label: 'Convênio',       icon: Stethoscope, color: '#1d4ed8', bg: '#dbeafe' },
+            liminar:       { label: 'Liminar',        icon: Scale,       color: '#7e22ce', bg: '#f3e8ff' },
+            avaliacao:     { label: 'Avaliação',      icon: ClipboardCheck, color: '#b45309', bg: '#fef3c7' },
+            pacote:        { label: 'Pacote Pago',    icon: Package,     color: '#047857', bg: '#d1fae5' },
+            sessao_avulsa: { label: 'Sessão Avulsa',  icon: Calendar,    color: '#4b5563', bg: '#f3f4f6' },
+        };
+    }
+    return _serviceTypeConfigCache;
+}
 
 /**
  * Resolve o billingType exibido pelo modal a partir dos dados brutos do
@@ -1107,19 +1140,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         const badges: Array<{ key: string; label: string; icon: any; color: string; bg: string }> = [];
 
         if (bt === 'convenio' || pm === 'convenio' || event.insuranceProvider || hasInsuranceGuide) {
-            badges.push({ key: 'convenio', ...SERVICE_TYPE_CONFIG.convenio });
+            badges.push({ key: 'convenio', ...getServiceTypeConfig().convenio });
         }
         if (bt === 'liminar' || pm === 'liminar_credit' || event.liminarContract) {
-            badges.push({ key: 'liminar', ...SERVICE_TYPE_CONFIG.liminar });
+            badges.push({ key: 'liminar', ...getServiceTypeConfig().liminar });
         }
         if (['evaluation', 're_evaluation', 'neuropsych_evaluation'].includes(st)) {
-            badges.push({ key: 'avaliacao', ...SERVICE_TYPE_CONFIG.avaliacao });
+            badges.push({ key: 'avaliacao', ...getServiceTypeConfig().avaliacao });
         }
         if (st === 'package_session' || origin === 'package_prepaid' || hasPackage) {
-            badges.push({ key: 'pacote', ...SERVICE_TYPE_CONFIG.pacote });
+            badges.push({ key: 'pacote', ...getServiceTypeConfig().pacote });
         }
         if (['session', 'individual_session'].includes(st) && !hasPackage && bt !== 'convenio' && bt !== 'liminar') {
-            badges.push({ key: 'sessao_avulsa', ...SERVICE_TYPE_CONFIG.sessao_avulsa });
+            badges.push({ key: 'sessao_avulsa', ...getServiceTypeConfig().sessao_avulsa });
         }
 
         return badges;
@@ -2063,7 +2096,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     onChange={(e) => handleFieldChange('operationalStatus', e.target.value)}
                                     className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
-                                    {Object.entries(STATUS_VISUAL_CONFIG.operational).map(([key, config]) => (
+                                    {Object.entries(getStatusVisualConfig().operational).map(([key, config]) => (
                                         <option key={key} value={key}>
                                             {config.label}
                                         </option>
@@ -2080,7 +2113,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     onChange={(e) => handleFieldChange('clinicalStatus', e.target.value)}
                                     className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
-                                    {Object.entries(STATUS_VISUAL_CONFIG.clinical).map(([key, config]) => (
+                                    {Object.entries(getStatusVisualConfig().clinical).map(([key, config]) => (
                                         <option key={key} value={key}>
                                             {config.label}
                                         </option>

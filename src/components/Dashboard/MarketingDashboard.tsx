@@ -197,50 +197,60 @@ import LandingPagesTab from './LandingPagesTab';
 import LandingPageSuggestion from './LandingPageSuggestion';
 import { FileText } from 'lucide-react';
 
-const TAB_CONFIG = {
-  gmb: {
-    label: 'Google Meu Negócio',
-    icon: Google,
-    activeClass: 'border-blue-600 text-blue-600',
-    shortLabel: 'GMB'
-  },
-  instagram: {
-    label: 'Instagram',
-    icon: Instagram,
-    activeClass: 'border-pink-600 text-pink-600',
-    shortLabel: 'IG'
-  },
-  facebook: {
-    label: 'Facebook',
-    icon: Facebook,
-    activeClass: 'border-indigo-600 text-indigo-600',
-    shortLabel: 'FB'
-  },
-  landingpages: {
-    label: 'Landing Pages',
-    icon: FileText,
-    activeClass: 'border-cyan-600 text-cyan-600',
-    shortLabel: 'LPs'
-  },
-  metaads: {
-    label: 'Tráfego Pago',
-    icon: TrendingUp,
-    activeClass: 'border-emerald-600 text-emerald-600',
-    shortLabel: 'Ads'
-  },
-  videos: {
-    label: 'Vídeos com IA',
-    icon: Video,
-    activeClass: 'border-red-600 text-red-600',
-    shortLabel: 'Vídeos'
-  },
-  spy: {
-    label: 'Spy de Concorrentes',
-    icon: Search,
-    activeClass: 'border-purple-600 text-purple-600',
-    shortLabel: 'Spy'
+// 🐛 FIX (2026-09-17): const de nível de módulo referenciando componentes de
+// ícone no carregamento do módulo — mesmo bug real de TDZ entre chunks
+// confirmado via sourcemap em appointmentDetailModal.tsx (build de produção
+// do Rollup). Corrigido: construção preguiçosa, só no primeiro uso em função.
+let _tabConfigCache: Record<string, { label: string; icon: any; activeClass: string; shortLabel: string }> | null = null;
+function getTabConfigMap() {
+  if (!_tabConfigCache) {
+    _tabConfigCache = {
+      gmb: {
+        label: 'Google Meu Negócio',
+        icon: Google,
+        activeClass: 'border-blue-600 text-blue-600',
+        shortLabel: 'GMB'
+      },
+      instagram: {
+        label: 'Instagram',
+        icon: Instagram,
+        activeClass: 'border-pink-600 text-pink-600',
+        shortLabel: 'IG'
+      },
+      facebook: {
+        label: 'Facebook',
+        icon: Facebook,
+        activeClass: 'border-indigo-600 text-indigo-600',
+        shortLabel: 'FB'
+      },
+      landingpages: {
+        label: 'Landing Pages',
+        icon: FileText,
+        activeClass: 'border-cyan-600 text-cyan-600',
+        shortLabel: 'LPs'
+      },
+      metaads: {
+        label: 'Tráfego Pago',
+        icon: TrendingUp,
+        activeClass: 'border-emerald-600 text-emerald-600',
+        shortLabel: 'Ads'
+      },
+      videos: {
+        label: 'Vídeos com IA',
+        icon: Video,
+        activeClass: 'border-red-600 text-red-600',
+        shortLabel: 'Vídeos'
+      },
+      spy: {
+        label: 'Spy de Concorrentes',
+        icon: Search,
+        activeClass: 'border-purple-600 text-purple-600',
+        shortLabel: 'Spy'
+      }
+    };
   }
-};
+  return _tabConfigCache;
+}
 
 export default function MarketingDashboard() {
   const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('gmb');
@@ -1135,7 +1145,7 @@ export default function MarketingDashboard() {
 
         {/* Tabs */}
         <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
-          {Object.entries(TAB_CONFIG).map(([key, config]) => {
+          {Object.entries(getTabConfigMap()).map(([key, config]) => {
             const Icon = config.icon;
 
             return (

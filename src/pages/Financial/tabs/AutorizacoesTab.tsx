@@ -48,14 +48,24 @@ interface AutorizacoesTabProps {
     patientFilter?: string;
 }
 
-const STATUS_CONFIG: Record<CommunicationStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-    draft: { label: 'Rascunho', color: '#6B7280', bg: '#F3F4F6', icon: <Clock size={14} /> },
-    ready: { label: 'Pronta', color: '#F59E0B', bg: '#FEF3C7', icon: <Clock size={14} /> },
-    sending: { label: 'Enviando', color: '#8B5CF6', bg: '#EDE9FE', icon: <Send size={14} /> },
-    sent: { label: 'Enviada', color: '#3B82F6', bg: '#DBEAFE', icon: <Send size={14} /> },
-    approved: { label: 'Aprovada', color: '#10B981', bg: '#D1FAE5', icon: <CheckCircle size={14} /> },
-    denied: { label: 'Negada', color: '#EF4444', bg: '#FEE2E2', icon: <XCircle size={14} /> }
-};
+// 🐛 FIX (2026-09-17): const de nível de módulo construindo JSX de ícone
+// (React.createElement) no carregamento do módulo — mesmo bug real de TDZ
+// entre chunks confirmado via sourcemap contra o build de produção.
+// Construção preguiçosa, só no primeiro uso em função.
+let _authStatusConfigCache: Record<CommunicationStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> | null = null;
+function getAuthStatusConfigMap() {
+    if (!_authStatusConfigCache) {
+        _authStatusConfigCache = {
+            draft: { label: 'Rascunho', color: '#6B7280', bg: '#F3F4F6', icon: <Clock size={14} /> },
+            ready: { label: 'Pronta', color: '#F59E0B', bg: '#FEF3C7', icon: <Clock size={14} /> },
+            sending: { label: 'Enviando', color: '#8B5CF6', bg: '#EDE9FE', icon: <Send size={14} /> },
+            sent: { label: 'Enviada', color: '#3B82F6', bg: '#DBEAFE', icon: <Send size={14} /> },
+            approved: { label: 'Aprovada', color: '#10B981', bg: '#D1FAE5', icon: <CheckCircle size={14} /> },
+            denied: { label: 'Negada', color: '#EF4444', bg: '#FEE2E2', icon: <XCircle size={14} /> }
+        };
+    }
+    return _authStatusConfigCache;
+}
 
 const TABS = [
     { id: 'draft', label: 'Rascunho' },
@@ -67,7 +77,8 @@ const TABS = [
 ];
 
 function StatusBadge({ status }: { status: CommunicationStatus }) {
-    const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+    const map = getAuthStatusConfigMap();
+    const config = map[status] || (map as any).pending;
     return (
         <Chip
             size="small"
@@ -225,7 +236,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                             <FileText className="w-16 h-16 mx-auto mb-4 opacity-20" />
                             <Typography variant="h6" color="text.secondary" gutterBottom>
                                 {authorizations.length === 0
-                                    ? `Nenhuma autorização ${STATUS_CONFIG[activeTab]?.label.toLowerCase()}`
+                                    ? `Nenhuma autorização ${(getAuthStatusConfigMap() as any)[activeTab]?.label.toLowerCase()}`
                                     : 'Nenhum resultado para o filtro de paciente aplicado'}
                             </Typography>
                         </div>

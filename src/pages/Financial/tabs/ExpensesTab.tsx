@@ -49,22 +49,42 @@ import { ptBR } from 'date-fns/locale';
 import API from '../../../services/api';
 
 // Configuração de categorias com cores e ícones
-const CATEGORY_CONFIG: Record<string, { color: string; bgColor: string; label: string; icon: any }> = {
-  payroll: { color: '#6366F1', bgColor: '#6366F110', label: 'Folha', icon: DollarSign },
-  commission: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Comissão', icon: TrendingDown },
-  benefit: { color: '#10B981', bgColor: '#10B98110', label: 'Benefício', icon: User },
-  operational: { color: '#8B5CF6', bgColor: '#8B5CF610', label: 'Operacional', icon: FileText },
-  equipment: { color: '#EC4899', bgColor: '#EC489910', label: 'Equipamento', icon: CreditCard },
-  marketing: { color: '#06B6D4', bgColor: '#06B6D410', label: 'Marketing', icon: BarChart3 },
-  other: { color: '#6B7280', bgColor: '#6B728010', label: 'Outro', icon: FileText }
-};
+//
+// 🐛 FIX (2026-09-17): const de nível de módulo referenciando componentes de
+// ícone do lucide-react no momento em que o módulo carrega causa
+// `ReferenceError: Cannot access '<ícone>' before initialization` sob o
+// code-splitting de produção do Rollup — mesmo bug real confirmado via
+// sourcemap em appointmentDetailModal.tsx (TDZ entre chunks). Corrigido
+// tornando a construção preguiçosa: só monta no primeiro uso, dentro de
+// função, bem depois do grafo de módulos já ter inicializado.
+let _categoryConfigCache: Record<string, { color: string; bgColor: string; label: string; icon: any }> | null = null;
+function getCategoryConfigMap() {
+  if (!_categoryConfigCache) {
+    _categoryConfigCache = {
+      payroll: { color: '#6366F1', bgColor: '#6366F110', label: 'Folha', icon: DollarSign },
+      commission: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Comissão', icon: TrendingDown },
+      benefit: { color: '#10B981', bgColor: '#10B98110', label: 'Benefício', icon: User },
+      operational: { color: '#8B5CF6', bgColor: '#8B5CF610', label: 'Operacional', icon: FileText },
+      equipment: { color: '#EC4899', bgColor: '#EC489910', label: 'Equipamento', icon: CreditCard },
+      marketing: { color: '#06B6D4', bgColor: '#06B6D410', label: 'Marketing', icon: BarChart3 },
+      other: { color: '#6B7280', bgColor: '#6B728010', label: 'Outro', icon: FileText }
+    };
+  }
+  return _categoryConfigCache;
+}
 
-const STATUS_CONFIG = {
-  paid: { color: '#10B981', bgColor: '#E8F5E9', label: 'Pago', icon: CheckCircle },
-  pending: { color: '#F59E0B', bgColor: '#FFF3E0', label: 'Pendente', icon: Clock },
-  scheduled: { color: '#3B82F6', bgColor: '#E3F2FD', label: 'Agendado', icon: Calendar },
-  canceled: { color: '#EF4444', bgColor: '#FFEBEE', label: 'Cancelado', icon: XCircle }
-};
+let _statusConfigCache: Record<string, { color: string; bgColor: string; label: string; icon: any }> | null = null;
+function getExpenseStatusConfigMap() {
+  if (!_statusConfigCache) {
+    _statusConfigCache = {
+      paid: { color: '#10B981', bgColor: '#E8F5E9', label: 'Pago', icon: CheckCircle },
+      pending: { color: '#F59E0B', bgColor: '#FFF3E0', label: 'Pendente', icon: Clock },
+      scheduled: { color: '#3B82F6', bgColor: '#E3F2FD', label: 'Agendado', icon: Calendar },
+      canceled: { color: '#EF4444', bgColor: '#FFEBEE', label: 'Cancelado', icon: XCircle }
+    };
+  }
+  return _statusConfigCache;
+}
 
 // Origem financeira do atendimento que compõe a comissão (ver getCommissionSessions no backend)
 const ORIGIN_CONFIG: Record<'particular' | 'convenio' | 'liminar', { color: string; bgColor: string; label: string }> = {
@@ -155,11 +175,13 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
   };
 
   const getCategoryConfig = (category: string) => {
-    return CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other;
+    const map = getCategoryConfigMap();
+    return map[category] || map.other;
   };
 
   const getStatusConfig = (status: string) => {
-    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
+    const map = getExpenseStatusConfigMap();
+    return map[status] || map.pending;
   };
 
   const parseExpenseNotes = (notes: string) => {
