@@ -523,7 +523,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                 <CashflowCardsSkeleton />
             ) : viewMode === 'day' && data ? (
                 // ===== VISUALIZAÇÃO DIÁRIA =====
-                <div>
+                // 🎨 UX (2026-09-17): clique em Atualizar só animava o ícone do botão —
+                // resumo do dia e tabela ficavam parados, sem nenhum indício visual de
+                // que os dados estavam sendo recarregados. Agora todo o bloco (resumo +
+                // abas + tabela) esmaece suavemente durante o refresh, mesmo padrão de
+                // dashboards modernos (Linear/Stripe/Notion) pra refetch em segundo plano.
+                <div
+                    className={`transition-opacity duration-300 ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}
+                    aria-busy={refreshing}
+                >
                 <div>
                     {/* Accordion: Resumo do Dia */}
                     <button
