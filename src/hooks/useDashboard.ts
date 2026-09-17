@@ -36,7 +36,14 @@ interface UseDashboardReturn {
     invalidateCache: () => Promise<void>;
 }
 
-export const useDashboard = (): UseDashboardReturn => {
+// 🐛 FIX (2026-09-17): AdminDashboard chamava useDashboard() incondicionalmente,
+// mesmo abrindo direto numa aba que não é a Dashboard (ex: Financeiro) — a busca de
+// /v2/admin/dashboard/overview (a chamada mais pesada do carregamento inicial, ~1.3s)
+// disparava sempre, competindo com as chamadas que a aba realmente aberta precisa.
+// `enabled=false` só adia o fetch automático do mount — refresh()/invalidateCache()
+// continuam funcionando normalmente quando chamados explicitamente (ex: depois de
+// completar um agendamento em outra aba, pra manter o cache do Dashboard fresco).
+export const useDashboard = (enabled: boolean = true): UseDashboardReturn => {
     const [overview, setOverview] = useState<DashboardOverview | null>(getCache('dashboard'));
     const [stats, setStats] = useState<DashboardStats | null>(getCache('dashboard')?.stats || null);
     const [charts, setCharts] = useState<DashboardCharts | null>(getCache('dashboard')?.charts || null);
@@ -139,7 +146,7 @@ export const useDashboard = (): UseDashboardReturn => {
     useEffect(() => {
         isMounted.current = true;
 
-        if (isInitialLoad.current) {
+        if (enabled && isInitialLoad.current) {
             isInitialLoad.current = false;
             loadDashboard();
         }
@@ -147,7 +154,7 @@ export const useDashboard = (): UseDashboardReturn => {
         return () => {
             isMounted.current = false;
         };
-    }, [loadDashboard]);
+    }, [loadDashboard, enabled]);
 
     return {
         overview,

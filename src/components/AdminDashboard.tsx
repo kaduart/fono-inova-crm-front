@@ -290,13 +290,19 @@ export default function AdminDashboard() {
     const theme = useTheme();
 
     // 🎯 Hook otimizado do dashboard (substitui múltiplas chamadas)
+    // 🐛 FIX (2026-09-17): só busca overview automaticamente quando a aba Dashboard
+    // está ativa — antes disparava sempre, mesmo abrindo direto em outra aba (ex:
+    // Financeiro), competindo pela rede com o que a aba realmente aberta precisa.
+    // refreshDashboard() continua disponível e é chamado após mutações (completar
+    // agendamento, deletar paciente etc.) pra manter o cache fresco quando a pessoa
+    // eventualmente for pra lá.
     const {
         stats,
         doctors: doctorsOverview,
         upcomingAppointments: upcomingAppts,
         loading: dashboardLoading,
         refresh: refreshDashboard
-    } = useDashboard();
+    } = useDashboard(activeTab === 'Dashboard');
 
 
     // 🎯 USA API V2
