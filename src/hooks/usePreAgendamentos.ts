@@ -166,15 +166,32 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
   }, []);
 
   // Socket para atualização em tempo real
+  // 🐛 FIX (2026-09-18): `appointmentCreated`/`appointmentUpdated` são eventos GLOBAIS
+  // (qualquer agendamento do sistema, não só pré-agendamento) — numa sessão com várias
+  // ações de agenda em sequência, cada evento disparava seu próprio `fetchPreAgendamentos()`
+  // imediato. Achado real em produção: 12+ chamadas idênticas a `GET /pre-appointments`
+  // em poucos segundos, ~1s cada, mesma tela aberta o tempo todo. Debounce agrupa
+  // rajadas de eventos próximos numa única busca, feita 800ms depois do último evento —
+  // mantém a atualização em tempo real (só adia um pouco), sem refazer a mesma busca
+  // várias vezes por segundo.
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        fetchPreAgendamentos();
+      }, 800);
+    };
+
     const handleNew = (data: any) => {
       console.log('📡 Novo pré-agendamento via socket:', data);
-      fetchPreAgendamentos();
+      scheduleRefetch();
     };
 
     const handleUpdate = (data: any) => {
       console.log('📡 Pré-agendamento atualizado via socket:', data);
-      fetchPreAgendamentos();
+      scheduleRefetch();
     };
 
     const unsubs = [
@@ -186,7 +203,10 @@ export const usePreAgendamentos = (): UsePreAgendamentosReturn => {
       socketManager.on('appointmentUpdated', handleUpdate),
     ];
 
-    return () => unsubs.forEach(u => u());
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubs.forEach(u => u());
+    };
   }, [fetchPreAgendamentos]);
 
   return {

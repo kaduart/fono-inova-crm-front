@@ -87,16 +87,30 @@ export const NotificationBellFixed: React.FC = () => {
   }, []);
 
   // Ouvir sockets
+  // 🐛 FIX (2026-09-18): sem debounce, cada evento `preagendamento:new` disparava seu
+  // próprio fetchPreAgendamentos() imediato — este componente fica sempre montado
+  // (AdminHeader, toda página admin), então é uma das duas fontes que juntas causaram
+  // 12+ chamadas idênticas a GET /pre-appointments em produção (a outra era
+  // usePreAgendamentos.ts, mesmo fix aplicado lá). Debounce de 800ms agrupa rajadas de
+  // eventos próximos numa única busca, sem perder a atualização em tempo real.
   useEffect(() => {
     if (window.socketManager) {
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
       const unsubscribe = window.socketManager.on('preagendamento:new', (data: any) => {
         console.log('📅 Novo pré-agendamento:', data);
-        fetchPreAgendamentos();
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          fetchPreAgendamentos();
+        }, 800);
         if (typeof toast !== 'undefined') {
           toast.info(`📅 Novo: ${data.patientName}`);
         }
       });
-      return unsubscribe;
+      return () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        unsubscribe();
+      };
     }
   }, []);
 
