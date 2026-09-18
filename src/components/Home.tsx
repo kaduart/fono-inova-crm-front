@@ -1,7 +1,6 @@
 import { Calendar, ChartBar, Clipboard, Clock, Cog, DollarSign, Globe, HeartPulse, Hospital, Shield, User, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from './Header';
-import { HeroInstrumentPanel } from './HeroInstrumentPanel';
 
 const Button = ({ children, primary, onClick, ...props }) => (
   <button
@@ -45,20 +44,17 @@ const Home = () => {
 
       <main className="flex-1">
         <Section bg="bg-gradient-to-r from-green-600 to-emerald-700" height="py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-white mb-2 text-left">
-                Simplifique a gestão da sua clínica
-              </h1>
-              <p className="text-sm text-green-100 mb-4 text-left">
-                Sistema completo para otimizar atendimento, agilizar operações e melhorar a eficiência.
-              </p>
-              <div className="flex gap-2 justify-left">
-                <Button primary onClick={() => handleButtonClick('/login')}>Explorar</Button>
-                <Button onClick={() => handleButtonClick('/login')}>Agenda</Button>
-              </div>
+          <div className="max-w-2xl mx-auto text-center">
+            <h1 className="text-2xl font-bold text-white mb-2">
+              Simplifique a gestão da sua clínica
+            </h1>
+            <p className="text-sm text-green-100 mb-4">
+              Sistema completo para otimizar atendimento, agilizar operações e melhorar a eficiência.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button primary onClick={() => handleButtonClick('/login')}>Explorar</Button>
+              <Button onClick={() => handleButtonClick('/login')}>Agenda</Button>
             </div>
-            <HeroInstrumentPanel />
           </div>
         </Section>
 

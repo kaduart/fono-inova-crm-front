@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { IAppointment } from '../../utils/types/types';
 import { getGuides, moveAppointmentToGuide } from '../../services/insuranceGuideApi';
 import type { InsuranceGuide } from '../../services/insuranceGuideApi';
+import { Pagination } from '../common/Pagination';
 
 interface Props {
   appointments: IAppointment[];
@@ -520,15 +521,7 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
           <p className="text-xs text-gray-500">
             Exibindo <span className="font-semibold text-gray-700">{(currentPage - 1) * PAGE_SIZE + 1}</span>–<span className="font-semibold text-gray-700">{Math.min(currentPage * PAGE_SIZE, filtered.length)}</span> de <span className="font-semibold text-gray-700">{filtered.length}</span>
           </p>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
-              Anterior
-            </button>
-            <span className="min-w-24 text-center text-xs font-semibold text-gray-600">Página {currentPage} de {totalPages}</span>
-            <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
-              Próxima
-            </button>
-          </div>
+          <Pagination page={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} accentClassName="bg-indigo-500" />
         </div>
       )}
 

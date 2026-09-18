@@ -1,11 +1,14 @@
 import {
     Activity, BarChart3, Cake, ChevronDown, ChevronUp,
-    Clock, DollarSign, Eye, RefreshCw, Stethoscope, UserPlus, Users
+    Clock, DollarSign, Eye, RefreshCw, Stethoscope, UserPlus, Users, X
 } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { Skeleton as MuiSkeleton } from '@mui/material';
+import { Skeleton as MuiSkeleton, Dialog, DialogContent } from '@mui/material';
 import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import API from '../../services/api';
+import { appointmentService } from '../../services/appointmentService';
+import { getStatusConfig } from '../../utils/appointmentStatus';
+import { Pagination } from '../common/Pagination';
 import {
     DashboardStats,
     DoctorOverview,
@@ -72,6 +75,27 @@ const BirthdayCardSkeleton = memo(() => (
 ));
 BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
 
+// --- Sessões Hoje: avatar helpers ---
+
+const AVATAR_PALETTE = [
+    'bg-emerald-100 text-emerald-700',
+    'bg-blue-100 text-blue-700',
+    'bg-violet-100 text-violet-700',
+    'bg-amber-100 text-amber-700',
+    'bg-pink-100 text-pink-700',
+    'bg-teal-100 text-teal-700',
+    'bg-orange-100 text-orange-700',
+    'bg-indigo-100 text-indigo-700',
+];
+
+const getInitials = (name: string) =>
+    name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+
+const avatarClassFor = (name: string) => {
+    const hash = Array.from(name).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+};
+
 // --- MetricCard ---
 
 interface MetricCardProps {
@@ -84,6 +108,7 @@ interface MetricCardProps {
     iconBgClass: string;
     onAction?: () => void;
     actionIcon?: React.ReactNode;
+    onClick?: () => void;
 }
 
 // Números que chegam: quando `value` muda (refresh, nova carga de stats), o
@@ -91,7 +116,7 @@ interface MetricCardProps {
 // telemetria viva, não um número estático. Na primeira montagem from===to,
 // então não conta a partir de zero — só anima mudança real de valor.
 const MetricCard = memo<MetricCardProps>(({
-    title, value, format, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon
+    title, value, format, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon, onClick
 }) => {
     const [display, setDisplay] = useState(value);
     const prevValue = useRef(value);
@@ -122,7 +147,13 @@ const MetricCard = memo<MetricCardProps>(({
     }, [value]);
 
     return (
-        <div className="relative rounded-2xl p-5 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
+        <div
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+            className={`relative rounded-2xl p-5 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group ${onClick ? 'cursor-pointer hover:border-emerald-200' : ''}`}
+        >
             <div className="flex items-start justify-between mb-4">
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBgClass} shrink-0`}>
                     <span className={colorClass}>{icon}</span>
@@ -236,6 +267,39 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const [metricsSectionOpen, setMetricsSectionOpen] = useState(true);
     const [overviewSectionOpen, setOverviewSectionOpen] = useState(true);
     const [showAllDoctors, setShowAllDoctors] = useState(false);
+
+    // Modal "Sessões Hoje" — aberto a partir do card de métrica, busca TODOS os
+    // agendamentos de hoje (o upcomingAppointments do dashboard vem limitado a
+    // 10 e cobre os próximos 7 dias, não representa o dia inteiro sozinho).
+    const [todaySessionsModalOpen, setTodaySessionsModalOpen] = useState(false);
+    const [todaySessionsLoading, setTodaySessionsLoading] = useState(false);
+    const [todaySessions, setTodaySessions] = useState<Array<{
+        _id?: string; patientName: string; time: string; operationalStatus: string; specialty?: string;
+    }>>([]);
+    const [todaySessionsPage, setTodaySessionsPage] = useState(1);
+    const TODAY_SESSIONS_PAGE_SIZE = 8;
+
+    const openTodaySessionsModal = useCallback(async () => {
+        setTodaySessionsModalOpen(true);
+        setTodaySessionsPage(1);
+        setTodaySessionsLoading(true);
+        try {
+            const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+            const res = await appointmentService.list({ startDate: todayStr, endDate: todayStr });
+            const data = (res as any)?.data;
+            setTodaySessions(Array.isArray(data) ? data : []);
+        } catch {
+            setTodaySessions([]);
+        } finally {
+            setTodaySessionsLoading(false);
+        }
+    }, []);
+
+    const todaySessionsTotalPages = Math.max(1, Math.ceil(todaySessions.length / TODAY_SESSIONS_PAGE_SIZE));
+    const paginatedTodaySessions = useMemo(
+        () => todaySessions.slice((todaySessionsPage - 1) * TODAY_SESSIONS_PAGE_SIZE, todaySessionsPage * TODAY_SESSIONS_PAGE_SIZE),
+        [todaySessions, todaySessionsPage]
+    );
 
     const [aniversariantes, setAniversariantes] = useState<Array<{
         _id: string; fullName: string; dateOfBirth: string; phone?: string; daysUntil: number;
@@ -392,7 +456,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
 
             {/* Métricas */}
             <AccordionSection
-                title="Métricas do Hospital"
+                title="Métricas da Clínica"
                 isOpen={metricsSectionOpen}
                 onToggle={() => setMetricsSectionOpen(v => !v)}
                 iconNode={<BarChart3 size={18} />}
@@ -411,10 +475,11 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                 <MetricCard
                                     title="Sessões Hoje"
                                     value={stats.todayAppointments}
-                                    subtitle="Agendamentos confirmados"
+                                    subtitle="Agendamentos confirmados · clique para ver todas"
                                     icon={<Activity size={20} />}
                                     colorClass="text-emerald-600"
                                     iconBgClass="bg-emerald-100"
+                                    onClick={openTodaySessionsModal}
                                 />
                                 <MetricCard
                                     title="Sessões Semana"
@@ -648,6 +713,101 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     Recolher Todos
                 </button>
             </div>
+
+            {/* Modal: Sessões Hoje (todas, paginadas) */}
+            <Dialog
+                open={todaySessionsModalOpen}
+                onClose={() => setTodaySessionsModalOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '24px', overflow: 'hidden', boxShadow: '0 24px 60px -12px rgba(16,24,40,0.25)' } }}
+            >
+                <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-amber-50 to-white px-6 py-5">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                            <Clock size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-bold leading-5 text-gray-900">Sessões de Hoje</h2>
+                            <p className="text-xs text-gray-500">
+                                {todaySessionsLoading ? 'Carregando...' : `${todaySessions.length} ${todaySessions.length === 1 ? 'agendamento' : 'agendamentos'}`}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setTodaySessionsModalOpen(false)}
+                        className="rounded-full p-2 text-gray-400 transition-colors hover:bg-white hover:text-gray-600"
+                        aria-label="Fechar"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <DialogContent className="!px-3 !py-2">
+                    {todaySessionsLoading ? (
+                        <div className="space-y-1 py-2">
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="flex items-center gap-3 rounded-xl p-3 animate-pulse">
+                                    <div className="h-10 w-10 shrink-0 rounded-full bg-gray-100" />
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-3 w-32 rounded bg-gray-100" />
+                                        <div className="h-2.5 w-48 rounded bg-gray-50" />
+                                    </div>
+                                    <div className="h-5 w-20 rounded-full bg-gray-100" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : todaySessions.length > 0 ? (
+                        <>
+                            <ul className="py-1">
+                                {paginatedTodaySessions.map((session, index) => {
+                                    const cfg = getStatusConfig(session.operationalStatus);
+                                    return (
+                                        <li
+                                            key={session._id || index}
+                                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-gray-50"
+                                        >
+                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarClassFor(session.patientName)}`}>
+                                                {getInitials(session.patientName)}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold text-gray-800">{session.patientName}</p>
+                                                <p className="flex items-center gap-1 truncate text-xs text-gray-500">
+                                                    <Clock size={11} className="shrink-0 text-gray-300" />
+                                                    {session.time}
+                                                    {session.specialty && (
+                                                        <span className="truncate text-gray-400">· {session.specialty}</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <span className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${cfg.bgColor} ${cfg.color}`}>
+                                                <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                                                {cfg.label}
+                                            </span>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+
+                            <Pagination
+                                page={todaySessionsPage}
+                                totalPages={todaySessionsTotalPages}
+                                onPageChange={setTodaySessionsPage}
+                                accentClassName="bg-amber-500"
+                                className="border-t border-gray-100 px-2 pb-1 pt-4"
+                            />
+                        </>
+                    ) : (
+                        <div className="flex flex-col items-center gap-2 py-10 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
+                                <Clock size={22} className="text-gray-300" />
+                            </div>
+                            <p className="text-sm text-gray-400">Nenhuma sessão hoje.</p>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

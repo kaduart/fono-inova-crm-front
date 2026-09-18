@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from "react-router-dom";
 import patientService from '../../services/patientService';
 import { PatientDTO, mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
+import { Pagination } from '../common/Pagination';
 
 // ============================================================================
 // Tipos e interfaces
@@ -195,15 +196,6 @@ const PatientTable: React.FC<PatientTableProps> = ({
         startIndex,
         startIndex + itemsPerPage
     );
-
-    const handlePageChange = (direction: 'prev' | 'next') => {
-        if (direction === 'prev' && currentPage > 1) {
-            setCurrentPage((prev) => prev - 1);
-        }
-        if (direction === 'next' && currentPage < totalPages) {
-            setCurrentPage((prev) => prev + 1);
-        }
-    };
 
     const sortData = (key: string) => {
         let direction: 'ascending' | 'descending' = 'ascending';
@@ -615,35 +607,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                         </select>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        onClick={() => handlePageChange('prev')}
-                                        disabled={currentPage === 1}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        Anterior
-                                    </button>
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                        <button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                                                currentPage === page
-                                                    ? 'bg-gray-800 text-white'
-                                                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-                                            }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    ))}
-                                    <button
-                                        onClick={() => handlePageChange('next')}
-                                        disabled={currentPage === totalPages}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-md text-gray-600 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        Próxima
-                                    </button>
-                                </div>
+                                <Pagination page={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} accentClassName="bg-gray-800" />
                             </div>
                         </>
                     )}

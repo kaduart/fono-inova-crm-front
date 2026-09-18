@@ -2,9 +2,10 @@
 // 🚀 Mapeamento centralizado de status de appointments
 // Garante consistência entre backend, frontend e UI
 
-export type OperationalStatus = 
+export type OperationalStatus =
+  | 'pre_agendado'
   | 'scheduled'
-  | 'confirmed' 
+  | 'confirmed'
   | 'completed'
   | 'canceled'
   | 'processing_create'
@@ -29,6 +30,12 @@ export interface StatusConfig {
 
 // Configuração de status operacionais
 export const OPERATIONAL_STATUS_CONFIG: Record<OperationalStatus, StatusConfig> = {
+  pre_agendado: {
+    label: 'Pré-agendado',
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-100',
+    description: 'Reservado, aguardando confirmação do fluxo de agendamento'
+  },
   scheduled: {
     label: 'Agendado',
     color: 'text-yellow-700',
