@@ -24,6 +24,7 @@ import packageService from '../../services/packageService';
 import API from '../../services/api';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import { doctorHandlesSpecialty } from '../../utils/doctorSpecialty';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
@@ -106,6 +107,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const isEditing = !!initialData;
     const [errors, setErrors] = useState<FormErrors>({});
     const [formData, setFormData] = useState(initialFormState);
+
+    // Profissional × Tipo de Sessão: o pacote grava `sessionType` do formulário (não o do médico),
+    // então "Luis Henrique (TO) + Fonoaudiologia" vira um FONO-N errado. AVISO, não bloqueio: na
+    // auditoria de 2026-09-21, 6 dos 8 pacotes divergentes eram psicólogos com pacote de
+    // psicopedagogia/neuropsicologia (prática real da clínica, `specialties` do cadastro vazio) —
+    // bloquear impediria esses pacotes legítimos. Só na criação (em edição os campos ficam travados).
+    const doctorSpecialtyMismatchMessage = useMemo(() => {
+        if (isEditing || !formData.doctorId || !formData.sessionType) return '';
+        const doctor = doctors.find(d => String(d._id) === String(formData.doctorId));
+        if (!doctor || doctorHandlesSpecialty(doctor, formData.sessionType)) return '';
+        const therapyLabel = THERAPY_TYPES.find(o => o.value === formData.sessionType)?.label || formData.sessionType;
+        const doctorSpecialty = (doctor.specialty || '').replace(/_/g, ' ');
+        return `${doctor.fullName} está cadastrado(a) como ${doctorSpecialty}, mas este pacote será de ${therapyLabel}. Confira se o tipo de sessão está certo.`;
+    }, [isEditing, doctors, formData.doctorId, formData.sessionType]);
     const selectedAppointmentIdRef = useRef<string>(''); // ref para garantir valor no submit
     const specialtyDerivedFromDebtRef = useRef(false);
     const previousSessionTypeRef = useRef('');
@@ -1732,6 +1747,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 </option>
                                             ))}
                                         </Select>
+                                        {(doctorSpecialtyMismatchMessage || errors.doctorId) && (
+                                            <p className="mt-1 text-xs font-medium text-amber-700">
+                                                ⚠️ {doctorSpecialtyMismatchMessage || errors.doctorId}
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Segunda linha - 2 colunas */}

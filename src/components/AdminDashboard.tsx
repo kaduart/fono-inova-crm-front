@@ -75,6 +75,7 @@ import { useChatOptional } from '../contexts/ChatContext'; // 🆕 Para mensagen
 import { useAdmin } from '../hooks/useAdmin';
 import { useDashboard, useDoctorsOverview } from '../hooks/useDashboard';
 import { usePatients } from '../hooks/usePatients';
+import { useCalendarAppointmentsSync } from '../hooks/useCalendarAppointmentsSync';
 import { usePaymentsContext } from '../contexts/PaymentsContext';
 import { SystemHealthProvider } from '../contexts/SystemHealthContext';
 import WhatsAppCriticalBanner from './admin/WhatsAppCriticalBanner';
@@ -362,13 +363,16 @@ export default function AdminDashboard() {
 
     const { markAsPaid, markAsDebit } = usePayment();
 
-    // 🗓️ Buscar appointments quando o range de datas mudar (só se já carregou a aba)
-    useEffect(() => {
-        if (hasLoadedAppointments && calendarDateRange.startDate && calendarDateRange.endDate) {
-            console.log('📅 AdminDashboard: Buscando appointments para range:', calendarDateRange);
-            fetchAppointments({ ...calendarDateRange, light: true });
-        }
-    }, [fetchAppointments, calendarDateRange.startDate, calendarDateRange.endDate, hasLoadedAppointments]);
+    // 🗓️ Buscar appointments quando o range mudar OU ao (re)entrar na aba de agenda.
+    // 🐛 FIX (2026-09-21): o array do AppointmentsContext é compartilhado — Financeiro → Pagamentos
+    // o sobrescreve com só "hoje". Voltar ao calendário mantinha o mesmo range (nenhum efeito
+    // disparava) e o mês aparecia vazio, exceto o dia de hoje. Ver useCalendarAppointmentsSync.
+    useCalendarAppointmentsSync({
+        isCalendarTab: activeTab === 'Calendário' || activeTab === 'Pré-Agendamentos',
+        hasLoaded: hasLoadedAppointments,
+        range: calendarDateRange,
+        fetchAppointments,
+    });
 
     // 🚫 REMOVIDO: Atualização automática do calendário via socket
     // Agora o usuário precisa atualizar manualmente (F5 ou trocar de aba)

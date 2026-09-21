@@ -41,6 +41,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const currentPeriodRef = useRef(currentPeriod);
     const appointmentsRef = useRef(appointments);
     const isFetchingRef = useRef(false);
+    // Chave (período/filtros) da busca em andamento — só busca IGUAL à em voo é descartada
+    const inFlightKeyRef = useRef('');
 
     // 🛡️ PROTEÇÃO: evita auto-disparo ao receber socket de atualizações locais
     const recentLocalUpdateIds = useRef<Set<string>>(new Set());
@@ -63,8 +65,14 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const effectiveFilters = filters || currentFiltersRef.current;
         const forceRefresh = filters?.force;
 
-        // 🛡️ Proteção contra chamadas simultâneas (ignora se forçar refresh)
-        if (!forceRefresh && isFetchingRef.current) {
+        // 🛡️ Proteção contra chamadas simultâneas IGUAIS (ignora se forçar refresh).
+        // Uma busca de OUTRO período não pode ser descartada: o array é compartilhado por várias
+        // telas (ex: Pagamentos busca só "hoje") e, se a busca do mês fosse ignorada por haver
+        // uma de "hoje" em voo, o calendário ficaria só com o dia de hoje. Respostas velhas
+        // continuam descartadas pelo requestIdRef (a última chamada vence).
+        const keyFilters: { startDate?: string; endDate?: string; patientName?: string; doctorId?: string } = effectiveFilters || {};
+        const fetchKey = [keyFilters.startDate, keyFilters.endDate, keyFilters.patientName, keyFilters.doctorId].join('|');
+        if (!forceRefresh && isFetchingRef.current && inFlightKeyRef.current === fetchKey) {
             console.log('[AppointmentsContext] Já está carregando, ignorando chamada');
             return;
         }
@@ -74,7 +82,9 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         // ✅ Cache: se já carregou esse período, não busca de novo (null = forçar refresh)
         // 🆕 force = true ignora o cache | patientName bypassa cache sempre
-        if (!forceRefresh && !effectiveFilters?.patientName && currentPeriodRef.current !== null &&
+        // Com uma busca de OUTRO período em voo o cache não vale: ela vai sobrescrever o array quando terminar.
+        const otherPeriodInFlight = isFetchingRef.current && inFlightKeyRef.current !== fetchKey;
+        if (!forceRefresh && !effectiveFilters?.patientName && !otherPeriodInFlight && currentPeriodRef.current !== null &&
             currentPeriodRef.current?.startDate === effectiveFilters.startDate &&
             currentPeriodRef.current?.endDate === effectiveFilters.endDate &&
             appointmentsRef.current.length > 0) {
@@ -89,7 +99,8 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
         
         isFetchingRef.current = true;
-        
+        inFlightKeyRef.current = fetchKey;
+
         // 🛡️ Incrementa request ID para esta chamada
         const currentRequest = ++requestIdRef.current;
         
@@ -154,9 +165,10 @@ export const AppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         } catch (error) {
             console.error('❌ Erro ao buscar appointments:', error);
         } finally {
-            isFetchingRef.current = false;
-            // 🛡️ Só desativa loading se for o request atual
+            // 🛡️ Só o request atual encerra o "em andamento"/loading — um request velho que termina
+            // depois não pode marcar como ocioso um mais novo ainda em voo
             if (currentRequest === requestIdRef.current) {
+                isFetchingRef.current = false;
                 setIsLoading(false);
             }
         }

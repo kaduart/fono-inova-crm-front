@@ -16,6 +16,8 @@ export interface AppointmentCompleteGuardPackage {
   totalSessions?: number;
   sessionsDone?: number;
   liminarCreditBalance?: number; // 🏷️ LEGADO: mantido para compatibilidade com packages antigos
+  paymentType?: string;
+  model?: string;
 }
 
 export interface AppointmentCompleteGuardLiminar {
@@ -30,6 +32,10 @@ export interface AppointmentCompleteGuardInput {
   package?: AppointmentCompleteGuardPackage | string;
   liminarContract?: AppointmentCompleteGuardLiminar;
   sessionValue?: number | null;
+  /** Secretária optou por lançar a sessão no saldo devedor (conta corrente do paciente). */
+  addToBalance?: boolean;
+  /** Valor digitado em "Valor a Registrar" — só vale quando addToBalance = true. */
+  balanceAmount?: number | null;
 }
 
 export interface GuardResult {
@@ -44,7 +50,34 @@ export const GuardErrorCodes = {
   LIMINAR_INSUFFICIENT_BALANCE: 'LIMINAR_INSUFFICIENT_BALANCE',
   LIMINAR_DATA_INCOMPLETE: 'LIMINAR_DATA_INCOMPLETE',
   PACKAGE_EXHAUSTED: 'PACKAGE_EXHAUSTED',
+  BALANCE_NOT_ALLOWED: 'BALANCE_NOT_ALLOWED',
+  BALANCE_AMOUNT_REQUIRED: 'BALANCE_AMOUNT_REQUIRED',
 } as const;
+
+/**
+ * Espelha a regra do backend (completeSessionService.v2.js — SESSION_ALREADY_PAID):
+ * saldo devedor é permitido para qualquer sessão particular, exceto convênio,
+ * liminar e pacote que não seja per-session (pré-pago/full/parcelado).
+ *
+ * Pacote sem informação de tipo (string, ou objeto sem paymentType/model) é
+ * tratado como "não sei" → permite; o backend continua sendo a palavra final.
+ */
+export function canAddToPatientBalance(appointment: AppointmentCompleteGuardInput): boolean {
+  if (appointment.billingType === 'liminar' || appointment.liminarContract) return false;
+  if (appointment.billingType === 'convenio') return false;
+
+  const pkg = appointment.package;
+  if (pkg && typeof pkg === 'object') {
+    const paymentType = pkg.paymentType;
+    const model = pkg.model;
+    if (paymentType || model) {
+      const isPerSession =
+        paymentType === 'per-session' || paymentType === 'per_session' || model === 'per_session';
+      return isPerSession;
+    }
+  }
+  return true;
+}
 
 function getSessionValue(appointment: AppointmentCompleteGuardInput): { hasValue: boolean; value: number } {
   const raw = appointment.sessionValue;
@@ -83,6 +116,8 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
     sessionValue: appointment.sessionValue,
     package: appointment.package,
     liminarContract: appointment.liminarContract,
+    addToBalance: appointment.addToBalance,
+    balanceAmount: appointment.balanceAmount,
   }, null, 2));
   // ═══════════════════════════════════════════════════════════════
   // 0️⃣ RETORNO — sem cobrança, passa direto
@@ -93,6 +128,30 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
 
   const billingType = appointment.billingType || 'particular';
   const { hasValue: hasSessionValue, value: sessionValue } = getSessionValue(appointment);
+
+  // ═══════════════════════════════════════════════════════════════
+  // 💰 SALDO DEVEDOR — o valor é declarado pela secretária ("Valor a Registrar"),
+  // então não depende do valor cadastrado no agendamento. O backend usa
+  // balanceAmount como valor da sessão (completeSessionService.v2.js).
+  // ═══════════════════════════════════════════════════════════════
+  if (appointment.addToBalance) {
+    if (!canAddToPatientBalance(appointment)) {
+      return {
+        valid: false,
+        errorCode: GuardErrorCodes.BALANCE_NOT_ALLOWED,
+        message: '🚫 Esta sessão não pode ir para o saldo devedor (convênio, liminar ou pacote pré-pago já têm cobrança própria).',
+      };
+    }
+    const balanceAmount = Number(appointment.balanceAmount ?? 0);
+    if (!(balanceAmount > 0)) {
+      return {
+        valid: false,
+        errorCode: GuardErrorCodes.BALANCE_AMOUNT_REQUIRED,
+        message: '💰 Informe o valor a registrar no saldo devedor (maior que zero).',
+      };
+    }
+    return { valid: true };
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // 1️⃣ LIMINAR — prioridade máxima (domínio judicial)
@@ -185,7 +244,7 @@ export function validateAppointmentComplete(appointment: AppointmentCompleteGuar
   return {
     valid: false,
     errorCode: GuardErrorCodes.SESSION_VALUE_REQUIRED,
-    message: '💰 Valor da sessão não definido. Edite o agendamento e informe o valor antes de completar.',
+    message: '💰 Valor da sessão não definido. Informe o valor no agendamento, ou use "Conta Corrente do Paciente" para lançar no saldo devedor.',
   };
 }
 

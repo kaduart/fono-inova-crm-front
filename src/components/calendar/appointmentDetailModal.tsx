@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { validateAppointmentComplete } from '../../utils/appointmentCompleteGuard';
+import { validateAppointmentComplete, canAddToPatientBalance } from '../../utils/appointmentCompleteGuard';
 import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
 import BillingTypeSelector from '../ui/BillingTypeSelector';
 import LiminarBillingFields from '../ui/LiminarBillingFields';
@@ -119,14 +119,17 @@ const STATUS_TRANSLATIONS = {
 // estaticamente. Confirmado via sourcemap contra o build de produção real
 // (não suposição) — stack apontava exatamente pra esta linha.
 // Corrigido tornando a construção preguiçosa: só monta o objeto na primeira
-// chamada de getStatusVisualConfig(), que só acontece dentro de render/função,
+// chamada de getStatusVisualMap(), que só acontece dentro de render/função,
 // bem depois de todo o grafo de módulos já ter inicializado.
 let _statusVisualConfigCache: {
     operational: Record<string, { label: string; color: string; icon: typeof Clock }>;
     clinical: Record<string, { label: string; color: string; icon: typeof Clock }>;
 } | null = null;
 
-function getStatusVisualConfig() {
+// ⚠️ Nome DIFERENTE de propósito do `getStatusVisualConfig(status, type)` definido dentro do componente:
+// com o mesmo nome, a versão local sombreava esta e `getStatusVisualConfig().operational` (aba Editar)
+// virava undefined → "Cannot convert undefined or null to object" (2026-09-21, regressão do fix de TDZ de 09-17).
+function getStatusVisualMap() {
     if (!_statusVisualConfigCache) {
         _statusVisualConfigCache = {
             operational: {
@@ -192,7 +195,7 @@ const translateStatus = (status: string | undefined | null, type: 'operational' 
 
 const getStatusConfig = (status: string | undefined | null, type: 'operational' | 'clinical' = 'operational') => {
     const translatedStatus = translateStatus(status, type);
-    return getStatusVisualConfig()[type]?.[translatedStatus] || {
+    return getStatusVisualMap()[type]?.[translatedStatus] || {
         label: translatedStatus ? translatedStatus.charAt(0).toUpperCase() + translatedStatus.slice(1) : 'Desconhecido',
         color: '#9ca3af',
         icon: Clock
@@ -202,7 +205,7 @@ const getStatusConfig = (status: string | undefined | null, type: 'operational' 
 // 🏷️ Helper: badges informativos de tipo de atendimento/cobrança na aba confirm
 //
 // 🐛 FIX (2026-09-17): mesma classe de bug de TDZ entre chunks do
-// getStatusVisualConfig() acima — const de nível de módulo referenciando
+// getStatusVisualMap() acima — const de nível de módulo referenciando
 // ícones no carregamento do módulo. Construção preguiçosa.
 let _serviceTypeConfigCache: Record<string, { label: string; icon: any; color: string; bg: string }> | null = null;
 function getServiceTypeConfig() {
@@ -468,6 +471,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         return st === 'package_session' || origin === 'package_prepaid' || !!event?.package || !!(event as any).extendedProps?.package || !!(event as any).extendedProps?.__isPackageAppointment;
     }, [event]);
 
+    // 💰 Saldo devedor permitido? Qualquer sessão particular pode ir pra conta corrente,
+    // exceto convênio, liminar e pacote pré-pago (mesma regra do backend — ver guard).
+    const canUseBalance = canAddToPatientBalance({
+        billingType,
+        package: event?.package ?? event?.extendedProps?.package,
+        liminarContract: event?.liminarContract,
+    });
+
     // 💰 NOVO: Modal de conta corrente
     const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
 
@@ -732,7 +743,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         }
 
         // 🚫 BLOQUEIO: método de pagamento obrigatório para particular (exceto pacote pago)
-        if (billingType === 'particular' && !isPackageSession() && !paymentMethod) {
+        // Saldo devedor não recebe nada agora → não há método de pagamento a exigir.
+        if (billingType === 'particular' && !isPackageSession() && !paymentMethod && !addToBalance) {
             toast.error('Selecione o método de pagamento antes de concluir o atendimento.');
             return;
         }
@@ -783,6 +795,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         : null),
                 liminarContract: event?.liminarContract,
                 sessionValue: financialAmounts.sessionValue || null,
+                addToBalance,
+                balanceAmount: debitAmount,
             });
 
             console.log('[Modal] Guard result:', guardResult);
@@ -795,7 +809,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             console.log('[Modal] Guard OK — chamando onCompleteAppointment');
 
             // Monta o array de pagamentos (apenas particular com dados válidos)
-            const paymentsPayload = !isThirdPartyBilling
+            // Saldo devedor: nada é recebido agora → não manda split. O backend (fiado) ignora
+            // splitMethods, então o valor "recebido" digitado seria descartado em silêncio.
+            const paymentsPayload = (!isThirdPartyBilling && !addToBalance)
                 ? payments
                     .filter(p => Number(p.amount) > 0 && p.method && p.date)
                     .map(p => ({ amount: Number(p.amount), date: p.date, method: p.method }))
@@ -815,11 +831,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     : billingType === 'liminar' ? 'liminar_credit'
                     : 'convenio',
                 paymentAmount: billingType === 'particular'
-                    ? particularAmounts.paymentAmount
+                    ? (addToBalance ? 0 : particularAmounts.paymentAmount)
                     : billingType === 'liminar' ? paymentAmount
                     : insuranceValue,
+                // Agendamento sem valor cadastrado + saldo devedor: o valor declarado passa a ser o da sessão.
+                // Com sinal (sessionValue > 0) o total é preservado — backend só desconta o sinal do saldo.
                 sessionValue: billingType === 'particular'
-                    ? particularAmounts.sessionValue
+                    ? (addToBalance && !(particularAmounts.sessionValue > 0) ? debitAmount : particularAmounts.sessionValue)
                     : billingType === 'liminar' ? paymentAmount
                     : insuranceValue,
                 ...(billingType === 'convenio' && { insuranceProvider, insuranceValue, authorizationCode }),
@@ -1636,6 +1654,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             !!(event?.insuranceProvider) ||
                             !!(insuranceProvider)
                         ) && (
+                            // 💰 Com "Conta Corrente" ligada nada é recebido agora → some o bloco de pagamento
+                            // (evita "recebi R$X" + "lançar R$X no saldo" ao mesmo tempo). Só o resumo do sinal
+                            // continua visível quando existe sinal já recebido.
+                            !addToBalance || (financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0)
+                        ) && (
                             <div className="bg-white rounded-xl border border-gray-200 p-3">
                                 {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0 && (
                                     <div className="mb-3 grid grid-cols-1 gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-3">
@@ -1659,6 +1682,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         </div>
                                     </div>
                                 )}
+                                {!addToBalance && (<>
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
@@ -1751,12 +1775,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         </div>
                                     </div>
                                 )}
+                                </>)}
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                         {/* 💰 SEÇÃO DE SALDO DEVEDOR — oculta para convênio/liminar e sem permission */}
-                        {permissions.canSeeDebt && !(
+                        {permissions.canSeeDebt && canUseBalance && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
                             event?.paymentMethod === 'convenio' ||
@@ -2096,7 +2121,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     onChange={(e) => handleFieldChange('operationalStatus', e.target.value)}
                                     className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
-                                    {Object.entries(getStatusVisualConfig().operational).map(([key, config]) => (
+                                    {Object.entries(getStatusVisualMap().operational).map(([key, config]) => (
                                         <option key={key} value={key}>
                                             {config.label}
                                         </option>
@@ -2113,7 +2138,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     onChange={(e) => handleFieldChange('clinicalStatus', e.target.value)}
                                     className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
                                 >
-                                    {Object.entries(getStatusVisualConfig().clinical).map(([key, config]) => (
+                                    {Object.entries(getStatusVisualMap().clinical).map(([key, config]) => (
                                         <option key={key} value={key}>
                                             {config.label}
                                         </option>
