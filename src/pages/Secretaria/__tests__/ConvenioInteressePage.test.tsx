@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // MUI (menus, diálogos, tabelas) é pesado no jsdom: o padrão de 5s é curto para a suíte inteira da página
 vi.setConfig({ testTimeout: 30000 });
@@ -268,5 +268,62 @@ describe('ConvenioInteressePage', () => {
     render(<ConvenioInteressePage />);
     expect(await screen.findByText('Maria da Silva')).toBeInTheDocument();
     expect(await screen.findByText('timeout')).toBeInTheDocument();
+  });
+});
+
+describe('layout mobile (cartões em vez de tabela)', () => {
+  const originalMatchMedia = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('mostra um cartão por cadastro com todas as informações e sem tabela', async () => {
+    render(<ConvenioInteressePage />);
+    const cards = await screen.findAllByTestId('interesse-card');
+    expect(cards).toHaveLength(2);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    const first = within(cards[0]);
+    expect(first.getByText('Maria da Silva')).toBeInTheDocument();
+    expect(first.getByText('+55 (62) 99201-3573')).toBeInTheDocument();
+    expect(first.getByText('GEAP')).toBeInTheDocument();
+    expect(first.getByText('Terapia Ocupacional')).toBeInTheDocument();
+    expect(first.getByText('4 anos · Manhã')).toBeInTheDocument();
+    expect(first.getByRole('button', { name: /Alterar status de Maria da Silva/ })).toBeInTheDocument();
+    expect(first.getByRole('link', { name: 'Abrir WhatsApp de Maria da Silva' })).toBeInTheDocument();
+    expect(first.getByRole('button', { name: 'Notas de Maria da Silva' })).toBeInTheDocument();
+  });
+
+  it("'Contatado' funciona no cartão e a ordenação vira um botão", async () => {
+    render(<ConvenioInteressePage />);
+    const cards = await screen.findAllByTestId('interesse-card');
+
+    fireEvent.click(within(cards[0]).getByRole('button', { name: 'Contatado' }));
+    await waitFor(() => expect(api.update).toHaveBeenCalledWith('e1', { status: 'contatado' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Mais antigos primeiro/ }));
+    await waitFor(() => expect(lastListParams().order).toBe('desc'));
+    expect(await screen.findByRole('button', { name: /Mais recentes primeiro/ })).toBeInTheDocument();
+  });
+
+  it('estado vazio aparece também no mobile', async () => {
+    api.list.mockResolvedValue(listOf([]));
+    api.summary.mockResolvedValue({ ...summary, total: 0 });
+    render(<ConvenioInteressePage />);
+    expect(await screen.findByText(/Nenhum interesse registrado ainda/)).toBeInTheDocument();
   });
 });

@@ -36,6 +36,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { EditNote, FileDownload, Refresh, Search, WhatsApp } from '@mui/icons-material';
 import toast from 'react-hot-toast';
@@ -130,6 +132,9 @@ const SummaryCard = ({
 const ConvenioInteressePage = () => {
   const { entries, total, loading, error, summary, summaryError, fetchList, fetchSummary, updateEntry } =
     useConvenioWaitlist();
+  const theme = useTheme();
+  // layout de cartões no celular/tablet estreito: a tabela de 7 colunas esconde as ações atrás de rolagem horizontal
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
 
   const [statusTab, setStatusTab] = useState<StatusTab>(DEFAULT_TAB);
   const [convenio, setConvenio] = useState<WaitlistConvenio | ''>('');
@@ -312,13 +317,75 @@ const ConvenioInteressePage = () => {
     }
   };
 
+  const toggleOrder = () => {
+    setOrder((current) => (current === 'asc' ? 'desc' : 'asc'));
+    resetPage();
+  };
+
+  const interesseFor = (entry: WaitlistEntry) =>
+    [formatAge(entry.idadeCrianca) !== '—' ? formatAge(entry.idadeCrianca) : null, entry.periodo]
+      .filter(Boolean)
+      .join(' · ');
+
+  const statusChipFor = (entry: WaitlistEntry) => {
+    const meta = STATUS_META[entry.status];
+    if (savingId === entry._id) return <CircularProgress size={20} aria-label="Salvando" />;
+    return (
+      <Tooltip title={`${meta.hint} — clique para alterar`}>
+        <Chip
+          size="small"
+          color={meta.color}
+          label={meta.label}
+          onClick={(event) => openStatusMenu(event, entry)}
+          aria-label={`Alterar status de ${entry.name} (atual: ${meta.label})`}
+        />
+      </Tooltip>
+    );
+  };
+
+  const actionsFor = (entry: WaitlistEntry) => (
+    <>
+      {entry.status === 'aguardando' && (
+        <Button
+          size="small"
+          variant="contained"
+          disabled={savingId === entry._id}
+          onClick={() => changeStatus(entry, 'contatado')}
+          sx={{ mr: 0.5 }}
+        >
+          Contatado
+        </Button>
+      )}
+      <Tooltip title="Abrir WhatsApp com mensagem pronta">
+        <IconButton
+          size="small"
+          color="success"
+          component="a"
+          href={buildWhatsAppUrl(entry)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Abrir WhatsApp de ${entry.name}`}
+        >
+          <WhatsApp fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={entry.notes ? 'Ver/editar notas' : 'Adicionar nota'}>
+        <IconButton size="small" onClick={() => openNotes(entry)} aria-label={`Notas de ${entry.name}`}>
+          <Badge color="primary" variant="dot" invisible={!entry.notes}>
+            <EditNote fontSize="small" />
+          </Badge>
+        </IconButton>
+      </Tooltip>
+    </>
+  );
+
   const tabLabel = (label: string, key: StatusTab) => (tabCounts ? `${label} (${tabCounts[key]})` : label);
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={2}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">
+          <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             📋 Interesse em Convênios
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -356,7 +423,7 @@ const ConvenioInteressePage = () => {
           display: 'grid',
           gap: 2,
           mb: 3,
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
         }}
       >
         {CONVENIO_OPTIONS.map((option) => {
@@ -468,147 +535,138 @@ const ConvenioInteressePage = () => {
 
       <Paper>
         {loading && <LinearProgress />}
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sortDirection={order}>
-                  <TableSortLabel
-                    active
-                    direction={order}
-                    onClick={() => {
-                      setOrder((current) => (current === 'asc' ? 'desc' : 'asc'));
-                      resetPage();
-                    }}
-                  >
-                    Cadastro
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Pessoa</TableCell>
-                <TableCell>Convênio</TableCell>
-                <TableCell>Interesse</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Contato</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!loading && !error && entries.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    <Box py={4}>
-                      <Typography color="text.secondary">
-                        {nothingRegisteredYet
-                          ? 'Nenhum interesse registrado ainda. Os cadastros feitos nas páginas de convênios em credenciamento do site aparecem aqui.'
-                          : hasActiveFilters
-                            ? 'Nenhum cadastro encontrado com esses filtros.'
-                            : 'Ninguém aguardando contato no momento.'}
-                      </Typography>
-                      {hasActiveFilters && !nothingRegisteredYet && (
-                        <Button size="small" sx={{ mt: 1 }} onClick={clearFilters}>
-                          Limpar filtros
-                        </Button>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              )}
 
-              {entries.map((entry) => {
-                const meta = STATUS_META[entry.status];
-                const interesse = [formatAge(entry.idadeCrianca) !== '—' ? formatAge(entry.idadeCrianca) : null, entry.periodo]
-                  .filter(Boolean)
-                  .join(' · ');
-                return (
-                  <TableRow key={entry._id} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2">{formatDateTimeBR(entry.createdAt)}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {waitingLabel(entry.createdAt)}
-                        {entry.requestCount > 1 ? ` · ${entry.requestCount} cadastros` : ''}
+        {!loading && !error && entries.length === 0 && (
+          <Box py={4} px={2} textAlign="center">
+            <Typography color="text.secondary">
+              {nothingRegisteredYet
+                ? 'Nenhum interesse registrado ainda. Os cadastros feitos nas páginas de convênios em credenciamento do site aparecem aqui.'
+                : hasActiveFilters
+                  ? 'Nenhum cadastro encontrado com esses filtros.'
+                  : 'Ninguém aguardando contato no momento.'}
+            </Typography>
+            {hasActiveFilters && !nothingRegisteredYet && (
+              <Button size="small" sx={{ mt: 1 }} onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            )}
+          </Box>
+        )}
+
+        {isMobile ? (
+          <Box data-testid="interesse-cards">
+            {entries.length > 0 && (
+              <Box display="flex" justifyContent="flex-end" px={1} pt={1}>
+                <Button size="small" onClick={toggleOrder}>
+                  {order === 'asc' ? 'Mais antigos primeiro ↑' : 'Mais recentes primeiro ↓'}
+                </Button>
+              </Box>
+            )}
+            {entries.map((entry) => (
+              <Box key={entry._id} data-testid="interesse-card" sx={{ p: 2, borderTop: 1, borderColor: 'divider', textAlign: 'left' }}>
+                <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                  <Box minWidth={0}>
+                    <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+                      {entry.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {formatPhoneBR(entry.phone)}
+                    </Typography>
+                    {entry.email && (
+                      <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                        {entry.email}
                       </Typography>
+                    )}
+                  </Box>
+                  {statusChipFor(entry)}
+                </Box>
+                <Box display="flex" flexWrap="wrap" alignItems="center" gap={1} mt={1}>
+                  <Chip size="small" variant="outlined" label={entry.convenioLabel} />
+                  <Typography variant="body2">{entry.especialidade || '—'}</Typography>
+                  {interesseFor(entry) && (
+                    <Typography variant="caption" color="text.secondary">
+                      {interesseFor(entry)}
+                    </Typography>
+                  )}
+                </Box>
+                <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                  Cadastro {formatDateTimeBR(entry.createdAt)} · {waitingLabel(entry.createdAt)}
+                  {entry.requestCount > 1 ? ` · ${entry.requestCount} cadastros` : ''}
+                  {entry.notifiedAt ? ` · contatado ${formatDateTimeBR(entry.notifiedAt)}` : ''}
+                </Typography>
+                <Box display="flex" justifyContent="flex-end" alignItems="center" mt={1}>
+                  {actionsFor(entry)}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          entries.length > 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sortDirection={order}>
+                      <TableSortLabel active direction={order} onClick={toggleOrder}>
+                        Cadastro
+                      </TableSortLabel>
                     </TableCell>
-                    <TableCell>
-                      <Typography fontWeight={600}>{entry.name}</Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        {formatPhoneBR(entry.phone)}
-                      </Typography>
-                      {entry.email && (
-                        <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-                          {entry.email}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="small" variant="outlined" label={entry.convenioLabel} />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{entry.especialidade || '—'}</Typography>
-                      {interesse && (
-                        <Typography variant="caption" color="text.secondary">
-                          {interesse}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {savingId === entry._id ? (
-                        <CircularProgress size={20} aria-label="Salvando" />
-                      ) : (
-                        <Tooltip title={`${meta.hint} — clique para alterar`}>
-                          <Chip
-                            size="small"
-                            color={meta.color}
-                            label={meta.label}
-                            onClick={(event) => openStatusMenu(event, entry)}
-                            aria-label={`Alterar status de ${entry.name} (atual: ${meta.label})`}
-                          />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2" color={entry.notifiedAt ? 'text.primary' : 'text.secondary'}>
-                        {entry.notifiedAt ? formatDateTimeBR(entry.notifiedAt) : '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      {entry.status === 'aguardando' && (
-                        <Button
-                          size="small"
-                          variant="contained"
-                          disabled={savingId === entry._id}
-                          onClick={() => changeStatus(entry, 'contatado')}
-                          sx={{ mr: 0.5 }}
-                        >
-                          Contatado
-                        </Button>
-                      )}
-                      <Tooltip title="Abrir WhatsApp com mensagem pronta">
-                        <IconButton
-                          size="small"
-                          color="success"
-                          component="a"
-                          href={buildWhatsAppUrl(entry)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Abrir WhatsApp de ${entry.name}`}
-                        >
-                          <WhatsApp fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={entry.notes ? 'Ver/editar notas' : 'Adicionar nota'}>
-                        <IconButton size="small" onClick={() => openNotes(entry)} aria-label={`Notas de ${entry.name}`}>
-                          <Badge color="primary" variant="dot" invisible={!entry.notes}>
-                            <EditNote fontSize="small" />
-                          </Badge>
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
+                    <TableCell>Pessoa</TableCell>
+                    <TableCell>Convênio</TableCell>
+                    <TableCell>Interesse</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Contato</TableCell>
+                    <TableCell align="right">Ações</TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {entries.map((entry) => (
+                    <TableRow key={entry._id} hover>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Typography variant="body2">{formatDateTimeBR(entry.createdAt)}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {waitingLabel(entry.createdAt)}
+                          {entry.requestCount > 1 ? ` · ${entry.requestCount} cadastros` : ''}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography fontWeight={600}>{entry.name}</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {formatPhoneBR(entry.phone)}
+                        </Typography>
+                        {entry.email && (
+                          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                            {entry.email}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="small" variant="outlined" label={entry.convenioLabel} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{entry.especialidade || '—'}</Typography>
+                        {interesseFor(entry) && (
+                          <Typography variant="caption" color="text.secondary">
+                            {interesseFor(entry)}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{statusChipFor(entry)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Typography variant="body2" color={entry.notifiedAt ? 'text.primary' : 'text.secondary'}>
+                          {entry.notifiedAt ? formatDateTimeBR(entry.notifiedAt) : '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        {actionsFor(entry)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )
+        )}
         <TablePagination
           component="div"
           count={total}
