@@ -127,6 +127,7 @@ const ManagePatients = lazyWithRetry(() => import('./components/ManagePatients/M
 const DoctorAgenda = lazyWithRetry(() => import('./components/ManageDoctors/DoctorAgenda'));
 const EnhancedCalendar = lazyWithRetry(() => import('./components/calendar/EnhancedCalendar'));
 const FollowupPage = lazyWithRetry(() => import('./pages/FollowupPage'));
+const ConvenioInteressePage = lazyWithRetry(() => import('./pages/Secretaria/ConvenioInteressePage'));
 const SalesList = lazyWithRetry(() => import('./pages/Financial/SalesList'));
 const SaleForm = lazyWithRetry(() => import('./pages/Financial/SaleForm'));
 const ProvisionamentoTab = lazyWithRetry(() => import('./pages/Financial/tabs/ProvisionamentoTab'));
@@ -245,6 +246,11 @@ const AppRoutes: React.FC = () => {
                 <Route path="/admin/leads" element={
                     <PrivateRoute allowedRoles={['admin', 'secretary']}>
                         <FollowupPage />
+                    </PrivateRoute>
+                } />
+                <Route path="/admin/interesse-convenios" element={
+                    <PrivateRoute allowedRoles={['admin', 'secretary']}>
+                        <ConvenioInteressePage />
                     </PrivateRoute>
                 } />
                 <Route path="/admin/messages" element={

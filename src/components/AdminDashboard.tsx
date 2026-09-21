@@ -108,6 +108,7 @@ const FinancialDashboard = lazyWithRetry(() => import('../pages/Financial/Financ
 
 const FollowupPage = lazyWithRetry(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazyWithRetry(() => import('../pages/Secretaria/PreAgendamentosPage'));
+const ConvenioInteressePage = lazyWithRetry(() => import('../pages/Secretaria/ConvenioInteressePage'));
 const EnhancedCalendar = lazyWithRetry(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazyWithRetry(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazyWithRetry(() => import('./Dashboard/MarketingDashboard'));
@@ -1208,6 +1209,14 @@ export default function AdminDashboard() {
                     <TabErrorBoundary tabName="Leads & Follow-up">
                         <Suspense fallback={<TabSpinner />}>
                             <FollowupPage />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'InteresseConvenios':
+                return (
+                    <TabErrorBoundary tabName="Interesse em Convênios">
+                        <Suspense fallback={<TabSpinner />}>
+                            <ConvenioInteressePage />
                         </Suspense>
                     </TabErrorBoundary>
                 );

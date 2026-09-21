@@ -1,6 +1,7 @@
 import {
     Activity,
     ChevronDown,
+    ClipboardList,
     Clock,
     DollarSign,
     Eye,
@@ -106,7 +107,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     }, [openMenu, toggleMenu, isProfileDropdownOpen]);
 
     const isVendasMarketingActive =
-        activeTab === "Leads" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
+        activeTab === "Leads" || activeTab === "InteresseConvenios" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
     
     const isSistemaActive =
         activeTab === "Sistema" || activeTab === "AmandaMetrics" || activeTab === "WhatsApp";
@@ -279,9 +280,19 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             )}
                                         </div>
                                     </NavDropdownItem>
-                                    
+                                    <NavDropdownItem
+                                        active={activeTab === "InteresseConvenios"}
+                                        onClick={() => handleTabChange("InteresseConvenios")}
+                                        icon={<ClipboardList className="h-4 w-4 text-emerald-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Interesse em Convênios</span>
+                                            <span className="text-xs text-gray-500">GEAP, IPASGO e Bradesco em credenciamento</span>
+                                        </div>
+                                    </NavDropdownItem>
+
                                     <div className="my-2 border-t border-gray-100"></div>
-                                    
+
                                     {/* SEÇÃO MARKETING */}
                                     <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                                         Marketing Digital
@@ -513,6 +524,14 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 )}
                             >
                                 Leads & Follow-up
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "InteresseConvenios"}
+                                onClick={() => handleMobileTabChange("InteresseConvenios")}
+                                icon={<ClipboardList size={18} className="text-emerald-300" />}
+                            >
+                                Interesse em Convênios
                             </MobileNavItem>
                             <MobileNavItem
                                 indent
