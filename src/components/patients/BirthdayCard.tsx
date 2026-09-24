@@ -10,7 +10,7 @@ import {
     Typography
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { format, isThisMonth, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
     Bell,
@@ -26,7 +26,11 @@ import { useState } from 'react';
 const BirthdayCard = ({ patients = [] }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedPatient, setSelectedPatient] = useState(null);
-    const [viewMode, setViewMode] = useState('month'); // 'month' or 'upcoming'
+    // 🎯 (2026-09-22) Pedido do usuário: card de dashboard deve abrir mostrando só quem
+    // faz aniversário HOJE, não o mês inteiro (isso é o que gerava a confusão da tela
+    // cheia de nomes "PASSOU" com o aniversariante do dia escondido no meio). "Todo mês"
+    // continua disponível a um clique pra quem quiser planejar a semana.
+    const [viewMode, setViewMode] = useState('today'); // 'today' or 'month'
 
     const today = new Date();
     
@@ -38,25 +42,40 @@ const BirthdayCard = ({ patients = [] }) => {
         return (
             <Box sx={{ textAlign: 'center', p: 4, color: 'text.secondary' }}>
                 <Cake size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
-                <Typography variant="body1">Nenhum aniversariante este mês</Typography>
+                <Typography variant="body1">Nenhum aniversariante hoje</Typography>
             </Box>
         );
     }
 
+    // 🐛 FIX (2026-09-22): dateOfBirth não tem semântica de horário — é gravado como meia-noite
+    // UTC representando o dia pretendido (ver mesmo fix em back/routes/patient.js). Ler com
+    // getDate()/getMonth() locais em Brasília (UTC-3) volta pro dia anterior — quem faz
+    // aniversário hoje aparecia como "PASSOU" de ontem, e o card nunca acendia o badge "HOJE"
+    // mesmo com o resumo do dashboard (DashboardContentOptimized.tsx) contando certo.
+    // Sempre usar getUTC*/format com o horário zerado em UTC, nunca o Date local.
+    const getUtcDayMonth = (dateString) => {
+        const d = new Date(dateString);
+        return { day: d.getUTCDate(), month: d.getUTCMonth() };
+    };
+
     // 🎂 Função para formatar a data de nascimento
     const formatBirthday = (dateString) => {
-        const date = parseISO(dateString);
+        const { day, month } = getUtcDayMonth(dateString);
+        // date-fns `format()` lê os getters LOCAIS do Date — construir com o construtor local
+        // (ano/mês/dia, não uma string ISO) evita reaplicar o fuso por cima do dia já extraído
+        // em UTC acima. Ano fixo e arbitrário: só exibimos "d 'de' MMMM", nunca o ano.
+        const date = new Date(2001, month, day);
         return format(date, "d 'de' MMMM", { locale: ptBR });
     };
 
     // Função para calcular idade
     const getAge = (dateString) => {
-        const today = new Date();
-        const birthDate = new Date(dateString);
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const { day, month } = getUtcDayMonth(dateString);
+        const birthYear = new Date(dateString).getUTCFullYear();
+        let age = today.getFullYear() - birthYear;
+        const monthDiff = today.getMonth() - month;
 
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
             age--;
         }
 
@@ -66,17 +85,17 @@ const BirthdayCard = ({ patients = [] }) => {
     // 🎯 Lista completa de aniversariantes do mês
     const birthdayPatients = patients.filter((patient) => {
         if (!patient.dateOfBirth) return false;
-        const birthday = new Date(patient.dateOfBirth);
-        return birthday.getMonth() === today.getMonth();
+        const { month } = getUtcDayMonth(patient.dateOfBirth);
+        return month === today.getMonth();
     });
 
-    // 🔔 Lista reduzida: apenas os que ainda vão fazer aniversário neste mês
-    const upcomingBirthdays = birthdayPatients.filter(patient => {
-        const dob = new Date(patient.dateOfBirth);
-        return dob.getDate() >= today.getDate() && isThisMonth(dob);
+    // 🔔 Lista padrão: só quem faz aniversário hoje
+    const todayBirthdays = birthdayPatients.filter(patient => {
+        const { day, month } = getUtcDayMonth(patient.dateOfBirth);
+        return day === today.getDate() && month === today.getMonth();
     });
 
-    const patientsToShow = viewMode === 'month' ? birthdayPatients : upcomingBirthdays;
+    const patientsToShow = viewMode === 'month' ? birthdayPatients : todayBirthdays;
 
     // 🎛️ Ações do menu
     const handleMenuOpen = (event, patient) => {
@@ -147,28 +166,32 @@ const BirthdayCard = ({ patients = [] }) => {
                         </Box>
                         <Box>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: '#2d3748' }}>
-                                Aniversariantes do Mês
+                                Aniversariantes {viewMode === 'today' ? 'de Hoje' : 'do Mês'}
                             </Typography>
                             <Typography variant="body2" sx={{ color: '#718096', mt: '2px' }}>
-                                {format(today, 'MMMM', { locale: ptBR })} – {patientsToShow.length} {patientsToShow.length === 1 ? 'paciente' : 'pacientes'}
+                                {viewMode === 'today'
+                                    ? format(today, "d 'de' MMMM", { locale: ptBR })
+                                    : format(today, 'MMMM', { locale: ptBR })
+                                } – {patientsToShow.length} {patientsToShow.length === 1 ? 'paciente' : 'pacientes'}
                             </Typography>
                         </Box>
                     </Box>
                 }
                 action={
                     <Box sx={{ display: 'flex', gap: '8px' }}>
-                        <Tooltip title={viewMode === 'month' ? "Ver próximos aniversários" : "Ver todo o mês"}>
+                        <Tooltip title={viewMode === 'today' ? "Ver todo o mês" : "Ver só hoje"}>
                             <IconButton
-                                onClick={() => setViewMode(viewMode === 'month' ? 'upcoming' : 'month')}
+                                aria-label={viewMode === 'today' ? "Ver todo o mês" : "Ver só hoje"}
+                                onClick={() => setViewMode(viewMode === 'today' ? 'month' : 'today')}
                                 sx={{
-                                    background: viewMode === 'upcoming' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(0,0,0,0.03)',
+                                    background: viewMode === 'month' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(0,0,0,0.03)',
                                     borderRadius: '12px',
                                     '&:hover': {
                                         background: 'rgba(0,0,0,0.05)'
                                     }
                                 }}
                             >
-                                {viewMode === 'month' ?
+                                {viewMode === 'today' ?
                                     <CalendarDays size={20} color="#4A5568" /> :
                                     <Bell size={20} color="#3B82F6" />
                                 }
@@ -176,12 +199,12 @@ const BirthdayCard = ({ patients = [] }) => {
                         </Tooltip>
 
                         <Chip
-                            label={viewMode === 'month' ? "Todo mês" : "Próximos"}
+                            label={viewMode === 'today' ? "Hoje" : "Todo mês"}
                             size="small"
                             sx={{
                                 fontWeight: 600,
-                                background: viewMode === 'month' ? '#EDF2F7' : '#DBEAFE',
-                                color: viewMode === 'month' ? '#4A5568' : '#3B82F6'
+                                background: viewMode === 'today' ? '#DBEAFE' : '#EDF2F7',
+                                color: viewMode === 'today' ? '#3B82F6' : '#4A5568'
                             }}
                         />
                     </Box>
@@ -225,7 +248,7 @@ const BirthdayCard = ({ patients = [] }) => {
                             <Gift size={36} color="#A0AEC0" />
                         </Box>
                         <Typography variant="body1" sx={{ fontWeight: 500, color: '#718096', mb: 1 }}>
-                            Nenhum aniversariante {viewMode === 'upcoming' ? 'nos próximos dias' : 'este mês'}
+                            Nenhum aniversariante {viewMode === 'today' ? 'hoje' : 'este mês'}
                         </Typography>
                         <Typography variant="body2" sx={{ color: '#A0AEC0', maxWidth: '280px' }}>
                             Quando houver pacientes com aniversário, eles aparecerão aqui para celebrarmos juntos!
@@ -245,9 +268,9 @@ const BirthdayCard = ({ patients = [] }) => {
                         }
                     }}>
                         {patientsToShow.map((patient, index) => {
-                            const dob = new Date(patient.dateOfBirth);
-                            const isToday = dob.getDate() === today.getDate() && dob.getMonth() === today.getMonth();
-                            const isPast = !isToday && dob.getDate() < today.getDate();
+                            const { day: dobDay, month: dobMonth } = getUtcDayMonth(patient.dateOfBirth);
+                            const isToday = dobDay === today.getDate() && dobMonth === today.getMonth();
+                            const isPast = !isToday && dobDay < today.getDate();
                             const age = getAge(patient.dateOfBirth);
 
                             return (

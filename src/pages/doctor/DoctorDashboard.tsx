@@ -328,17 +328,22 @@ export default function DoctorDashboard() {
     const appointmentsList = appointments ?? [];
 
     // 🎂 Aniversariantes do mês (apenas pacientes deste médico)
+    // 🐛 FIX (2026-09-22): dateOfBirth é gravado como meia-noite UTC representando o dia
+    // pretendido, sem semântica de horário. getMonth()/getDate() locais em Brasília
+    // (UTC-3) voltam pro dia anterior — mesmo bug corrigido em BirthdayCard.tsx,
+    // DashboardContentOptimized.tsx e back/routes/patient.js (aniversariantes). Sempre
+    // getUTCMonth()/getUTCDate() aqui.
     const currentMonth = new Date().getMonth();
     const currentDay = new Date().getDate();
     const birthdayPatients = patientsList.filter(p => {
       if (!p.dateOfBirth) return false;
       try {
-        const birthMonth = new Date(p.dateOfBirth).getMonth();
+        const birthMonth = new Date(p.dateOfBirth).getUTCMonth();
         return birthMonth === currentMonth;
       } catch { return false; }
     }).sort((a, b) => {
-      const dayA = new Date(a.dateOfBirth!).getDate();
-      const dayB = new Date(b.dateOfBirth!).getDate();
+      const dayA = new Date(a.dateOfBirth!).getUTCDate();
+      const dayB = new Date(b.dateOfBirth!).getUTCDate();
       // Hoje primeiro, depois ordem crescente
       const distA = ((dayA - currentDay) + 31) % 31;
       const distB = ((dayB - currentDay) + 31) % 31;
@@ -346,7 +351,7 @@ export default function DoctorDashboard() {
     });
 
     if (birthdayPatients.length > 0) {
-      const todayBirthdays = birthdayPatients.filter(p => new Date(p.dateOfBirth!).getDate() === currentDay);
+      const todayBirthdays = birthdayPatients.filter(p => new Date(p.dateOfBirth!).getUTCDate() === currentDay);
       const preview = birthdayPatients.slice(0, 3).map(p => p.fullName).join(', ');
       const extra = birthdayPatients.length > 3 ? ` e mais ${birthdayPatients.length - 3}` : '';
       alerts.push({

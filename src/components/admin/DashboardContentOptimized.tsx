@@ -252,13 +252,20 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     setPaymentModalOpen,
     onDeletePatient,
 }) => {
+    // 🐛 FIX (2026-09-22): dateOfBirth é gravado como meia-noite UTC representando o dia
+    // pretendido (sem semântica de horário) — getDate()/getMonth() locais em Brasília
+    // (UTC-3) voltam pro dia anterior. Mesmo fix em BirthdayCard.tsx e back/routes/patient.js
+    // (aniversariantes): antes deste fix, este contador (usa a lista completa de `patients`)
+    // podia acusar "1 aniversário hoje" pra alguém cujo card, logo abaixo, mostrava
+    // errado (dia anterior, sem o badge "HOJE") — os dois liam a mesma data com regras
+    // diferentes de fuso e raramente batiam.
     const todayBirthdayCount = useMemo(() => {
         if (!patients?.length) return 0;
         const now = new Date();
         return patients.filter(p => {
             if (!p.dateOfBirth) return false;
             const dob = new Date(p.dateOfBirth);
-            return dob.getDate() === now.getDate() && dob.getMonth() === now.getMonth();
+            return dob.getUTCDate() === now.getDate() && dob.getUTCMonth() === now.getMonth();
         }).length;
     }, [patients]);
 
