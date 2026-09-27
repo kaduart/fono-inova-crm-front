@@ -9,6 +9,7 @@ import doctorService, {
   fetchTodaysAppointments,
   updateClinicalStatus
 } from '../services/doctorService';
+import { fetchPendingEvolutions, PendingEvolution } from '../services/evolutionService';
 import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
 import { extractErrorMessage } from '../utils/errorUtils';
@@ -47,6 +48,8 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
   });
   
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  // Pacientes atendidos sem evolução (calculado no backend)
+  const [pendingEvolutions, setPendingEvolutions] = useState<PendingEvolution[]>([]);
   const [therapySessions, setTherapySessions] = useState<any[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -88,12 +91,15 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
 
     try {
       const t0 = Date.now();
-      const [patientsRes, appointmentsRes, statsRes, futureRes] = await Promise.all([
+      const [patientsRes, appointmentsRes, statsRes, futureRes, pendingRes] = await Promise.all([
         fetchPatients({ limit: 200 }),
         fetchTodaysAppointments(doctorId),
         fetchStats(doctorId),
-        fetchFutureAppointments(doctorId)
+        fetchFutureAppointments(doctorId),
+        // Falha aqui não deve derrubar o overview — só esconde o alerta
+        fetchPendingEvolutions(doctorId).catch(() => [] as PendingEvolution[])
       ]);
+      setPendingEvolutions(pendingRes || []);
       console.log(`[Overview] ✅ dados carregados em ${Date.now() - t0}ms — pacientes=${patientsRes?.length ?? (patientsRes as any)?.data?.length ?? 0} consultas=${(appointmentsRes as any[])?.length ?? 0}`);
 
       const patientList = patientsRes || [];
@@ -345,6 +351,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     stats: overviewData.stats,
     futureAppointments: overviewData.futureAppointments,
     calendarEvents,
+    pendingEvolutions,
     therapySessions,
     attendanceSummary,
 

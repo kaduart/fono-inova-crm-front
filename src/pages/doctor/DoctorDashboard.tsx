@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Box, Card, CardContent, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Card, CardContent, Dialog, DialogContent, DialogTitle, Grid, List, ListItemButton, ListItemText, Paper, Skeleton, Typography } from '@mui/material';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
@@ -147,8 +147,10 @@ export default function DoctorDashboard() {
     ensurePatientsLoaded,
     patientsPagination,
     setPatientsPagination,
-    handleUpdateStatus
+    handleUpdateStatus,
+    pendingEvolutions
   } = useDoctorDashboard();
+  const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
   const doctorInsights = useDoctorInsights(doctorId);
 
@@ -368,23 +370,15 @@ export default function DoctorDashboard() {
       });
     }
 
-    const patientsWithoutEvolution = patientsList.filter(p => {
-      const lastAppointmentDate = p.lastAppointment || p.stats?.lastAppointmentDate;
-      if (!lastAppointmentDate) return false;
-      const daysSinceLastAppointment = Math.floor(
-        (Date.now() - new Date(lastAppointmentDate).getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return daysSinceLastAppointment >= 30;
-    });
-
-    if (patientsWithoutEvolution.length > 0) {
+    // Pendência calculada no backend: atendido (completed/paid) sem evolução após o último atendimento
+    if (pendingEvolutions.length > 0) {
       alerts.push({
         id: 'no-evolution',
         type: 'warning',
-        title: 'Pacientes sem evolução recente',
-        description: `${patientsWithoutEvolution.length} pacientes sem registro há mais de 30 dias`,
-        count: patientsWithoutEvolution.length,
-        onClick: () => handleTabChange('patients')
+        title: 'Evoluções pendentes',
+        description: `${pendingEvolutions.length} paciente(s) atendido(s) sem evolução`,
+        count: pendingEvolutions.length,
+        onClick: () => setPendingDialogOpen(true)
       });
     }
 
@@ -404,7 +398,7 @@ export default function DoctorDashboard() {
     }
 
     return alerts;
-  }, [patients, appointments, handleTabChange]);
+  }, [patients, appointments, handleTabChange, pendingEvolutions]);
 
   // Skeleton enquanto carrega dados iniciais
   if (!doctorData || !doctorId) {
@@ -648,6 +642,29 @@ export default function DoctorDashboard() {
           doctors={doctorData ? [{ _id: doctorId, fullName: doctorData.fullName || doctorData.name }] as any : []}
         />
       )}
+
+      {/* ── Pacientes com evolução pendente ── */}
+      <Dialog open={pendingDialogOpen} onClose={() => setPendingDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Evoluções pendentes</DialogTitle>
+        <DialogContent dividers>
+          <List dense>
+            {pendingEvolutions.map((p) => (
+              <ListItemButton
+                key={p._id}
+                onClick={() => {
+                  setPendingDialogOpen(false);
+                  handleGoToEvolution({ _id: p._id, fullName: p.fullName } as any);
+                }}
+              >
+                <ListItemText
+                  primary={p.fullName}
+                  secondary={`Último atendimento: ${new Date(p.lastCompletedDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

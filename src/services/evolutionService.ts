@@ -52,6 +52,20 @@ export async function fetchLastEvolution(patientId: string): Promise<Evolution |
   }
 }
 
+export interface PendingEvolution {
+  _id: string;
+  fullName: string;
+  lastCompletedDate: string;
+  lastEvolutionDate: string | null;
+}
+
+/** Pacientes atendidos (últimos 90 dias) sem evolução registrada após o último atendimento. */
+export async function fetchPendingEvolutions(doctorId?: string): Promise<PendingEvolution[]> {
+  return handleV2Response<PendingEvolution[]>(
+    API.get(`${BASE_V2}/pending`, { params: doctorId ? { doctorId } : {} })
+  );
+}
+
 // ─── WRITES (V2 síncrono — feedback imediato ao profissional) ─────────
 
 export async function createEvolution(payload: CreateEvolutionPayload): Promise<Evolution> {
