@@ -25,6 +25,7 @@ import FollowupConversionChart from "../components/Dashboard/FollowupConversionC
 import { FollowupFilters } from "../components/Dashboard/FollowupFilters";
 import FollowupInsights from "../components/Dashboard/FollowupInsights";
 import FollowupStats from "../components/Dashboard/FollowupStats";
+import AcquisitionByChannel from "../components/Dashboard/AcquisitionByChannel";
 import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
 
 // Hooks customizados
@@ -719,6 +720,7 @@ const FollowupPage = () => {
                         <td className="p-4 hidden lg:table-cell">
                           <div className="flex items-center gap-2">
                             <span className="text-slate-600">{lead.origin}</span>
+                            {lead.metaTracking?.source && (<span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">{lead.metaTracking.source}</span>)}
                             {lead.autoReplyEnabled && (
                               <span className="text-xs text-green-600" title="Auto-resposta ativa">🤖</span>
                             )}
@@ -967,6 +969,9 @@ const FollowupPage = () => {
                 </div>
               )}
             </div>
+
+            {/* 🎯 RESULTADO REAL POR CANAL (atribuição automática) */}
+            <AcquisitionByChannel />
 
             {/* 🔥 ROI POR ORIGEM (Lead → Patient → Revenue) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
