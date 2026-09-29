@@ -1,9 +1,11 @@
-import { AlertTriangle, CheckCircle, ClipboardList, TrendingUp, Wallet } from 'lucide-react';
+import { AlertTriangle, Banknote, CheckCircle, ClipboardList, TrendingUp, Wallet } from 'lucide-react';
 import type { FinancialSummary } from '../../../services/financialSummaryService';
 
 interface Props {
   summary: FinancialSummary | null;
   patientName: string;
+  /** Abre a aba Receber já com o saldo devedor total pré-preenchido (Assunto 3: navegabilidade de baixa de débitos). */
+  onOpenReceive?: (amount: number) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -16,7 +18,7 @@ const formatCurrency = (value: number) =>
  * ainda está incompleta. sessionDebt será usado quando todos os appointments
  * gerarem session_charge V2 automaticamente.
  */
-export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) => {
+export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName, onOpenReceive }) => {
   const sessionDebt = summary?.totalPending || 0;
   const pendingCount = summary?.pendingCount || 0;
   const totalPaid = summary?.totalPaid || 0;
@@ -50,6 +52,16 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName }) 
               <p className="text-2xs text-red-200 mt-1">
                 {pendingCount} sessão{pendingCount !== 1 ? 'ões' : ''} em aberto
               </p>
+            )}
+            {sessionDebt > 0 && onOpenReceive && (
+              <button
+                onClick={() => onOpenReceive(sessionDebt)}
+                className="relative z-20 mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 px-2 py-1.5 text-2xs font-semibold text-white transition-colors"
+                title="Ir para a aba Receber com o saldo devedor já preenchido"
+              >
+                <Banknote className="w-3.5 h-3.5" />
+                Registrar recebimento
+              </button>
             )}
           </div>
           <AlertTriangle className="absolute -bottom-3 -right-3 w-20 h-20 text-white/10" />

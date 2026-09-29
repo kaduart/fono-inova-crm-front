@@ -299,6 +299,21 @@ export const PatientBalanceModal: React.FC<Props> = ({
     }
   };
 
+  /**
+   * Abre a aba Receber com o valor sugerido já preenchido (Assunto 3:
+   * navegabilidade de baixa de débitos). Usado tanto pelo CTA do card "Saldo
+   * Devedor" (header) quanto pelo botão "Receber valor diferente" da aba
+   * Pendentes, para o caso comum em que o valor de fato pago pela paciente
+   * não bate 1:1 com a soma de sessões escolhidas manualmente.
+   */
+  const goToReceiveTab = (suggestedAmount: number) => {
+    setActiveTab('receive');
+    setReceiveResult(null);
+    if (suggestedAmount > 0) {
+      setReceiveAmount(suggestedAmount.toFixed(2).replace('.', ','));
+    }
+  };
+
   const openQuickPayment = (id: string) => {
     setQuickPaymentId(id);
     setConfirmMethod('dinheiro');
@@ -322,7 +337,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col relative">
         {/* Header */}
-        <PatientBalanceHeader summary={summary} patientName={patientName} />
+        <PatientBalanceHeader summary={summary} patientName={patientName} onOpenReceive={goToReceiveTab} />
 
         <button
           onClick={onClose}
@@ -379,6 +394,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
               onSelectAll={selectAll}
               onOpenQuickPayment={openQuickPayment}
               onOpenBulkPayment={openBulkPayment}
+              onOpenReceive={goToReceiveTab}
             />
           ) : activeTab === 'paid' ? (
             <PatientBalancePaidTab payments={paidPayments} />
@@ -397,8 +413,25 @@ export const PatientBalanceModal: React.FC<Props> = ({
                 Registrar Recebimento
               </h3>
               <p className="text-sm text-gray-500">
-                O valor será alocado automaticamente contra os débitos pendentes (FIFO).
+                O valor será alocado automaticamente contra os débitos pendentes, da sessão mais antiga
+                para a mais nova (FIFO). Sobrou valor além das dívidas? Vira crédito na conta corrente
+                da paciente, disponível para abater sessões futuras.
               </p>
+              {(summary?.totalPending || 0) > 0 && (
+                <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div>
+                    <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Saldo devedor atual</p>
+                    <p className="text-lg font-bold text-red-700">{formatCurrency(summary?.totalPending || 0)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReceiveAmount((summary?.totalPending || 0).toFixed(2).replace('.', ','))}
+                    className="text-xs font-semibold text-red-700 hover:text-red-800 bg-white hover:bg-red-100 border border-red-300 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Usar este valor
+                  </button>
+                </div>
+              )}
               <form onSubmit={handleReceivePayment} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -442,19 +475,25 @@ export const PatientBalanceModal: React.FC<Props> = ({
                 </button>
               </form>
               {receiveResult && (
-                <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2">
                   <p className="text-sm font-medium text-emerald-800">
                     ✅ Recebimento registrado!
                   </p>
-                  <p className="text-xs text-emerald-700 mt-1">
+                  <p className="text-xs text-emerald-700">
                     {receiveResult.message}
                   </p>
-                  <p className="text-xs text-emerald-600 mt-1 font-mono">
-                    Receipt: {receiveResult.receiptId}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    O worker está processando a alocação automaticamente.
-                  </p>
+                  {receiveResult.receiptId && (
+                    <p className="text-xs text-emerald-600 font-mono">
+                      Recibo: {receiveResult.receiptId}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('pending')}
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline"
+                  >
+                    Ver sessões pendentes atualizadas
+                  </button>
                 </div>
               )}
             </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownCircle, CheckCircle, CheckSquare, DollarSign, Square, Wallet } from 'lucide-react';
+import { ArrowDownCircle, Banknote, CheckCircle, CheckSquare, DollarSign, Square } from 'lucide-react';
 import type { PaymentItem } from '../PatientBalanceModal';
 
 const SPECIALTY_LABELS: Record<string, string> = {
@@ -22,6 +22,15 @@ interface Props {
   onSelectAll: () => void;
   onOpenQuickPayment: (id: string) => void;
   onOpenBulkPayment: () => void;
+  /**
+   * Abre a aba Receber pré-preenchida (Assunto 3: navegabilidade de baixa de
+   * débitos). Recebe o valor sugerido: o total selecionado, se houver seleção,
+   * senão o total geral de sessões pendentes. Usado quando o valor que a
+   * paciente de fato pagou não bate 1:1 com a soma de sessões escolhidas
+   * manualmente (abatimento, split entre irmãs, crédito prévio etc.) — nesses
+   * casos "Pagar Selecionados" exige acerto exato e "Receber" resolve com FIFO.
+   */
+  onOpenReceive?: (suggestedAmount: number) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -56,8 +65,14 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
   onSelectAll,
   onOpenQuickPayment,
   onOpenBulkPayment,
+  onOpenReceive,
 }) => {
   const [activeSpecialty, setActiveSpecialty] = useState<string | 'todos'>('todos');
+
+  const totalPendingAll = useMemo(
+    () => payments.reduce((sum, p) => sum + p.amount, 0),
+    [payments]
+  );
 
   const groupedBySpecialty = useMemo(() => {
     const groups = new Map<string, PaymentItem[]>();
@@ -110,16 +125,28 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
           {allSelected ? 'Desmarcar todos' : 'Selecionar todos'}
         </button>
 
-        {selectedPayments.size > 0 && (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600">
-              {selectedPayments.size} selecionado(s)
-            </span>
-            <span className="text-sm font-semibold text-gray-800">
-              Total: {formatCurrency(selectedTotal)}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {selectedPayments.size > 0 && (
+            <>
+              <span className="text-sm text-gray-600">
+                {selectedPayments.size} selecionado(s)
+              </span>
+              <span className="text-sm font-semibold text-gray-800">
+                Total: {formatCurrency(selectedTotal)}
+              </span>
+            </>
+          )}
+          {onOpenReceive && (
+            <button
+              onClick={() => onOpenReceive(selectedPayments.size > 0 ? selectedTotal : totalPendingAll)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors"
+              title="Valor pago não bate exatamente com os itens selecionados? Registre na aba Receber — a baixa é feita automaticamente (FIFO)."
+            >
+              <Banknote className="w-3.5 h-3.5" />
+              Receber valor diferente
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filtro por área/especialidade */}
