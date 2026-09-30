@@ -480,7 +480,7 @@ export default function PatientDashboard() {
     return (
     <>
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 auto-rows-fr mb-5">
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500" />
           <div className="flex items-start justify-between gap-3">
@@ -502,7 +502,10 @@ export default function PatientDashboard() {
               </p>
               {totalPending > 0 ? (
                 <div className="mt-0.5 space-y-0.5 text-2xs text-slate-500">
-                  {particularPending > 0 && (
+                  {/* Só mostra a quebra "Particular: R$X" quando também há
+                      convênio envolvido — quando particular é 100% do saldo,
+                      essa linha só repetiria o valor já grande acima. */}
+                  {particularPending > 0 && (convenioAwaitingBilling > 0 || convenioBilled > 0) && (
                     <p>Particular: R$ {particularPending.toLocaleString('pt-BR')}</p>
                   )}
                   {convenioAwaitingBilling > 0 && (
@@ -511,20 +514,28 @@ export default function PatientDashboard() {
                   {convenioBilled > 0 && (
                     <p>Convênio (faturado, aguardando recebimento): R$ {convenioBilled.toLocaleString('pt-BR')}</p>
                   )}
+                  {/* Crédito de recebimento avulso já totalmente consumido pela
+                      dívida (não sobra nada) — informação neutra/técnica, por
+                      isso integrada na mesma lista cinza em vez de um badge
+                      verde chamativo (verde é reservado a notícia positiva,
+                      ver caso "disponível" abaixo). */}
+                  {availableCredit > 0 && netAvailableCredit === 0 && (
+                    <p className="flex items-center gap-1">
+                      <Wallet size={10} className="shrink-0 text-slate-400" />
+                      R$ {availableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito já abatido
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="mt-0.5 text-2xs text-slate-500">valor a receber</p>
               )}
-              {/* Crédito de recebimento avulso — um único pill, sempre que
-                  existir crédito bruto (mesmo já 100% consumido pela dívida,
-                  pro comercial ver que houve abatimento, não só o resultado
-                  final). Texto muda conforme sobra saldo ou não. */}
-              {availableCredit > 0 && (
+              {/* Crédito de recebimento avulso que ainda sobra — notícia
+                  positiva e acionável (pode ser usado num próximo pacote),
+                  por isso com destaque verde. */}
+              {netAvailableCredit > 0 && (
                 <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
                   <Wallet size={11} className="shrink-0" />
-                  {netAvailableCredit > 0
-                    ? `R$ ${netAvailableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito disponível`
-                    : `R$ ${availableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito já abatido`}
+                  R$ {netAvailableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito disponível
                 </p>
               )}
             </div>
