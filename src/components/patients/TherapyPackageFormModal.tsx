@@ -130,8 +130,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     const intervalWeeks = frequencyInterval === 'biweekly' ? 2 : 1;
     const occurrenceLabel = frequencyInterval === 'biweekly' ? 'quinzena' : 'semana';
     const [isLoading, setIsLoading] = useState(false);
-
-
+    // Crédito de recebimento avulso que sobra depois de abater a dívida
+    // particular do paciente — vem pronto do backend em patient.stats
+    // (patientProjectionService.buildPatientView), nunca recalculado aqui.
+    // Mostrado só na criação, pra secretária ver que já existe saldo a favor
+    // antes de cobrar o pacote novo.
+    const netAvailableCredit = !isEditing ? ((patient as any)?.stats?.netAvailableCredit ?? (patient as any)?.netAvailableCredit ?? 0) : 0;
 
     // 🆕 Estados para Sessões no Mesmo Dia
     const [sameDaySessions, setSameDaySessions] = useState(false);
@@ -1116,6 +1120,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <div className="lg:col-span-3 space-y-4">
+                            {/* 💰 Crédito de recebimento avulso — avisa a secretária antes de cobrar o pacote novo */}
+                            {!isEditing && netAvailableCredit > 0 && (
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center gap-2">
+                                    <DollarSign className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                    <p className="text-sm text-emerald-800">
+                                        <span className="font-bold">{patient.fullName}</span> tem{' '}
+                                        <span className="font-bold">R$ {netAvailableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>{' '}
+                                        de crédito de recebimento avulso — considere abater do valor deste pacote.
+                                    </p>
+                                </div>
+                            )}
                             {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando (criação apenas) */}
                             {!isEditing && (v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
                                 <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 space-y-2">

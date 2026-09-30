@@ -458,10 +458,17 @@ export default function PatientDashboard() {
     const pi = patientInfo as any;
     const totalApts     = pi.totalAppointments ?? pi.stats?.totalAppointments ?? 0;
     const totalDone     = pi.totalCompleted     ?? pi.stats?.totalCompleted     ?? 0;
-    const totalPending  = pi.totalPending       ?? pi.stats?.totalPending       ?? 0;
-    const particularPending = pi.totalPendingParticular ?? pi.stats?.totalPendingParticular ?? 0;
+    // Saldo pendente LÍQUIDO (dívida particular já abatida do crédito de
+    // recebimento avulso + convênio). Ver DTO patient.response.dto.ts e
+    // patientProjectionService.buildPatientView — nunca recalcular no client.
+    const totalPending  = pi.totalPendingNet    ?? pi.stats?.totalPendingNet    ?? pi.totalPending ?? pi.stats?.totalPending ?? 0;
+    const particularPending = pi.stats?.totalPendingParticularNet ?? pi.totalPendingParticular ?? pi.stats?.totalPendingParticular ?? 0;
     const convenioAwaitingBilling = pi.stats?.totalPendingConvenioAwaitingBilling ?? Math.max(0, totalPending - particularPending);
     const convenioBilled = pi.stats?.totalPendingConvenioBilled ?? 0;
+    // Crédito de recebimento avulso que sobra depois de já abater a dívida
+    // particular (0 quando a dívida é maior ou igual ao crédito — nesse caso
+    // ele já está refletido dentro de totalPending/particularPending acima).
+    const netAvailableCredit = pi.netAvailableCredit ?? pi.stats?.netAvailableCredit ?? 0;
     const nextApt       = pi.nextAppointment;
     const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
     const ptTags: string[] = pi.tags || [];
@@ -503,6 +510,11 @@ export default function PatientDashboard() {
                 </div>
               ) : (
                 <p className="mt-0.5 text-2xs text-slate-500">valor a receber</p>
+              )}
+              {netAvailableCredit > 0 && (
+                <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-bold text-emerald-700">
+                  💰 Crédito disponível: R$ {netAvailableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               )}
             </div>
             <div className="rounded-xl bg-amber-50 p-2.5 text-amber-600"><CreditCard size={18} /></div>
@@ -1105,7 +1117,13 @@ export default function PatientDashboard() {
         onClose={() => setShowBalanceModal(false)}
         patientId={patientInfo?.patientId || patientId || ''}
         patientName={patientInfo?.fullName || ''}
-        onRefresh={() => setShowBalanceModal(false)}
+        onRefresh={() => {
+          setShowBalanceModal(false);
+          // Saldo pendente/crédito líquido vêm prontos em patientInfo.stats
+          // (calculados no backend); recarrega o perfil pra refletir o
+          // recebimento que acabou de ser feito.
+          fetchPatientProfile();
+        }}
       />
     </div>
   );

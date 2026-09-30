@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 import API from '../../services/api';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { ModalSpinner } from '../ui/LoadingSpinner';
+import { InputCurrency } from '../ui/InputCurrency';
 import { PatientBalanceHeader } from './balance/PatientBalanceHeader';
 import { PatientBalancePendingTab } from './balance/PatientBalancePendingTab';
 import { PatientBalancePaidTab } from './balance/PatientBalancePaidTab';
@@ -91,7 +92,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
   const [addAmount, setAddAmount] = useState(0);
   const [addDescription, setAddDescription] = useState('');
 
-  const [receiveAmount, setReceiveAmount] = useState('');
+  const [receiveAmount, setReceiveAmount] = useState(0);
   const [receiveMethod, setReceiveMethod] = useState('pix');
   const [receiveResult, setReceiveResult] = useState<{ receiptId: string; jobId: string; message: string } | null>(null);
 
@@ -122,7 +123,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setConfirmMode(null);
       setQuickPaymentId(null);
       setReceiveResult(null);
-      setReceiveAmount('');
+      setReceiveAmount(0);
       setReceiveMethod('pix');
     }
   }, [isOpen, fetchData]);
@@ -270,8 +271,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
 
   const handleReceivePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(receiveAmount.replace(',', '.'));
-    if (isNaN(amount) || amount <= 0) {
+    if (!receiveAmount || receiveAmount <= 0) {
       toast.error('Valor deve ser maior que zero');
       return;
     }
@@ -279,7 +279,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
     try {
       const res = await receivePayment({
         patientId,
-        amount,
+        amount: receiveAmount,
         method: receiveMethod,
         mode: 'auto',
       });
@@ -288,7 +288,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
         jobId: res.jobId,
         message: res.message,
       });
-      setReceiveAmount('');
+      setReceiveAmount(0);
       await fetchData();
       onRefresh?.();
       toast.success('Recebimento registrado com sucesso');
@@ -310,7 +310,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
     setActiveTab('receive');
     setReceiveResult(null);
     if (suggestedAmount > 0) {
-      setReceiveAmount(suggestedAmount.toFixed(2).replace('.', ','));
+      setReceiveAmount(suggestedAmount);
     }
   };
 
@@ -425,7 +425,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setReceiveAmount((summary?.totalPending || 0).toFixed(2).replace('.', ','))}
+                    onClick={() => setReceiveAmount(summary?.totalPending || 0)}
                     className="text-xs font-semibold text-red-700 hover:text-red-800 bg-white hover:bg-red-100 border border-red-300 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     Usar este valor
@@ -438,13 +438,10 @@ export const PatientBalanceModal: React.FC<Props> = ({
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Valor Recebido (R$)
                     </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <InputCurrency
+                      name="receiveAmount"
                       value={receiveAmount}
-                      onChange={(e) => setReceiveAmount(e.target.value)}
-                      placeholder="0,00"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      onChange={(e) => setReceiveAmount(Number(e.target.value))}
                       disabled={isSubmitting}
                     />
                   </div>
@@ -468,7 +465,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || receiveAmount <= 0}
                   className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Processando...' : 'Confirmar Recebimento'}

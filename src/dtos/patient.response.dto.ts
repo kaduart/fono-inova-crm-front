@@ -40,9 +40,12 @@ export interface PatientDTO {
     dateOfBirth?: string;
     // Financeiro (normalizado)
     debt: number;                    // saldo devedor particular (fonte: balance.current ou stats)
-    totalPending: number;            // total pendente geral (particular + convênio)
-    totalPendingParticular: number;  // alias de particularPending (compatibilidade)
-    particularPending: number;       // pendente particular
+    totalPending: number;            // total pendente geral BRUTO (particular + convênio, sem abater crédito)
+    totalPendingNet: number;         // total pendente geral LÍQUIDO (particular já abatido do crédito de recebimento avulso + convênio)
+    totalPendingParticular: number;  // alias de particularPending (compatibilidade) — BRUTO
+    particularPending: number;       // pendente particular BRUTO
+    availableCredit: number;         // crédito de recebimento avulso ainda não abatido de nenhuma dívida
+    netAvailableCredit: number;      // crédito que sobra depois de abater a dívida particular (0 se a dívida for maior)
     convenioPending: number;         // pendente convênio (soma das duas linhas abaixo)
     convenioPendingAwaitingBilling: number; // convênio: ainda não entrou em lote de faturamento
     convenioPendingBilled: number;           // convênio: já faturado, aguardando o convênio pagar
@@ -96,7 +99,7 @@ export function extractPatientDocument(raw: any): string | undefined {
 // Extratores internos
 // ============================================================
 
-function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' | 'totalPendingParticular' | 'particularPending' | 'convenioPending' | 'convenioPendingAwaitingBilling' | 'convenioPendingBilled'> {
+function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' | 'totalPendingNet' | 'totalPendingParticular' | 'particularPending' | 'availableCredit' | 'netAvailableCredit' | 'convenioPending' | 'convenioPendingAwaitingBilling' | 'convenioPendingBilled'> {
     const balanceCurrent = typeof raw.balance?.current === 'number' ? raw.balance.current : undefined;
     const statsTotalPending = typeof raw.stats?.totalPending === 'number' ? raw.stats.totalPending : undefined;
     const statsTotalPendingParticular = typeof raw.stats?.totalPendingParticular === 'number' ? raw.stats.totalPendingParticular : undefined;
@@ -119,11 +122,22 @@ function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' |
     const convenioPendingAwaitingBilling = statsAwaitingBilling ?? convenioPending;
     const convenioPendingBilled = statsBilled ?? 0;
 
+    // Crédito de recebimento avulso e valores líquidos — vêm prontos do backend
+    // (patientProjectionService.buildPatientView). Fallback pra views antigas
+    // (antes deste campo existir): sem crédito conhecido, líquido = bruto.
+    const availableCredit = typeof raw.stats?.availableCredit === 'number' ? raw.stats.availableCredit : 0;
+    const netAvailableCredit = typeof raw.stats?.netAvailableCredit === 'number' ? raw.stats.netAvailableCredit : Math.max(0, availableCredit - particularPending);
+    const statsTotalPendingNet = typeof raw.stats?.totalPendingNet === 'number' ? raw.stats.totalPendingNet : undefined;
+    const totalPendingNet = statsTotalPendingNet ?? Math.max(0, totalPending - availableCredit);
+
     return {
         debt: Number(debt.toFixed(2)),
         totalPending: Number(totalPending.toFixed(2)),
+        totalPendingNet: Number(totalPendingNet.toFixed(2)),
         totalPendingParticular: Number(particularPending.toFixed(2)),
         particularPending: Number(particularPending.toFixed(2)),
+        availableCredit: Number(availableCredit.toFixed(2)),
+        netAvailableCredit: Number(netAvailableCredit.toFixed(2)),
         convenioPending: Number(convenioPending.toFixed(2)),
         convenioPendingAwaitingBilling: Number(convenioPendingAwaitingBilling.toFixed(2)),
         convenioPendingBilled: Number(convenioPendingBilled.toFixed(2)),
@@ -199,8 +213,11 @@ export function mapPatientResponseDTO(raw: any): PatientDTO {
             patientId: '',
             debt: 0,
             totalPending: 0,
+            totalPendingNet: 0,
             totalPendingParticular: 0,
             particularPending: 0,
+            availableCredit: 0,
+            netAvailableCredit: 0,
             convenioPending: 0,
             convenioPendingAwaitingBilling: 0,
             convenioPendingBilled: 0,
