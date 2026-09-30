@@ -557,7 +557,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                             { label: 'Atendidos', value: patient.totalCompleted, color: 'text-green-700', bg: 'bg-green-50' },
                                                             { label: 'Cancelamentos', value: patient.totalCanceled, color: 'text-red-600', bg: 'bg-red-50' },
                                                             { label: 'Receita total', value: `R$ ${(patient.totalRevenue ?? 0).toLocaleString('pt-BR')}`, color: 'text-gray-700', bg: 'bg-white' },
-                                                            { label: 'Pendente', value: patient.totalPending > 0 ? `R$ ${patient.totalPending.toLocaleString('pt-BR')}` : '—', color: patient.totalPending > 0 ? 'text-amber-700' : 'text-gray-400', bg: patient.totalPending > 0 ? 'bg-amber-50' : 'bg-white' },
+                                                            { label: 'Pendente', value: (patient.totalPendingNet ?? patient.totalPending) > 0 ? `R$ ${(patient.totalPendingNet ?? patient.totalPending).toLocaleString('pt-BR')}` : '—', color: (patient.totalPendingNet ?? patient.totalPending) > 0 ? 'text-amber-700' : 'text-gray-400', bg: (patient.totalPendingNet ?? patient.totalPending) > 0 ? 'bg-amber-50' : 'bg-white' },
                                                         ].map(s => (
                                                             <div key={s.label} className={`${s.bg} border border-gray-100 rounded-lg px-3 py-2`}>
                                                                 <div className="text-3xs text-gray-400 mb-0.5">{s.label}</div>

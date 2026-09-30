@@ -111,7 +111,6 @@ function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' |
     const totalPending = statsTotalPending ?? legacyPending ?? legacyBalance ?? 0;
     const particularPending = statsTotalPendingParticular ?? balanceCurrent ?? legacyDebt ?? 0;
     const convenioPending = Math.max(0, totalPending - particularPending);
-    const debt = particularPending;
 
     // Composição do convenioPending — vem pronta do backend (stats.totalPendingConvenio*).
     // Fallback pra views antigas (antes deste campo existir): trata tudo como
@@ -129,6 +128,14 @@ function extractFinancials(raw: any): Pick<PatientDTO, 'debt' | 'totalPending' |
     const netAvailableCredit = typeof raw.stats?.netAvailableCredit === 'number' ? raw.stats.netAvailableCredit : Math.max(0, availableCredit - particularPending);
     const statsTotalPendingNet = typeof raw.stats?.totalPendingNet === 'number' ? raw.stats.totalPendingNet : undefined;
     const totalPendingNet = statsTotalPendingNet ?? Math.max(0, totalPending - availableCredit);
+    const statsParticularPendingNet = typeof raw.stats?.totalPendingParticularNet === 'number' ? raw.stats.totalPendingParticularNet : undefined;
+    const particularPendingNet = statsParticularPendingNet ?? Math.max(0, particularPending - availableCredit);
+    // 🎯 debt é o campo consumido pela listagem de pacientes (coluna "SALDO",
+    // filtro "Saldo devedor") — precisa ser o LÍQUIDO, senão o crédito de
+    // recebimento avulso fica invisível ali mesmo já estando correto no
+    // Dashboard individual (visto em produção 2026-09-30: lista mostrava
+    // R$480 enquanto o Dashboard já mostrava R$360 corretamente).
+    const debt = particularPendingNet;
 
     return {
         debt: Number(debt.toFixed(2)),
