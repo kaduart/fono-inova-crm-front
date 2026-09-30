@@ -1,4 +1,4 @@
-import { Activity, Calendar, ChevronDown, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from "react-hot-toast";
 import { useNavigate, useParams } from 'react-router-dom';
@@ -469,12 +469,9 @@ export default function PatientDashboard() {
     // particular (0 quando a dívida é maior ou igual ao crédito — nesse caso
     // ele já está refletido dentro de totalPending/particularPending acima).
     const netAvailableCredit = pi.netAvailableCredit ?? pi.stats?.netAvailableCredit ?? 0;
-    // Valores BRUTOS (sem abater crédito) — usados só pra mostrar a composição
-    // do cálculo abaixo, pro comercial ver exatamente quanto de crédito foi
-    // aplicado, mesmo quando ele é todo consumido pela dívida (netAvailableCredit
-    // vira 0 nesse caso e o badge de "crédito disponível" não faz mais sentido,
-    // mas o comercial ainda precisa ver que o abatimento aconteceu).
-    const particularPendingGross = pi.stats?.totalPendingParticular ?? pi.totalPendingParticular ?? particularPending;
+    // Crédito bruto de recebimento avulso (independente de já ter sido
+    // consumido pela dívida ou não) — usado só pra decidir se mostra o pill
+    // de crédito e com qual texto (ver JSX abaixo).
     const availableCredit = pi.availableCredit ?? pi.stats?.availableCredit ?? 0;
     const nextApt       = pi.nextAppointment;
     const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
@@ -518,19 +515,16 @@ export default function PatientDashboard() {
               ) : (
                 <p className="mt-0.5 text-2xs text-slate-500">valor a receber</p>
               )}
-              {/* Composição do cálculo quando há crédito de recebimento avulso
-                  envolvido — mostra SEMPRE que existir crédito (mesmo quando
-                  ele foi todo consumido pela dívida e não sobra nada líquido),
-                  pro comercial ver exatamente quanto foi abatido, não só o
-                  resultado final. Ex: dívida R$480 - crédito R$120 = R$360. */}
+              {/* Crédito de recebimento avulso — um único pill, sempre que
+                  existir crédito bruto (mesmo já 100% consumido pela dívida,
+                  pro comercial ver que houve abatimento, não só o resultado
+                  final). Texto muda conforme sobra saldo ou não. */}
               {availableCredit > 0 && (
-                <p className="mt-1 text-2xs font-medium text-emerald-700">
-                  R$ {particularPendingGross.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (dívida) − R$ {availableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (crédito abatido) = R$ {particularPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              )}
-              {netAvailableCredit > 0 && (
-                <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-bold text-emerald-700">
-                  💰 Crédito disponível: R$ {netAvailableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  <Wallet size={11} className="shrink-0" />
+                  {netAvailableCredit > 0
+                    ? `R$ ${netAvailableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito disponível`
+                    : `R$ ${availableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito já abatido`}
                 </p>
               )}
             </div>
