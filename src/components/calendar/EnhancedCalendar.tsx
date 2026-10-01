@@ -815,17 +815,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     }), [handleDatesSet]);
 
     // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
-    const OPERATIONAL_SOFT: Record<string, { bg: string; text: string; dot: string }> = {
-        scheduled: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-        confirmed: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-        in_progress: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
-        completed: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-600' },
-        canceled: { bg: 'bg-gray-100', text: 'text-gray-500', dot: 'bg-gray-400' },
-        absent: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
-        missed: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
-        pre_agendado: { bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
-    };
-
     const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact', onConfirm, onComplete }: {
         appointment: AppointmentDTO;
         timeText?: string;
@@ -972,22 +961,28 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // do card clássico, com layout mais respirado. Reaproveita 100% dos dados/regras
         // já calculados acima; só muda a apresentação.
         if (isPremium) {
-            const soft = OPERATIONAL_SOFT[operationalStatus] || OPERATIONAL_SOFT.scheduled;
             const isDimmed = ['canceled', 'absent'].includes(operationalStatus);
+            const isDone = operationalStatus === 'completed';
+            // Concluído: véu branco sobre a cor do tipo de atendimento → card "apagado",
+            // contrastando com o Agendado que mantém a cor cheia e o botão "Realizar".
+            const premiumBackground = isDone
+                ? `linear-gradient(rgba(255,255,255,0.45), rgba(255,255,255,0.45)), ${getCardBackground()}`
+                : getCardBackground();
             return (
                 <Paper
-                    elevation={2}
+                    elevation={isDone ? 0 : 2}
                     onClick={onClick}
                     className={`w-full rounded-2xl transition-all duration-200 hover:shadow-lg cursor-pointer p-4 ${isDimmed ? 'opacity-70' : ''} ${isPackageSessionPending ? 'animate-pulse' : ''}`}
                     style={{
-                        background: getCardBackground(),
-                        borderLeft: `4px solid ${operationalConfig.color}`,
+                        background: premiumBackground,
+                        borderLeft: `6px solid ${operationalConfig.color}`,
                         boxShadow: isPackageSessionPending ? '0 0 15px rgba(249, 115, 22, 0.6)' : undefined,
                     }}
                 >
                     <div className="flex items-center justify-between gap-2 mb-2.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-semibold bg-white/90 ${soft.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${soft.dot}`} />
+                        {/* Pill sólido (cor do status) + ícone + anel branco: legível sobre qualquer cor de card */}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold shadow-sm ring-2 ring-white/80 ${operationalBadge.bg} ${operationalBadge.text}`}>
+                            <OperationalIcon className="w-3 h-3" />
                             {operationalBadge.label}
                         </span>
                         <span className="text-sm font-bold text-gray-900 bg-white/90 px-2 py-1 rounded-lg">
