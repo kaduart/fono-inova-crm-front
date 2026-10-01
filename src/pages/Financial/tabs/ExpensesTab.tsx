@@ -1,6 +1,6 @@
 // src/pages/Financial/tabs/ExpensesTab.tsx
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Chip,
   IconButton,
@@ -40,13 +40,26 @@ import {
   Info,
   X,
   Package,
-  RotateCcw
+  RotateCcw,
+  Repeat,
+  Check
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
+import FixedExpensesPanel from '../components/FixedExpensesPanel';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import API from '../../../services/api';
+import {
+  expenseService,
+  fixedExpenseService,
+  getExpenseOrigin,
+  type ExpenseOrigin,
+  type FixedGenerationResult,
+  type FixedPendingGeneration
+} from '../../../services/expenseService';
+import { extractErrorMessage } from '../../../utils/errorUtils';
 
 // Configuração de categorias com cores e ícones
 //
@@ -86,6 +99,13 @@ function getExpenseStatusConfigMap() {
   return _statusConfigCache;
 }
 
+// Origem da despesa (badge e filtro): fixa gerada de modelo / comissão / avulsa
+const EXPENSE_ORIGIN_CONFIG: Record<ExpenseOrigin, { color: string; bgColor: string; label: string }> = {
+  fixed: { color: '#4F46E5', bgColor: '#EEF2FF', label: 'Fixa' },
+  commission: { color: '#B45309', bgColor: '#FFFBEB', label: 'Comissão' },
+  manual: { color: '#475569', bgColor: '#F1F5F9', label: 'Avulsa' }
+};
+
 // Origem financeira do atendimento que compõe a comissão (ver getCommissionSessions no backend)
 const ORIGIN_CONFIG: Record<'particular' | 'convenio' | 'liminar', { color: string; bgColor: string; label: string }> = {
   particular: { color: '#059669', bgColor: '#ECFDF5', label: 'Particular' },
@@ -101,7 +121,13 @@ interface ExpensesTabProps {
 }
 
 const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabProps) => {
-  const { expenses, loading, generatingCommissions, totals, fetchExpenses, cancelExpense, generateCommissions } = useExpenses();
+  const { expenses, loading, generatingCommissions, totals, byOrigin, fetchExpenses, cancelExpense, deleteExpense, markAsPaid, generateCommissions } = useExpenses();
+  // Sub-abas: "Do mês" (lista) e "Fixas" (CRUD dos modelos)
+  const [view, setView] = useState<'month' | 'fixed'>('month');
+  // Lixeira: confirma explicitamente — "Excluir" (avulsa pendente) ou "Cancelar" (demais)
+  const [rowAction, setRowAction] = useState<{ expense: any; kind: 'delete' | 'cancel' } | null>(null);
+  const [rowActionBusy, setRowActionBusy] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -151,12 +177,20 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     }
   };
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<{
+    month: number;
+    year: number;
+    category: string;
+    status: string;
+    doctorId: string;
+    origin: '' | ExpenseOrigin;
+  }>({
     month,
     year,
     category: '',
     status: '',
-    doctorId: ''
+    doctorId: '',
+    origin: ''
   });
 
   useEffect(() => {
@@ -166,6 +200,104 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
   useEffect(() => {
     fetchExpenses(filters);
   }, [filters, fetchExpenses]);
+
+  // Já existe comissão (não cancelada) no mês? Define qual botão aparece: "Gerar" (nenhuma
+  // ainda) ou "Regenerar" (já gerada). Consulta própria, independente dos filtros da lista —
+  // senão filtrar por categoria/status/profissional faria o botão trocar sozinho. `null` =
+  // ainda desconhecido (nenhum dos dois aparece, evita piscar o botão errado).
+  const [commissionsGenerated, setCommissionsGenerated] = useState<boolean | null>(null);
+
+  const refreshCommissionsGenerated = useCallback(async () => {
+    try {
+      const res = await expenseService.getAll({
+        month: filters.month,
+        year: filters.year,
+        category: 'commission',
+        limit: 1
+      });
+      const t = res?.totals;
+      setCommissionsGenerated(((t?.countPaid || 0) + (t?.countPending || 0)) > 0);
+    } catch {
+      setCommissionsGenerated(null);
+    }
+  }, [filters.month, filters.year]);
+
+  useEffect(() => {
+    setCommissionsGenerated(null);
+    refreshCommissionsGenerated();
+  }, [refreshCommissionsGenerated]);
+
+  // ─── Despesas fixas: aviso de modelos ativos sem ocorrência no mês + geração ───
+  const [pendingFixed, setPendingFixed] = useState<FixedPendingGeneration | null>(null);
+  const [generatingFixed, setGeneratingFixed] = useState(false);
+  const [fixedResult, setFixedResult] = useState<FixedGenerationResult | null>(null);
+
+  const refreshPendingFixed = useCallback(async () => {
+    try {
+      setPendingFixed(await fixedExpenseService.pendingGeneration({ year: filters.year, month: filters.month }));
+    } catch (err) {
+      // aviso é acessório: falhar não pode quebrar a lista — mas não pode falhar em silêncio
+      console.warn('[ExpensesTab] não foi possível verificar despesas fixas pendentes:', err);
+      setPendingFixed(null);
+    }
+  }, [filters.month, filters.year]);
+
+  useEffect(() => {
+    setFixedResult(null);
+    refreshPendingFixed();
+  }, [refreshPendingFixed]);
+
+  const handleGenerateFixed = async () => {
+    setGeneratingFixed(true);
+    try {
+      const result = await fixedExpenseService.generate({ year: filters.year, month: filters.month });
+      setFixedResult(result);
+      const c = result.created.length;
+      const s = result.skipped.length;
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length} despesa(s) fixa(s) com erro ao gerar${c ? ` — ${c} criada(s)` : ''}`);
+      } else if (c > 0) {
+        toast.success(`${c} despesa${c > 1 ? 's' : ''} fixa${c > 1 ? 's' : ''} criada${c > 1 ? 's' : ''}${s ? `, ${s} já existia${s > 1 ? 'm' : ''}` : ''}`);
+      } else {
+        toast.info('Nenhuma despesa nova — as fixas deste mês já existem');
+      }
+      await Promise.all([fetchExpenses(filters), refreshPendingFixed()]);
+    } catch (error: any) {
+      toast.error(extractErrorMessage(error, 'Erro ao gerar despesas fixas'));
+    } finally {
+      setGeneratingFixed(false);
+    }
+  };
+
+  const handleMarkAsPaid = async (id: string) => {
+    setPayingId(id);
+    try {
+      await markAsPaid(id);
+      await fetchExpenses(filters);
+    } catch {
+      /* toast já exibido no hook */
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const confirmRowAction = async () => {
+    if (!rowAction) return;
+    setRowActionBusy(true);
+    try {
+      if (rowAction.kind === 'delete') await deleteExpense(rowAction.expense._id);
+      else await cancelExpense(rowAction.expense._id);
+      setRowAction(null);
+      await fetchExpenses(filters);
+      if (rowAction.expense.category === 'commission') refreshCommissionsGenerated();
+      // Cancelar uma fixa gerada NÃO recria no "Gerar" (o doc permanece), mas o aviso é recalculado
+      refreshPendingFixed();
+    } catch {
+      /* toast já exibido no hook */
+    } finally {
+      setRowActionBusy(false);
+    }
+  };
 
   const toggleRow = (expenseId: string) => {
     setExpandedRows(prev => ({
@@ -222,6 +354,42 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         return matchesOrigin && matchesPatient;
       })
     : [];
+
+  const viewSwitcher = (
+    <div className="inline-flex items-center gap-1 bg-gray-100 rounded-xl p-1 mb-4" role="tablist" aria-label="Visão de despesas">
+      {([
+        { id: 'month', label: 'Do mês', icon: <Calendar size={15} /> },
+        { id: 'fixed', label: 'Fixas', icon: <Repeat size={15} /> }
+      ] as const).map((t) => (
+        <button
+          key={t.id}
+          role="tab"
+          aria-selected={view === t.id}
+          onClick={() => setView(t.id)}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium inline-flex items-center gap-2 transition-colors ${
+            view === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {t.icon}
+          {t.label}
+          {t.id === 'month' && (pendingFixed?.count ?? 0) > 0 && (
+            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
+              {pendingFixed!.count}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (view === 'fixed') {
+    return (
+      <div className="p-4">
+        {viewSwitcher}
+        <FixedExpensesPanel month={filters.month} year={filters.year} onChanged={refreshPendingFixed} />
+      </div>
+    );
+  }
 
   if (loading && expenses.length === 0) {
     return (
@@ -292,6 +460,50 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
 
   return (
     <div className="p-4">
+      {viewSwitcher}
+
+      {/* Aviso: modelos de despesa fixa ativos sem ocorrência neste mês */}
+      {pendingFixed && pendingFixed.count > 0 && (
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">
+              {pendingFixed.count} despesa{pendingFixed.count > 1 ? 's' : ''} fixa{pendingFixed.count > 1 ? 's' : ''} não gerada{pendingFixed.count > 1 ? 's' : ''} em {String(filters.month).padStart(2, '0')}/{filters.year}
+            </p>
+            <p className="text-xs text-amber-800 truncate">
+              {pendingFixed.items.slice(0, 4).map(i => i.description).join(' · ')}
+              {pendingFixed.items.length > 4 ? ` · +${pendingFixed.items.length - 4}` : ''}
+              {' — '}R$ {pendingFixed.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-amber-700/80 mt-0.5">
+              O sistema gera as fixas do mês corrente automaticamente (a cada poucas horas). Você pode gerar agora se não quiser esperar.
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateFixed}
+            disabled={generatingFixed}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shrink-0"
+          >
+            <Repeat size={16} className={generatingFixed ? 'animate-spin' : ''} />
+            {generatingFixed ? 'Gerando...' : 'Gerar fixas do mês'}
+          </button>
+        </div>
+      )}
+
+      {/* Feedback da última geração (criadas / já existiam / erros) */}
+      {fixedResult && (
+        <Alert
+          severity={fixedResult.errors.length ? 'warning' : 'success'}
+          onClose={() => setFixedResult(null)}
+          sx={{ mb: 2 }}
+        >
+          <strong>{fixedResult.created.length}</strong> criada{fixedResult.created.length !== 1 ? 's' : ''},{' '}
+          <strong>{fixedResult.skipped.length}</strong> já existia{fixedResult.skipped.length !== 1 ? 'm' : ''}
+          {fixedResult.errors.length > 0 && (
+            <>, <strong>{fixedResult.errors.length}</strong> com erro: {fixedResult.errors.map(e => `${e.description} (${e.reason})`).join('; ')}</>
+          )}
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -305,30 +517,38 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-          <button
-            onClick={async () => {
-              try {
-                await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters));
-              } catch {
-                fetchExpenses(filters);
-              }
-            }}
-            disabled={generatingCommissions}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
-          >
-            <RefreshCw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
-            {generatingCommissions ? 'Gerando...' : 'Gerar Comissões'}
-          </button>
-          <Tooltip title="Recalcula as comissões pendentes do período com os dados atuais de sessões (comissões já pagas nunca são alteradas)">
+          {/* Gerar e Regenerar são mutuamente exclusivos: sem comissão no mês → Gerar;
+              já gerada → Regenerar. Enquanto desconhecido (null), nenhum aparece. */}
+          {commissionsGenerated === false && (
             <button
-              onClick={() => setRegenerateConfirmOpen(true)}
+              onClick={async () => {
+                try {
+                  await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters));
+                } catch {
+                  fetchExpenses(filters);
+                } finally {
+                  refreshCommissionsGenerated();
+                }
+              }}
               disabled={generatingCommissions}
-              className="px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
             >
-              <RotateCcw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
-              Regenerar Comissões
+              <RefreshCw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
+              {generatingCommissions ? 'Gerando...' : 'Gerar Comissões'}
             </button>
-          </Tooltip>
+          )}
+          {commissionsGenerated === true && (
+            <Tooltip title="Recalcula as comissões pendentes do período com os dados atuais de sessões (comissões já pagas nunca são alteradas)">
+              <button
+                onClick={() => setRegenerateConfirmOpen(true)}
+                disabled={generatingCommissions}
+                className="px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <RotateCcw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
+                Regenerar Comissões
+              </button>
+            </Tooltip>
+          )}
           <button
             onClick={() => {
               setEditingExpense(null);
@@ -386,9 +606,37 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         </div>
       </div>
 
+      {/* Quebra por origem: Fixas / Comissões / Avulsas (pago + pendente, não canceladas) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        {(['fixed', 'commission', 'manual'] as ExpenseOrigin[]).map((o) => {
+          const cfg = EXPENSE_ORIGIN_CONFIG[o];
+          const t = byOrigin[o];
+          const active = filters.origin === o;
+          return (
+            <button
+              key={o}
+              type="button"
+              onClick={() => setFilters({ ...filters, origin: active ? '' : o })}
+              aria-pressed={active}
+              title={active ? 'Limpar filtro de origem' : `Filtrar por ${cfg.label.toLowerCase()}`}
+              className={`text-left rounded-2xl border px-4 py-3 transition-shadow hover:shadow-md ${active ? 'ring-2' : ''}`}
+              style={{ borderColor: `${cfg.color}30`, backgroundColor: cfg.bgColor, ['--tw-ring-color' as any]: cfg.color }}
+            >
+              <p className="text-3xs font-black uppercase tracking-widest mb-1" style={{ color: cfg.color }}>
+                {cfg.label === 'Fixa' ? 'Fixas' : cfg.label === 'Comissão' ? 'Comissões' : 'Avulsas'}
+              </p>
+              <p className="text-xl font-black text-gray-800">
+                R$ {t.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-xs text-gray-500">{t.count} despesa{t.count !== 1 ? 's' : ''}</p>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filtros e Ações */}
       <div className="border border-gray-200 rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Mês</label>
             <select
@@ -437,6 +685,19 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               <option value="operational">Operacional</option>
               <option value="equipment">Equipamento</option>
               <option value="marketing">Marketing</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Origem</label>
+            <select
+              value={filters.origin}
+              onChange={(e) => setFilters({ ...filters, origin: e.target.value as '' | ExpenseOrigin })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            >
+              <option value="">Todas</option>
+              <option value="fixed">Fixa</option>
+              <option value="commission">Comissão</option>
+              <option value="manual">Avulsa</option>
             </select>
           </div>
           <div>
@@ -522,6 +783,17 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                             <CategoryIcon size={12} />
                             {categoryConfig.label}
                           </span>
+                          {(() => {
+                            const o = EXPENSE_ORIGIN_CONFIG[getExpenseOrigin(expense)];
+                            return (
+                              <span
+                                className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+                                style={{ backgroundColor: o.bgColor, color: o.color }}
+                              >
+                                {o.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-2">
                           {expense.relatedDoctor ? (
@@ -566,6 +838,21 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                 </button>
                               </Tooltip>
                             )}
+                            {(expense.status === 'pending' || expense.status === 'scheduled') && (
+                              <Tooltip title="Marcar como pago">
+                                <span>
+                                  <button
+                                    onClick={() => handleMarkAsPaid(expense._id)}
+                                    disabled={payingId === expense._id}
+                                    className="p-2 rounded hover:bg-emerald-50 text-emerald-600 disabled:opacity-50"
+                                  >
+                                    {payingId === expense._id
+                                      ? <div className="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+                                      : <Check size={16} />}
+                                  </button>
+                                </span>
+                              </Tooltip>
+                            )}
                             <Tooltip title="Editar">
                               <button
                                 onClick={() => {
@@ -577,19 +864,21 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                 <Edit2 size={16} />
                               </button>
                             </Tooltip>
-                            <Tooltip title="Cancelar">
-                              <button
-                                onClick={async () => {
-                                  if (confirm('Cancelar esta despesa?')) {
-                                    await cancelExpense(expense._id);
-                                    fetchExpenses(filters);
-                                  }
-                                }}
-                                className="p-2 rounded hover:bg-gray-100 text-red-600"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </Tooltip>
+                            {expense.status !== 'canceled' && (() => {
+                              // Exclusão real só para avulsa pendente; o resto só cancela (o doc permanece)
+                              const canDelete = getExpenseOrigin(expense) === 'manual'
+                                && (expense.status === 'pending' || expense.status === 'scheduled');
+                              return (
+                                <Tooltip title={canDelete ? 'Excluir' : 'Cancelar'}>
+                                  <button
+                                    onClick={() => setRowAction({ expense, kind: canDelete ? 'delete' : 'cancel' })}
+                                    className="p-2 rounded hover:bg-gray-100 text-red-600"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </Tooltip>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -683,6 +972,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         onSaved={(savedExpense) => {
           setModalOpen(false);
           setEditingExpense(null);
+          refreshCommissionsGenerated();
           if (savedExpense?.date) {
             const d = parseISO(savedExpense.date);
             if (isValid(d)) {
@@ -697,6 +987,54 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
           fetchExpenses(filters);
         }}
       />
+
+      {/* Confirmação explícita: Excluir (avulsa pendente) ou Cancelar (demais) */}
+      {rowAction && (() => {
+        const e = rowAction.expense;
+        const isDelete = rowAction.kind === 'delete';
+        const origin = getExpenseOrigin(e);
+        const label = e.description || (e.relatedDoctor?.fullName ?? 'esta despesa');
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !rowActionBusy && setRowAction(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(ev) => ev.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-lg"><Trash2 className="h-5 w-5 text-red-600" /></div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {isDelete ? 'Excluir despesa?' : 'Cancelar despesa?'}
+                </h3>
+              </div>
+              <p className="text-sm text-gray-700 mb-1 font-medium">
+                {label} — R$ {e.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-sm text-gray-600 mb-6">
+                {isDelete
+                  ? 'Despesa avulsa pendente: será removida definitivamente e não poderá ser recuperada.'
+                  : origin === 'fixed'
+                    ? 'A despesa ficará como cancelada (não conta nos totais) e NÃO será recriada ao gerar as fixas do mês.'
+                    : e.status === 'paid'
+                      ? 'Esta despesa já está paga. Ela ficará como cancelada e deixará de contar nos totais; o registro é mantido para auditoria.'
+                      : 'A despesa ficará como cancelada e deixará de contar nos totais; o registro é mantido para auditoria.'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRowAction(null)}
+                  disabled={rowActionBusy}
+                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={confirmRowAction}
+                  disabled={rowActionBusy}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+                >
+                  {rowActionBusy ? 'Processando...' : isDelete ? 'Sim, excluir' : 'Sim, cancelar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal de confirmação de regeneração de comissões */}
       {regenerateConfirmOpen && (
@@ -735,6 +1073,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                     fetchExpenses(filters);
                   } finally {
                     setRegenerateConfirmOpen(false);
+                    refreshCommissionsGenerated();
                   }
                 }}
                 disabled={generatingCommissions}

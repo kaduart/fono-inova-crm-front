@@ -1,6 +1,6 @@
 // src/hooks/useExpenses.ts
 import { useState, useCallback } from 'react';
-import { expenseService, Expense, ExpenseFilters } from '../services/expenseService';
+import { expenseService, Expense, ExpenseFilters, ExpenseOriginTotals } from '../services/expenseService';
 import { toast } from 'react-toastify';
 import { invalidateCache } from '../utils/cacheManager';
 import { extractErrorMessage } from '../utils/errorUtils';
@@ -11,6 +11,11 @@ export const useExpenses = () => {
   const [generatingCommissions, setGeneratingCommissions] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 0 });
   const [totals, setTotals] = useState({ totalPaid: 0, totalPending: 0, countPaid: 0, countPending: 0 });
+  const [byOrigin, setByOrigin] = useState<ExpenseOriginTotals>({
+    fixed: { total: 0, count: 0 },
+    commission: { total: 0, count: 0 },
+    manual: { total: 0, count: 0 }
+  });
 
   const fetchExpenses = useCallback(async (filters?: ExpenseFilters) => {
     setLoading(true);
@@ -19,6 +24,7 @@ export const useExpenses = () => {
       setExpenses(response.data);
       setPagination(response.pagination);
       setTotals(response.totals);
+      if (response.byOrigin) setByOrigin(response.byOrigin);
     } catch (error: any) {
       toast.error(extractErrorMessage(error, 'Erro ao carregar despesas'));
     } finally {
@@ -65,6 +71,30 @@ export const useExpenses = () => {
       invalidateCache('dashboard');
     } catch (error: any) {
       toast.error(extractErrorMessage(error, 'Erro ao cancelar despesa'));
+      throw error;
+    }
+  }, []);
+
+  // Exclusão real (só avulsa pendente — o backend recusa o resto com 409)
+  const deleteExpense = useCallback(async (id: string) => {
+    try {
+      const response = await expenseService.deletePermanently(id);
+      toast.success(response.message || 'Despesa excluída');
+      invalidateCache('dashboard');
+    } catch (error: any) {
+      toast.error(extractErrorMessage(error, 'Erro ao excluir despesa'));
+      throw error;
+    }
+  }, []);
+
+  // Marcar como paga em 1 clique
+  const markAsPaid = useCallback(async (id: string) => {
+    try {
+      await expenseService.update(id, { status: 'paid' });
+      toast.success('Despesa marcada como paga');
+      invalidateCache('dashboard');
+    } catch (error: any) {
+      toast.error(extractErrorMessage(error, 'Erro ao marcar como paga'));
       throw error;
     }
   }, []);
@@ -117,10 +147,13 @@ export const useExpenses = () => {
     generatingCommissions,
     pagination,
     totals,
+    byOrigin,
     fetchExpenses,
     createExpense,
     updateExpense,
     cancelExpense,
+    deleteExpense,
+    markAsPaid,
     generateCommissions
   };
 };
