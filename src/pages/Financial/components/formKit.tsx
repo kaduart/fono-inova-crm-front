@@ -5,12 +5,13 @@ import type { ReactNode } from 'react';
 import { IconButton } from '@mui/material';
 import { X } from 'lucide-react';
 
-export type Accent = 'indigo' | 'red';
+export type Accent = 'indigo' | 'red' | 'emerald';
 
 // Classes completas (não montadas por string) para o Tailwind enxergar todas.
 const INPUT_BY_ACCENT: Record<Accent, string> = {
   indigo: 'focus:ring-indigo-500/40 focus:border-indigo-500',
   red: 'focus:ring-red-500/40 focus:border-red-500',
+  emerald: 'focus:ring-emerald-500/40 focus:border-emerald-500',
 };
 
 export const inputClass = (accent: Accent = 'indigo') =>
@@ -20,6 +21,7 @@ export const inputClass = (accent: Accent = 'indigo') =>
 export const PRIMARY_BTN: Record<Accent, string> = {
   indigo: 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
   red: 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
+  emerald: 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700',
 };
 
 export const Field = ({
@@ -81,6 +83,7 @@ export const ModalFooter = ({
   onCancel,
   onSubmit,
   submitting,
+  submitDisabled = false,
   submitLabel,
   submittingLabel,
 }: {
@@ -88,6 +91,7 @@ export const ModalFooter = ({
   onCancel: () => void;
   onSubmit: () => void;
   submitting: boolean;
+  submitDisabled?: boolean;
   submitLabel: string;
   submittingLabel: string;
 }) => (
@@ -103,7 +107,7 @@ export const ModalFooter = ({
     <button
       type="button"
       onClick={onSubmit}
-      disabled={submitting}
+      disabled={submitting || submitDisabled}
       className={`px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ${PRIMARY_BTN[accent]}`}
     >
       {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}

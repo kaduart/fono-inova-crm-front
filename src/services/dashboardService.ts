@@ -13,6 +13,17 @@ export interface DashboardStats {
     totalDoctors: number;
     totalPatients: number;
     activePatients: number;
+    /** Calculado no backend: pacientes com N+ atendimentos realizados por janela. */
+    recurring?: {
+        total: number;
+        windowDays: number;
+        minVisits: number;
+        windows: Array<{
+            days: number; attended: number;
+            min3: number; min4: number; min5: number;
+            pct3: number; pct4: number; pct5: number;
+        }>;
+    };
     todayAppointments: number;
     weekAppointments: number;
     todayRevenue: number;

@@ -1494,8 +1494,11 @@ const GuidePendingBillingSection = ({
                                         </Box>
 
                                         <Collapse in={isExpanded}>
-                                            <Box sx={{ bgcolor: '#FAFCFF', borderBottom: idx < sortedProviders.length - 1 ? '1px solid #E2E8F0' : 'none' }}>
-                                                <Box sx={{ px: 2.5, py: 0.8, display: 'flex', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
+                                            {/* Faixa de pacientes: fundo próprio + cartão recuado com barra na cor do convênio,
+                                                para não parecer uma continuação da linha do convênio. */}
+                                            <Box sx={{ bgcolor: '#F1F5F9', px: 2.5, pt: 1, pb: 1.5, minWidth: 1080, borderBottom: idx < sortedProviders.length - 1 ? '1px solid #E2E8F0' : 'none' }}>
+                                            <Box sx={{ ml: 4.5, bgcolor: 'white', border: '1px solid #E2E8F0', borderLeft: `3px solid ${rowAccent}`, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+                                                <Box sx={{ px: 2, py: 0.8, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
                                                     {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                                     <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase' }}>Paciente</Typography>
                                                     <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 56, textAlign: 'center', textTransform: 'uppercase' }}>Guias</Typography>
@@ -1512,7 +1515,7 @@ const GuidePendingBillingSection = ({
                                                     const oldest = patientGuides.map(guide => guide.firstSessionDate).filter(Boolean).sort()[0];
                                                     const initials = patientName.split(' ').slice(0, 2).map((name: string) => name[0]).join('').toUpperCase();
                                                     return (
-                                                        <Box key={`${provider}__${patientName}`} onClick={() => openDrawer(patientName, provider, patientGuides)} sx={{ px: 2.5, py: 1.25, display: 'flex', alignItems: 'center', cursor: 'pointer', borderBottom: patientIndex < sortedPatients.length - 1 ? '1px solid #F1F5F9' : 'none', bgcolor: (allPatientSelected || somePatientSelected) ? '#E0F2FE' : 'transparent', '&:hover': { bgcolor: '#F0F9FF' } }}>
+                                                        <Box key={`${provider}__${patientName}`} onClick={() => openDrawer(patientName, provider, patientGuides)} sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', cursor: 'pointer', borderBottom: patientIndex < sortedPatients.length - 1 ? '1px solid #F1F5F9' : 'none', bgcolor: (allPatientSelected || somePatientSelected) ? '#E0F2FE' : 'transparent', '&:hover': { bgcolor: '#F0F9FF' } }}>
                                                             {!readOnly && !selectionInsideDrawer && (
                                                                 <Checkbox checked={allPatientSelected} indeterminate={somePatientSelected} onChange={() => {
                                                                     const targets = allPatientSelected ? patientGuides : patientGuides.filter(guide => !selectedGuides.has(guide.guideId));
@@ -1533,6 +1536,7 @@ const GuidePendingBillingSection = ({
                                                         </Box>
                                                     );
                                                 })}
+                                            </Box>
                                             </Box>
                                         </Collapse>
                                     </Fragment>

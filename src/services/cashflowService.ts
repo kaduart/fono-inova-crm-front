@@ -170,6 +170,12 @@ export interface CashflowV2Data {
         package?: boolean;
         appointmentStatus?: string;
     }>;
+    /** Convênio recebido no dia: soma no caixa, mas fica fora da lista de recebimentos. */
+    convenioRecebido?: {
+        total: number;
+        quantidade: number;
+        itens: Array<{ id: string; paciente: string; valor: number; profissional?: string }>;
+    };
     transacoesProducao: Array<{
         id: string;
         paciente: string;

@@ -27,6 +27,7 @@ import {
     InputAdornment,
 } from '@mui/material';
 import { Patient360Modal } from '../components/Patient360Modal';
+import { Field, ModalHeader, ModalFooter, inputClass } from '../components/formKit';
 import {
     AlertCircle,
     Building2,
@@ -365,9 +366,9 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     // Estados para modal de recebimento em lote
     const [receberLoteModalOpen, setReceberLoteModalOpen] = useState(false);
     const [receberLoteLoading, setReceberLoteLoading] = useState(false);
-    const [receberLoteData, setReceberLoteData] = useState({
-        dataRecebimento: new Date().toISOString().split('T')[0]
-    });
+    // Sem data padrão de propósito: o usuário precisa informar o dia em que o dinheiro entrou
+    // (extrato). Com "hoje" preenchido, baixa de repasse antigo entrava no caixa de hoje.
+    const [receberLoteData, setReceberLoteData] = useState({ dataRecebimento: '' });
     const [receiptTargets, setReceiptTargets] = useState<Array<{ batchId: string; guideIds: string[] }>>([]);
     const [receiptSessionsCount, setReceiptSessionsCount] = useState(0);
     const [invoiceReceivableCount, setInvoiceReceivableCount] = useState(0);
@@ -1139,7 +1140,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             }
             setReceiptTargets(targets);
             setReceiptSessionsCount(selected.reduce((sum, guide) => sum + guide.pendingSessions, 0));
-            setReceberLoteData({ dataRecebimento: new Date().toISOString().split('T')[0] });
+            setReceberLoteData({ dataRecebimento: '' });
             setReceberLoteModalOpen(true);
             return true;
         } catch (error) {
@@ -1151,6 +1152,10 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     };
 
     const handleReceberLote = async () => {
+        if (!receberLoteData.dataRecebimento) {
+            toast.warn('Informe a data em que o dinheiro entrou na conta');
+            return;
+        }
         setReceberLoteLoading(true);
         try {
             let paymentsReceived = 0;
@@ -1985,51 +1990,70 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             </Dialog>
 
             {/* Modal: Receber em Lote */}
-            <Dialog open={receberLoteModalOpen} onClose={() => {
-                if (!receberLoteLoading) {
-                    setReceberLoteModalOpen(false);
-                    setReceiptTargets([]);
-                }
-            }} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ bgcolor: '#10B981', width: 32, height: 32 }}>
-                            <CheckCircle className="w-4 h-4 text-white" />
-                        </Avatar>
-                        <Typography variant="h6">Registrar Recebimento</Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            {receiptSessionsCount} sessão(ões), distribuída(s) em {receiptTargets.length} NF(s), será(ão) marcada(s) como recebida(s).
-                            Os Payments entram no caixa na data informada; as demais guias da mesma NF continuam pendentes.
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            type="date"
-                            label="Data do Recebimento *"
-                            value={receberLoteData.dataRecebimento}
-                            onChange={(e) => setReceberLoteData({ dataRecebimento: e.target.value })}
-                            InputLabelProps={{ shrink: true }}
-                            required
-                        />
-                    </Box>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => { setReceberLoteModalOpen(false); setReceiptTargets([]); }} disabled={receberLoteLoading}>
-                        Cancelar
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleReceberLote}
-                        disabled={receberLoteLoading}
-                        startIcon={receberLoteLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
-                        sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}
-                    >
-                        {receberLoteLoading ? 'Registrando...' : 'Confirmar Recebimento'}
-                    </Button>
-                </DialogActions>
+            <Dialog
+                open={receberLoteModalOpen}
+                onClose={() => {
+                    if (!receberLoteLoading) {
+                        setReceberLoteModalOpen(false);
+                        setReceiptTargets([]);
+                    }
+                }}
+                maxWidth={false}
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '20px', maxWidth: 420 } }}
+            >
+                <ModalHeader
+                    icon={<CheckCircle className="w-6 h-6" />}
+                    color="#10B981"
+                    title="Registrar recebimento"
+                    subtitle={`${receiptSessionsCount} sessão(ões) · ${receiptTargets.length} NF(s)`}
+                    onClose={() => { if (!receberLoteLoading) { setReceberLoteModalOpen(false); setReceiptTargets([]); } }}
+                />
+                {(() => {
+                    const sp = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+                    const today = sp(new Date());
+                    const yesterday = sp(new Date(Date.now() - 86_400_000));
+                    const picked = receberLoteData.dataRecebimento;
+                    const otherMonth = !!picked && picked.slice(0, 7) !== today.slice(0, 7);
+                    const chip = (active: boolean) =>
+                        `px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${active
+                            ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`;
+                    return (
+                        <div className="px-6 py-5">
+                            <Field label="Data em que o dinheiro entrou" required>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="date"
+                                        autoFocus
+                                        value={picked}
+                                        max={today}
+                                        onChange={(e) => setReceberLoteData({ dataRecebimento: e.target.value })}
+                                        className={`${inputClass('emerald')} !w-44`}
+                                    />
+                                    <button type="button" onClick={() => setReceberLoteData({ dataRecebimento: today })} className={chip(picked === today)}>Hoje</button>
+                                    <button type="button" onClick={() => setReceberLoteData({ dataRecebimento: yesterday })} className={chip(picked === yesterday)}>Ontem</button>
+                                </div>
+                            </Field>
+                            <p className={`mt-3 text-xs leading-snug ${otherMonth ? 'font-semibold text-amber-700' : 'text-gray-500'}`}>
+                                {!picked
+                                    ? 'Use a data do extrato ou repasse da operadora. Ela define em qual dia o valor entra no caixa.'
+                                    : otherMonth
+                                        ? `Atenção: entra no caixa de ${picked.slice(5, 7)}/${picked.slice(0, 4)}, não no do mês atual.`
+                                        : `Entra no caixa de ${picked.split('-').reverse().join('/')}.`}
+                            </p>
+                        </div>
+                    );
+                })()}
+                <ModalFooter
+                    accent="emerald"
+                    onCancel={() => { setReceberLoteModalOpen(false); setReceiptTargets([]); }}
+                    onSubmit={handleReceberLote}
+                    submitting={receberLoteLoading}
+                    submitDisabled={!receberLoteData.dataRecebimento}
+                    submitLabel="Confirmar recebimento"
+                    submittingLabel="Registrando..."
+                />
             </Dialog>
 
             {/* Modal: Novo Atendimento */}

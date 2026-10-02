@@ -1805,6 +1805,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                     <span className="text-sm font-bold text-gray-700">Total ({txFiltradas.length}{txFiltradas.length !== allTx.length ? ` de ${allTx.length}` : ''})</span>
                                                     <span className="text-sm font-bold text-emerald-600">{formatCurrency(totalFiltrado)}</span>
                                                 </div>
+                                                {(data.convenioRecebido?.quantidade ?? 0) > 0 && (
+                                                    <div className="flex justify-between items-center gap-3 px-3 py-2 mt-1 rounded-lg border border-amber-200 bg-amber-50">
+                                                        <span className="text-xs text-amber-900 min-w-0">
+                                                            <strong>Convênio recebido ({data.convenioRecebido!.quantidade})</strong>
+                                                            <span className="text-amber-800"> · baixa da operadora, já somada no caixa do dia · {data.convenioRecebido!.itens.map(i => i.paciente).join(', ')}</span>
+                                                        </span>
+                                                        <span className="text-sm font-bold text-amber-700 shrink-0">{formatCurrency(data.convenioRecebido!.total)}</span>
+                                                    </div>
+                                                )}
                                             </>
                                         );
                                     })()}

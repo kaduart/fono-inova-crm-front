@@ -1,5 +1,5 @@
 import {
-    Activity, BarChart3, Cake, ChevronDown, ChevronUp,
+    Activity, BarChart3, Cake, ChevronDown, ChevronRight, ChevronUp,
     Clock, DollarSign, Eye, RefreshCw, Stethoscope, UserPlus, Users, X
 } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -109,6 +109,8 @@ interface MetricCardProps {
     onAction?: () => void;
     actionIcon?: React.ReactNode;
     onClick?: () => void;
+    /** Detalhe opcional abaixo do subtítulo (ex.: recorrência por janela). */
+    children?: React.ReactNode;
 }
 
 // Números que chegam: quando `value` muda (refresh, nova carga de stats), o
@@ -116,7 +118,7 @@ interface MetricCardProps {
 // telemetria viva, não um número estático. Na primeira montagem from===to,
 // então não conta a partir de zero — só anima mudança real de valor.
 const MetricCard = memo<MetricCardProps>(({
-    title, value, format, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon, onClick
+    title, value, format, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon, onClick, children
 }) => {
     const [display, setDisplay] = useState(value);
     const prevValue = useRef(value);
@@ -158,6 +160,12 @@ const MetricCard = memo<MetricCardProps>(({
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBgClass} shrink-0`}>
                     <span className={colorClass}>{icon}</span>
                 </div>
+                {onClick && (
+                    // Indicador fixo: todo card que abre detalhes mostra isto, sem precisar passar o mouse
+                    <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-[11px] font-semibold ${iconBgClass} ${colorClass} transition-transform group-hover:translate-x-0.5`}>
+                        Detalhes <ChevronRight size={13} />
+                    </span>
+                )}
                 {onAction && actionIcon && (
                     <button
                         type="button"
@@ -174,10 +182,96 @@ const MetricCard = memo<MetricCardProps>(({
             </div>
             <p className="text-sm font-semibold leading-5 text-gray-700">{title}</p>
             <p className="mt-0.5 text-xs leading-4 text-gray-500">{subtitle}</p>
+            {children}
         </div>
     );
 });
 MetricCard.displayName = 'MetricCard';
+
+// Card de recorrência — só exibe o que o backend calculou. O seletor apenas escolhe qual
+// janela (já calculada) mostrar; nenhum número é derivado aqui.
+type RecurringStats = NonNullable<DashboardStats['recurring']>;
+const RECURRING_ROWS = [
+    { min: 3, key: 'min3', pct: 'pct3', bar: 'bg-indigo-200' },
+    { min: 4, key: 'min4', pct: 'pct4', bar: 'bg-indigo-500' },
+    { min: 5, key: 'min5', pct: 'pct5', bar: 'bg-indigo-800' },
+] as const;
+
+const RecurringPatientsCard = memo<{ recurring: RecurringStats }>(({ recurring }) => {
+    const [days, setDays] = useState(recurring.windowDays);
+    const w = recurring.windows.find((x) => x.days === days) ?? recurring.windows[0];
+
+    const [open, setOpen] = useState(false);
+    // O card segue o tamanho dos demais: só o número principal (janela padrão do backend).
+    const headline = recurring.windows.find((x) => x.days === recurring.windowDays) ?? recurring.windows[0];
+
+    return (
+        <>
+            <MetricCard
+                title="Pacientes Recorrentes"
+                value={headline.min4}
+                subtitle={`${recurring.minVisits}+ atendimentos em ${headline.days} dias`}
+                icon={<Users size={20} />}
+                colorClass="text-indigo-600"
+                iconBgClass="bg-indigo-100"
+                onClick={() => setOpen(true)}
+            />
+
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '20px' } }}>
+                <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                        <Users size={22} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold leading-tight text-gray-900">Pacientes Recorrentes</h2>
+                        <p className="text-sm text-gray-500">Atendimentos realizados por paciente</p>
+                    </div>
+                </div>
+
+                <div className="px-6 py-5">
+                    <div className="inline-flex rounded-full bg-gray-100 p-0.5" role="tablist" aria-label="Janela de recorrência">
+                        {recurring.windows.map((x) => (
+                            <button
+                                key={x.days}
+                                type="button"
+                                role="tab"
+                                aria-selected={x.days === w.days}
+                                onClick={() => setDays(x.days)}
+                                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                                    x.days === w.days ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                {x.days} dias
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="mt-5 space-y-4">
+                        {RECURRING_ROWS.map((r) => (
+                            <div key={r.min}>
+                                <div className="mb-1.5 flex items-baseline justify-between text-sm">
+                                    <span className={r.min === 4 ? 'font-semibold text-indigo-600' : 'text-gray-600'}>{r.min}+ atendimentos</span>
+                                    <span className="tabular-nums text-gray-700">
+                                        <strong className={`text-base ${r.min === 4 ? 'text-indigo-600' : ''}`}>{w[r.key]}</strong>
+                                        <span className="ml-1.5 text-xs text-gray-400">{w[r.pct]}%</span>
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div className={`h-full rounded-full ${r.bar} transition-all duration-500`} style={{ width: `${w[r.pct]}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <p className="mt-5 border-t border-gray-100 pt-3 text-xs text-gray-400">
+                        de <strong className="text-gray-600">{w.attended}</strong> pacientes atendidos nos últimos {w.days} dias
+                    </p>
+                </div>
+            </Dialog>
+        </>
+    );
+});
+RecurringPatientsCard.displayName = 'RecurringPatientsCard';
 
 // --- AccordionSection ---
 
@@ -478,11 +572,11 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     <div className="space-y-5">
                         <div>
                             <SectionLabel label="Operação" />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                                 <MetricCard
                                     title="Sessões Hoje"
                                     value={stats.todayAppointments}
-                                    subtitle="Agendamentos confirmados · clique para ver todas"
+                                    subtitle="Agendamentos confirmados"
                                     icon={<Activity size={20} />}
                                     colorClass="text-emerald-600"
                                     iconBgClass="bg-emerald-100"
@@ -516,6 +610,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                     onAction={handleAddPatient}
                                     actionIcon={<UserPlus size={16} />}
                                 />
+                                {stats.recurring && <RecurringPatientsCard recurring={stats.recurring} />}
                             </div>
                         </div>
 
