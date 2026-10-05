@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography, useTheme } from '@mui/material';
 import { ptBR } from "date-fns/locale";
-import { AlertCircle, Calendar, CalendarPlus, CheckCircle, Clock, DollarSign, Plus, User, XCircle } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarClock, CalendarPlus, CheckCircle, Clock, DollarSign, Plus, RotateCcw, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getSpecialtyLabel } from '../../constants/specialties';
@@ -14,6 +14,7 @@ import { IAppointment, IDoctor, IPatient, ScheduleAppointment, SelectedEvent } f
 import { AppointmentDTO, mapAppointmentListResponseDTO } from '../../dtos/appointment.response.dto';
 import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import AppointmentDetailModal from './appointmentDetailModal';
+import RescheduleDialog, { RescheduleTarget } from './RescheduleDialog';
 import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
 import API from '../../services/api';
@@ -40,6 +41,8 @@ interface EnhancedCalendarProps {
         payments?: Array<{ amount: number; date: string; method: string }>;
     }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
+    /** Remarcação rápida (PATCH /v2/appointments/:id/reschedule). Ausente → botões "Mudar data" ficam ocultos. */
+    onRescheduleAppointment?: (id: string, data: { date: string; time: string; reason?: string }) => Promise<void>;
     onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
     onFetchAvailableSlots: (params: { doctorId: string; date: string }) => Promise<string[]>;
     onMonthChange?: (startDate: Date, endDate: Date) => void;
@@ -54,6 +57,79 @@ interface EnhancedCalendarProps {
     featureFlags?: CalendarFeatureFlags;
     onOpenPreAppointments?: () => void;
 }
+
+const CANCELED_LIKE_STATUSES = ['canceled', 'cancelado', 'cancelada'];
+
+/**
+ * Botão "Mudar data" / "Reativar e remarcar" dos cards. Componente de módulo (ícones só são
+ * lidos em render — nada no escopo do módulo, evita o TDZ entre chunks documentado abaixo).
+ */
+const CardActionButton: React.FC<{
+    onClick: () => void;
+    title: string;
+    tone?: 'neutral' | 'danger' | 'success';
+    children: React.ReactNode;
+}> = ({ onClick, title, tone = 'neutral', children }) => {
+    const toneClass = tone === 'danger'
+        ? 'text-red-800 hover:bg-red-500/25'
+        : tone === 'success'
+            ? 'text-green-900 bg-white/45 hover:bg-white/65'
+            : 'text-gray-900 hover:bg-white/40';
+    return (
+        <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClick(); }}
+            title={title}
+            // Vidro translúcido sobre a cor do card — ação secundária discreta, sem bloco branco chamativo
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/40 bg-white/20 px-2 py-1.5 text-xs font-semibold backdrop-blur-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${toneClass}`}
+        >
+            {children}
+        </button>
+    );
+};
+
+/**
+ * Ações do card: Mudar data · Cancelar · Confirmar. Cancelar/Confirmar abrem o modal de detalhes
+ * já na aba correspondente (a lógica de cancelar/finalizar continua toda no modal — nada duplicado).
+ * Cancelado: só "Reativar e remarcar". Concluído/faltou: sem ações.
+ * Componente de módulo (ícones só são lidos em render — evita o TDZ entre chunks documentado abaixo).
+ */
+const CardActions: React.FC<{
+    status: string;
+    onReschedule?: () => void;
+    onCancel?: () => void;
+    onFinalize?: () => void;
+}> = ({ status, onReschedule, onCancel, onFinalize }) => {
+    const canceled = CANCELED_LIKE_STATUSES.includes(status);
+    const active = ['scheduled', 'confirmed', 'pre_agendado'].includes(status);
+    if (!canceled && !active) return null;
+    if (!(onReschedule || (active && (onCancel || onFinalize)))) return null;
+    return (
+        <div className="mt-2.5 flex gap-1.5">
+            {onReschedule && (
+                <CardActionButton
+                    onClick={onReschedule}
+                    title={canceled ? 'Reativar este agendamento em uma nova data e horário' : 'Mudar data e horário deste agendamento'}
+                >
+                    {canceled ? <RotateCcw size={13} strokeWidth={2.3} /> : <CalendarClock size={13} strokeWidth={2.3} />}
+                    <span>{canceled ? 'Reativar e remarcar' : 'Mudar data'}</span>
+                </CardActionButton>
+            )}
+            {active && onCancel && (
+                <CardActionButton onClick={onCancel} tone="danger" title="Cancelar este agendamento">
+                    <XCircle size={13} strokeWidth={2.3} />
+                    <span>Cancelar</span>
+                </CardActionButton>
+            )}
+            {active && onFinalize && (
+                <CardActionButton onClick={onFinalize} tone="success" title="Confirmar / finalizar este atendimento">
+                    <CheckCircle size={13} strokeWidth={2.3} />
+                    <span>Confirmar</span>
+                </CardActionButton>
+            )}
+        </div>
+    );
+};
 
 // 🐛 FIX (2026-09-17): as 3 consts abaixo eram de nível de módulo,
 // referenciando ícones do lucide-react no carregamento do módulo — mesmo bug
@@ -251,6 +327,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     onCancelAppointment,
     onCompleteAppointment,
     onEditAppointment,
+    onRescheduleAppointment,
     onConfirmAppointment,
     openModalAppointment,
     closeModalSignal,
@@ -566,7 +643,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     };
 
     // 🆕 Abre modal de detalhe a partir de um appointment (usado pelo popover do dia)
-    const openAppointmentDetail = useCallback((appt: IAppointment) => {
+    const [detailInitialTab, setDetailInitialTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
+    const openAppointmentDetail = useCallback((appt: IAppointment, tab: 'details' | 'confirm' | 'cancel' | 'edit' = 'details') => {
+        setDetailInitialTab(tab);
         const time = appt.time || '00:00';
         let dateObj: Date;
         if (typeof appt.date === 'string') {
@@ -642,6 +721,113 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             console.error('[EnhancedCalendar] Erro na conclusão rápida:', err);
         }
     }, [onCompleteAppointment]);
+
+    // ─── REMARCAÇÃO RÁPIDA ("Mudar data") ──────────────────────────────────
+    const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
+    const [pendingFocus, setPendingFocus] = useState<{ id: string; date: string } | null>(null);
+    const canReschedule = !!onRescheduleAppointment && permissions.canEdit;
+
+    const toDateOnly = (value: any): string => {
+        if (!value) return '';
+        return typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+    };
+
+    const openReschedule = useCallback((appt: any, prefill?: { date?: string; time?: string }) => {
+        if (!appt) return;
+        const doctorObj = appt.doctor && typeof appt.doctor === 'object' ? appt.doctor : null;
+        setRescheduleTarget({
+            id: appt._id || appt.id,
+            patientName: appt.patient?.fullName || appt.patient?.name || appt.patientInfo?.fullName || 'Paciente',
+            doctorId: doctorObj?._id || doctorObj?.id || (typeof appt.doctor === 'string' ? appt.doctor : ''),
+            doctorName: doctorObj?.fullName || doctorObj?.name || 'Profissional',
+            specialtyLabel: appt.specialty ? getSpecialtyLabel(appt.specialty) : undefined,
+            currentDate: toDateOnly(appt.date),
+            currentTime: appt.time || '',
+            initialDate: prefill?.date,
+            initialTime: prefill?.time,
+            reactivating: ['canceled', 'cancelado', 'cancelada'].includes(appt.operationalStatus),
+        });
+    }, []);
+
+    // Cancelar / Confirmar do card: abre o modal de detalhes já na aba correspondente
+    const openDetailTabById = useCallback((appointmentId: string, tab: 'confirm' | 'cancel') => {
+        const appt = appointments.find((a: any) => (a._id || a.id) === appointmentId);
+        if (appt) openAppointmentDetail(appt, tab);
+    }, [appointments, openAppointmentDetail]);
+
+    const handleRescheduleById = useCallback((appointmentId: string) => {
+        const appt = appointments.find((a: any) => (a._id || a.id) === appointmentId);
+        openReschedule(appt);
+    }, [appointments, openReschedule]);
+
+    // Arrastar (semana/dia): o FullCalendar já moveu o card visualmente; se a secretária cancelar
+    // o diálogo (ou a API recusar), `revert` devolve o card ao lugar de origem.
+    const dragRevertRef = useRef<(() => void) | null>(null);
+
+    const handleRescheduleClose = useCallback(() => {
+        dragRevertRef.current?.();
+        dragRevertRef.current = null;
+        setRescheduleTarget(null);
+    }, []);
+
+    const NON_DRAGGABLE_STATUSES = ['completed', 'canceled', 'cancelled', 'missed', 'absent', 'force_cancelled'];
+
+    const handleEventAllow = useCallback((dropInfo: any, draggedEvent: any) => {
+        const props = draggedEvent?.extendedProps || {};
+        if (NON_DRAGGABLE_STATUSES.includes(props.operationalStatus || 'scheduled')) return false;
+        if (props.__isPreAgendamento) return false;
+        const dayStr = dropInfo.start.toLocaleDateString('en-CA'); // YYYY-MM-DD no fuso local
+        if (dayStr < new Date().toLocaleDateString('en-CA')) return false; // nunca para o passado
+        if (isHoliday(dayStr)) return false;
+        return true;
+    }, [isHoliday]);
+
+    const handleEventDrop = useCallback((info: any) => {
+        const { event } = info;
+        const appt = appointments.find((a: any) => (a._id || a.id) === event.id);
+        if (!appt || !event.start) {
+            info.revert();
+            return;
+        }
+        dragRevertRef.current?.(); // se havia outro arraste pendente, desfaz antes
+        dragRevertRef.current = info.revert;
+        const hh = String(event.start.getHours()).padStart(2, '0');
+        const mm = String(event.start.getMinutes()).padStart(2, '0');
+        // Não grava direto: abre o diálogo pré-preenchido para confirmar (e validar horário livre)
+        openReschedule(appt, { date: event.start.toLocaleDateString('en-CA'), time: `${hh}:${mm}` });
+    }, [appointments, openReschedule]);
+
+    const handleRescheduleConfirm = useCallback(async (
+        id: string,
+        data: { date: string; time: string; reason?: string }
+    ) => {
+        if (!onRescheduleAppointment) throw new Error('Remarcação indisponível neste calendário.');
+        await onRescheduleAppointment(id, data); // lança em erro → o diálogo mostra a mensagem inline
+        dragRevertRef.current = null; // gravou: o card fica onde foi solto (refetch já reposicionou)
+        setDayModalOpen(false); // snapshot do dia antigo ficou desatualizado
+        setPendingFocus({ id, date: data.date });
+        calendarRef.current?.getApi().gotoDate(data.date); // pula para o dia/mês novo
+    }, [onRescheduleAppointment]);
+
+    // Quando o agendamento remarcado aparece no dia novo (após o refetch), abre o dia com ele
+    useEffect(() => {
+        if (!pendingFocus) return;
+        const moved = appointments.find((a: any) =>
+            (a._id || a.id) === pendingFocus.id && toDateOnly(a.date) === pendingFocus.date
+        );
+        if (!moved) return;
+        setDayModalData({ dateStr: pendingFocus.date, dayAppts: getAppointmentsByDay(pendingFocus.date) });
+        setDayModalFilter('');
+        setDayModalOpen(true);
+        setPendingFocus(null);
+    }, [appointments, pendingFocus, getAppointmentsByDay]);
+
+    // Segurança: se o dia novo nunca chegar (falha de carga), não deixa o foco pendente para sempre
+    useEffect(() => {
+        if (!pendingFocus) return;
+        const t = setTimeout(() => setPendingFocus(null), 10000);
+        return () => clearTimeout(t);
+    }, [pendingFocus]);
 
     // 🔹 MEMOIZAÇÃO DOS EVENTOS - Só recalcula quando appointments mudar
     const events = useMemo(() => {
@@ -815,13 +1001,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     }), [handleDatesSet]);
 
     // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
-    const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact', onConfirm, onComplete }: {
+    const AppointmentEventCard = React.memo(({ appointment, timeText, onClick, variant = 'compact', onComplete, onReschedule, onCancelCard, onFinalizeCard }: {
         appointment: AppointmentDTO;
         timeText?: string;
         onClick?: () => void;
         variant?: 'compact' | 'expanded' | 'premium';
         onConfirm?: (id: string) => void;
         onComplete?: (id: string) => void;
+        onReschedule?: (id: string) => void;
+        /** Abre o modal de detalhes na aba "Cancelar" / "Finalizar atendimento" (Confirmar). */
+        onCancelCard?: (id: string) => void;
+        onFinalizeCard?: (id: string) => void;
     }) => {
         const apptId = appointment.id;
 
@@ -1025,36 +1215,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </div>
                     </div>
 
-                    {(operationalStatus === 'scheduled' || operationalStatus === 'confirmed') && (onConfirm || onComplete) && (
-                        <div className="flex gap-2 mt-3">
-                            {/* 🚨 FIX (2026-08-18): "Confirmar" (scheduled -> confirmed) deixava a sessão
-                                presa num estado intermediário que ninguém fechava depois — sem cron nem
-                                lembrete que force a virar completed, ficava "confirmado" pra sempre (achado
-                                real: appointment do paciente Davi/Tatiana). Unifica com a decisão já tomada
-                                em appointmentDetailModal.tsx (10/07/2026): o clique já completa direto,
-                                sem etapa de confirmação separada. `confirmed` continua existindo no domínio
-                                (backend aceita completar de scheduled OU confirmed — ver
-                                back/docs/API_CONTRACT_COMPLETE_SESSION.md), só não é mais o alvo deste botão. */}
-                            {operationalStatus === 'scheduled' && onComplete && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); onComplete(apptId); }}
-                                    className="flex-1 bg-white/90 hover:bg-white text-green-700 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
-                                >
-                                    Realizar
-                                </button>
-                            )}
-                            {operationalStatus === 'confirmed' && onComplete && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); onComplete(apptId); }}
-                                    className="flex-1 bg-white/90 hover:bg-white text-green-700 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm"
-                                >
-                                    Realizar
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    {/* "Realizar" rápido removido (2026-10-05): finalizar passa pelo modal de detalhes
+                        (aba Finalizar Atendimento), onde o pagamento é conferido — botão "Confirmar" abaixo. */}
+                    <CardActions
+                        status={operationalStatus}
+                        onReschedule={onReschedule ? () => onReschedule(apptId) : undefined}
+                        onCancel={onCancelCard ? () => onCancelCard(apptId) : undefined}
+                        onFinalize={onFinalizeCard ? () => onFinalizeCard(apptId) : undefined}
+                    />
                 </Paper>
             );
         }
@@ -1302,6 +1470,16 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </div>
                     )}
                 </div>
+
+                {/* 📅 Mudar data — popup do dia (expandido), em linha própria; no compacto o card é pequeno demais */}
+                {isExpanded && (
+                    <CardActions
+                        status={operationalStatus}
+                        onReschedule={onReschedule ? () => onReschedule(apptId) : undefined}
+                        onCancel={onCancelCard ? () => onCancelCard(apptId) : undefined}
+                        onFinalize={onFinalizeCard ? () => onFinalizeCard(apptId) : undefined}
+                    />
+                )}
             </Paper>
         );
     });
@@ -1816,11 +1994,23 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         onDateClick(arg);
                     }}
                     eventClick={handleEventClick}
+                    // 📅 Arrastar para remarcar (semana/dia — no mensal as barras do FC ficam ocultas).
+                    // eventDragMinDistance: só vira arraste após 8px, então o clique continua abrindo o modal.
+                    editable={canReschedule}
+                    eventStartEditable={canReschedule}
+                    eventDurationEditable={false}
+                    eventDragMinDistance={8}
+                    eventAllow={handleEventAllow}
+                    eventDrop={handleEventDrop}
                     eventContent={renderEventContent}
                     slotMinTime="07:00:00"
                     slotMaxTime="20:00:00"
                     eventMaxStack={true}
-                    eventOverlap={false}
+                    // eventOverlap só governa soltar/redimensionar sobre outro card (o layout lado a lado é
+                    // slotEventOverlap, abaixo). Vários profissionais compartilham o mesmo horário, então o
+                    // arraste não pode ser barrado por haver outro card ali — conflito real (mesmo
+                    // profissional/paciente) é validado pelo diálogo + backend.
+                    eventOverlap={true}
                     slotEventOverlap={false}
                     expandRows={true}
                     dayMaxEventRows={4}
@@ -2053,12 +2243,26 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 closeModalSignal={closeModalSignal}
             />
 
+            <RescheduleDialog
+                target={rescheduleTarget}
+                onClose={handleRescheduleClose}
+                onFetchAvailableSlots={onFetchAvailableSlots}
+                onConfirm={handleRescheduleConfirm}
+                isHoliday={isHoliday}
+                getHolidayName={getHolidayName}
+            />
+
             <AppointmentDetailModal
                 isOpen={isAppointmentDetailModalOpen}
                 onClose={() => setIsAppointmentDetailModalOpen(false)}
                 onCancelAppointment={onCancelAppointment}
                 onCompleteAppointment={onCompleteAppointment}
                 onEditAppointment={onEditAppointment}
+                initialTab={detailInitialTab}
+                onRequestReschedule={canReschedule ? (id: string) => {
+                    setIsAppointmentDetailModalOpen(false);
+                    handleRescheduleById(id);
+                } : undefined}
                 onConfirmAppointment={onConfirmAppointment}
                 onConvertPreAgendamento={onConvertPreAgendamento}
                 onRefreshAppointments={onRefreshAppointments}
@@ -2094,6 +2298,24 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             onClick={() => openAppointmentDetail(appt)}
                             onConfirm={handleQuickConfirm}
                             onComplete={handleQuickComplete}
+                            onReschedule={canReschedule ? (id) => {
+                                clearHoverTimeout();
+                                setHoveredDay(null);
+                                setActivePopup(null);
+                                handleRescheduleById(id);
+                            } : undefined}
+                            onCancelCard={permissions.canCancel ? (id) => {
+                                clearHoverTimeout();
+                                setHoveredDay(null);
+                                setActivePopup(null);
+                                openDetailTabById(id, 'cancel');
+                            } : undefined}
+                            onFinalizeCard={permissions.canComplete ? (id) => {
+                                clearHoverTimeout();
+                                setHoveredDay(null);
+                                setActivePopup(null);
+                                openDetailTabById(id, 'confirm');
+                            } : undefined}
                         />
                     ))}
                 </div>,
@@ -2234,6 +2456,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                                 }}
                                                 onConfirm={handleQuickConfirm}
                                                 onComplete={handleQuickComplete}
+                                                onReschedule={canReschedule ? (id) => {
+                                                    setDayModalOpen(false);
+                                                    handleRescheduleById(id);
+                                                } : undefined}
+                                                onCancelCard={permissions.canCancel ? (id) => {
+                                                    setDayModalOpen(false);
+                                                    openDetailTabById(id, 'cancel');
+                                                } : undefined}
+                                                onFinalizeCard={permissions.canComplete ? (id) => {
+                                                    setDayModalOpen(false);
+                                                    openDetailTabById(id, 'confirm');
+                                                } : undefined}
                                             />
                                         ))}
                                     </div>

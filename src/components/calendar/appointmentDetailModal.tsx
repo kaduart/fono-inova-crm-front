@@ -1,5 +1,5 @@
 import { ptBR } from 'date-fns/locale';
-import { Building2, Calendar, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, UserCheck, UserX, Wallet, X, XCircle } from 'lucide-react';
+import { Building2, Calendar, CalendarClock, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, UserCheck, UserX, Wallet, X, XCircle } from 'lucide-react';
 import {
     Button,
     Dialog,
@@ -58,6 +58,10 @@ interface AppointmentDetailModalProps {
         exclusionReason?: string;
     }) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
+    /** Abre o diálogo "Mudar data" (hospedado pelo calendário). Ausente → botão oculto. */
+    onRequestReschedule?: (id: string) => void;
+    /** Aba aberta ao exibir o modal (cards do calendário abrem direto em "Cancelar"/"Finalizar"). */
+    initialTab?: 'details' | 'confirm' | 'cancel' | 'edit';
     onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
     patients?: any[];
     onCancelAdvancedSession?: (sessionId: string) => void;
@@ -312,6 +316,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     onCancelAppointment,
     onCompleteAppointment,
     onEditAppointment,
+    onRequestReschedule,
+    initialTab,
     onConfirmAppointment,
     patients = [],
     onCancelAdvancedSession,
@@ -389,6 +395,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setActiveTab('details');
         }
     }, [availableTabs, activeTab]);
+    // Ao abrir (ou trocar de agendamento) vai direto para a aba pedida pelo card; sem pedido, 'details'.
+    useEffect(() => {
+        if (!isOpen || !event?.id) return;
+        setActiveTab(initialTab && availableTabs.includes(initialTab) ? initialTab : 'details');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, event?.id, initialTab]);
     const [cancelReason, setCancelReason] = useState('');
     const [cancelError, setCancelError] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
@@ -2587,6 +2599,23 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     </div>
 
                     <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+                        {/* 📅 Remarcação rápida: só aparece com o handler injetado pelo calendário, para quem
+                            pode editar e enquanto o atendimento não é terminal (concluído/cancelado/faltou). */}
+                        {activeTab === 'details'
+                            && onRequestReschedule
+                            && permissions.canEdit
+                            && event?.id
+                            && !(event as any).__isPreAgendamento
+                            && !['completed', 'cancelled', 'missed', 'absent'].includes(event?.operationalStatus || '') && (
+                            <button
+                                type="button"
+                                onClick={() => onRequestReschedule(event.id)}
+                                className="px-5 py-2.5 border border-indigo-200 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-all duration-200 font-semibold flex items-center justify-center gap-2"
+                            >
+                                <CalendarClock size={18} />
+                                <span>Mudar data</span>
+                            </button>
+                        )}
                         {renderActionButton()}
                         <button
                             onClick={onClose}

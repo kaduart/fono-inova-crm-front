@@ -818,6 +818,35 @@ export default function AdminDashboard() {
         }
     }, [updateAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
 
+    // 📅 Remarcação rápida (botão "Mudar data"): PATCH /v2/appointments/:id/reschedule.
+    // Erros NÃO viram toast aqui — o RescheduleDialog mostra a mensagem inline (data/horário
+    // continuam na tela para a secretária escolher outro). Sempre relança em falha.
+    const handleRescheduleAppointment = useCallback(async (
+        appointmentId: string,
+        data: { date: string; time: string; reason?: string }
+    ) => {
+        try {
+            const response = await API.patch(`/v2/appointments/${appointmentId}/reschedule`, data);
+            if (response?.data?.success !== true) {
+                throw new Error(response?.data?.error || response?.data?.message || 'Falha ao remarcar');
+            }
+        } catch (error: any) {
+            const code = error?.response?.data?.code;
+            if (code === 'WRITE_CONFLICT') {
+                // Outro usuário mexeu no mesmo agendamento: sincroniza a tela em segundo plano
+                fetchAppointments({ ...calendarDateRange, force: true }).catch(() => undefined);
+            }
+            throw error;
+        }
+
+        const [y, m, d] = data.date.split('-');
+        toast.success(`✅ Remarcado para ${d}/${m}/${y} às ${data.time}`);
+        await fetchAppointments({ ...calendarDateRange, force: true });
+        window.dispatchEvent(new CustomEvent('appointments:data-updated', {
+            detail: { appointmentId, timestamp: Date.now(), reason: 'reschedule' }
+        }));
+    }, [fetchAppointments, calendarDateRange]);
+
     const handleFetchAvailableSlots = useCallback(async (payload: AvailableSlotsParams): Promise<string[]> => {
         try {
             const slots = await getAvailableSlots(payload);
@@ -1122,6 +1151,7 @@ export default function AdminDashboard() {
         onCompleteAppointment: handleCompleteAppointment,
         onConfirmAppointment: handleConfirmAppointment,
         onEditAppointment: handleEditAppointment,
+        onRescheduleAppointment: handleRescheduleAppointment,
         onFetchAvailableSlots: handleFetchAvailableSlots,
         onMonthChange: handleMonthChange,
         openModalAppointment,
@@ -1129,7 +1159,7 @@ export default function AdminDashboard() {
         loading: appointmentsLoading,
         onOpenPreAppointments: () => setActiveTab('Pré-Agendamentos'),
     }), [safeDoctorsOverview, patients, appointments, handleNewAppointment, handleCancelAppointment,
-        handleCompleteAppointment, handleEditAppointment, handleFetchAvailableSlots,
+        handleCompleteAppointment, handleEditAppointment, handleRescheduleAppointment, handleFetchAvailableSlots,
         handleMonthChange, openModalAppointment, closeModalSignal, appointmentsLoading, setActiveTab]);
 
     const financialProps = useMemo(() => ({
