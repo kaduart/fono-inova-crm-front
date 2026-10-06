@@ -1053,6 +1053,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const SERVICE_TYPE_LABELS: Record<string, string> = {
             'individual_session': 'Sessão',
+            'session': 'Sessão',
+            'convenio_session': 'Sessão',
+            'liminar_session': 'Sessão',
+            'joint_session': 'Sessão conjunta',
             'package_session': 'Pacote',
             'evaluation': 'Avaliação',
             'consultation': 'Consulta',
@@ -1155,63 +1159,120 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const isDone = operationalStatus === 'completed';
             // Concluído: véu branco sobre a cor do tipo de atendimento → card "apagado",
             // contrastando com o Agendado que mantém a cor cheia e o botão "Realizar".
-            const premiumBackground = isDone
-                ? `linear-gradient(rgba(255,255,255,0.45), rgba(255,255,255,0.45)), ${getCardBackground()}`
-                : getCardBackground();
+            // Fundo = TIPO de atendimento (particular, convênio, pacote, liminar) em tom pastel, com texto escuro legível.
+            // Faixa lateral = STATUS do atendimento (operationalConfig.color).
+            const typeMeta = isPackageSessionPending
+                ? { label: 'Pacote', bg: 'linear-gradient(135deg, #fef9c3 0%, #fed7aa 100%)', chip: '#c2410c' }
+                : isLiminar
+                    ? { label: 'Liminar', bg: 'linear-gradient(135deg, #ffedd5 0%, #fdba74 100%)', chip: '#c2410c' }
+                    : hasPackage
+                        ? { label: 'Pacote', bg: 'linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%)', chip: '#7e22ce' }
+                        : isConvenio
+                            ? { label: 'Convênio', bg: 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)', chip: '#1d4ed8' }
+                            : { label: 'Particular', bg: 'linear-gradient(135deg, #dcfce7 0%, #86efac 100%)', chip: '#047857' };
+            const packagePct = totalSessions && sessionsDone !== null
+                ? Math.min(100, Math.round((sessionsDone / totalSessions) * 100))
+                : null;
+            // Convênio: progresso da guia (sessões usadas / autorizadas)
+            const guideTotal = (appointment as any).insuranceGuideTotalSessions as number | null | undefined;
+            const guideUsed = (appointment as any).insuranceGuideUsedSessions as number | null | undefined;
+            const guidePct = isConvenio && guideTotal && guideTotal > 0 && typeof guideUsed === 'number'
+                ? Math.min(100, Math.round((guideUsed / guideTotal) * 100))
+                : null;
+            // Liminar (contrato, sem pacote): consumo do crédito em R$
+            const liminarTotalCredit = Number(liminarContract?.totalCredit) || 0;
+            const liminarUsedCredit = Number(liminarContract?.usedCredit) || 0;
+            const liminarPct = isLiminar && !hasPackage && liminarTotalCredit > 0
+                ? Math.min(100, Math.round((liminarUsedCredit / liminarTotalCredit) * 100))
+                : null;
+            // Barra de progresso com o "x/y" escrito dentro dela (cabe numa linha só, legível de longe)
+            const renderBar = (pct: number, label: string, title: string) => (
+                <div className="relative mt-1 h-5 w-full rounded-full bg-white overflow-hidden ring-1 ring-black/5" title={title}>
+                    <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: typeMeta.chip, opacity: 0.5 }} />
+                    <div className="absolute inset-0 flex items-center justify-center text-[11px] font-extrabold tabular-nums text-gray-900 whitespace-nowrap" style={{ textShadow: '0 0 3px #fff, 0 0 3px #fff' }}>
+                        {label}
+                    </div>
+                </div>
+            );
+            const guideNumberFull = appointment.insuranceGuideNumber ? String(appointment.insuranceGuideNumber) : '';
+            const guideNumberShort = guideNumberFull.length > 4 ? `…${guideNumberFull.slice(-4)}` : guideNumberFull;
+            const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
             return (
                 <Paper
                     elevation={isDone ? 0 : 2}
                     onClick={onClick}
-                    className={`w-full rounded-2xl transition-all duration-200 hover:shadow-lg cursor-pointer p-4 ${isDimmed ? 'opacity-70' : ''} ${isPackageSessionPending ? 'animate-pulse' : ''}`}
+                    className={`w-full rounded-2xl transition-all duration-200 hover:shadow-lg cursor-pointer p-3.5 ${isPackageSessionPending ? 'animate-pulse' : ''}`}
                     style={{
-                        background: premiumBackground,
-                        borderLeft: `6px solid ${operationalConfig.color}`,
+                        background: isDone
+                            ? `linear-gradient(rgba(255,255,255,0.45), rgba(255,255,255,0.45)), ${typeMeta.bg}`
+                            : typeMeta.bg,
+                        borderLeft: `8px solid ${operationalConfig.color}`,
+                        opacity: isDimmed ? 0.65 : 1,
                         boxShadow: isPackageSessionPending ? '0 0 15px rgba(249, 115, 22, 0.6)' : undefined,
                     }}
                 >
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                        {/* Pill sólido (cor do status) + ícone + anel branco: legível sobre qualquer cor de card */}
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold shadow-sm ring-2 ring-white/80 ${operationalBadge.bg} ${operationalBadge.text}`}>
-                            <OperationalIcon className="w-3 h-3" />
-                            {operationalBadge.label}
-                        </span>
-                        <span className="text-sm font-bold text-gray-900 bg-white/90 px-2 py-1 rounded-lg">
-                            {fmtTime(timeText || appointment.time || '')}
-                        </span>
-                    </div>
+                    <div className="flex items-start gap-3">
+                        {/* Horário: o que a recepção procura primeiro */}
+                        <div className="shrink-0 w-[84px] text-center rounded-xl bg-white/90 px-1 py-2 shadow-sm">
+                            <div className="text-lg font-extrabold leading-none tabular-nums text-gray-900">
+                                {fmtTime(timeText || appointment.time || '')}
+                            </div>
+                            <div className="mt-1.5 text-[9px] font-bold uppercase tracking-normal whitespace-nowrap leading-none" style={{ color: typeMeta.chip }}>
+                                {typeMeta.label}
+                            </div>
+                        </div>
 
-                    <p className="text-base font-bold text-gray-900 leading-snug truncate">{patientName}</p>
-                    <p className="text-xs text-gray-700 mt-0.5 truncate">
-                        👩‍⚕️ {doctorName}{specialtyLabel ? ` · ${specialtyLabel}` : ''}
-                    </p>
-
-                    {hasPackage && (
-                        <p className="text-xs text-gray-700 mt-2 flex items-center gap-1 bg-white/60 rounded-lg px-2 py-1">
-                            <span>{isLiminar ? '⚖️' : '📦'}</span>
-                            <span>{isLiminar ? 'Liminar' : 'Pacote'}{totalSessions ? ` · ${sessionsDone ?? 0}/${totalSessions} sessões` : ''}</span>
-                        </p>
-                    )}
-                    {isConvenio && (
-                        <p className="text-xs text-gray-700 mt-2 flex items-center gap-1 bg-white/60 rounded-lg px-2 py-1">
-                            <span>🏥</span>
-                            <span>{insuranceProviderName || 'Convênio'}{appointment.insuranceGuideNumber ? ` · Guia #${appointment.insuranceGuideNumber}` : ''}</span>
-                        </p>
-                    )}
-                    {!hasPackage && !isConvenio && reason && (
-                        <p className="text-xs text-gray-700 italic mt-2 truncate bg-white/50 rounded-lg px-2 py-1">📝 {reason}</p>
-                    )}
-
-                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/40">
-                        <span className="text-2xs text-gray-700 font-medium">{serviceLabel}</span>
-                        <div className="flex items-center gap-1.5">
-                            {patientHasDebt && (
-                                <span className="text-3xs font-bold text-red-700 bg-white/70 px-1.5 py-0.5 rounded-full" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
-                                    ⚠️ Débito R$ {patientBalance.toFixed(0)}
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                                <p className={`text-base font-bold text-gray-900 leading-snug truncate ${isDimmed ? 'line-through' : ''}`}>{patientName}</p>
+                                <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold shadow-sm ring-2 ring-white/80 whitespace-nowrap ${operationalBadge.bg} ${operationalBadge.text}`}>
+                                    <OperationalIcon className="w-3 h-3" />
+                                    {operationalBadge.label}
                                 </span>
+                            </div>
+                            <p className="text-xs text-gray-700 mt-0.5 truncate">
+                                <span className="font-semibold">{doctorName}</span>{specialtyLabel ? ` · ${specialtyLabel}` : ''}
+                            </p>
+
+                            {hasPackage && (
+                                <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5">
+                                    <div className="text-xs text-gray-800 font-medium">{isLiminar ? '⚖️' : '📦'} Progresso</div>
+                                    {packagePct !== null
+                                        ? renderBar(packagePct, `${sessionsDone ?? 0}/${totalSessions} sessões`, 'Sessões realizadas / total do pacote')
+                                        : totalSessions ? <div className="mt-0.5 text-xs font-bold tabular-nums text-gray-800">{totalSessions} sessões</div> : null}
+                                </div>
                             )}
-                            <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-2xs font-bold flex items-center gap-1`}>
-                                <span>{paymentBadge.icon}</span><span>{paymentBadge.label}</span>
-                            </span>
+                            {isConvenio && (
+                                <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5">
+                                    <div className="text-xs text-gray-800 truncate" title={guideNumberFull ? `Guia #${guideNumberFull}` : undefined}>🏥 {insuranceProviderName || 'Convênio'}{guideNumberShort ? ` · Guia ${guideNumberShort}` : ''}</div>
+                                    {guidePct !== null && renderBar(guidePct, `${guideUsed}/${guideTotal} sessões`, 'Sessões usadas / autorizadas pela guia')}
+                                </div>
+                            )}
+                            {liminarPct !== null && (
+                                <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5">
+                                    <div className="text-xs text-gray-800 truncate">⚖️ Contrato{liminarContract?.processNumber ? ` · Proc. ${liminarContract.processNumber}` : ''}</div>
+                                    {renderBar(liminarPct, `${fmtBRL(liminarUsedCredit)} / ${fmtBRL(liminarTotalCredit)}`, 'Crédito usado / total do contrato liminar')}
+                                </div>
+                            )}
+                            {!hasPackage && !isConvenio && reason && (
+                                <p className="text-xs text-gray-700 italic mt-2 truncate bg-white/60 rounded-lg px-2 py-1">📝 {reason}</p>
+                            )}
+
+                            <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-black/10">
+                                {serviceLabel !== typeMeta.label && (
+                                    <span className="text-2xs text-gray-700 font-semibold whitespace-nowrap">{serviceLabel}</span>
+                                )}
+                                <div className="flex items-center gap-1.5 ml-auto">
+                                    {patientHasDebt && (
+                                        <span className="text-3xs font-bold text-red-700 bg-white/80 px-1.5 py-0.5 rounded-full whitespace-nowrap" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
+                                            ⚠️ Débito R$ {patientBalance.toFixed(0)}
+                                        </span>
+                                    )}
+                                    <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-2xs font-bold flex items-center gap-1 shadow-sm whitespace-nowrap`}>
+                                        <span>{paymentBadge.icon}</span><span>{paymentBadge.label}</span>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -2115,11 +2176,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 {dayCount > 0 && (() => {
                                     const doneCount = dayAppts.filter((a: any) => (a.operationalStatus || a.status) === 'completed').length;
                                     const pct = Math.round((doneCount / dayCount) * 100);
+                                    // Verde = progresso (inclusive em dias passados); cinza = nada feito; verde escuro = dia 100%.
                                     const tone = doneCount === 0
                                         ? { count: 'text-slate-700', pct: 'text-slate-400', fill: 'linear-gradient(90deg,#cbd5e1,#94a3b8)', ring: '#e2e8f0' }
                                         : doneCount === dayCount
-                                            ? { count: 'text-emerald-700', pct: 'text-emerald-600', fill: 'linear-gradient(90deg,#34d399,#059669)', ring: '#a7f3d0' }
-                                            : { count: 'text-amber-700', pct: 'text-amber-600', fill: 'linear-gradient(90deg,#fcd34d,#f59e0b)', ring: '#fde68a' };
+                                            ? { count: 'text-emerald-700', pct: 'text-emerald-700', fill: 'linear-gradient(90deg,#10b981,#047857)', ring: '#6ee7b7' }
+                                            : { count: 'text-emerald-600', pct: 'text-emerald-600', fill: 'linear-gradient(90deg,#6ee7b7,#10b981)', ring: '#a7f3d0' };
                                     return (
                                         <div
                                             className="rounded-xl bg-white px-2.5 py-1.5 pointer-events-none select-none"
@@ -2190,6 +2252,30 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </Box>
                     </Paper>
 
+                    <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                            🧩 Tipo de Atendimento
+                        </Typography>
+                        <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
+                            Indicado pela cor de fundo do card
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {[
+                                { label: 'Particular', bg: 'linear-gradient(135deg, #dcfce7 0%, #86efac 100%)', text: '#047857' },
+                                { label: 'Convênio', bg: 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)', text: '#1d4ed8' },
+                                { label: 'Pacote', bg: 'linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%)', text: '#7e22ce' },
+                                { label: 'Liminar', bg: 'linear-gradient(135deg, #ffedd5 0%, #fdba74 100%)', text: '#c2410c' },
+                            ].map((t) => (
+                                <Box key={t.label} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box sx={{ width: 44, height: 24, borderRadius: 1, background: t.bg, border: '1px solid rgba(0,0,0,0.08)' }} />
+                                    <Typography variant="body2" fontWeight="medium" sx={{ color: t.text }}>
+                                        {t.label}
+                                    </Typography>
+                                </Box>
+                            ))}
+                        </Box>
+                    </Paper>
+
                     <Paper
                         elevation={2}
                         sx={{
@@ -2204,7 +2290,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             💰 Status do Pagamento
                         </Typography>
                         <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
-                            Indicado pela cor de fundo do card
+                            Indicado pela etiqueta no rodapé do card
                         </Typography>
 
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -2323,12 +2409,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
             {activePopup && createPortal(
                 <div
-                    className="fixed z-[99999] w-[360px] max-h-[520px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 hidden md:block"
+                    className="fixed z-[99999] w-[460px] max-h-[600px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 hidden md:block"
                     style={{
                         top: activePopup.rect.bottom + 6,
                         left: Math.min(
                             activePopup.rect.left,
-                            window.innerWidth - 380
+                            window.innerWidth - 480
                         ),
                     }}
                     onMouseEnter={clearHoverTimeout}
@@ -2342,7 +2428,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             key={appt._id || appt.id}
                             appointment={appt}
                             timeText={appt.time}
-                            variant="expanded"
+                            variant="premium"
                             onClick={() => openAppointmentDetail(appt)}
                             onConfirm={handleQuickConfirm}
                             onComplete={handleQuickComplete}
