@@ -36,7 +36,8 @@ import {
     CommunicationEmailType,
     CommunicationEmailTypeLabels
 } from '../../../services/communicationService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 interface DocumentSendDrawerProps {
     open: boolean;
@@ -158,7 +159,7 @@ export function DocumentSendDrawer({
                 documentIds: [...existingIds].sort()
             });
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao carregar detalhes'));
+            notifyApiError(error, 'Erro ao carregar detalhes');
         } finally {
             setLoading(false);
         }
@@ -206,7 +207,7 @@ export function DocumentSendDrawer({
                             setSelectedDocumentIds(prev => new Set([...prev, res.data.data._id]));
                             toast.success('Print adicionado!');
                         } catch (error) {
-                            toast.error(extractErrorMessage(error, 'Erro ao colar print'));
+                            notifyApiError(error, 'Erro ao colar print');
                         } finally {
                             setPasting(false);
                         }
@@ -257,7 +258,7 @@ export function DocumentSendDrawer({
             setSelectedDocumentIds(prev => new Set([...prev, res.data.data._id]));
             toast.success('Documento adicionado!');
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao enviar documento'));
+            notifyApiError(error, 'Erro ao enviar documento');
         } finally {
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
@@ -321,12 +322,12 @@ export function DocumentSendDrawer({
                     }
                 } catch (pollError) {
                     clearInterval(interval);
-                    toast.error(extractErrorMessage(pollError, 'Erro ao consultar status do envio'));
+                    notifyApiError(pollError, 'Erro ao consultar status do envio');
                     setSending(false);
                 }
             }, 1000);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao enviar comunicação'));
+            notifyApiError(error, 'Erro ao enviar comunicação');
             setSending(false);
         }
     };

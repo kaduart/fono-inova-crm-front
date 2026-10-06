@@ -23,7 +23,7 @@ import appointmentService from '../../services/appointmentService';
 import packageService from '../../services/packageService';
 import API from '../../services/api';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
 import { doctorHandlesSpecialty } from '../../utils/doctorSpecialty';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
@@ -31,6 +31,7 @@ import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { validateObject, required, betweenNumber, minNumber } from "../../utils/validators";
+import { notifyApiError } from '../../utils/notifyApiError';
 
 const WEEKS_PER_MONTH = 4;
 
@@ -800,7 +801,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 onSubmit();
                 onClose();
             } catch (err: any) {
-                toast.error(extractErrorMessage(err, 'Erro ao salvar pacote.'));
+                notifyApiError(err, 'Erro ao salvar pacote.');
             } finally {
                 setIsLoading(false);
             }
@@ -919,7 +920,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             onSubmit(newPackageId);
             onClose();
         } catch (err: any) {
-            toast.error(extractErrorMessage(err, "Erro ao salvar pacote."));
+            notifyApiError(err, "Erro ao salvar pacote.");
         } finally {
             setIsLoading(false);
         }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../utils/toast';
 import API from '../services/api';
 import { packageService } from '../services/packageService';
 import { invalidateCache } from '../utils/cacheManager';

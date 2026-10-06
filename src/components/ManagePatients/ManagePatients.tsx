@@ -4,8 +4,9 @@ import { IPatient } from '../../utils/types/types';
 import PatientList from './PatientList';
 import { PatientModal } from '../patients/PatientModal';
 import { usePatients } from '../../hooks/usePatients';
-import { extractErrorMessage } from '../../utils/errorUtils';
-import { toast } from 'react-hot-toast';
+
+import { toast } from '../../utils/toast';
+import { notifyApiError } from '../../utils/notifyApiError';
 
 const EMPTY_PATIENT: IPatient = {
     fullName: '',
@@ -57,7 +58,7 @@ const ManagePatients: React.FC = () => {
             setRefreshSignal(s => s + 1);
             return true;
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao salvar paciente'));
+            notifyApiError(error, 'Erro ao salvar paciente');
             return false;
         } finally {
             setIsSaving(false);

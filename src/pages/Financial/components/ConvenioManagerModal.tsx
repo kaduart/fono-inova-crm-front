@@ -1,9 +1,10 @@
 import { Building2, Check, Edit2, Inbox, Info, Landmark, Mail, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
 import { activateConvenio, Convenio, deactivateConvenio, getConvenios } from '../../../services/insuranceService';
 import ConvenioFormModal from './ConvenioFormModal';
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 interface ConvenioManagerModalProps { open: boolean; onClose: () => void; embedded?: boolean; }
 
@@ -32,7 +33,7 @@ const ConvenioManagerModal = ({ open, onClose, embedded = false }: ConvenioManag
     const handleDeactivate = async () => {
         if (!deactivationTarget) return;
         try { setLoading(true); await deactivateConvenio(deactivationTarget.code); toast.success('Convênio desativado'); setDeactivationTarget(null); await loadConvenios(); }
-        catch (error: any) { toast.error(extractErrorMessage(error, 'Erro ao desativar')); }
+        catch (error: any) { notifyApiError(error, 'Erro ao desativar'); }
         finally { setLoading(false); }
     };
     const handleActivate = async (code: string) => {

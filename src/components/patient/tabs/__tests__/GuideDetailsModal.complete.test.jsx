@@ -30,9 +30,9 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 vi.mock('../../../patients/PatientMiniCalendar', () => ({
   PatientMiniCalendar: () => <div data-testid="mini-calendar-stub" />,
 }));
-import toast from 'react-hot-toast';
+import { toast } from '../../../../utils/toast';
 
-vi.mock('react-hot-toast', () => ({
+vi.mock('../../../../utils/toast', () => ((m) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 

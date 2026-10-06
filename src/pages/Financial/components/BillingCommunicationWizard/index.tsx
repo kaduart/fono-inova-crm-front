@@ -47,6 +47,7 @@ import {
 } from '../../../../services/billingSubmissionService';
 import { getConvenio } from '../../../../services/insuranceService';
 import { extractErrorMessage } from '../../../../utils/errorUtils';
+import { notifyApiError } from '../../../../utils/notifyApiError';
 
 interface BillingCommunicationWizardProps {
     open: boolean;
@@ -244,7 +245,7 @@ export function BillingCommunicationWizard({
                     if (active) setTo('');
                 }
             })
-            .catch(error => toast.error(extractErrorMessage(error, 'Erro ao carregar o envio de faturamento')))
+            .catch(error => notifyApiError(error, 'Erro ao carregar o envio de faturamento'))
             .finally(() => active && setLoading(false));
         return () => { active = false; };
     }, [open, submissionId]);
@@ -309,7 +310,7 @@ export function BillingCommunicationWizard({
         try {
             await persistAllocations(next);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao salvar o agrupamento'));
+            notifyApiError(error, 'Erro ao salvar o agrupamento');
         }
     };
 
@@ -359,7 +360,7 @@ export function BillingCommunicationWizard({
             }
             toast.success(`${file.name} anexado`);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao anexar documento'));
+            notifyApiError(error, 'Erro ao anexar documento');
         } finally {
             setUploadingKey(null);
         }
@@ -529,7 +530,7 @@ export function BillingCommunicationWizard({
                 }
             }
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Não foi possível concluir a operação'));
+            notifyApiError(error, 'Não foi possível concluir a operação');
         }
     };
 
@@ -566,7 +567,7 @@ export function BillingCommunicationWizard({
             try {
                 await persistAllocations();
             } catch (error) {
-                toast.error(extractErrorMessage(error, 'Não foi possível salvar o rascunho'));
+                notifyApiError(error, 'Não foi possível salvar o rascunho');
                 return;
             }
         }

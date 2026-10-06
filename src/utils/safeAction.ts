@@ -10,7 +10,7 @@
  * execute(() => api.post('/endpoint'));
  */
 
-import { toast } from 'react-hot-toast';
+import { toast } from './toast';
 import { extractErrorMessage, isCriticalError, isNetworkError } from './errorUtils';
 
 interface SafeActionOptions {

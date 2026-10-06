@@ -33,7 +33,7 @@ vi.mock('../../../../services/paymentService', () => ({
     getPayments: vi.fn().mockResolvedValue({ data: { data: [] } })
 }));
 
-vi.mock('react-hot-toast', () => ({
+vi.mock('../../../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
     default: {
         error: vi.fn()
     }

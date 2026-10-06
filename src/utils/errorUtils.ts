@@ -23,6 +23,14 @@ export function extractErrorMessage(
     // Porque Axios Error tem message genérica "Request failed with status code X"
     const responseData = err.response?.data;
     if (responseData) {
+      // Envelope padrão (tem `code`): `message` é o texto para o usuário; `error` pode ser o texto curto legado.
+      if (
+        typeof responseData.message === 'string' && responseData.message.trim() &&
+        (typeof responseData.code === 'string' || typeof responseData.errorCode === 'string')
+      ) {
+        return responseData.message;
+      }
+
       // Verifica campos comuns onde o erro pode estar
       if (responseData.error) {
         // Pode ser string ou objeto
@@ -55,6 +63,39 @@ export function extractErrorMessage(
     // 🛡️ Última barreira: se tudo falhar, retorna mensagem padrão
     return defaultMessage;
   }
+}
+
+/**
+ * Erro padrão da API (ver back/docs/MENSAGERIA_PADRAO.md), lido de forma estruturada.
+ * Funciona também com respostas antigas ({ error, code } ou só { message }).
+ */
+export interface ApiErrorInfo {
+  code: string | null;
+  /** Texto completo para o usuário (título + fato + o que fazer). */
+  message: string;
+  title: string | null;
+  action: string | null;
+  /** Itens envolvidos (ex.: sessões com paciente/data/guia). */
+  items: any[];
+  /** Texto técnico original — para suporte, nunca para o usuário. */
+  technicalMessage: string | null;
+  correlationId: string | null;
+  status: number | null;
+}
+
+export function extractApiError(error: unknown, defaultMessage: string = 'Erro na operação'): ApiErrorInfo {
+  const err = error as any;
+  const data = err?.response?.data;
+  return {
+    code: extractErrorCode(err),
+    message: extractErrorMessage(error, defaultMessage),
+    title: typeof data?.title === 'string' ? data.title : null,
+    action: typeof data?.action === 'string' ? data.action : null,
+    items: Array.isArray(data?.items) ? data.items : [],
+    technicalMessage: typeof data?.technicalMessage === 'string' ? data.technicalMessage : null,
+    correlationId: typeof data?.correlationId === 'string' ? data.correlationId : null,
+    status: typeof err?.response?.status === 'number' ? err.response.status : null,
+  };
 }
 
 /**

@@ -17,7 +17,7 @@ import {
 import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays, AlertTriangle, GripVertical } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import API from '../../../services/api';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../../utils/toast';
 
 import { SPECIALTY_VALUES } from '../../../constants/specialties';
 

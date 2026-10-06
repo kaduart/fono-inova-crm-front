@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { useNavigate } from 'react-router-dom';
 import SpecialtySelector from '../../components/common/SpecialtySelector';
 import API from '../../services/api';
@@ -201,7 +201,6 @@ const CreateAppointmentPage: React.FC = () => {
                     </div>
                 </form>
             </div>
-            <Toaster position="top-center" />
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import { Box, Typography, useTheme } from '@mui/material';
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '../utils/toast';
 import moment from 'moment-timezone';
 import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
 import { invalidateCache } from '../utils/cacheManager';
@@ -91,6 +91,7 @@ import SecretariesManagement from './admin/SecretariesManagement';
 import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
+import { notifyApiError } from '../utils/notifyApiError';
 
 // 🚀 LAZY LOADING - Componentes de abas secundárias só carregam quando necessário
 //
@@ -452,7 +453,7 @@ export default function AdminDashboard() {
             setTimeout(() => refreshDashboard(), 4000);
         } catch (error: any) {
             console.error('[AdminDashboard] Erro em handleSaveDoctor:', error);
-            toast.error(extractErrorMessage(error, "Erro ao salvar profissional."));
+            notifyApiError(error, "Erro ao salvar profissional.");
             throw error; // Re-throw para o modal saber que falhou
         } finally {
             setIsLoading(false);
@@ -478,7 +479,7 @@ export default function AdminDashboard() {
 
             return true; // sucesso
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao salvar paciente'));
+            notifyApiError(error, 'Erro ao salvar paciente');
 
             return false;
         } finally {
@@ -504,7 +505,7 @@ export default function AdminDashboard() {
             setCloseModalSignal(prev => prev + 1);
             toast.success('Agendamento criado com sucesso!');
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao criar agendamento'));
+            notifyApiError(error, 'Erro ao criar agendamento');
             throw error; // modal exibe o erro no banner
         }
     }, [createAppointment, fetchAppointments, calendarDateRange, refreshDashboard]);
@@ -986,7 +987,7 @@ export default function AdminDashboard() {
             await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao marcar pagamento:', error);
-            toast.error(extractErrorMessage(error, 'Erro ao marcar pagamento'));
+            notifyApiError(error, 'Erro ao marcar pagamento');
         } finally {
             isMarkingAsPaidRef.current = false;
         }
@@ -1019,7 +1020,7 @@ export default function AdminDashboard() {
             await Promise.all([loadPayments(currentMonth), fetchAppointments(calendarDateRange)]);
         } catch (error: any) {
             console.error('Erro ao registrar débito:', error);
-            toast.error(extractErrorMessage(error, 'Erro ao registrar débito'));
+            notifyApiError(error, 'Erro ao registrar débito');
         }
     }, [markAsDebit, fetchAppointments, calendarDateRange, loadPayments, currentMonth]);
 
@@ -1071,7 +1072,7 @@ export default function AdminDashboard() {
             // 🔄 Atualiza o dashboard
             refreshDashboard();
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao excluir paciente'));
+            notifyApiError(error, 'Erro ao excluir paciente');
         }
     }, [deletePatient, refreshDashboard]);
 

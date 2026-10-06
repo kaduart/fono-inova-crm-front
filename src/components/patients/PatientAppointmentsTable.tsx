@@ -1,6 +1,6 @@
 import { Calendar, Filter, X, ArrowRightLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { IAppointment } from '../../utils/types/types';
 import { getGuides, moveAppointmentToGuide } from '../../services/insuranceGuideApi';
 import type { InsuranceGuide } from '../../services/insuranceGuideApi';

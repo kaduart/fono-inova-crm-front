@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
-import { toast } from "react-hot-toast";
+import { toast } from '../../../utils/toast';
 
 interface LeadAmandaModalProps {
     lead: any | null;

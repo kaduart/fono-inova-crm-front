@@ -40,7 +40,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { EditNote, FileDownload, Refresh, Search, WhatsApp } from '@mui/icons-material';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import useConvenioWaitlist from '../../hooks/useConvenioWaitlist';
 import convenioWaitlistApi, {
   type WaitlistConvenio,

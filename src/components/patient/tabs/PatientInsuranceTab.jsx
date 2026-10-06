@@ -55,7 +55,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import toast from 'react-hot-toast';
+import { toast } from '../../../utils/toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import { useInsurancePlan, insurancePlanQueryKey } from '../../../hooks/useInsurancePlan';

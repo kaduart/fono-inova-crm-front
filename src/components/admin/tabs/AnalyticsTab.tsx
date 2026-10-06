@@ -13,7 +13,7 @@ import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePaymentsContext } from '../../../contexts/PaymentsContext';
 import { IPatient } from '../../../utils/types/types';
 import { Skeleton } from '@mui/material';
-import toast from 'react-hot-toast';
+import { toast } from '../../../utils/toast';
 
 interface Doctor {
     _id: string;

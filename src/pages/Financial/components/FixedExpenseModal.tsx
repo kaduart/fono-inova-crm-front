@@ -3,8 +3,9 @@ import { Dialog } from '@mui/material';
 import { Repeat, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { fixedExpenseService, FixedExpense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
 import { Field, ModalHeader, ModalFooter, Switch, MoneyInput, inputClass } from './formKit';
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 type Props = {
     open: boolean;
@@ -126,7 +127,7 @@ const FixedExpenseModal = ({ open, onClose, model, month, year, onSaved }: Props
             }
             onSaved();
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao salvar despesa fixa'));
+            notifyApiError(error, 'Erro ao salvar despesa fixa');
         } finally {
             setSubmitting(false);
         }

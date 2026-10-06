@@ -11,7 +11,7 @@ import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 import { usePatients } from '../../../hooks/usePatients';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
-import toast from 'react-hot-toast';
+import { toast } from '../../../utils/toast';
 import moment from 'moment-timezone';
 
 interface CalendarTabProps {

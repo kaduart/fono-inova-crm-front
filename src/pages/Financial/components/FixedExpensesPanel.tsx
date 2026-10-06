@@ -4,8 +4,9 @@ import { Tooltip, Skeleton } from '@mui/material';
 import { Plus, Edit2, Trash2, Pause, Play, Repeat } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { fixedExpenseService, FixedExpense } from '../../../services/expenseService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
 import FixedExpenseModal from './FixedExpenseModal';
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 const CATEGORY_LABEL: Record<string, string> = {
     payroll: 'Folha', benefit: 'Benefício', operational: 'Operacional',
@@ -35,7 +36,7 @@ const FixedExpensesPanel = ({ month, year, onChanged }: Props) => {
         try {
             setModels(await fixedExpenseService.list());
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao carregar despesas fixas'));
+            notifyApiError(error, 'Erro ao carregar despesas fixas');
         } finally {
             setLoading(false);
         }
@@ -54,7 +55,7 @@ const FixedExpensesPanel = ({ month, year, onChanged }: Props) => {
             toast.success(m.active ? 'Despesa fixa pausada' : 'Despesa fixa reativada');
             await changed();
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao alterar despesa fixa'));
+            notifyApiError(error, 'Erro ao alterar despesa fixa');
         }
     };
 
@@ -67,7 +68,7 @@ const FixedExpensesPanel = ({ month, year, onChanged }: Props) => {
             setDeleting(null);
             await changed();
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao excluir despesa fixa'));
+            notifyApiError(error, 'Erro ao excluir despesa fixa');
         } finally {
             setBusy(false);
         }

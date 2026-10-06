@@ -37,7 +37,8 @@ import {
     RenewalType,
     MigrationStrategy
 } from '../../../services/insuranceService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 // Mesmas especialidades aceitas pela guia de convênio (models/InsuranceGuide.js)
 const SPECIALTY_OPTIONS = [
@@ -199,7 +200,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
             onSaved();
             onClose();
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao salvar convênio'));
+            notifyApiError(error, 'Erro ao salvar convênio');
         } finally {
             setLoading(false);
         }

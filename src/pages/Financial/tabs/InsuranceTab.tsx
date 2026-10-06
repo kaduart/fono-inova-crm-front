@@ -84,6 +84,7 @@ import InsuranceFilterBar from '../components/InsuranceFilterBar';
 import { receiveInvoiceBatch } from '../../../services/insuranceBatchReceiptService';
 import { waitForCashflowLoad } from '../../../services/financialLoadCoordinator';
 import { GuideDetailLoadCache } from '../../../services/guideDetailLoadCache';
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 /**
  * ReadView V2 → shape que GuidePendingBillingSection já consome.
@@ -814,7 +815,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             });
             loadReceivables(selectedMonthYear);
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao registrar'));
+            notifyApiError(error, 'Erro ao registrar');
         } finally {
             setLoading(false);
         }
@@ -1017,7 +1018,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             setBillingWizardOpen(true);
             return true;
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao preparar envio de documentos'));
+            notifyApiError(error, 'Erro ao preparar envio de documentos');
             return false;
         } finally {
             setBillingWizardLoading(false);
@@ -1059,7 +1060,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             await loadDraftCount();
             loadAllCounts(selectedMonthYear);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao descartar o preparo'));
+            notifyApiError(error, 'Erro ao descartar o preparo');
         } finally {
             setDiscardingDraft(false);
         }
@@ -1144,7 +1145,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             setReceberLoteModalOpen(true);
             return true;
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao carregar detalhes para recebimento'));
+            notifyApiError(error, 'Erro ao carregar detalhes para recebimento');
             return false;
         } finally {
             setGuideDetailsActionLoading(false);
@@ -1175,7 +1176,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             loadAllCounts(selectedMonthYear);
             loadReceivables(selectedMonthYear);
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao registrar baixa das guias'));
+            notifyApiError(error, 'Erro ao registrar baixa das guias');
         } finally {
             setReceberLoteLoading(false);
         }

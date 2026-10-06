@@ -17,7 +17,6 @@ import {
     Pagination
 } from '@mui/material';
 import { CheckCircle, XCircle, Mail, FileText, ChevronRight, Clock, Send, AlertCircle } from 'lucide-react';
-import { toast } from 'react-toastify';
 import {
     getCommunicationEmailLogs,
     CommunicationEmailLogEntry,
@@ -25,9 +24,10 @@ import {
     CommunicationRequest,
     CommunicationPurpose
 } from '../../../services/communicationService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
 import { DocumentSendDrawer } from '../components/DocumentSendDrawer';
 import { useConvenios } from '../../../hooks/useConvenios';
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 const PURPOSE_LABELS: Record<CommunicationPurpose, string> = {
     authorization: 'Autorização',
@@ -147,7 +147,7 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
             setTotal(res.data.pagination?.total || 0);
             setPages(res.data.pagination?.pages || 0);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao carregar envios'));
+            notifyApiError(error, 'Erro ao carregar envios');
         } finally {
             setLoading(false);
         }

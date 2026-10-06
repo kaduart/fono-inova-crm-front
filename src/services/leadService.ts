@@ -1,7 +1,8 @@
 // src/services/leadService.ts
-import toast from "react-hot-toast";
+import { toast } from '../utils/toast';
 import API from "./api";
-import { extractErrorMessage } from "../utils/errorUtils";
+
+import { notifyApiError } from '../utils/notifyApiError';
 
 export type LeadStatus =
     | "novo"
@@ -61,7 +62,7 @@ export const leadService = {
             return { success: true, data: payload.data, total: payload.total };
         } catch (error: any) {
             console.error("Erro ao buscar leads:", error);
-            toast.error(extractErrorMessage(error, "Erro ao carregar leads."));
+            notifyApiError(error, "Erro ao carregar leads.");
             return { success: false, error, data: [], total: 0 };
         }
     },
@@ -75,7 +76,7 @@ export const leadService = {
             return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao criar lead (from-sheet):", error);
-            toast.error(extractErrorMessage(error, "Erro ao criar lead."));
+            notifyApiError(error, "Erro ao criar lead.");
             return { success: false, error };
         }
     },
@@ -107,7 +108,7 @@ export const leadService = {
             toast.success('Acompanhamento criado!');
             return { success: true, data };
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao criar acompanhamento.'));
+            notifyApiError(error, 'Erro ao criar acompanhamento.');
             return { success: false, error };
         }
     },
@@ -121,7 +122,7 @@ export const leadService = {
             return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao atualizar status do lead:", error);
-            toast.error(extractErrorMessage(error, "Erro ao atualizar status."));
+            notifyApiError(error, "Erro ao atualizar status.");
             return { success: false, error };
         }
     },
@@ -135,7 +136,7 @@ export const leadService = {
             return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao converter lead:", error);
-            toast.error(extractErrorMessage(error, "Erro ao converter lead."));
+            notifyApiError(error, "Erro ao converter lead.");
             return { success: false, error };
         }
     },
@@ -148,7 +149,7 @@ export const leadService = {
             return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao buscar métricas (sheet):", error);
-            toast.error(extractErrorMessage(error, "Erro ao carregar métricas."));
+            notifyApiError(error, "Erro ao carregar métricas.");
             return { success: false, error };
         }
     },
@@ -161,7 +162,7 @@ export const leadService = {
             return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao buscar métricas semanais:", error);
-            toast.error(extractErrorMessage(error, "Erro ao carregar métricas semanais."));
+            notifyApiError(error, "Erro ao carregar métricas semanais.");
             return { success: false, error };
         }
     },
@@ -213,7 +214,7 @@ export const leadService = {
             const data = res.data?.data ?? res.data;
             return { success: true, data };
         } catch (error: any) {
-            toast.error(extractErrorMessage(error, 'Erro ao atualizar lead.'));
+            notifyApiError(error, 'Erro ao atualizar lead.');
             return { success: false, error };
         }
     },
@@ -226,7 +227,7 @@ export const leadService = {
             return { success: true, data };
         } catch (error: any) {
             console.error("Erro ao buscar métricas históricas:", error);
-            toast.error(extractErrorMessage(error, "Erro ao carregar métricas históricas."));
+            notifyApiError(error, "Erro ao carregar métricas históricas.");
             return { success: false, error };
         }
     },

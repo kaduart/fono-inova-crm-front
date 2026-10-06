@@ -1,7 +1,7 @@
 import { Checkbox, FormControlLabel } from "@mui/material";
 import { Clock, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { toast } from '../../utils/toast';
 import { FaUserEdit } from "react-icons/fa";
 import { EXTRA_SPECIALTIES, IDoctor, THERAPY_TYPES, TherapyType, ICommissionRules } from "../../utils/types/types";
 import doctorService from "../../services/doctorService";

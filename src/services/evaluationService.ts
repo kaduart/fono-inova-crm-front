@@ -2,10 +2,10 @@
 // ⚠️ LEGADO: Este service ainda é usado por PatientEvolution, PatientDashboard e ProgressDashboard.
 // Foi atualizado para compatibilidade com DTO V2 (unwrap automático).
 
-import toast from "react-hot-toast";
 import API from "./api";
-import { extractErrorMessage } from "../utils/errorUtils";
+
 import { handleV2Response } from "../utils/dtoHelper";
+import { notifyApiError } from '../utils/notifyApiError';
 
 export const createEvaluation = async (
   data: {
@@ -28,7 +28,7 @@ export const createEvaluation = async (
     };
   } catch (error: any) {
     console.error("Erro ao criar avaliação:", error);
-    toast.error(extractErrorMessage(error, "Erro ao criar avaliação."));
+    notifyApiError(error, "Erro ao criar avaliação.");
     return { success: false, error };
   }
 };

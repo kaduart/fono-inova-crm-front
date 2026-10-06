@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import moment from 'moment-timezone';
-import toast from 'react-hot-toast';
+import { toast } from '../../../utils/toast';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';

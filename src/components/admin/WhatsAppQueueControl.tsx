@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Box, Card, CardContent, Typography, Button, Chip, Alert } from '@mui/material';
 import { PauseCircle, PlayCircle, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { confirmToast } from '../../utils/confirmToast';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
 import whatsappQueueService, { WhatsAppQueueStatus } from '../../services/whatsappQueueService';
+import { notifyApiError } from '../../utils/notifyApiError';
 
 const POLL_INTERVAL_MS = 8000;
 
@@ -27,7 +28,7 @@ export default function WhatsAppQueueControl() {
       const res = await whatsappQueueService.fetchStatus();
       setStatus(res.data);
     } catch (error) {
-      if (!silent) toast.error(extractErrorMessage(error, 'Erro ao buscar status da fila WhatsApp'));
+      if (!silent) notifyApiError(error, 'Erro ao buscar status da fila WhatsApp');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -46,7 +47,7 @@ export default function WhatsAppQueueControl() {
       setStatus(res.data);
       toast.success('🔴 Fila de envio pausada — nenhuma mensagem sai até você retomar.');
     } catch (error) {
-      toast.error(extractErrorMessage(error, 'Erro ao pausar fila'));
+      notifyApiError(error, 'Erro ao pausar fila');
     } finally {
       setActionLoading(null);
     }
@@ -59,7 +60,7 @@ export default function WhatsAppQueueControl() {
       setStatus(res.data);
       toast.success('🟢 Fila de envio retomada.');
     } catch (error) {
-      toast.error(extractErrorMessage(error, 'Erro ao retomar fila'));
+      notifyApiError(error, 'Erro ao retomar fila');
     } finally {
       setActionLoading(null);
     }
@@ -77,7 +78,7 @@ export default function WhatsAppQueueControl() {
       setStatus(res.data.status);
       toast.success(`🧹 ${res.data.removedCount} job(s) removido(s) da fila.`);
     } catch (error) {
-      toast.error(extractErrorMessage(error, 'Erro ao limpar jobs travados'));
+      notifyApiError(error, 'Erro ao limpar jobs travados');
     } finally {
       setActionLoading(null);
     }

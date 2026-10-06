@@ -47,7 +47,8 @@ export function extractData<T>(response: any): T {
     return dto.data as T;
   }
 
-  throw new Error(dto.error?.message || 'Erro desconhecido no servidor');
+  // Envelope atual: error é string e message/code ficam no topo; legado: error é objeto { code, message }.
+  throw new Error(dto.message || dto.error?.message || (typeof dto.error === 'string' ? dto.error : '') || 'Erro desconhecido no servidor');
 }
 
 /**
@@ -58,9 +59,9 @@ export function extractError(response: any): { code: string; message: string; de
 
   if (dto?.success === false) {
     return {
-      code: dto.error?.code || 'UNKNOWN',
-      message: dto.error?.message || 'Erro desconhecido',
-      details: dto.error?.details,
+      code: dto.code || dto.error?.code || 'UNKNOWN',
+      message: dto.message || dto.error?.message || (typeof dto.error === 'string' ? dto.error : '') || 'Erro desconhecido',
+      details: dto.details ?? dto.error?.details,
     };
   }
 

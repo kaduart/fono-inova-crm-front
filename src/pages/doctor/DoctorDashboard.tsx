@@ -9,7 +9,7 @@ import { PatientModal } from '../../components/patients/PatientModal';
 import useDoctorDashboard from '../../hooks/useDoctorDashboard';
 import patientService from '../../services/patientService';
 import { IPatient } from '../../utils/types/types';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
 import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
 import PatientDetail from '../../components/doctor/patient/PatientDetail';
 import PatientsTable from '../../components/doctor/patient/PatientsTable';
@@ -25,6 +25,7 @@ import { Activity, Calendar, CheckCircle, Users } from 'lucide-react';
 import KPICard from '../../components/doctor/DoctorKPICard';
 import AlertsPanel from '../../components/doctor/AlertsPanel';
 import QuickActions from '../../components/doctor/QuickActions';
+import { notifyApiError } from '../../utils/notifyApiError';
 
 // Skeleton para KPI
 const KPICardSkeleton = () => (
@@ -279,7 +280,7 @@ export default function DoctorDashboard() {
       }
       return true;
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao salvar paciente.'));
+      notifyApiError(error, 'Erro ao salvar paciente.');
       return false;
     } finally {
       setIsLoading(false);

@@ -12,7 +12,7 @@ import {
 } from '../../services/financialSummaryService';
 import { toast } from 'react-toastify';
 import API from '../../services/api';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
 import { ModalSpinner } from '../ui/LoadingSpinner';
 import { InputCurrency } from '../ui/InputCurrency';
 import { PatientBalanceHeader } from './balance/PatientBalanceHeader';
@@ -20,6 +20,7 @@ import { PatientBalancePendingTab } from './balance/PatientBalancePendingTab';
 import { PatientBalancePaidTab } from './balance/PatientBalancePaidTab';
 import { PatientBalanceAddTab } from './balance/PatientBalanceAddTab';
 import { PaymentConfirmModal } from './balance/PaymentConfirmModal';
+import { notifyApiError } from '../../utils/notifyApiError';
 
 export interface PaymentItem {
   id: string;
@@ -190,7 +191,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       onRefresh?.();
       toast.success('Pagamento registrado com sucesso');
     } catch (error: unknown) {
-      toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento'));
+      notifyApiError(error, 'Erro ao registrar pagamento');
     } finally {
       setIsSubmitting(false);
     }
@@ -236,7 +237,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       onRefresh?.();
       toast.success(`${settledCount} pagamento(s) quitado(s) com sucesso`);
     } catch (error: unknown) {
-      toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento em lote'));
+      notifyApiError(error, 'Erro ao registrar pagamento em lote');
     } finally {
       setIsSubmitting(false);
     }
@@ -263,7 +264,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       onRefresh?.();
       toast.success('Débito pendente registrado com sucesso');
     } catch (error: unknown) {
-      toast.error(extractErrorMessage(error, 'Erro ao criar pagamento pendente'));
+      notifyApiError(error, 'Erro ao criar pagamento pendente');
     } finally {
       setIsSubmitting(false);
     }
@@ -293,7 +294,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       onRefresh?.();
       toast.success('Recebimento registrado com sucesso');
     } catch (error: unknown) {
-      toast.error(extractErrorMessage(error, 'Erro ao registrar recebimento'));
+      notifyApiError(error, 'Erro ao registrar recebimento');
     } finally {
       setIsSubmitting(false);
     }

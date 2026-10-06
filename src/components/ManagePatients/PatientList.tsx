@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ExternalLink, Mail, Pencil, Phone, Power, Search, User, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import patientService from '../../services/patientService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

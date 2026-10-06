@@ -18,7 +18,7 @@ import {
     X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { IDoctors, IPatient, ISession } from '../../utils/types/types';
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { PatientMiniCalendar } from './PatientMiniCalendar';

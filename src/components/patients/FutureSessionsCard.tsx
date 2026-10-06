@@ -1,6 +1,6 @@
 import { Calendar, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { ISession } from '../../utils/types/types';
 import { getFutureSessions } from '../../services/sessionService';
 

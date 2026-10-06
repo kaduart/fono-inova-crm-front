@@ -24,7 +24,7 @@ vi.mock('../../../../pages/Financial/FinancialDashboard', () => ({
     default: () => <div data-testid="financial-dashboard">Financial Dashboard</div>
 }));
 
-vi.mock('react-hot-toast', () => ({
+vi.mock('../../../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
     default: {
         error: vi.fn()
     }
@@ -152,7 +152,7 @@ describe('FinancialTab', () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
         const toastError = vi.fn();
         
-        vi.doMock('react-hot-toast', () => ({
+        vi.doMock('../../../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
             default: { error: toastError }
         }));
 

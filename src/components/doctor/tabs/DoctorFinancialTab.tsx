@@ -28,8 +28,8 @@ import { getPaymentsV2 } from '../../../services/paymentService';
 import { packageService } from '../../../services/packageService';
 import appointmentService from '../../../services/appointmentService';
 import { IPatient } from '../../../utils/types/types';
-import { extractErrorMessage } from '../../../utils/errorUtils';
-import { toast } from 'react-toastify';
+
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 // ── Tipos ───────────────────────────────────────────────────────────────────
 interface DoctorFinancialTabProps {
@@ -267,7 +267,7 @@ const DoctorFinancialTab: React.FC<DoctorFinancialTabProps> = ({
       } catch (err: any) {
         if (err.name === 'AbortError' || err.message === 'canceled') return;
         console.error('Erro ao carregar dados financeiros:', err);
-        toast.error(extractErrorMessage(err, 'Erro ao carregar dados financeiros'));
+        notifyApiError(err, 'Erro ao carregar dados financeiros');
       } finally {
         if (!abortCtrl.signal.aborted) {
           setLoading(false);

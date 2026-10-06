@@ -14,7 +14,7 @@ import { usePatients } from '../../../hooks/usePatients';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePaymentsContext } from '../../../contexts/PaymentsContext';
 import { Skeleton } from '@mui/material';
-import toast from 'react-hot-toast';
+import { toast } from '../../../utils/toast';
 import moment from 'moment';
 
 // ============================================

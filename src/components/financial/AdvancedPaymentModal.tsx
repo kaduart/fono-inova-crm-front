@@ -1,10 +1,11 @@
 import { Check, ChevronDown, Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
+import { notifyApiError } from '../../utils/notifyApiError';
 
 interface AdvancedPaymentModalProps {
     open: boolean;
@@ -115,7 +116,7 @@ export const AdvancedPaymentModal = ({
             onClose();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
-            toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento'));
+            notifyApiError(error, 'Erro ao registrar pagamento');
         } finally {
             setIsLoading(false);
         }

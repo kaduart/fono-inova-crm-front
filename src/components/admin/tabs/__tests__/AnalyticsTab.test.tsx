@@ -23,7 +23,7 @@ vi.mock('../../../Dashboard/SiteAnalyticsDashboard', () => ({
     default: () => <div data-testid="site-analytics-dashboard">Dashboard</div>
 }));
 
-vi.mock('react-hot-toast', () => ({
+vi.mock('../../../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
     default: {
         error: vi.fn()
     }

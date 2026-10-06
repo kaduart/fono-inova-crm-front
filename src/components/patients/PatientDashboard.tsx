@@ -1,8 +1,8 @@
 import { Activity, Calendar, ChevronDown, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from "react-hot-toast";
+import { toast } from '../../utils/toast';
 import { useNavigate, useParams } from 'react-router-dom';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatients } from '../../hooks/usePatients';
@@ -27,6 +27,7 @@ import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import LiminarContractPanel from '../liminar/LiminarContractPanel';
+import { notifyApiError } from '../../utils/notifyApiError';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -162,7 +163,7 @@ export default function PatientDashboard() {
       setOpenSchedule(false);
 
     } catch (error) {
-      toast.error(extractErrorMessage(error, 'Erro ao criar agendamento'));
+      notifyApiError(error, 'Erro ao criar agendamento');
       console.error(error);
     }
   };

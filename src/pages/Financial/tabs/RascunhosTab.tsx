@@ -17,7 +17,8 @@ import {
     cancelBillingSubmission,
     BillingSubmission
 } from '../../../services/billingSubmissionService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 interface Props {
     onChanged?: () => void;
@@ -71,7 +72,7 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
             setItems(data);
             onCountChange?.(data.length);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao carregar rascunhos'));
+            notifyApiError(error, 'Erro ao carregar rascunhos');
         } finally {
             setLoading(false);
         }
@@ -91,7 +92,7 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
             // liberadas — recarregar só esta lista deixaria o resto desatualizado.
             onChanged?.();
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao cancelar rascunho'));
+            notifyApiError(error, 'Erro ao cancelar rascunho');
         } finally {
             setCancelling(false);
         }

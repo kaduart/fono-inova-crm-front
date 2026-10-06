@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import API from '../services/api';
-import toast from 'react-hot-toast';
+import { toast } from '../utils/toast';
 
 interface DashboardStats {
     totalPatients: number;

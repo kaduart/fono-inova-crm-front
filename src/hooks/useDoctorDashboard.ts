@@ -1,6 +1,6 @@
 // src/hooks/useDoctorDashboard.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../utils/toast';
 import doctorService, {
   fetchFutureAppointments,
   fetchPatients,
@@ -12,8 +12,9 @@ import doctorService, {
 import { fetchPendingEvolutions, PendingEvolution } from '../services/evolutionService';
 import { Appointment } from '../utils/types';
 import { IPatient } from '../utils/types/types';
-import { extractErrorMessage } from '../utils/errorUtils';
+
 import { useAuth } from '../contexts/AuthContext';
+import { notifyApiError } from '../utils/notifyApiError';
 
 interface UseDoctorDashboardOptions {
   skipCache?: boolean;
@@ -297,7 +298,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       setDoctors(allDoctors.data);
       toast.success('Profissional criado com sucesso!');
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, "Erro ao criar profissional"));
+      notifyApiError(error, "Erro ao criar profissional");
       throw error;
     }
   }, [isDoctor]);
@@ -314,7 +315,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
       setDoctors(allDoctors.data);
       toast.success('Profissional atualizado com sucesso!');
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, "Erro ao atualizar profissional"));
+      notifyApiError(error, "Erro ao atualizar profissional");
       throw error;
     }
   }, [isDoctor]);

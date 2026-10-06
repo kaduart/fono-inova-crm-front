@@ -9,7 +9,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import API from '../../services/api';
 import { toast } from 'react-toastify';
 import { useSystemHealthCtx } from '../../contexts/SystemHealthContext';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
 import type { DomainHealth } from '../../utils/systemHealthResolver';
 import {
     Box, Card, CardContent, Grid, Typography, Chip, Alert, Skeleton,
@@ -24,6 +24,7 @@ import {
     Search, Zap, RotateCcw, Check, FileWarning, Trash2, Ban, Pencil,
 } from 'lucide-react';
 import { Tabs, Tab } from '@mui/material';
+import { notifyApiError } from '../../utils/notifyApiError';
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -1072,7 +1073,7 @@ export default function SystemUnifiedDashboard() {
             setFlowLoading(true);
             API.get(`/observability/flow/${corrId}`)
                 .then(res => { setEventFlow(res.data.data); setFlowDialogOpen(true); })
-                .catch(err => toast.error(extractErrorMessage(err, 'Fluxo não encontrado')))
+                .catch(err => notifyApiError(err, 'Fluxo não encontrado'))
                 .finally(() => setFlowLoading(false));
         }, 50);
     }, []);
@@ -1087,7 +1088,7 @@ export default function SystemUnifiedDashboard() {
             toast.success(`${requeued} evento(s) reenfileirado(s) com sucesso`);
             setTimeout(() => { refresh(); fetchDeadLetters(); }, 2000);
         } catch (err) {
-            toast.error(extractErrorMessage(err, 'Erro ao reprocessar dead letters'));
+            notifyApiError(err, 'Erro ao reprocessar dead letters');
         } finally {
             setReprocessing(false);
         }
@@ -1101,7 +1102,7 @@ export default function SystemUnifiedDashboard() {
             setEventFlow(res.data.data);
             setFlowDialogOpen(true);
         } catch (err) {
-            toast.error(extractErrorMessage(err, 'Fluxo não encontrado'));
+            notifyApiError(err, 'Fluxo não encontrado');
         } finally {
             setFlowLoading(false);
         }

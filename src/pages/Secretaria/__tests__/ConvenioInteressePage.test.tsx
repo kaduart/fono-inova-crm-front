@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({ list: vi.fn(), summary: vi.fn(), update: vi.fn()
 vi.mock('../../../services/convenioWaitlistService', () => ({ default: api, convenioWaitlistApi: api }));
 
 const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
-vi.mock('react-hot-toast', () => ({ default: toastMock }));
+vi.mock('../../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({ default: toastMock }));
 
 import ConvenioInteressePage from '../ConvenioInteressePage';
 

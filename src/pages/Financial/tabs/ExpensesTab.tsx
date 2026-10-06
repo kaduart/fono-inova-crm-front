@@ -1,6 +1,13 @@
 // src/pages/Financial/tabs/ExpensesTab.tsx
 
 import { useCallback, useEffect, useState } from 'react';
+import { getAvatarColor } from '../../../constants/avatarColors';
+import { getInitials } from '../../../constants/specialtyColors';
+import {
+  summarizeCommissionSessions,
+  type CommissionSessionItem,
+  type CommissionSessionsSummary
+} from './commissionSessionsSummary';
 import {
   Chip,
   IconButton,
@@ -59,7 +66,8 @@ import {
   type FixedGenerationResult,
   type FixedPendingGeneration
 } from '../../../services/expenseService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 // Configuração de categorias com cores e ícones
 //
@@ -75,7 +83,9 @@ function getCategoryConfigMap() {
   if (!_categoryConfigCache) {
     _categoryConfigCache = {
       payroll: { color: '#6366F1', bgColor: '#6366F110', label: 'Folha', icon: DollarSign },
-      commission: { color: '#F59E0B', bgColor: '#F59E0B10', label: 'Comissão', icon: TrendingDown },
+      // Teal, não âmbar: âmbar é a cor de status "Pendente" na mesma linha e as duas
+      // pílulas ficavam idênticas. Categoria não deve reutilizar cor de status.
+      commission: { color: '#0F766E', bgColor: '#0F766E10', label: 'Comissão', icon: TrendingDown },
       benefit: { color: '#10B981', bgColor: '#10B98110', label: 'Benefício', icon: User },
       operational: { color: '#8B5CF6', bgColor: '#8B5CF610', label: 'Operacional', icon: FileText },
       equipment: { color: '#EC4899', bgColor: '#EC489910', label: 'Equipamento', icon: CreditCard },
@@ -138,8 +148,12 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
   const [commissionSessionsLoading, setCommissionSessionsLoading] = useState(false);
   const [commissionSessionsData, setCommissionSessionsData] = useState<{
     doctorName: string;
-    items: Array<{ sessionId: string; date: string; time: string | null; patientName: string; value: number; commissionValue: number; isPackage: boolean; packageSessionType: string | null; origin: 'particular' | 'convenio' | 'liminar' }>;
+    items: CommissionSessionItem[];
   } | null>(null);
+
+  // Resumo por tipo/repasse exibido no card expandido (conferência com a folha assinada).
+  // Carregado ao expandir a linha — vale também para despesas já geradas.
+  const [commissionSummaries, setCommissionSummaries] = useState<Record<string, CommissionSessionsSummary | 'loading' | 'error'>>({});
   const [commissionSessionsPage, setCommissionSessionsPage] = useState(1);
   const [commissionSessionFilters, setCommissionSessionFilters] = useState<{
     origin: 'all' | 'particular' | 'convenio' | 'liminar';
@@ -263,7 +277,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       }
       await Promise.all([fetchExpenses(filters), refreshPendingFixed()]);
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao gerar despesas fixas'));
+      notifyApiError(error, 'Erro ao gerar despesas fixas');
     } finally {
       setGeneratingFixed(false);
     }
@@ -298,6 +312,30 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       setRowActionBusy(false);
     }
   };
+
+  // Recarregou despesas (ex.: regenerou comissões) → descarta resumos antigos
+  useEffect(() => {
+    setCommissionSummaries({});
+  }, [expenses]);
+
+  useEffect(() => {
+    expenses.forEach((expense: any) => {
+      if (!expandedRows[expense._id] || expense.category !== 'commission') return;
+      if (commissionSummaries[expense._id]) return;
+      const doctorId = expense.relatedDoctor?._id || expense.relatedDoctor?.id;
+      const start = expense.workPeriod?.start;
+      const end = expense.workPeriod?.end;
+      if (!doctorId || !start || !end) return;
+
+      setCommissionSummaries(prev => ({ ...prev, [expense._id]: 'loading' }));
+      API.get(`/v2/professionals/${doctorId}/commission-sessions`, { params: { startDate: start, endDate: end } })
+        .then(res => {
+          const items: CommissionSessionItem[] = res.data?.data?.items || [];
+          setCommissionSummaries(prev => ({ ...prev, [expense._id]: summarizeCommissionSessions(items) }));
+        })
+        .catch(() => setCommissionSummaries(prev => ({ ...prev, [expense._id]: 'error' })));
+    });
+  }, [expandedRows, expenses, commissionSummaries]);
 
   const toggleRow = (expenseId: string) => {
     setExpandedRows(prev => ({
@@ -784,7 +822,11 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                             {categoryConfig.label}
                           </span>
                           {(() => {
-                            const o = EXPENSE_ORIGIN_CONFIG[getExpenseOrigin(expense)];
+                            const origin = getExpenseOrigin(expense);
+                            // Comissão já é a própria categoria: repetir o selo só polui a linha.
+                            // Fixa/Avulsa continuam, pois dizem algo que a categoria não diz.
+                            if (origin === 'commission') return null;
+                            const o = EXPENSE_ORIGIN_CONFIG[origin];
                             return (
                               <span
                                 className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
@@ -798,9 +840,16 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                         <td className="px-3 py-2">
                           {expense.relatedDoctor ? (
                             <div className="flex items-center gap-2">
-                              <Avatar sx={{ width: 24, height: 24, bgcolor: '#E5E7EB' }}>
-                                <User size={12} />
-                              </Avatar>
+                              {(() => {
+                                const avatarColor = getAvatarColor(expense.relatedDoctor.fullName);
+                                return (
+                                  <Avatar
+                                    sx={{ width: 28, height: 28, bgcolor: avatarColor.bg, color: avatarColor.text, fontSize: 11, fontWeight: 700 }}
+                                  >
+                                    {getInitials(expense.relatedDoctor.fullName)}
+                                  </Avatar>
+                                );
+                              })()}
                               <span className="text-sm">{expense.relatedDoctor.fullName}</span>
                             </div>
                           ) : (
@@ -896,25 +945,81 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                       {notes.standardSessions && notes.standardSessions.count > 0 && (
                                         <div className="flex justify-between text-sm">
                                           <span>Sessões padrão</span>
-                                          <span className="font-medium">{notes.standardSessions.count} x R$ {notes.standardSessions.value}</span>
+                                          <span className="font-medium">{notes.standardSessions.count} atendimentos · R$ {notes.standardSessions.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                       )}
                                       {notes.evaluations && notes.evaluations.count > 0 && (
                                         <div className="flex justify-between text-sm">
                                           <span>Avaliações</span>
-                                          <span className="font-medium">{notes.evaluations.count} x R$ {notes.evaluations.value}</span>
+                                          <span className="font-medium">{notes.evaluations.count} atendimentos · R$ {notes.evaluations.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                       )}
                                       {notes.neuropsychEvaluations && notes.neuropsychEvaluations.count > 0 && (
                                         <div className="flex justify-between text-sm">
-                                          <span>Avaliações Neuropsic</span>
-                                          <span className="font-medium">{notes.neuropsychEvaluations.count} x R$ {notes.neuropsychEvaluations.value}</span>
+                                          <span>Atendimentos de neuropsicologia</span>
+                                          <span className="font-medium">{notes.neuropsychEvaluations.count} atendimentos · R$ {notes.neuropsychEvaluations.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                       )}
+                                      {(() => {
+                                        const s = commissionSummaries[expense._id];
+                                        if (typeof s !== 'object' || s.nonPayable === 0) return null;
+                                        return (
+                                          <div className="flex justify-between text-sm text-gray-500">
+                                            <span>Sem repasse (cancelamento tardio)</span>
+                                            <span className="font-medium">{s.nonPayable} {s.nonPayable === 1 ? 'atendimento' : 'atendimentos'} · R$ 0,00</span>
+                                          </div>
+                                        );
+                                      })()}
                                       <div className="border-t pt-2 mt-2 flex justify-between font-semibold">
                                         <span>Total</span>
                                         <span className="text-red-600">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                       </div>
+
+                                      {/* Atendimentos por tipo — conferência com a folha assinada */}
+                                      {(() => {
+                                        const s = commissionSummaries[expense._id];
+                                        if (!s) return null;
+                                        return (
+                                          <div className="border-t pt-3 mt-3 space-y-1.5">
+                                            <p className="text-3xs font-black uppercase tracking-widest text-gray-400">
+                                              Atendimentos por tipo
+                                            </p>
+                                            {s === 'loading' ? (
+                                              <p className="text-sm text-gray-400">Carregando…</p>
+                                            ) : s === 'error' ? (
+                                              <p className="text-sm text-gray-400">Resumo por tipo indisponível.</p>
+                                            ) : (
+                                              <>
+                                                {(['convenio', 'particular', 'liminar'] as const).map((origin) => (
+                                                  <div
+                                                    key={origin}
+                                                    className={`flex items-center justify-between text-sm ${s.byOrigin[origin] === 0 ? 'text-gray-400' : ''}`}
+                                                  >
+                                                    <span className="inline-flex items-center gap-2">
+                                                      <span
+                                                        className="inline-block w-2 h-2 rounded-full"
+                                                        style={{ backgroundColor: ORIGIN_CONFIG[origin].color, opacity: s.byOrigin[origin] === 0 ? 0.35 : 1 }}
+                                                      />
+                                                      {ORIGIN_CONFIG[origin].label}
+                                                    </span>
+                                                    <span className="font-medium">{s.byOrigin[origin]}</span>
+                                                  </div>
+                                                ))}
+                                                <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-dashed">
+                                                  <span>Total de atendimentos</span>
+                                                  <span>{s.total}</span>
+                                                </div>
+                                                {s.nonPayableItems.map((item) => (
+                                                  <p key={item.sessionId} className="text-xs text-gray-500">
+                                                    Sem repasse: {safeFormat(item.date, 'dd/MM')} {item.time || ''} · {item.patientName}
+                                                    {item.nonPayableReason ? ` (${item.nonPayableReason})` : ''}
+                                                  </p>
+                                                ))}
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                   <div className="border border-gray-200 rounded-lg p-4 bg-white">
@@ -932,6 +1037,15 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                         <span>Total de sessões</span>
                                         <span className="font-medium">{expense.workPeriod.sessionsCount}</span>
                                       </div>
+                                      {(() => {
+                                        const s = commissionSummaries[expense._id];
+                                        if (typeof s !== 'object' || s.nonPayable === 0) return null;
+                                        return (
+                                          <p className="text-xs text-gray-500 text-right -mt-1">
+                                            {s.payable} com repasse + {s.nonPayable} sem repasse
+                                          </p>
+                                        );
+                                      })()}
                                       <div className="flex justify-between">
                                         <span>Receita gerada</span>
                                         <span className="font-medium">R$ {expense.workPeriod.revenueGenerated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
@@ -1167,6 +1281,12 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                       <div className="p-4 bg-white">
                         <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
                         <p className="text-2xl font-black text-gray-800">{items.length}</p>
+                        {(() => {
+                          const semRepasse = items.filter(i => i.professionalPaymentStatus === 'non_payable').length;
+                          return semRepasse > 0 ? (
+                            <p className="text-xs text-gray-500 mt-1">{items.length - semRepasse} com repasse + {semRepasse} sem repasse</p>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                     <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
@@ -1272,6 +1392,13 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                                       </span>
                                     ) : (
                                       <span className="text-xs text-gray-400">Avulsa</span>
+                                    )}
+                                    {item.professionalPaymentStatus === 'non_payable' && (
+                                      <Tooltip title={item.nonPayableReason || 'Atendimento contado pela clínica, sem repasse ao profissional'}>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium w-fit bg-gray-100 text-gray-600">
+                                          Sem repasse
+                                        </span>
+                                      </Tooltip>
                                     )}
                                   </div>
                                 </td>

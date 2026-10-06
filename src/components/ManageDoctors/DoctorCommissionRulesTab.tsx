@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, Pencil, Percent, DollarSign, Calculator } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from '../../utils/toast';
 import { Button } from "../ui/Button";
 import Input from "../ui/Input";
 import { Label } from "../ui/Label";

@@ -1,4 +1,4 @@
-import toast from "react-hot-toast";
+import { toast } from '../utils/toast';
 import API from "./api";
 import { extractErrorMessage } from "../utils/errorUtils";
 export interface AIFollowupPayload {

@@ -11,7 +11,6 @@ import { PatientList } from '../../patients/PatientList';
 import { PatientSearch } from '../../patients/PatientSearch';
 import { Skeleton, Button } from '@mui/material';
 import { Plus, Users } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 interface PatientsTabProps {
     onAddPatient: () => void;

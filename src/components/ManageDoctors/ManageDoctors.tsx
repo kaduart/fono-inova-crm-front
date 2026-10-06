@@ -1,7 +1,7 @@
 import { Button, Modal, Box } from '@mui/material';
 import { Plus, Users, AlertTriangle, CheckCircle, XCircle, Lock as LockIcon } from 'lucide-react';
 import React, { useEffect, useState } from "react";
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { IAppointment, IDoctor, IPatient, ScheduleAppointment } from "../../utils/types/types";
 import doctorService from '../../services/doctorService';
 import appointmentService from '../../services/appointmentService';
@@ -11,6 +11,7 @@ import ScheduleAppointmentModal from '../patients/ScheduleAppointmentModal';
 import DoctorAgenda from "./DoctorAgenda";
 import DoctorFormModal from "./DoctorFormModal";
 import DoctorList from "./DoctorList";
+import { notifyApiError } from '../../utils/notifyApiError';
 
 const initialSchedules = {
     "1": {
@@ -236,7 +237,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             setRefreshSignal(prev => prev + 1); // 🔄 força refresh dos slots
         } catch (error: any) {
             console.error('[handleKeepForPatient] Erro:', error);
-            toast.error(extractErrorMessage(error, 'Erro ao reservar horário'));
+            notifyApiError(error, 'Erro ao reservar horário');
         } finally {
             setIsLoading(false);
         }
@@ -290,7 +291,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             }
         } catch (error: any) {
             console.error("Erro ao inativar profissional:", error);
-            toast.error(extractErrorMessage(error, "Erro ao inativar profissional"));
+            notifyApiError(error, "Erro ao inativar profissional");
         } finally {
             setIsLoading(false);
         }
@@ -310,7 +311,7 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
             await onDoctorsChange?.();
         } catch (error: any) {
             console.error("Erro ao reativar profissional:", error);
-            toast.error(extractErrorMessage(error, "Erro ao reativar profissional"));
+            notifyApiError(error, "Erro ao reativar profissional");
         } finally {
             setIsLoading(false);
         }

@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
+import { notifyApiError } from '../../../utils/notifyApiError';
 import {
     getInvoiceReceivables,
     InvoiceReceivable,
@@ -103,7 +104,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
             setInvoices(data);
             onCountChange?.(data.filter(invoice => invoice.status !== 'received' && invoice.pendingAmount > 0).length);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Não foi possível carregar as notas fiscais'));
+            notifyApiError(error, 'Não foi possível carregar as notas fiscais');
         } finally {
             setLoading(false);
         }
@@ -193,7 +194,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
             onChanged?.();
             if (anyIdempotent) toast.info('Parte dos pagamentos selecionados já estava recebida.');
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Não foi possível registrar a baixa'));
+            notifyApiError(error, 'Não foi possível registrar a baixa');
         } finally {
             setReceiving(false);
         }
@@ -215,7 +216,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
             await load();
             onChanged?.();
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Não foi possível atualizar o número da NF'));
+            notifyApiError(error, 'Não foi possível atualizar o número da NF');
         } finally {
             setUpdatingInvoice(false);
         }

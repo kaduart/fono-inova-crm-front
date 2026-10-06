@@ -37,10 +37,11 @@ import {
     CommunicationRequest,
     CommunicationStatus
 } from '../../../services/communicationService';
-import { extractErrorMessage } from '../../../utils/errorUtils';
+
 import { DocumentSendDrawer } from '../components/DocumentSendDrawer';
 import { usePatients } from '../../../hooks/usePatients';
 import { useConvenios } from '../../../hooks/useConvenios';
+import { notifyApiError } from '../../../utils/notifyApiError';
 
 interface AutorizacoesTabProps {
     month: number;
@@ -130,7 +131,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
             });
             setAuthorizations(res.data.data || []);
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao carregar autorizações'));
+            notifyApiError(error, 'Erro ao carregar autorizações');
         } finally {
             setLoading(false);
         }
@@ -175,7 +176,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
             setFormData({ patientId: '', insuranceProvider: '', specialty: '', requestedSessions: '', notes: '' });
             load();
         } catch (error) {
-            toast.error(extractErrorMessage(error, 'Erro ao criar autorização'));
+            notifyApiError(error, 'Erro ao criar autorização');
         } finally {
             setCreating(false);
         }

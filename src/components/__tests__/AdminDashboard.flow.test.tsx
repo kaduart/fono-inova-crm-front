@@ -20,8 +20,8 @@ const mockMarkAsPaid = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 
-// Mock do react-hot-toast
-vi.mock('react-hot-toast', () => ({
+// Mock do toast (wrapper de react-toastify)
+vi.mock('../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
   default: {
     success: mockToastSuccess,
     error: mockToastError,

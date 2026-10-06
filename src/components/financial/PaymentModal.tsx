@@ -1,6 +1,6 @@
 import { Calendar, Check, Clock, DollarSign, Plus, Stethoscope, User, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import Modal from 'react-modal';
 import { FinancialRecord } from '../../services/paymentService';
 import { EspecialidadesDisponiveis, IDoctor, IPatient, PaymentMethods } from '../../utils/types/types';
@@ -11,7 +11,8 @@ import { Label } from '../ui/Label';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
-import { extractErrorMessage } from '../../utils/errorUtils';
+
+import { notifyApiError } from '../../utils/notifyApiError';
 
 interface PaymentModalProps {
     open: boolean;
@@ -204,7 +205,7 @@ export const PaymentModal = ({
             onClose();
         } catch (error: any) {
             console.error('Erro ao registrar pagamento:', error);
-            toast.error(extractErrorMessage(error, 'Erro ao registrar pagamento'));
+            notifyApiError(error, 'Erro ao registrar pagamento');
         } finally {
             setIsLoading(false);
         }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Toaster } from 'react-hot-toast';
+
 import { useNavigate, useParams } from 'react-router-dom';
 import { Appointment } from '../../../hooks/useTempAppointments';
 import API from '../../../services/api';
@@ -103,7 +103,6 @@ const EvolutionPage: React.FC = () => {
           </div>
         )}
       </div>
-      <Toaster position="top-center" />
     </div>
   );
 };

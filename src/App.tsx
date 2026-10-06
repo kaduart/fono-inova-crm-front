@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useRef } from "react";
 import { socketManager } from "./utils/socketManager";
 import { ToastContainer } from "react-toastify";
-import { Toaster } from "react-hot-toast";
+
 import "./App.css";
 import AppRoutes from "./AppRoutes";
 import { LoadingSpinner } from "./components/ui/LoadingSpinner";
@@ -54,7 +54,6 @@ const App: React.FC = () => {
           theme="colored"
           style={{ zIndex: 100000, top: 20, right: 20 }}
         />
-        <Toaster position="top-right" containerStyle={{ top: 20, right: 20 }} />
       </Suspense>
 
       <PixNotificationPopup />

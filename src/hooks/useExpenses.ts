@@ -3,7 +3,8 @@ import { useState, useCallback } from 'react';
 import { expenseService, Expense, ExpenseFilters, ExpenseOriginTotals } from '../services/expenseService';
 import { toast } from 'react-toastify';
 import { invalidateCache } from '../utils/cacheManager';
-import { extractErrorMessage } from '../utils/errorUtils';
+
+import { notifyApiError } from '../utils/notifyApiError';
 
 export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -26,7 +27,7 @@ export const useExpenses = () => {
       setTotals(response.totals);
       if (response.byOrigin) setByOrigin(response.byOrigin);
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao carregar despesas'));
+      notifyApiError(error, 'Erro ao carregar despesas');
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,7 @@ export const useExpenses = () => {
       
       return response.data;
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao criar despesa'));
+      notifyApiError(error, 'Erro ao criar despesa');
       throw error;
     }
   }, []);
@@ -57,7 +58,7 @@ export const useExpenses = () => {
       
       return response.data;
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao atualizar despesa'));
+      notifyApiError(error, 'Erro ao atualizar despesa');
       throw error;
     }
   }, []);
@@ -70,7 +71,7 @@ export const useExpenses = () => {
       // 🚀 Invalida dashboard pois despesas afetam o financeiro
       invalidateCache('dashboard');
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao cancelar despesa'));
+      notifyApiError(error, 'Erro ao cancelar despesa');
       throw error;
     }
   }, []);
@@ -82,7 +83,7 @@ export const useExpenses = () => {
       toast.success(response.message || 'Despesa excluída');
       invalidateCache('dashboard');
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao excluir despesa'));
+      notifyApiError(error, 'Erro ao excluir despesa');
       throw error;
     }
   }, []);
@@ -94,7 +95,7 @@ export const useExpenses = () => {
       toast.success('Despesa marcada como paga');
       invalidateCache('dashboard');
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao marcar como paga'));
+      notifyApiError(error, 'Erro ao marcar como paga');
       throw error;
     }
   }, []);
@@ -134,7 +135,7 @@ export const useExpenses = () => {
       onComplete?.();
       return response.data;
     } catch (error: any) {
-      toast.error(extractErrorMessage(error, 'Erro ao gerar comissões'));
+      notifyApiError(error, 'Erro ao gerar comissões');
       throw error;
     } finally {
       setGeneratingCommissions(false);

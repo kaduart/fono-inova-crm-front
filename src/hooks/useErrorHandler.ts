@@ -1,4 +1,4 @@
-import toast from "react-hot-toast";
+import { toast } from '../utils/toast';
 import { extractErrorMessage } from "../utils/errorUtils";
 import { showScheduleConflictToast } from "../utils/scheduleConflictToast";
 

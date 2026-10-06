@@ -93,7 +93,7 @@ describe('PaymentPage - Distinção Appointment vs Payment', () => {
 });
 
 // Mock simples do teste
-vi.mock('react-hot-toast', () => ({
+vi.mock('../../../utils/toast', () => ((m: any) => ({ ...m, toast: m.default ?? m.toast, default: m.default ?? m.toast }))({
     toast: {
         info: vi.fn(),
         error: vi.fn(),
