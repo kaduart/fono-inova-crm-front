@@ -27,6 +27,8 @@ import {
     InputLabel,
     Select,
     MenuItem,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { Calendar, CheckCircle, ChevronDown, ChevronUp, Lock, Pencil, Send, X, Link2, Plus, Wand2, FileText } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
@@ -1135,6 +1137,7 @@ const GuidePendingBillingSection = ({
     const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[] } | null>(null);
     const [linking, setLinking]                                 = useState(false);
     const [createModal, setCreateModal]                         = useState<OrphanSession | null>(null);
+    const [createIsAba, setCreateIsAba]                         = useState(false);
     const [linkModal, setLinkModal]                             = useState<OrphanSession | null>(null);
     const [guideNumber, setGuideNumber]                         = useState('');
     const [previewModal, setPreviewModal]                       = useState<{ open: boolean; linked: any[]; skipped: any[] } | null>(null);
@@ -1287,10 +1290,12 @@ const GuidePendingBillingSection = ({
                 number: String(formData.get('number') || ''),
                 totalSessions: Number(formData.get('totalSessions')),
                 expiresAt: String(formData.get('expiresAt')),
-                sessionValue: createModal.sessionValue
+                // Sem sessionValue: o backend resolve pela tabela do convênio (por especialidade) + adicional ABA
+                isAba: createIsAba
             });
             toast.success('Guia criada e sessão vinculada com sucesso!');
             setCreateModal(null);
+            setCreateIsAba(false);
             onRefresh?.();
         } catch (err: any) {
             toast.error(err?.response?.data?.error || 'Erro ao criar guia');
@@ -1733,7 +1738,7 @@ const GuidePendingBillingSection = ({
             )}
 
             {/* Modal: Criar guia a partir de sessão órfã */}
-            <Dialog open={!!createModal} onClose={() => setCreateModal(null)} maxWidth="sm" fullWidth>
+            <Dialog open={!!createModal} onClose={() => { setCreateModal(null); setCreateIsAba(false); }} maxWidth="sm" fullWidth>
                 <form onSubmit={handleCreateGuide}>
                     <DialogTitle>Criar guia para sessão órfã</DialogTitle>
                     <DialogContent dividers>
@@ -1741,15 +1746,25 @@ const GuidePendingBillingSection = ({
                             <Typography variant="body2" color="text.secondary">
                                 Paciente: <strong>{createModal?.patient?.fullName || '—'}</strong><br />
                                 Especialidade: <strong>{getSpecialtyLabel(createModal?.specialty || '')}</strong><br />
-                                Valor: <strong>{formatCurrency(createModal?.sessionValue)}</strong>
+                                Valor atual da sessão: <strong>{formatCurrency(createModal?.sessionValue)}</strong>
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+                                Ao criar a guia, o valor passa a ser o da tabela do convênio para esta especialidade.
                             </Typography>
                             <TextField name="number" label="Número da guia" required fullWidth />
                             <TextField name="totalSessions" label="Total de sessões" type="number" required fullWidth inputProps={{ min: 1 }} />
                             <TextField name="expiresAt" label="Validade" type="date" required fullWidth InputLabelProps={{ shrink: true }} />
+                            <FormControlLabel
+                                control={<Switch checked={createIsAba} onChange={(e) => setCreateIsAba(e.target.checked)} />}
+                                label="Atendimento ABA"
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: -1.5 }}>
+                                Soma o adicional ABA do convênio. Se o convênio não paga adicional, o valor não muda.
+                            </Typography>
                         </Box>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => setCreateModal(null)}>Cancelar</Button>
+                        <Button onClick={() => { setCreateModal(null); setCreateIsAba(false); }}>Cancelar</Button>
                         <Button type="submit" variant="contained" sx={{ bgcolor: '#D97706' }}>Criar e vincular</Button>
                     </DialogActions>
                 </form>

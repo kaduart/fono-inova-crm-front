@@ -491,7 +491,7 @@ export const previewAutoLinkOrphanSessions = (data: { month?: string }) =>
     API.post<{ success: boolean; linked: any[]; skipped: any[]; linkedCount: number; skippedCount: number }>('/v2/insurance/guides/auto-link-orphans/preview', data);
 
 // Criar guia a partir de sessão órfã
-export const createGuideFromOrphan = (data: { sessionId: string; number: string; totalSessions: number; expiresAt: string; sessionValue?: number }) =>
+export const createGuideFromOrphan = (data: { sessionId: string; number: string; totalSessions: number; expiresAt: string; sessionValue?: number; isAba?: boolean }) =>
     API.post<{ success: boolean; data: { guideId: string; number: string; sessionId: string } }>('/v2/insurance/guides/create-from-orphan', data);
 
 // Vincular sessões órfãs a guia existente

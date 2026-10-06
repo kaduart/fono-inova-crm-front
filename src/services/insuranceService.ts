@@ -30,11 +30,23 @@ export interface GuidePolicy {
     billingDeadlineDays?: number | null;
 }
 
+/** Linha da tabela de valores do convênio por especialidade (ex.: fonoaudiologia → 70) */
+export interface SpecialtyValue {
+    specialty: string;
+    sessionValue: number;
+    /** Valor nominal da avaliação desta terapia (0/ausente = não definido) */
+    evaluationValue?: number;
+}
+
 export interface Convenio {
     _id: string;
     code: string;
     name: string;
+    /** Valor padrão — vale para especialidades sem linha em `specialtyValues` */
     sessionValue: number;
+    specialtyValues?: SpecialtyValue[];
+    /** Adicional (%) em atendimento ABA sobre o valor da especialidade (0 = convênio sem ABA) */
+    abaSurchargePercent?: number;
     active: boolean;
     billingMode: BillingMode;
     notes?: string;
@@ -59,6 +71,8 @@ export interface CreateConvenioData {
     code: string;
     name: string;
     sessionValue: number;
+    specialtyValues?: SpecialtyValue[];
+    abaSurchargePercent?: number;
     billingMode?: BillingMode;
     notes?: string;
     guidePolicy?: GuidePolicy;
@@ -71,6 +85,8 @@ export interface CreateConvenioData {
 export interface UpdateConvenioData {
     name?: string;
     sessionValue?: number;
+    specialtyValues?: SpecialtyValue[];
+    abaSurchargePercent?: number;
     billingMode?: BillingMode;
     notes?: string;
     active?: boolean;

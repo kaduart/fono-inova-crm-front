@@ -47,12 +47,46 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
       doctorId:         '',
       issuedAt:         '',
       expiresAt:        '',
-      notes:            ''
+      notes:            '',
+      isAba:            false
     }
   });
 
   const watchedSessions = useWatch({ control, name: 'totalSessions' });
   const watchedValue    = useWatch({ control, name: 'sessionValue' });
+  const watchedInsurance = useWatch({ control, name: 'insurance' });
+  // true quando o usuário digitou o valor à mão — aí não sobrescrevemos com o cálculo automático
+  const valueManualRef = React.useRef(false);
+
+  // Valor sugerido: tabela do convênio pela especialidade (senão valor padrão) + adicional ABA
+  const computeSuggestedValue = (insuranceCode, specialty, isAba) => {
+    const conv = convenios.find(c => c.code === insuranceCode);
+    if (!conv || conv.code !== 'base') return null;
+    const row = (conv.specialtyValues || []).find(r => r.specialty === specialty && r.sessionValue > 0);
+    const base = row ? row.sessionValue : conv.sessionValue;
+    if (!(base > 0)) return null;
+    const pct = 50;
+    return isAba ? Math.round(base * (1 + pct / 100) * 100) / 100 : base;
+  };
+  const evalManualRef = React.useRef(false);
+  // Avaliação: valor nominal da terapia na tabela do Base (+50% se ABA). Só em guia nova.
+  const computeSuggestedEvaluation = (insuranceCode, specialty, isAba) => {
+    const conv = convenios.find(c => c.code === insuranceCode);
+    if (!conv || conv.code !== 'base') return null;
+    const row = (conv.specialtyValues || []).find(r => r.specialty === specialty && r.evaluationValue > 0);
+    if (!row) return null;
+    return isAba ? Math.round(row.evaluationValue * 1.5 * 100) / 100 : row.evaluationValue;
+  };
+  const applySuggestedValue = (insuranceCode, specialty, isAba) => {
+    if (!valueManualRef.current) {
+      const v = computeSuggestedValue(insuranceCode, specialty, isAba);
+      if (v != null) setValue('sessionValue', v, { shouldValidate: false });
+    }
+    if (!evalManualRef.current && !guide && !isRenewal) {
+      const ev = computeSuggestedEvaluation(insuranceCode, specialty, isAba);
+      if (ev != null) setValue('evaluationAmount', ev, { shouldValidate: false });
+    }
+  };
   const watchedEvaluationAmount = useWatch({ control, name: 'evaluationAmount' });
   const watchedGenerateEvalBilling = useWatch({ control, name: 'generateEvaluationBilling' });
   const totalValue = (Number(watchedSessions) > 0 && Number(watchedValue) > 0)
@@ -75,7 +109,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
           doctorId:         guide.doctor?._id || guide.doctorId || '',
           issuedAt:         guide.issuedAt ? new Date(guide.issuedAt).toISOString().substring(0, 10) : '',
           expiresAt:        guide.expiresAt ? new Date(guide.expiresAt).toISOString().substring(0, 10) : '',
-          notes:            guide.notes || ''
+          notes:            guide.notes || '',
+          isAba:            Boolean(guide.isAba)
         });
       } else {
         reset({
@@ -91,9 +126,12 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
           doctorId:         '',
           issuedAt:         '',
           expiresAt:        '',
-          notes:            ''
+          notes:            '',
+          isAba:            false
         });
       }
+      valueManualRef.current = false;
+      evalManualRef.current = false;
     }
   }, [open, guide, reset]);
 
@@ -106,6 +144,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
         insurance:     data.insurance.toLowerCase().trim(),
         totalSessions: parseInt(data.totalSessions, 10),
         sessionValue:     data.sessionValue !== '' ? parseFloat(data.sessionValue) : undefined,
+        isAba:            Boolean(data.isAba),
         evaluationAmount: data.evaluationAmount !== '' ? parseFloat(data.evaluationAmount) : undefined,
         generateEvaluationBilling: data.generateEvaluationBilling !== false,
         evaluationDate: hasEval && data.evaluationDate ? data.evaluationDate : undefined,
@@ -243,7 +282,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                   control={control}
                   rules={{ required: 'Especialidade é obrigatória' }}
                   render={({ field }) => (
-                    <select {...field} className={inputClass(!!errors.specialty) + ((isRenewal || isLocked) ? ' opacity-50 cursor-not-allowed' : '')} disabled={isRenewal || isLocked}>
+                    <select {...field} onChange={(e) => { field.onChange(e.target.value); applySuggestedValue(getValues('insurance'), e.target.value, getValues('isAba')); }} className={inputClass(!!errors.specialty) + ((isRenewal || isLocked) ? ' opacity-50 cursor-not-allowed' : '')} disabled={isRenewal || isLocked}>
                       <option value="">Selecione</option>
                       {VALID_SPECIALTIES.map(s => (
                         <option key={s.value} value={s.value}>{s.label}</option>
@@ -269,13 +308,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                       onChange={(e) => {
                         const selectedCode = e.target.value;
                         field.onChange(selectedCode);
-                        const selected = convenios.find(c => c.code === selectedCode);
-                        if (selected && selected.sessionValue > 0) {
-                          const currentValue = getValues('sessionValue');
-                          if (currentValue === '' || currentValue == null) {
-                            setValue('sessionValue', selected.sessionValue, { shouldValidate: false });
-                          }
-                        }
+                        const currentValue = getValues('sessionValue');
+                        if (currentValue === '' || currentValue == null) valueManualRef.current = false;
+                        applySuggestedValue(selectedCode, getValues('specialty'), getValues('isAba'));
                       }}
                     >
                       <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione'}</option>
@@ -324,6 +359,43 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
               </div>
             </div>
 
+            {/* Atendimento ABA — adicional definido no convênio */}
+            <Controller
+              name="isAba"
+              control={control}
+              render={({ field }) => {
+                const conv = convenios.find(c => c.code === watchedInsurance);
+                const pct = conv?.code === 'base' ? 50 : 0;
+                // Só convênios que pagam adicional ABA oferecem o switch (ou guia já marcada como ABA)
+                if (!(pct > 0)) return null;
+                return (
+                  <div className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors ${field.value ? 'border-teal-300 bg-teal-50/60' : 'border-gray-200 bg-white'}`}>
+                    <div>
+                      <span className="block text-sm font-semibold text-gray-700">Atendimento ABA</span>
+                      <span className="block text-xs text-gray-500">
+                        {field.value ? `Valor da especialidade + ${pct}% (adicional ABA do convênio)` : 'Desligado: valor convencional da especialidade'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!field.value}
+                      aria-label="Atendimento ABA"
+                      onClick={() => {
+                        valueManualRef.current = false;
+                        const next = !field.value;
+                        field.onChange(next);
+                        applySuggestedValue(getValues('insurance'), getValues('specialty'), next);
+                      }}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${field.value ? 'bg-teal-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${field.value ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                );
+              }}
+            />
+
             {/* Valor da sessão + Valor da avaliação */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -337,6 +409,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                     render={({ field }) => (
                       <input
                         {...field}
+                        onChange={(e) => { valueManualRef.current = true; field.onChange(e); }}
                         type="number"
                         min={0}
                         step="0.01"
@@ -362,6 +435,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                     render={({ field }) => (
                       <input
                         {...field}
+                        onChange={(e) => { evalManualRef.current = true; field.onChange(e); }}
                         type="number"
                         min={0}
                         step="0.01"

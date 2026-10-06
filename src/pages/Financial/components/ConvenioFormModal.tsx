@@ -6,6 +6,9 @@
 
 import {
     Box,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
     Button,
     Dialog,
     DialogActions,
@@ -20,7 +23,7 @@ import {
     Select,
     MenuItem
 } from '@mui/material';
-import { Building2, Plus, Check, X } from 'lucide-react';
+import { Building2, Plus, Check, Trash2, X, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
@@ -36,10 +39,24 @@ import {
 } from '../../../services/insuranceService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
 
+// Mesmas especialidades aceitas pela guia de convênio (models/InsuranceGuide.js)
+const SPECIALTY_OPTIONS = [
+    { value: 'fonoaudiologia', label: 'Fonoaudiologia' },
+    { value: 'psicologia', label: 'Psicologia' },
+    { value: 'fisioterapia', label: 'Fisioterapia' },
+    { value: 'terapia_ocupacional', label: 'Terapia Ocupacional' },
+    { value: 'psicomotricidade', label: 'Psicomotricidade' },
+    { value: 'musicoterapia', label: 'Musicoterapia' },
+    { value: 'psicopedagogia', label: 'Psicopedagogia' },
+    { value: 'neuropsicologia', label: 'Neuropsicologia' }
+];
+
 const DEFAULT_FORM_DATA: CreateConvenioData = {
     code: '',
     name: '',
     sessionValue: 0,
+    specialtyValues: [],
+    abaSurchargePercent: 0,
     billingMode: 'per_month',
     notes: '',
     defaultSessions: null,
@@ -76,6 +93,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
     const [codeAvailable, setCodeAvailable] = useState<boolean | null>(null);
 
     const isEditing = !!editingConvenio;
+    const isBase = formData.code.trim().toLowerCase() === 'base';
 
     useEffect(() => {
         if (!open) return;
@@ -85,11 +103,13 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 code: editingConvenio.code,
                 name: editingConvenio.name,
                 sessionValue: editingConvenio.sessionValue,
+                specialtyValues: (editingConvenio.specialtyValues || []).map(v => ({ ...v })),
+                abaSurchargePercent: editingConvenio.abaSurchargePercent ?? 0,
                 billingMode: editingConvenio.billingMode || 'per_month',
                 notes: editingConvenio.notes || '',
                 defaultSessions: editingConvenio.defaultSessions ?? null,
                 legalName: editingConvenio.legalName || '',
-                taxId: editingConvenio.taxId || '',
+                taxId: (editingConvenio.taxId || '').replace(/\D/g, ''),
                 issRate: editingConvenio.issRate ?? 0,
                 guidePolicy: {
                     ...DEFAULT_FORM_DATA.guidePolicy,
@@ -117,6 +137,15 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
         }
         if (formData.sessionValue <= 0) {
             errors.sessionValue = 'Valor deve ser maior que zero';
+        }
+
+        const rows = isBase ? (formData.specialtyValues || []) : [];
+        if (rows.some(r => !r.specialty)) {
+            errors.specialtyValues = 'Escolha a especialidade em todas as linhas (ou remova a linha vazia)';
+        } else if (rows.some(r => !(r.sessionValue > 0))) {
+            errors.specialtyValues = 'Informe um valor maior que zero em todas as linhas';
+        } else if (new Set(rows.map(r => r.specialty)).size !== rows.length) {
+            errors.specialtyValues = 'Há especialidade repetida na tabela de valores';
         }
 
         setFormErrors(errors);
@@ -152,6 +181,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 await updateConvenio(editingConvenio.code, {
                     name: formData.name,
                     sessionValue: formData.sessionValue,
+                    ...(isBase ? { specialtyValues: formData.specialtyValues || [], abaSurchargePercent: 50 } : {}),
                     billingMode: formData.billingMode,
                     notes: formData.notes,
                     defaultSessions: formData.defaultSessions,
@@ -162,7 +192,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 });
                 toast.success('Convênio atualizado!');
             } else {
-                await createConvenio(formData);
+                await createConvenio({ ...formData, specialtyValues: isBase ? formData.specialtyValues : [], abaSurchargePercent: isBase ? 50 : 0 });
                 toast.success('Convênio criado!');
             }
 
@@ -191,8 +221,8 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 </Box>
             </DialogTitle>
 
-            <DialogContent sx={{ p: 3, bgcolor: '#FAFBFC' }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 1 }}>
+            <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#FFFFFF', '& .MuiFormHelperText-root': { mx: 0, fontSize: '0.75rem', lineHeight: 1.4 } }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '220px minmax(0, 1fr)' }, gap: 2, mt: 1, alignItems: 'start' }}>
                     <TextField
                         label="Código *"
                         value={formData.code}
@@ -235,7 +265,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
 
                     <Box>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Valor da Sessão *
+                            Valor padrão por sessão *
                         </Typography>
                         <InputCurrency
                             name="sessionValue"
@@ -253,34 +283,140 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                         )}
                     </Box>
 
-                    <TextField
-                        label="Observações"
-                        value={formData.notes}
-                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                        placeholder="Informações adicionais"
-                        size="small"
-                        multiline
-                        rows={1}
-                    />
+                    <Box>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Observações
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            value={formData.notes}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            placeholder="Informações adicionais"
+                            size="small"
+                            multiline
+                            rows={1}
+                            sx={{ '& .MuiInputBase-root': { minHeight: 42 } }}
+                        />
+                    </Box>
                 </Box>
 
+                <>
+                {/* Valores por especialidade — o convênio paga valores diferentes por procedimento */}
+                <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
+                        Valores por especialidade (opcional)
+                    </Typography>
+                    <Typography fontSize="0.74rem" color="text.secondary" sx={{ mb: 1 }}>
+                        Cada linha define o valor unitário da sessão (1º campo) e da avaliação (2º campo, opcional). Sem uma linha, vale o padrão acima. Guias existentes mantêm seu valor.
+                    </Typography>
+
+                    {(formData.specialtyValues || []).map((row, index) => {
+                        const taken = new Set((formData.specialtyValues || []).map(r => r.specialty));
+                        return (
+                            <Box key={index} sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0,1fr) 104px 104px 36px', sm: 'minmax(0,1fr) 140px 140px 36px' }, maxWidth: 720, gap: 1.5, alignItems: 'center', mb: 1 }}>
+                                <FormControl size="small" fullWidth>
+                                    <InputLabel id={`spec-label-${index}`}>Especialidade</InputLabel>
+                                    <Select
+                                        labelId={`spec-label-${index}`}
+                                        value={row.specialty}
+                                        label="Especialidade"
+                                        onChange={(e) => {
+                                            const next = [...(formData.specialtyValues || [])];
+                                            next[index] = { ...row, specialty: String(e.target.value) };
+                                            setFormData({ ...formData, specialtyValues: next });
+                                            setFormErrors({ ...formErrors, specialtyValues: '' });
+                                        }}
+                                    >
+                                        {SPECIALTY_OPTIONS.map(opt => (
+                                            <MenuItem key={opt.value} value={opt.value} disabled={taken.has(opt.value) && opt.value !== row.specialty}>
+                                                {opt.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <InputCurrency
+                                    name={`specialtyValue-${index}`}
+                                    value={row.sessionValue}
+                                    onChange={(e) => {
+                                        const next = [...(formData.specialtyValues || [])];
+                                        next[index] = { ...row, sessionValue: Number(e.target.value) };
+                                        setFormData({ ...formData, specialtyValues: next });
+                                        setFormErrors({ ...formErrors, specialtyValues: '' });
+                                    }}
+                                    className="w-full px-3 py-2 border rounded-lg border-gray-300"
+                                />
+                                <InputCurrency
+                                    name={`specialtyEvaluation-${index}`}
+                                    value={row.evaluationValue ?? 0}
+                                    onChange={(e) => {
+                                        const next = [...(formData.specialtyValues || [])];
+                                        next[index] = { ...row, evaluationValue: Number(e.target.value) };
+                                        setFormData({ ...formData, specialtyValues: next });
+                                    }}
+                                    className="w-full px-3 py-2 border rounded-lg border-gray-300"
+                                />
+                                <Button
+                                    size="small"
+                                    color="error"
+                                    aria-label="Remover linha"
+                                    onClick={() => setFormData({
+                                        ...formData,
+                                        specialtyValues: (formData.specialtyValues || []).filter((_, i) => i !== index)
+                                    })}
+                                    sx={{ minWidth: 36, minHeight: 40, p: 0.75 }}
+                                >
+                                    <Trash2 size={16} />
+                                </Button>
+                            </Box>
+                        );
+                    })}
+
+                    {formErrors.specialtyValues && (
+                        <Typography variant="caption" color="error" display="block" sx={{ mb: 0.5 }}>
+                            {formErrors.specialtyValues}
+                        </Typography>
+                    )}
+
+                    <Button
+                        size="small"
+                        startIcon={<Plus size={16} />}
+                        disabled={(formData.specialtyValues || []).length >= SPECIALTY_OPTIONS.length}
+                        onClick={() => setFormData({
+                            ...formData,
+                            specialtyValues: [...(formData.specialtyValues || []), { specialty: '', sessionValue: 0 }]
+                        })}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Adicionar especialidade
+                    </Button>
+                </Box>
+
+                {/* ABA — regra fixa do convênio Base; o switch fica no cadastro da guia */}
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                    Atendimento ABA: valor da especialidade + 50% por sessão. Marque "Atendimento ABA" ao cadastrar a guia.
+                </Typography>
+
+                </>
                 {/* Modo de faturamento */}
                 <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
                         Modo de Faturamento
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
                         {([
-                            { value: 'per_month', label: 'Por Sessão / Mês', desc: 'Fatura as sessões realizadas no mês', color: '#3B82F6' },
-                            { value: 'per_guide', label: 'Por Guia Completa', desc: 'Fatura o valor total da guia quando ela fecha', color: '#10B981' }
+                            { value: 'per_month', label: 'Por Sessão / Mês', desc: 'Fatura as sessões realizadas no mês', color: '#26977B' },
+                            { value: 'per_guide', label: 'Por Guia Completa', desc: 'Fatura o valor total da guia quando ela fecha', color: '#26977B' }
                         ] as { value: BillingMode; label: string; desc: string; color: string }[]).map(opt => {
                             const selected = formData.billingMode === opt.value;
                             return (
                                 <Box
                                     key={opt.value}
+                                    component="button"
+                                    type="button"
+                                    aria-pressed={selected}
                                     onClick={() => setFormData({ ...formData, billingMode: opt.value })}
                                     sx={{
-                                        flex: 1, p: 1.5, borderRadius: 2, cursor: 'pointer',
+                                        flex: 1, p: 1.5, borderRadius: 2, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', '&:focus-visible': { outline: '2px solid #26977B', outlineOffset: 2 },
                                         border: `2px solid ${selected ? opt.color : '#E5E7EB'}`,
                                         bgcolor: selected ? `${opt.color}10` : '#FAFAFA',
                                         transition: 'all 0.15s'
@@ -301,7 +437,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                     <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
                         Dados Fiscais (Nota Fiscal)
                     </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 1 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 200px' }, gap: 2, mt: 1 }}>
                         <TextField
                             label="Razão Social"
                             value={formData.legalName ?? ''}
@@ -313,29 +449,35 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                         <TextField
                             label="CNPJ"
                             value={formData.taxId ?? ''}
-                            onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-                            placeholder="46.124.624/0001-11"
+                            onChange={(e) => setFormData({ ...formData, taxId: e.target.value.replace(/\D/g, '').slice(0, 14) })}
+                            inputProps={{ inputMode: 'numeric', maxLength: 14 }}
+                            helperText="14 números, sem pontuação"
+                            placeholder="46124624000111"
                             size="small"
                         />
                         <TextField
-                            label="ISS retido na fonte (%)"
+                            label="ISS retido (%)"
+                            sx={{ width: { xs: '100%', sm: 160 } }}
                             type="number"
                             value={formData.issRate ?? 0}
                             onChange={(e) => setFormData({ ...formData, issRate: e.target.value ? Number(e.target.value) : 0 })}
                             placeholder="2.01"
                             size="small"
                             inputProps={{ min: 0, max: 100, step: 0.01 }}
-                            helperText="Alíquota que o convênio retém ao pagar (ex: Unimed 2,01%). Deduzida automaticamente do valor bruto ao registrar recebimento"
+                            helperText="Deduzido do bruto no recebimento"
                         />
                     </Box>
                 </Box>
 
                 {/* Política de Guia */}
-                <Box sx={{ mt: 3 }}>
+                <Accordion disableGutters elevation={0} sx={{ mt: 3, borderTop: '1px solid #e5e7eb', '&:before': { display: 'none' } }}>
+                    <AccordionSummary expandIcon={<ChevronDown size={18} />} sx={{ px: 0 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
-                        Política de Guia
+                        Política de guia e prazos
                     </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mt: 1 }}>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ px: 0, pt: 0 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 2, mt: 1 }}>
                         <FormControl size="small" fullWidth>
                             <InputLabel id="renewal-type-label">Tipo de renovação</InputLabel>
                             <Select<RenewalType>
@@ -512,7 +654,8 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                             />
                         </Box>
                     </Box>
-                </Box>
+                    </AccordionDetails>
+                </Accordion>
             </DialogContent>
 
             <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9' }}>
