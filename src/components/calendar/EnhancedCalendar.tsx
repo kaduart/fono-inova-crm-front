@@ -1820,6 +1820,25 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             backgroundColor: '#9ce0a2 !important',
                         },
                     },
+                    // 🎯 Conteúdo do dia ocupa a célula inteira (permite centralizar o card de progresso)
+                    '.fc-dayGridMonth-view .fc-daygrid-day-frame': {
+                        display: 'flex',
+                        flexDirection: 'column',
+                    },
+                    '.fc-dayGridMonth-view .fc-daygrid-day-top': {
+                        flex: '1 1 auto',
+                        width: '100%',
+                        flexDirection: 'row',
+                    },
+                    '.fc-dayGridMonth-view .fc-daygrid-day-number': {
+                        flex: '1 1 auto',
+                        width: '100%',
+                        padding: 0,
+                        display: 'flex',
+                    },
+                    '.fc-dayGridMonth-view .fc-daygrid-day-number > div': {
+                        flex: '1 1 auto',
+                    },
                     // 🎯 Esconde eventos na visualização mensal (popup group-hover já cobre)
                     '.fc-dayGridMonth-view .fc-daygrid-event': {
                         display: 'none !important',
@@ -2067,8 +2086,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         
                         return (
                             <div
-                                className="flex flex-col items-end p-1 h-full relative cursor-pointer"
-                                style={hoveredDay === dateStr ? { zIndex: 9999, position: 'relative' } : undefined}
+                                className="flex flex-col items-center p-1 h-full relative cursor-pointer"
+                                style={{ width: '100%', ...(hoveredDay === dateStr ? { zIndex: 9999, position: 'relative' } : {}) }}
                                 onMouseEnter={(e) => {
                                     clearHoverTimeout();
                                     setHoveredDay(dateStr);
@@ -2093,14 +2112,43 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 >
                                     {arg.dayNumberText}
                                 </span>
-                                {dayCount > 0 && (
-                                    <span
-                                        className="mt-1 inline-flex items-center justify-center px-1.5 py-0 rounded-full text-3xs font-bold text-white bg-green-600 pointer-events-none select-none"
-                                        style={{ minWidth: '18px', height: '18px' }}
-                                    >
-                                        {dayCount}
-                                    </span>
-                                )}
+                                {dayCount > 0 && (() => {
+                                    const doneCount = dayAppts.filter((a: any) => (a.operationalStatus || a.status) === 'completed').length;
+                                    const pct = Math.round((doneCount / dayCount) * 100);
+                                    const tone = doneCount === 0
+                                        ? { count: 'text-slate-700', pct: 'text-slate-400', fill: 'linear-gradient(90deg,#cbd5e1,#94a3b8)', ring: '#e2e8f0' }
+                                        : doneCount === dayCount
+                                            ? { count: 'text-emerald-700', pct: 'text-emerald-600', fill: 'linear-gradient(90deg,#34d399,#059669)', ring: '#a7f3d0' }
+                                            : { count: 'text-amber-700', pct: 'text-amber-600', fill: 'linear-gradient(90deg,#fcd34d,#f59e0b)', ring: '#fde68a' };
+                                    return (
+                                        <div
+                                            className="rounded-xl bg-white px-2.5 py-1.5 pointer-events-none select-none"
+                                            style={{
+                                                width: '88%', maxWidth: 150, marginTop: 'auto', marginBottom: 'auto',
+                                                border: `1px solid ${tone.ring}`,
+                                                boxShadow: '0 1px 2px rgba(15,23,42,0.06), 0 4px 10px -4px rgba(15,23,42,0.12)',
+                                            }}
+                                            title={`${doneCount} de ${dayCount} atendimentos realizados (${pct}%)`}
+                                        >
+                                            <div className="flex items-baseline justify-center leading-none whitespace-nowrap">
+                                                <span className={`text-lg font-extrabold tabular-nums ${tone.count}`}>{doneCount}</span>
+                                                <span className="text-sm font-semibold text-slate-400 tabular-nums">/{dayCount}</span>
+                                            </div>
+                                            <div
+                                                className="mt-1.5 w-full overflow-hidden rounded-full"
+                                                style={{ height: 8, background: '#e5e7eb', boxShadow: 'inset 0 1px 2px rgba(15,23,42,0.12)' }}
+                                            >
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{ width: `${pct}%`, minWidth: pct > 0 ? 8 : 0, background: tone.fill }}
+                                                />
+                                            </div>
+                                            <div className={`mt-1 text-center text-[10px] font-bold leading-none tracking-wide ${tone.pct}`}>
+                                                {pct}% realizados
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         );
                     }}
