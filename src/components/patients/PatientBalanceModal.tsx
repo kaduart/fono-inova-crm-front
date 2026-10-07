@@ -1,7 +1,7 @@
 // src/components/patients/PatientBalanceModal.tsx
 // Orquestrador enxuto — delega UI para subcomponentes em balance/
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, ArrowDownCircle, CheckCircle, Plus, Banknote } from 'lucide-react';
 import {
   getPatientPendingSnapshot,
@@ -94,6 +94,9 @@ export const PatientBalanceModal: React.FC<Props> = ({
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [pendingPayments, setPendingPayments] = useState<PaymentItem[]>([]);
   const [paidPayments, setPaidPayments] = useState<PaymentItem[]>([]);
+  const [paidLoading, setPaidLoading] = useState(false);
+  const [paidError, setPaidError] = useState(false);
+  const paidCache = useRef({ loaded: false, loading: false, version: 0 });
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('pending');
@@ -113,12 +116,15 @@ export const PatientBalanceModal: React.FC<Props> = ({
 
   const fetchData = useCallback(async () => {
     if (!patientId) return;
+    paidCache.current = { loaded: false, loading: false, version: paidCache.current.version + 1 };
+    setPaidPayments([]);
+    setPaidLoading(false);
+    setPaidError(false);
     setLoading(true);
     try {
-      const [summaryRes, pendingRes, paidRes] = await Promise.all([
+      const [summaryRes, pendingRes] = await Promise.all([
         getPatientFinancialSummary(patientId),
         getPatientPendingSnapshot(patientId),
-        getPatientPaidPayments(patientId),
       ]);
       setSummary({ ...summaryRes,
         totalPending: pendingRes.meta.totalPending,
@@ -128,13 +134,36 @@ export const PatientBalanceModal: React.FC<Props> = ({
         appliedCredit: pendingRes.meta.appliedCredit ?? 0,
       });
       setPendingPayments(pendingRes.data.map(mapToPaymentItem));
-      setPaidPayments(paidRes.map(mapToPaymentItem));
     } catch (error) {
       console.error('Erro ao buscar dados financeiros:', error);
     } finally {
       setLoading(false);
     }
   }, [patientId]);
+
+  const loadPaidPayments = async () => {
+    if (paidCache.current.loaded || paidCache.current.loading) return;
+    const version = paidCache.current.version;
+    paidCache.current.loading = true;
+    setPaidLoading(true);
+    setPaidError(false);
+    try {
+      const payments = await getPatientPaidPayments(patientId);
+      if (paidCache.current.version !== version) return;
+      setPaidPayments(payments.map(mapToPaymentItem));
+      paidCache.current.loaded = true;
+    } catch (error) {
+      if (paidCache.current.version === version) {
+        setPaidError(true);
+        console.error('Erro ao carregar pagamentos quitados:', error);
+      }
+    } finally {
+      if (paidCache.current.version === version) {
+        paidCache.current.loading = false;
+        setPaidLoading(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -147,6 +176,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setReceiveAmount(0);
       setReceiveMethod('pix');
     }
+    return () => { paidCache.current.version += 1; };
   }, [isOpen, fetchData]);
 
   const selectablePending = useMemo(
@@ -379,7 +409,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
           />
           <TabButton
             active={activeTab === 'paid'}
-            onClick={() => setActiveTab('paid')}
+            onClick={() => { setActiveTab('paid'); void loadPaidPayments(); }}
             icon={<CheckCircle className="w-4 h-4" />}
             label="Quitados"
             activeClass="text-green-600 border-green-500 bg-green-50"
@@ -418,7 +448,13 @@ export const PatientBalanceModal: React.FC<Props> = ({
               onOpenReceive={goToReceiveTab}
             />
           ) : activeTab === 'paid' ? (
-            <PatientBalancePaidTab payments={paidPayments} />
+            paidLoading ? <ModalSpinner /> : paidError ? (
+              <div className="py-6 text-center text-sm text-gray-600" role="alert">
+                <p>Não foi possível carregar os pagamentos quitados.</p>
+                <button type="button" onClick={() => void loadPaidPayments()}
+                  className="mt-2 font-medium text-emerald-700 underline">Tentar novamente</button>
+              </div>
+            ) : <PatientBalancePaidTab payments={paidPayments} />
           ) : activeTab === 'add' ? (
             <PatientBalanceAddTab
               amount={addAmount}
