@@ -28,6 +28,8 @@ import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import LiminarContractPanel from '../liminar/LiminarContractPanel';
 import { notifyApiError } from '../../utils/notifyApiError';
+import { socketManager } from '../../utils/socketManager';
+import { subscribeToCacheInvalidation } from '../../utils/cacheManager';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -171,14 +173,6 @@ export default function PatientDashboard() {
   useEffect(() => {
   }, [appointments]);
 
-  useEffect(() => {
-    if (patients.length > 0 && patientId) {
-      const patient = patients.find(p => p._id === patientId);
-      if (patient) {
-        setPatientInfo(patient);
-      }
-    }
-  }, [patients, patientId]);
 
 
   // 🚀 V2: Busca perfil do paciente (CQRS - PatientsView)
@@ -213,6 +207,60 @@ export default function PatientDashboard() {
   };
 
   // 🚀 V2: Busca lista de médicos
+  useEffect(() => {
+    if (!patientId) return;
+    let disposed = false;
+    let running = false;
+    let refreshAgain = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      if (disposed || document.visibilityState === 'hidden') return;
+      if (running) { refreshAgain = true; return; }
+      running = true;
+      try {
+        const patient = await patientService.getById(patientId);
+        if (!disposed) {
+          const dto = mapPatientResponseDTO(patient);
+          setPatientInfo({ ...patient, ...dto, _id: dto.id, fullName: dto.name });
+        }
+      } catch (error) {
+        console.error('Erro ao atualizar saldo do paciente:', error);
+      } finally {
+        running = false;
+        if (refreshAgain && !disposed) { refreshAgain = false; schedule(); }
+      }
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { void refresh(); }, 200);
+    };
+    const onPatientEvent = (data: any) => {
+      const eventPatientId = data?.patientId || data?.patient?._id || data?.patient;
+      if (!eventPatientId || String(eventPatientId) === patientId) schedule();
+    };
+    const unsubscribers = [
+      ...['appointmentCompleted', 'appointmentUpdated', 'appointmentCanceled', 'appointment:refresh', 'patientUpdated']
+        .map(event => socketManager.on(event, onPatientEvent)),
+      socketManager.onReconnect(schedule),
+      ...(['payments', 'patients', 'appointments'] as const)
+        .map(type => subscribeToCacheInvalidation(type, schedule)),
+    ];
+    window.addEventListener('session:completed', schedule);
+    window.addEventListener('focus', schedule);
+    document.addEventListener('visibilitychange', schedule);
+    // Recupera eventos perdidos ou alterações feitas em outra tela sem socket.
+    const fallback = setInterval(() => { void refresh(); }, 15000);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      clearInterval(fallback);
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+      window.removeEventListener('session:completed', schedule);
+      window.removeEventListener('focus', schedule);
+      document.removeEventListener('visibilitychange', schedule);
+    };
+  }, [patientId]);
+
   const fetchDoctors = async () => {
     try {
       const response = await doctorService.getAllDoctors();
@@ -474,6 +522,11 @@ export default function PatientDashboard() {
     // consumido pela dívida ou não) — usado só pra decidir se mostra o pill
     // de crédito e com qual texto (ver JSX abaixo).
     const availableCredit = pi.availableCredit ?? pi.stats?.availableCredit ?? 0;
+    const appliedCredit = Math.max(0, availableCredit - netAvailableCredit);
+    const pendingBeforeCredit = totalPending + appliedCredit;
+    const formatBalance = (value: number) => value.toLocaleString('pt-BR', {
+      style: 'currency', currency: 'BRL',
+    });
     const nextApt       = pi.nextAppointment;
     const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
     const ptTags: string[] = pi.tags || [];
@@ -499,8 +552,21 @@ export default function PatientDashboard() {
             <div>
               <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
               <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
-                {totalPending > 0 ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ 0,00'}
+                {formatBalance(totalPending)}
               </p>
+              {appliedCredit > 0 && (
+                <div className="mt-2 space-y-1 text-xs text-slate-600 text-left">
+                  <p className="flex flex-wrap justify-between gap-x-3">
+                    <span>Débito antes do abatimento</span>
+                    <span className="font-medium tabular-nums">{formatBalance(pendingBeforeCredit)}</span>
+                  </p>
+                  <p className="flex flex-wrap justify-between gap-x-3">
+                    <span>Crédito abatido</span>
+                    <span className="font-medium tabular-nums">− {formatBalance(appliedCredit)}</span>
+                  </p>
+                  <p className="border-t border-slate-200 pt-1">O saldo acima é o valor restante a receber.</p>
+                </div>
+              )}
               {totalPending > 0 ? (
                 <div className="mt-0.5 space-y-0.5 text-2xs text-slate-500">
                   {/* Só mostra a quebra "Particular: R$X" quando também há
@@ -514,17 +580,6 @@ export default function PatientDashboard() {
                   )}
                   {convenioBilled > 0 && (
                     <p>Convênio (faturado, aguardando recebimento): R$ {convenioBilled.toLocaleString('pt-BR')}</p>
-                  )}
-                  {/* Crédito de recebimento avulso já totalmente consumido pela
-                      dívida (não sobra nada) — informação neutra/técnica, por
-                      isso integrada na mesma lista cinza em vez de um badge
-                      verde chamativo (verde é reservado a notícia positiva,
-                      ver caso "disponível" abaixo). */}
-                  {availableCredit > 0 && netAvailableCredit === 0 && (
-                    <p className="flex items-center gap-1">
-                      <Wallet size={10} className="shrink-0 text-slate-400" />
-                      R$ {availableCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de crédito já abatido
-                    </p>
                   )}
                 </div>
               ) : (

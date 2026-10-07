@@ -14,17 +14,18 @@ const formatCurrency = (value: number) =>
 /**
  * PatientBalanceHeader
  *
- * Usa totalPending (soma dos payments pending legados) pois a migração V2
- * ainda está incompleta. sessionDebt será usado quando todos os appointments
- * gerarem session_charge V2 automaticamente.
+ * Exibe o saldo líquido calculado no backend; os valores das sessões
+ * continuam brutos para preservar a composição do débito.
  */
 export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName, onOpenReceive }) => {
-  const sessionDebt = summary?.totalPending || 0;
+  const grossDebt = summary?.totalPending || 0;
+  const sessionDebt = summary?.totalPendingNet ?? grossDebt;
+  const appliedCredit = summary?.appliedCredit || 0;
   const pendingCount = summary?.pendingCount || 0;
   const totalPaid = summary?.totalPaid || 0;
   const paidCount = summary?.paidCount || 0;
   const completedSessions = summary?.completedSessions || 0;
-  const volume = sessionDebt + totalPaid;
+  const volume = grossDebt + totalPaid;
 
   return (
     <div className="bg-white p-5 text-gray-900 flex-shrink-0 border-b border-gray-200">
@@ -48,6 +49,13 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName, on
               <span className="text-3xs font-bold uppercase tracking-wider">Saldo Devedor</span>
             </div>
             <p className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(sessionDebt)}</p>
+            {appliedCredit > 0 && (
+              <div className="mt-2 space-y-0.5 text-xs text-red-100 text-left">
+                <p>Sessões em aberto: {formatCurrency(grossDebt)}</p>
+                <p>Crédito abatido: − {formatCurrency(appliedCredit)}</p>
+                <p className="font-medium">Restante a receber: {formatCurrency(sessionDebt)}</p>
+              </div>
+            )}
             {pendingCount > 0 && (
               <p className="text-2xs text-red-200 mt-1">
                 {pendingCount} sessão{pendingCount !== 1 ? 'ões' : ''} em aberto

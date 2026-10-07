@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X, ArrowDownCircle, CheckCircle, Plus, Banknote } from 'lucide-react';
 import {
-  getPatientPendingPayments,
+  getPatientPendingSnapshot,
   getPatientPaidPayments,
   getPatientFinancialSummary,
   receivePayment,
@@ -36,6 +36,17 @@ export interface PaymentItem {
   specialty?: string | null;
   paymentMethod?: string | null;
   splitMethods?: { method: string; amount: number; date?: string }[] | null;
+  doctorName?: string | null;
+  serviceDate?: string | null;
+  settlement?: {
+    id: string;
+    paidAt: string | null;
+    paymentMethod: string | null;
+    splitMethods: { method: string; amount: number; date?: string }[] | null;
+    totalAmount: number;
+    sessionCount: number;
+    notes: string | null;
+  } | null;
 }
 
 const mapToPaymentItem = (p: any): PaymentItem => ({
@@ -54,6 +65,9 @@ const mapToPaymentItem = (p: any): PaymentItem => ({
   specialty: p.specialty || null,
   paymentMethod: p.paymentMethod || null,
   splitMethods: p.splitMethods || null,
+  doctorName: p.doctorName || null,
+  serviceDate: p.serviceDate || null,
+  settlement: p.settlement || null,
 });
 
 const formatCurrency = (value: number) =>
@@ -103,11 +117,17 @@ export const PatientBalanceModal: React.FC<Props> = ({
     try {
       const [summaryRes, pendingRes, paidRes] = await Promise.all([
         getPatientFinancialSummary(patientId),
-        getPatientPendingPayments(patientId),
+        getPatientPendingSnapshot(patientId),
         getPatientPaidPayments(patientId),
       ]);
-      setSummary(summaryRes);
-      setPendingPayments(pendingRes.map(mapToPaymentItem));
+      setSummary({ ...summaryRes,
+        totalPending: pendingRes.meta.totalPending,
+        pendingCount: pendingRes.meta.count,
+        totalPendingNet: pendingRes.meta.totalPendingNet ?? pendingRes.meta.totalPending,
+        availableCredit: pendingRes.meta.availableCredit ?? 0,
+        appliedCredit: pendingRes.meta.appliedCredit ?? 0,
+      });
+      setPendingPayments(pendingRes.data.map(mapToPaymentItem));
       setPaidPayments(paidRes.map(mapToPaymentItem));
     } catch (error) {
       console.error('Erro ao buscar dados financeiros:', error);
@@ -422,11 +442,14 @@ export const PatientBalanceModal: React.FC<Props> = ({
                 <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
                   <div>
                     <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Saldo devedor atual</p>
-                    <p className="text-lg font-bold text-red-700">{formatCurrency(summary?.totalPending || 0)}</p>
+                    <p className="text-lg font-bold text-red-700">{formatCurrency(summary?.totalPendingNet ?? summary?.totalPending ?? 0)}</p>
+                    {(summary?.appliedCredit || 0) > 0 && (
+                      <p className="text-xs text-red-700">{formatCurrency(summary?.totalPending || 0)} em sessões − {formatCurrency(summary?.appliedCredit || 0)} de crédito</p>
+                    )}
                   </div>
                   <button
                     type="button"
-                    onClick={() => setReceiveAmount(summary?.totalPending || 0)}
+                    onClick={() => setReceiveAmount(summary?.totalPendingNet ?? summary?.totalPending ?? 0)}
                     className="text-xs font-semibold text-red-700 hover:text-red-800 bg-white hover:bg-red-100 border border-red-300 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     Usar este valor

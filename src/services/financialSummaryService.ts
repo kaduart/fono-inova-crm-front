@@ -6,6 +6,9 @@ export interface FinancialSummary {
   totalPaid: number;
   paidCount: number;
   totalPending: number;
+  totalPendingNet?: number;
+  availableCredit?: number;
+  appliedCredit?: number;
   pendingCount: number;
   completedSessions: number;
   sessionDebt: number;
@@ -37,6 +40,18 @@ export interface PendingPayment {
   specialty?: string | null;
   paymentMethod?: string | null;
   splitMethods?: { method: string; amount: number; date?: string }[] | null;
+  doctorName?: string | null;
+  serviceDate?: string | null;
+  /** Recebimento (recibo) em que a sessão foi quitada — só vem em paid-payments. */
+  settlement?: {
+    id: string;
+    paidAt: string | null;
+    paymentMethod: string | null;
+    splitMethods: { method: string; amount: number; date?: string }[] | null;
+    totalAmount: number;
+    sessionCount: number;
+    notes: string | null;
+  } | null;
 }
 
 // 🚨 FIX (2026-09-01): tela de pacotes do paciente (TherapyPackageCard, 1 instância
@@ -124,8 +139,15 @@ export async function getPatientFinancialSummary(patientId: string, packageId?: 
 }
 
 export async function getPatientPendingPayments(patientId: string): Promise<PendingPayment[]> {
+  return (await getPatientPendingSnapshot(patientId)).data;
+}
+
+export async function getPatientPendingSnapshot(patientId: string): Promise<{
+  data: PendingPayment[];
+  meta: { totalPending: number; totalPendingNet?: number; availableCredit?: number; appliedCredit?: number; count: number };
+}> {
   const res = await API.get(`/v2/financial/patient/${patientId}/pending-payments`);
-  return res.data.data;
+  return res.data;
 }
 
 export async function getPatientPaidPayments(patientId: string): Promise<PendingPayment[]> {
