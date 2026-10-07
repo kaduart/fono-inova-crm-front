@@ -467,6 +467,9 @@ const FollowupPage = () => {
         error={analyticsError}
       />
 
+      {/* 🎯 RESULTADO REAL POR CANAL (atribuição automática) */}
+      <AcquisitionByChannel />
+
       {/* TABS */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 flex gap-1 p-1.5">
@@ -970,9 +973,6 @@ const FollowupPage = () => {
                 </div>
               )}
             </div>
-
-            {/* 🎯 RESULTADO REAL POR CANAL (atribuição automática) */}
-            <AcquisitionByChannel />
 
             {/* 🔥 ROI POR ORIGEM (Lead → Patient → Revenue) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
