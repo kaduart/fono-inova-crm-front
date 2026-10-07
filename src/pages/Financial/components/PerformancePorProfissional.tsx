@@ -6,6 +6,7 @@ import { DataCard } from '../../../components/dashboard/DataCard';
 import { MetricBadge } from '../../../components/dashboard/MetricBadge';
 import { EmptyState } from '../../../components/dashboard/EmptyState';
 import { CardSkeleton } from '../../../components/dashboard/CardSkeleton';
+import { getAvatarColor } from '../../../constants/avatarColors';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -45,20 +46,6 @@ const getInitials = (name: string) => {
     .join('')
     .slice(0, 2)
     .toUpperCase();
-};
-
-const avatarColors = [
-  { bg: '#E0E7FF', text: '#4F46E5' },
-  { bg: '#FCE7F3', text: '#BE185D' },
-  { bg: '#D1FAE5', text: '#047857' },
-  { bg: '#FEF3C7', text: '#B45309' },
-  { bg: '#E0F2FE', text: '#0369A1' },
-  { bg: '#F3E8FF', text: '#7C3AED' },
-];
-
-const getAvatarColor = (name: string) => {
-  const index = name.charCodeAt(0) % avatarColors.length;
-  return avatarColors[index];
 };
 
 const getStatusBadge = (status: string) => {

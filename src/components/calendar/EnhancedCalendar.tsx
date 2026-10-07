@@ -2025,8 +2025,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {Array.from({ length: 5 }).map((_, week) => (
                             <Box key={week} sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', flex: 1, borderLeft: '1px solid #e5e7eb' }}>
                                 {Array.from({ length: 5 }).map((_, day) => {
-                                    // Simula badge de contagem em ~40% das células
-                                    const hasBadge = (week * 5 + day) % 3 !== 0;
+                                    // Simula o cartão de progresso do dia (a maioria das células tem atendimentos)
+                                    const hasBadge = (week * 5 + day) % 6 !== 0;
                                     return (
                                         <Box
                                             key={day}
@@ -2037,20 +2037,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                                 p: 0.75,
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                alignItems: 'flex-end',
+                                                alignItems: 'center',
                                                 gap: 0.5,
                                             }}
                                         >
                                             {/* Número do dia */}
                                             <Skeleton variant="circular" width={28} height={28} />
-                                            {/* Badge de contagem */}
+                                            {/* Cartão de progresso: x/y + barra + % */}
                                             {hasBadge && (
-                                                <Skeleton
-                                                    variant="rounded"
-                                                    width={20}
-                                                    height={18}
-                                                    sx={{ borderRadius: 9, bgcolor: '#bbf7d0' }}
-                                                />
+                                                <Box sx={{ width: '88%', maxWidth: 150, my: 'auto', borderRadius: 3, border: '1px solid #e5e7eb', bgcolor: '#fff', px: 1.25, py: 0.75, boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>
+                                                    <Skeleton variant="text" width="45%" height={20} sx={{ mx: 'auto' }} />
+                                                    <Skeleton variant="rounded" height={8} sx={{ borderRadius: 9, mt: 0.5 }} />
+                                                    <Skeleton variant="text" width="60%" height={12} sx={{ mx: 'auto', mt: 0.5 }} />
+                                                </Box>
                                             )}
                                         </Box>
                                     );

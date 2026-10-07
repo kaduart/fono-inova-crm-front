@@ -86,7 +86,8 @@ function getCategoryConfigMap() {
       // Teal, não âmbar: âmbar é a cor de status "Pendente" na mesma linha e as duas
       // pílulas ficavam idênticas. Categoria não deve reutilizar cor de status.
       commission: { color: '#0F766E', bgColor: '#0F766E10', label: 'Comissão', icon: TrendingDown },
-      benefit: { color: '#10B981', bgColor: '#10B98110', label: 'Benefício', icon: User },
+      // Fúcsia, não verde: verde é a cor de status "Pago".
+      benefit: { color: '#C026D3', bgColor: '#C026D310', label: 'Benefício', icon: User },
       operational: { color: '#8B5CF6', bgColor: '#8B5CF610', label: 'Operacional', icon: FileText },
       equipment: { color: '#EC4899', bgColor: '#EC489910', label: 'Equipamento', icon: CreditCard },
       marketing: { color: '#06B6D4', bgColor: '#06B6D410', label: 'Marketing', icon: BarChart3 },
