@@ -7,6 +7,9 @@ import API from "./api";
 import { IPatient } from "../utils/types/types";
 import { normalizeIPatient } from "../utils/normalize";
 
+// Compartilha apenas consultas em andamento; uma atualização posterior busca dados novos.
+const patientReadsInFlight = new Map<string, Promise<IPatient>>();
+
 const POLL_CONFIG = {
   maxAttempts: 30,
   interval: 800,
@@ -122,8 +125,15 @@ export const patientService = {
   },
 
   async getById(id: string): Promise<IPatient> {
-    const response = await API.get(`/v2/patients/${id}`);
-    return response.data.data;
+    const existing = patientReadsInFlight.get(id);
+    if (existing) return existing;
+    const request = API.get(`/v2/patients/${id}`).then(response => response.data.data as IPatient);
+    patientReadsInFlight.set(id, request);
+    try {
+      return await request;
+    } finally {
+      if (patientReadsInFlight.get(id) === request) patientReadsInFlight.delete(id);
+    }
   },
 
   async getFull(id: string): Promise<{

@@ -270,19 +270,32 @@ export const PatientsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 🔌 Socket listeners
   useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     const handlePatientChange = () => {
-      console.log('📡 PatientsContext: Patient change via socket');
-      loadPatients(true);
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => { void loadPatients(true); }, 200);
     };
 
     const unsubCreated = socketManager.on('patientCreated', handlePatientChange);
     const unsubUpdated = socketManager.on('patientUpdated', handlePatientChange);
     const unsubDeleted = socketManager.on('patientDeleted', handlePatientChange);
+    const financialUnsubscribers = [
+      ...['appointmentCompleted', 'appointmentUpdated', 'appointmentCanceled', 'appointment:refresh']
+        .map(event => socketManager.on(event, handlePatientChange)),
+      socketManager.onReconnect(handlePatientChange),
+      subscribeToCacheInvalidation('payments', handlePatientChange),
+    ];
+    window.addEventListener('session:completed', handlePatientChange);
+    window.addEventListener('focus', handlePatientChange);
 
     return () => {
       unsubCreated();
       unsubUpdated();
       unsubDeleted();
+      clearTimeout(refreshTimer);
+      financialUnsubscribers.forEach(unsubscribe => unsubscribe());
+      window.removeEventListener('session:completed', handlePatientChange);
+      window.removeEventListener('focus', handlePatientChange);
     };
   }, [loadPatients]);
 

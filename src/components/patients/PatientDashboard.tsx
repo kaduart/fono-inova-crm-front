@@ -246,18 +246,11 @@ export default function PatientDashboard() {
         .map(type => subscribeToCacheInvalidation(type, schedule)),
     ];
     window.addEventListener('session:completed', schedule);
-    window.addEventListener('focus', schedule);
-    document.addEventListener('visibilitychange', schedule);
-    // Recupera eventos perdidos ou alterações feitas em outra tela sem socket.
-    const fallback = setInterval(() => { void refresh(); }, 15000);
     return () => {
       disposed = true;
       clearTimeout(timer);
-      clearInterval(fallback);
       unsubscribers.forEach(unsubscribe => unsubscribe());
       window.removeEventListener('session:completed', schedule);
-      window.removeEventListener('focus', schedule);
-      document.removeEventListener('visibilitychange', schedule);
     };
   }, [patientId]);
 
@@ -398,7 +391,7 @@ export default function PatientDashboard() {
   useEffect(() => {
 
     fetchEvaluations();
-  }, [patientInfo]);
+  }, [patientInfo?._id]);
 
   const handleEvaluationSubmit = async (data: any, id?: string) => {
     try {
