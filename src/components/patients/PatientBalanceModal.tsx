@@ -21,6 +21,7 @@ import { PatientBalancePaidTab } from './balance/PatientBalancePaidTab';
 import { PatientBalanceAddTab } from './balance/PatientBalanceAddTab';
 import { PaymentConfirmModal } from './balance/PaymentConfirmModal';
 import { notifyApiError } from '../../utils/notifyApiError';
+import { invalidateCache } from '../../utils/cacheManager';
 
 export interface PaymentItem {
   id: string;
@@ -238,6 +239,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setConfirmMode(null);
       setQuickPaymentId(null);
       await fetchData();
+      invalidateCache('payments');
       onRefresh?.();
       toast.success('Pagamento registrado com sucesso');
     } catch (error: unknown) {
@@ -284,6 +286,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setSelectedPayments(new Set());
       setSplitMethods([]);
       await fetchData();
+      invalidateCache('payments');
       onRefresh?.();
       toast.success(`${settledCount} pagamento(s) quitado(s) com sucesso`);
     } catch (error: unknown) {
@@ -311,6 +314,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       setAddDescription('');
       setActiveTab('pending');
       await fetchData();
+      invalidateCache('payments');
       onRefresh?.();
       toast.success('Débito pendente registrado com sucesso');
     } catch (error: unknown) {
@@ -341,6 +345,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       });
       setReceiveAmount(0);
       await fetchData();
+      invalidateCache('payments');
       onRefresh?.();
       toast.success('Recebimento registrado com sucesso');
     } catch (error: unknown) {

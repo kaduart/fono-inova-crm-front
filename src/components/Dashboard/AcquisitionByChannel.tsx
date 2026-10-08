@@ -29,6 +29,7 @@ type AdRow = {
 };
 
 const LABELS: Record<string, string> = {
+  "chatgpt.com": "ChatGPT",
   tiktok_ads: "TikTok Ads",
   tiktok: "TikTok",
   meta_ads: "Meta Ads (Facebook)",
@@ -62,6 +63,7 @@ export default function AcquisitionByChannel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [sentOpenAI, setSentOpenAI] = useState(0);
 
   // Gasto digitado à mão (sem token de API): soma no período; "desfazer" remove o último lançamento
   const addSpend = async (adKey: string) => {
@@ -96,6 +98,7 @@ export default function AcquisitionByChannel() {
         if (view === "canal") {
           setData(r.data?.data || []);
           setTotals(r.data?.totals || empty);
+          setSentOpenAI(r.data?.totals?.sentOpenAI || 0);
         } else {
           setAds(r.data?.data || []);
           setAdTotals(r.data?.totals || { ...empty, spend: 0 });
@@ -131,6 +134,11 @@ export default function AcquisitionByChannel() {
             {tab("canal", "Por canal")}
             {tab("anuncio", "Por anúncio")}
           </div>
+          {view === "canal" && (
+            <p className="text-xs text-slate-500 mt-2">
+              Agendamentos enviados à OpenAI: {sentOpenAI}. A atribuição à campanha é verificada no Ads Manager.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">

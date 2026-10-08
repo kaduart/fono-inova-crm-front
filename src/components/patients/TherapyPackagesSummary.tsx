@@ -10,6 +10,7 @@ import TherapyPackageDetails from './TherapyPackageDetails';
 import TherapyPackageFormModal from './TherapyPackageFormModal';
 import TherapyPackageManager from './TherapyPackageManager';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import { subscribeToCacheInvalidation } from '../../utils/cacheManager';
 
 type TherapyPackagesSummaryProps = {
     patient: IPatient;
@@ -47,9 +48,11 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         const handler = () => { if (realPatientId) fetchBasicPackages(); };
         window.addEventListener('session:completed', handler);
         window.addEventListener('appointment:cancelled', handler);
+        const unsubscribePayments = subscribeToCacheInvalidation('payments', handler);
         return () => {
             window.removeEventListener('session:completed', handler);
             window.removeEventListener('appointment:cancelled', handler);
+            unsubscribePayments();
         };
     }, [realPatientId]);
 
