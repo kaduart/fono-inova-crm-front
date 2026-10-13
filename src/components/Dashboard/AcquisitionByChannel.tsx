@@ -11,6 +11,7 @@ type Row = {
   revenue: number;
   sentMeta: number;
   sentGoogle: number;
+  sentTikTok: number;
   bookingRate: number | null;
 };
 
@@ -180,7 +181,7 @@ export default function AcquisitionByChannel() {
                 <th className="text-right px-3 py-2 font-semibold text-slate-600">1º agend.</th>
                 <th className="text-right px-3 py-2 font-semibold text-slate-600">Taxa</th>
                 <th className="text-right px-3 py-2 font-semibold text-slate-600">Valor</th>
-                <th className="text-right px-3 py-2 font-semibold text-slate-600 hidden md:table-cell">Enviado Meta / Google</th>
+                <th className="text-right px-3 py-2 font-semibold text-slate-600 hidden md:table-cell">Enviado Meta / Google / TikTok</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -194,7 +195,7 @@ export default function AcquisitionByChannel() {
                   </td>
                   <td className="px-3 py-2 text-right text-slate-800">{brl(r.revenue)}</td>
                   <td className="px-3 py-2 text-right text-slate-500 hidden md:table-cell">
-                    {r.sentMeta || 0} / {r.sentGoogle || 0}
+                    {r.sentMeta || 0} / {r.sentGoogle || 0} / {r.sentTikTok || 0}
                   </td>
                 </tr>
               ))}
