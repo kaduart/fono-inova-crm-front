@@ -2173,9 +2173,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     {arg.dayNumberText}
                                 </span>
                                 {dayCount > 0 && (() => {
-                                    const doneCount = dayAppts.filter((a: any) => (a.operationalStatus || a.status) === 'completed').length;
-                                    // Cancelados entram no total do dia (dayCount): sem mostrar quantos são, "12/25" parece ter 13 aguardando.
-                                    const canceledCount = dayAppts.filter((a: any) => ['canceled', 'cancelled'].includes(a.operationalStatus || a.status)).length;
+                                    const statusOf = (a: any) => a.operationalStatus || a.status;
+                                    const doneCount = dayAppts.filter((a: any) => statusOf(a) === 'completed').length;
+                                    // dayCount inclui cancelados e faltas: sem separar, "12/25" parece ter 13 aguardando.
+                                    const canceledCount = dayAppts.filter((a: any) => ['canceled', 'cancelled'].includes(statusOf(a))).length;
+                                    const missedCount = dayAppts.filter((a: any) => ['missed', 'absent'].includes(statusOf(a))).length;
+                                    const pendingCount = Math.max(0, dayCount - doneCount - canceledCount - missedCount);
                                     const pct = Math.round((doneCount / dayCount) * 100);
                                     // Verde = progresso (inclusive em dias passados); cinza = nada feito; verde escuro = dia 100%.
                                     const tone = doneCount === 0
@@ -2183,35 +2186,46 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         : doneCount === dayCount
                                             ? { count: 'text-emerald-700', pct: 'text-emerald-700', fill: 'linear-gradient(90deg,#10b981,#047857)', ring: '#6ee7b7' }
                                             : { count: 'text-emerald-600', pct: 'text-emerald-600', fill: 'linear-gradient(90deg,#6ee7b7,#10b981)', ring: '#a7f3d0' };
+// Legenda: só o que existe no dia. Cada fatia da barra tem a mesma cor do ponto.
+                                    const legend = [
+                                        { n: doneCount, text: `${doneCount} ${doneCount === 1 ? 'realizado' : 'realizados'}`, full: doneCount === 1 ? 'realizado' : 'realizados', color: '#10b981' },
+                                        { n: pendingCount, text: `${pendingCount} aguardando`, full: 'aguardando', color: '#94a3b8' },
+                                        { n: missedCount, text: `${missedCount} ${missedCount === 1 ? 'falta' : 'faltas'}`, full: missedCount === 1 ? 'falta' : 'faltas', color: '#f59e0b' },
+                                        { n: canceledCount, text: `${canceledCount} ${canceledCount === 1 ? 'cancelado' : 'cancelados'}`, full: canceledCount === 1 ? 'cancelado' : 'cancelados', color: '#f43f5e' },
+                                    ].filter((i) => i.n > 0);
+                                    const breakdown = legend.map((i) => ` · ${i.n} ${i.full}`).join('');
                                     return (
                                         <div
-                                            className="rounded-xl bg-white px-2.5 py-1.5 pointer-events-none select-none"
+                                            className="rounded-xl bg-white px-2.5 py-2 pointer-events-none select-none"
                                             style={{
-                                                width: '88%', maxWidth: 150, marginTop: 'auto', marginBottom: 'auto',
+                                                width: '90%', maxWidth: 156, marginTop: 'auto', marginBottom: 'auto',
                                                 border: `1px solid ${tone.ring}`,
                                                 boxShadow: '0 1px 2px rgba(15,23,42,0.06), 0 4px 10px -4px rgba(15,23,42,0.12)',
                                             }}
-                                            title={`${doneCount} de ${dayCount} atendimentos realizados (${pct}%)${canceledCount > 0 ? ` — ${canceledCount} cancelado${canceledCount > 1 ? 's' : ''}` : ''}`}
+                                            title={`${doneCount} de ${dayCount} atendimentos realizados (${pct}%)${breakdown}`}
                                         >
-                                            <div className="flex items-baseline justify-center leading-none whitespace-nowrap">
-                                                <span className={`text-lg font-extrabold tabular-nums ${tone.count}`}>{doneCount}</span>
-                                                <span className="text-sm font-semibold text-slate-400 tabular-nums">/{dayCount}</span>
+                                            <div className="flex items-baseline justify-center gap-1.5 leading-none whitespace-nowrap">
+                                                <span className="flex items-baseline">
+                                                    <span className={`text-lg font-extrabold tabular-nums ${tone.count}`}>{doneCount}</span>
+                                                    <span className="text-sm font-semibold text-slate-400 tabular-nums">/{dayCount}</span>
+                                                </span>
+                                                <span className={`text-[10px] font-bold tabular-nums ${tone.pct}`}>{pct}%</span>
                                             </div>
-                                            <div
-                                                className="mt-1.5 w-full overflow-hidden rounded-full"
-                                                style={{ height: 8, background: '#e5e7eb', boxShadow: 'inset 0 1px 2px rgba(15,23,42,0.12)' }}
-                                            >
-                                                <div
-                                                    className="h-full rounded-full transition-all duration-500"
-                                                    style={{ width: `${pct}%`, minWidth: pct > 0 ? 8 : 0, background: tone.fill }}
-                                                />
+                                            {/* Barra segmentada: feitos | aguardando | faltas | cancelados (proporcional ao total do dia) */}
+                                            <div className="mt-1.5 flex w-full overflow-hidden rounded-full" style={{ height: 8, background: '#e5e7eb', boxShadow: 'inset 0 1px 2px rgba(15,23,42,0.12)' }}>
+                                                {doneCount > 0 && <div style={{ flex: doneCount, background: tone.fill, minWidth: 6 }} />}
+                                                {pendingCount > 0 && <div style={{ flex: pendingCount }} />}
+                                                {missedCount > 0 && <div style={{ flex: missedCount, background: '#fbbf24' }} />}
+                                                {canceledCount > 0 && <div style={{ flex: canceledCount, background: '#fb7185' }} />}
                                             </div>
-                                            <div className={`mt-1 text-center text-[10px] font-bold leading-none tracking-wide ${tone.pct}`}>
-                                                {pct}% realizados
-                                            </div>
-                                            {canceledCount > 0 && (
-                                                <div className="mt-0.5 text-center text-[10px] font-bold leading-none text-rose-500">
-                                                    {canceledCount} cancelado{canceledCount > 1 ? 's' : ''}
+                                            {legend.length > 0 && (
+                                                <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[10px] font-semibold leading-none text-slate-600">
+                                                    {legend.map((i) => (
+                                                        <span key={i.full} className="inline-flex items-center gap-1 whitespace-nowrap">
+                                                            <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: i.color }} />
+                                                            {i.text}
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>
