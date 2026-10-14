@@ -12,6 +12,7 @@ import { Label } from '../../components/ui/Label';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/TextArea';
+import { maskDateBR, pickerDateToStoredBirth, storedBirthToPickerDate } from '../../utils/dateOfBirth';
 import { IPatient } from '../../utils/types/types';
 
 type PatientFormData = z.infer<typeof any>;
@@ -75,9 +76,17 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
                 name="dateOfBirth"
                 render={({ field }) => (
                   <DatePicker
-                    placeholderText="Selecionar data"
-                    selected={field.value ? new Date(field.value) : null}
-                    onChange={(date) => field.onChange(date)}
+                    placeholderText="dd/mm/aaaa"
+                    selected={storedBirthToPickerDate(field.value as any)}
+                    onChange={(date) => field.onChange(pickerDateToStoredBirth(date))}
+                    // Máscara dd/mm/aaaa: digitar 14101985 já vira 14/10/1985 (barras automáticas).
+                    onChangeRaw={(e) => { if (e?.target) (e.target as HTMLInputElement).value = maskDateBR((e.target as HTMLInputElement).value); }}
+                    strictParsing
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
+                    minDate={new Date(1900, 0, 1)}
+                    maxDate={new Date()}
                     dateFormat="dd/MM/yyyy"
                     locale={ptBR}
                     className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-200"

@@ -2174,6 +2174,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </span>
                                 {dayCount > 0 && (() => {
                                     const doneCount = dayAppts.filter((a: any) => (a.operationalStatus || a.status) === 'completed').length;
+                                    // Cancelados entram no total do dia (dayCount): sem mostrar quantos são, "12/25" parece ter 13 aguardando.
+                                    const canceledCount = dayAppts.filter((a: any) => ['canceled', 'cancelled'].includes(a.operationalStatus || a.status)).length;
                                     const pct = Math.round((doneCount / dayCount) * 100);
                                     // Verde = progresso (inclusive em dias passados); cinza = nada feito; verde escuro = dia 100%.
                                     const tone = doneCount === 0
@@ -2189,7 +2191,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                                 border: `1px solid ${tone.ring}`,
                                                 boxShadow: '0 1px 2px rgba(15,23,42,0.06), 0 4px 10px -4px rgba(15,23,42,0.12)',
                                             }}
-                                            title={`${doneCount} de ${dayCount} atendimentos realizados (${pct}%)`}
+                                            title={`${doneCount} de ${dayCount} atendimentos realizados (${pct}%)${canceledCount > 0 ? ` — ${canceledCount} cancelado${canceledCount > 1 ? 's' : ''}` : ''}`}
                                         >
                                             <div className="flex items-baseline justify-center leading-none whitespace-nowrap">
                                                 <span className={`text-lg font-extrabold tabular-nums ${tone.count}`}>{doneCount}</span>
@@ -2207,6 +2209,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                             <div className={`mt-1 text-center text-[10px] font-bold leading-none tracking-wide ${tone.pct}`}>
                                                 {pct}% realizados
                                             </div>
+                                            {canceledCount > 0 && (
+                                                <div className="mt-0.5 text-center text-[10px] font-bold leading-none text-rose-500">
+                                                    {canceledCount} cancelado{canceledCount > 1 ? 's' : ''}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })()}
