@@ -5,6 +5,7 @@ import {
     CardContent,
     CardHeader,
     Chip,
+    CircularProgress,
     IconButton,
     Tooltip,
     Typography
@@ -17,15 +18,38 @@ import {
     Cake,
     Calendar,
     CalendarDays,
+    Check,
     Gift,
     Mail,
     PhoneCall
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
+import { sendBirthdayMessage } from '../../services/whatsappService';
 
-const BirthdayCard = ({ patients = [] }) => {
+export interface BirthdayPatient {
+    _id: string;
+    fullName: string;
+    dateOfBirth: string;
+    phone?: string;
+    email?: string;
+    /** Calculado no backend: já recebeu o parabéns neste ano (manual ou automático). */
+    birthdayMessageSent?: boolean;
+}
+
+interface BirthdayCardProps {
+    patients?: BirthdayPatient[];
+    /** Chamado após um envio bem-sucedido (ou "já enviado"), para o pai recarregar a contagem. */
+    onSent?: () => void;
+}
+
+const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
     const [anchorEl, setAnchorEl] = useState(null);
-    const [selectedPatient, setSelectedPatient] = useState(null);
+    const [selectedPatient, setSelectedPatient] = useState<BirthdayPatient | null>(null);
+    const [sendingId, setSendingId] = useState<string | null>(null);
+    // Pacientes que acabaram de receber o parabéns (a trava de verdade fica no backend; isto só
+    // evita novo clique antes de a lista recarregar).
+    const [sentIds, setSentIds] = useState<Set<string>>(new Set());
     // 🎯 (2026-09-22) Pedido do usuário: card de dashboard deve abrir mostrando só quem
     // faz aniversário HOJE, não o mês inteiro (isso é o que gerava a confusão da tela
     // cheia de nomes "PASSOU" com o aniversariante do dia escondido no meio). "Todo mês"
@@ -53,13 +77,13 @@ const BirthdayCard = ({ patients = [] }) => {
     // aniversário hoje aparecia como "PASSOU" de ontem, e o card nunca acendia o badge "HOJE"
     // mesmo com o resumo do dashboard (DashboardContentOptimized.tsx) contando certo.
     // Sempre usar getUTC*/format com o horário zerado em UTC, nunca o Date local.
-    const getUtcDayMonth = (dateString) => {
+    const getUtcDayMonth = (dateString: string) => {
         const d = new Date(dateString);
         return { day: d.getUTCDate(), month: d.getUTCMonth() };
     };
 
     // 🎂 Função para formatar a data de nascimento
-    const formatBirthday = (dateString) => {
+    const formatBirthday = (dateString: string) => {
         const { day, month } = getUtcDayMonth(dateString);
         // date-fns `format()` lê os getters LOCAIS do Date — construir com o construtor local
         // (ano/mês/dia, não uma string ISO) evita reaplicar o fuso por cima do dia já extraído
@@ -69,7 +93,7 @@ const BirthdayCard = ({ patients = [] }) => {
     };
 
     // Função para calcular idade
-    const getAge = (dateString) => {
+    const getAge = (dateString: string) => {
         const { day, month } = getUtcDayMonth(dateString);
         const birthYear = new Date(dateString).getUTCFullYear();
         let age = today.getFullYear() - birthYear;
@@ -108,9 +132,34 @@ const BirthdayCard = ({ patients = [] }) => {
         setSelectedPatient(null);
     };
 
-    const handleSendNotification = () => {
-        if (!selectedPatient) return;
-        handleMenuClose();
+    // 💬 Parabéns pelo WhatsApp da clínica, no número cadastrado (mesmo canal da agenda).
+    // O backend só envia no dia do aniversário e 1x por ano — e é o mesmo serviço do cron das 10h.
+    const handleSendBirthdayMessage = async (patient: BirthdayPatient) => {
+        if (!patient?.phone) {
+            toast.error('Paciente sem telefone cadastrado');
+            return;
+        }
+        if (sendingId) return;
+
+        const firstName = patient.fullName.split(' ')[0];
+        setSendingId(patient._id);
+        try {
+            await sendBirthdayMessage(patient._id);
+            setSentIds(prev => new Set(prev).add(patient._id));
+            toast.success(`🎂 Mensagem enviada para ${firstName}!`);
+            onSent?.();
+        } catch (err: any) {
+            if (err?.response?.status === 409) {
+                // já enviada (cron das 10h ou outro clique): só reflete na tela
+                setSentIds(prev => new Set(prev).add(patient._id));
+                toast.info(`A mensagem de ${firstName} já tinha sido enviada hoje.`);
+                onSent?.();
+            } else {
+                toast.error(err?.response?.data?.message || err?.message || 'Erro ao enviar mensagem');
+            }
+        } finally {
+            setSendingId(null);
+        }
     };
 
     const handleScheduleAppointment = () => {
@@ -395,11 +444,35 @@ const BirthdayCard = ({ patients = [] }) => {
                                         )}
 
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: '8px' }}>
-                                            <Tooltip title="Enviar lembrete">
-                                                <IconButton onClick={() => { setSelectedPatient(patient); handleSendNotification(); }} sx={{ borderRadius: '10px', background: 'rgba(66, 153, 225, 0.1)', '&:hover': { background: 'rgba(66, 153, 225, 0.2)' } }}>
-                                                    <Bell size={18} color="#4299E1" />
-                                                </IconButton>
-                                            </Tooltip>
+                                            {(() => {
+                                                const alreadySent = sentIds.has(patient._id) || !!patient.birthdayMessageSent;
+                                                const isSending = sendingId === patient._id;
+                                                const blockedReason = !isToday
+                                                    ? 'Só é possível enviar no dia do aniversário'
+                                                    : !patient.phone
+                                                        ? 'Paciente sem telefone cadastrado'
+                                                        : alreadySent
+                                                            ? 'Mensagem de aniversário já enviada'
+                                                            : '';
+                                                return (
+                                                    <Tooltip title={blockedReason || 'Enviar mensagem de aniversário (WhatsApp)'}>
+                                                        <span>
+                                                            <IconButton
+                                                                aria-label="Enviar lembrete"
+                                                                disabled={!!blockedReason || !!sendingId}
+                                                                onClick={() => handleSendBirthdayMessage(patient)}
+                                                                sx={{ borderRadius: '10px', background: 'rgba(66, 153, 225, 0.1)', '&:hover': { background: 'rgba(66, 153, 225, 0.2)' } }}
+                                                            >
+                                                                {isSending
+                                                                    ? <CircularProgress size={18} />
+                                                                    : alreadySent
+                                                                        ? <Check size={18} color="#48BB78" />
+                                                                        : <Bell size={18} color="#4299E1" />}
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                );
+                                            })()}
 
                                             <Tooltip title="Agendar consulta">
                                                 <IconButton onClick={() => { setSelectedPatient(patient); handleScheduleAppointment(); }} sx={{ borderRadius: '10px', background: 'rgba(72, 187, 120, 0.1)', '&:hover': { background: 'rgba(72, 187, 120, 0.2)' } }}>

@@ -251,6 +251,13 @@ export async function sendWhatsAppText(
     return res.data; // { success, result, messageId }
 }
 
+// Parabéns de aniversário: o backend valida (só no dia, 1x por ano, telefone válido) e enfileira
+// no WhatsApp da clínica — o mesmo serviço do cron diário das 10h, então os dois nunca duplicam.
+export async function sendBirthdayMessage(patientId: string) {
+    const res = await API.post(`/patients/${patientId}/birthday-message`);
+    return res.data; // { success, sent, jobId }
+}
+
 export async function deleteWhatsAppMessage(messageId: string): Promise<any> {
     // se receber "m-<id>", tira o prefixo aqui
     const cleanId = messageId.startsWith('m-') ? messageId.slice(2) : messageId;

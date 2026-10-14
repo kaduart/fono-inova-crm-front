@@ -284,10 +284,12 @@ interface AccordionSectionProps {
     iconBg: string;
     iconColor: string;
     badge?: React.ReactNode;
+    /** Aviso centralizado no cabeçalho, visível só com a seção fechada (some ao abrir). */
+    centerNote?: React.ReactNode;
 }
 
 const AccordionSection = memo<AccordionSectionProps>(({
-    title, isOpen, onToggle, children, iconNode, iconBg, iconColor, badge
+    title, isOpen, onToggle, children, iconNode, iconBg, iconColor, badge, centerNote
 }) => (
     <div className="mb-4 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-white">
         <button
@@ -303,6 +305,9 @@ const AccordionSection = memo<AccordionSectionProps>(({
                 <span className="text-base font-semibold leading-6 text-gray-800">{title}</span>
                 {badge}
             </span>
+            {!isOpen && centerNote && (
+                <span className="hidden sm:flex flex-1 justify-center px-3">{centerNote}</span>
+            )}
             <ChevronDown
                 size={18}
                 className={`text-gray-400 transition-transform duration-300 shrink-0 ml-3 ${isOpen ? 'rotate-180' : ''}`}
@@ -353,16 +358,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     // podia acusar "1 aniversário hoje" pra alguém cujo card, logo abaixo, mostrava
     // errado (dia anterior, sem o badge "HOJE") — os dois liam a mesma data com regras
     // diferentes de fuso e raramente batiam.
-    const todayBirthdayCount = useMemo(() => {
-        if (!patients?.length) return 0;
-        const now = new Date();
-        return patients.filter(p => {
-            if (!p.dateOfBirth) return false;
-            const dob = new Date(p.dateOfBirth);
-            return dob.getUTCDate() === now.getDate() && dob.getUTCMonth() === now.getMonth();
-        }).length;
-    }, [patients]);
-
+    // (2026-10-14) A contagem do aviso vem PRONTA do backend (/patients/aniversariantes → meta):
+    // `patients` aqui é paginado e não serve pra contar. O front só exibe o que o backend calcula.
     const [birthdaySectionOpen, setBirthdaySectionOpen] = useState(false);
     const [patientsTableOpen, setPatientsTableOpen] = useState(true);
     const [metricsSectionOpen, setMetricsSectionOpen] = useState(true);
@@ -403,28 +400,67 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     );
 
     const [aniversariantes, setAniversariantes] = useState<Array<{
-        _id: string; fullName: string; dateOfBirth: string; phone?: string; daysUntil: number;
+        _id: string; fullName: string; dateOfBirth: string; phone?: string; email?: string;
+        daysUntil: number; birthdayMessageSent?: boolean;
     }>>([]);
+    // Calculado no backend: todayPending = aniversariantes de hoje que AINDA faltam receber o parabéns.
+    const [aniversariantesMeta, setAniversariantesMeta] = useState<{ todayTotal: number; todayPending: number }>({ todayTotal: 0, todayPending: 0 });
     const [aniversariantesLoading, setAniversariantesLoading] = useState(false);
     const aniversariantesFetched = useRef(false);
+
+    // silent: recarrega sem trocar o card pelo skeleton (usado depois de cada envio).
+    const loadAniversariantes = useCallback(async (silent = false) => {
+        if (!silent) setAniversariantesLoading(true);
+        try {
+            const res = await API.get('/patients/aniversariantes');
+            setAniversariantes(res.data?.data || []);
+            setAniversariantesMeta(res.data?.meta || { todayTotal: 0, todayPending: 0 });
+        } catch {
+            if (!silent) {
+                setAniversariantes([]);
+                setAniversariantesMeta({ todayTotal: 0, todayPending: 0 });
+            }
+        } finally {
+            if (!silent) setAniversariantesLoading(false);
+        }
+    }, []);
 
     const fetchAniversariantes = useCallback(async () => {
         if (aniversariantesFetched.current) return;
         aniversariantesFetched.current = true;
-        setAniversariantesLoading(true);
-        try {
-            const res = await API.get('/patients/aniversariantes');
-            setAniversariantes(res.data?.data || []);
-        } catch {
-            setAniversariantes([]);
-        } finally {
-            setAniversariantesLoading(false);
-        }
-    }, []);
+        await loadAniversariantes();
+    }, [loadAniversariantes]);
 
     useEffect(() => {
         if (birthdaySectionOpen) fetchAniversariantes();
     }, [birthdaySectionOpen, fetchAniversariantes]);
+
+    // Busca adiada para depois do primeiro paint: o aviso "temos aniversariantes hoje" precisa
+    // da lista mesmo com o accordion fechado, mas não pode competir com o carregamento inicial.
+    // Se o usuário abrir o accordion antes, o ref de fetchAniversariantes evita buscar de novo.
+    useEffect(() => {
+        const t = setTimeout(fetchAniversariantes, 1500);
+        return () => clearTimeout(t);
+    }, [fetchAniversariantes]);
+
+    // Depois de cada envio manual, pergunta de novo ao backend (fonte única da contagem).
+    const handleBirthdayMessageSent = useCallback(() => { loadAniversariantes(true); }, [loadAniversariantes]);
+
+    // Editou/criou paciente (a lista `patients` muda): recarrega os aniversariantes, senão o aviso e o
+    // card ficam com a lista velha até dar F5. Só depois da 1ª carga, com debounce.
+    useEffect(() => {
+        if (!aniversariantesFetched.current) return;
+        const t = setTimeout(() => { loadAniversariantes(true); }, 1000);
+        return () => clearTimeout(t);
+    }, [patients, loadAniversariantes]);
+
+    // "Atualizar" também recarrega os aniversariantes.
+    const handleRefreshAll = useCallback(() => {
+        onRefresh();
+        if (aniversariantesFetched.current) loadAniversariantes(true);
+    }, [onRefresh, loadAniversariantes]);
+
+    const todayBirthdayCount = aniversariantesMeta.todayPending;
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -495,7 +531,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     </p>
                 </div>
                 <button
-                    onClick={onRefresh}
+                    onClick={handleRefreshAll}
                     disabled={loading}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium transition-colors disabled:opacity-50"
                 >
@@ -512,19 +548,21 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 iconNode={<Cake size={18} />}
                 iconBg="bg-pink-100"
                 iconColor="text-pink-600"
-                badge={todayBirthdayCount > 0 ? (
-                    <span className="flex items-center gap-1.5 ml-1">
-                        <span className="relative flex h-2.5 w-2.5 shrink-0">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-                        </span>
-                        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
-                            {todayBirthdayCount === 1 ? '1 aniversário hoje!' : `${todayBirthdayCount} aniversários hoje!`}
+                centerNote={todayBirthdayCount > 0 ? (
+                    <span role="status" className="relative inline-flex">
+                        {/* halo pulsando atrás da pílula */}
+                        <span aria-hidden className="absolute inset-0 rounded-full bg-amber-400/60 animate-ping" />
+                        <span className="relative flex items-center gap-2 text-sm font-extrabold text-white bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-5 py-2 rounded-full shadow-lg ring-2 ring-white/70">
+                            <span aria-hidden className="inline-block animate-bounce text-base">🎂</span>
+                            {todayBirthdayCount === 1
+                                ? 'Temos 1 aniversariante hoje!'
+                                : `Temos ${todayBirthdayCount} aniversariantes hoje!`}
+                            <span aria-hidden className="inline-block animate-pulse">🎉</span>
                         </span>
                     </span>
                 ) : undefined}
             >
-                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayCard patients={aniversariantes} />}
+                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayCard patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
             </AccordionSection>
 
             {/* Lista de Pacientes */}
