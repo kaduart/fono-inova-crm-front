@@ -1,6 +1,7 @@
 import {
     Avatar,
     Box,
+    Button,
     Card,
     CardContent,
     CardHeader,
@@ -21,6 +22,7 @@ import {
     Check,
     Gift,
     Mail,
+    MessageCircle,
     PhoneCall
 } from 'lucide-react';
 import { useState } from 'react';
@@ -316,173 +318,94 @@ const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
                             minWidth: '280px'
                         }
                     }}>
-                        {patientsToShow.map((patient, index) => {
+                        {patientsToShow.map((patient) => {
                             const { day: dobDay, month: dobMonth } = getUtcDayMonth(patient.dateOfBirth);
                             const isToday = dobDay === today.getDate() && dobMonth === today.getMonth();
                             const isPast = !isToday && dobDay < today.getDate();
                             const age = getAge(patient.dateOfBirth);
+                            const alreadySent = sentIds.has(patient._id) || !!patient.birthdayMessageSent;
+                            const isSending = sendingId === patient._id;
+                            const blockedReason = !isToday
+                                ? 'Só é possível enviar no dia do aniversário'
+                                : !patient.phone
+                                    ? 'Paciente sem telefone cadastrado'
+                                    : alreadySent
+                                        ? 'Mensagem de aniversário já enviada'
+                                        : '';
+                            const accent = isToday ? '#F59E0B' : isPast ? '#CBD5E0' : '#93C5FD';
 
                             return (
-                                <Box key={patient._id} sx={{
-                                    position: 'relative',
-                                    opacity: isPast ? 0.5 : 1,
-                                    transition: 'opacity 0.2s ease',
-                                    '&:hover': isPast ? { opacity: 0.75 } : {}
-                                }}>
+                                <Box key={patient._id} sx={{ position: 'relative', opacity: isPast ? 0.55 : 1, transition: 'opacity 0.2s ease', '&:hover': isPast ? { opacity: 0.8 } : {} }}>
                                     <Card
                                         sx={{
-                                            width: '100%',
-                                            borderRadius: '14px',
-                                            padding: '16px',
-                                            background: isToday
-                                                ? 'linear-gradient(135deg, rgba(255,249,219,0.6), rgba(255,243,176,0.4))'
-                                                : isPast
-                                                    ? '#f7f8fa'
-                                                    : '#fff',
-                                            boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-                                            border: isPast ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(0,0,0,0.03)',
-                                            transition: 'all 0.2s ease',
-                                            '&:hover': isPast ? {} : {
-                                                transform: 'translateY(-3px)',
-                                                boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
-                                                borderColor: 'rgba(0,0,0,0.05)'
-                                            },
-                                            position: 'relative',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            overflow: 'visible',
-                                            height: '100%',
+                                            width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                                            borderRadius: '16px', p: 0,
+                                            background: isToday ? 'linear-gradient(160deg, #FFFBEB 0%, #FEF3C7 100%)' : isPast ? '#F7F8FA' : '#fff',
+                                            border: '1px solid rgba(0,0,0,0.06)', borderTop: `4px solid ${accent}`,
+                                            boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
                                             filter: isPast ? 'grayscale(40%)' : 'none',
+                                            transition: 'transform .2s ease, box-shadow .2s ease',
+                                            '&:hover': isPast ? {} : { transform: 'translateY(-3px)', boxShadow: '0 10px 22px rgba(0,0,0,0.09)' },
                                         }}
                                     >
                                         {isToday && <TodayBadge>HOJE</TodayBadge>}
                                         {isPast && (
-                                            <Box sx={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                right: 0,
-                                                background: '#e2e8f0',
-                                                color: '#718096',
-                                                borderRadius: '0 14px 0 10px',
-                                                fontSize: '0.62rem',
-                                                fontWeight: 700,
-                                                padding: '4px 8px',
-                                                zIndex: 2,
-                                                letterSpacing: '0.04em'
-                                            }}>
+                                            <Box sx={{ position: 'absolute', top: 0, right: 0, background: '#e2e8f0', color: '#718096', borderRadius: '0 0 0 10px', fontSize: '0.62rem', fontWeight: 700, padding: '4px 8px', zIndex: 2, letterSpacing: '0.04em' }}>
                                                 PASSOU
                                             </Box>
                                         )}
 
-
-                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                            <Avatar sx={{
-                                                width: 56,
-                                                height: 56,
-                                                bgcolor: isToday ? '#FFD54F' : isPast ? '#E2E8F0' : '#CBD5E0',
-                                                color: isToday ? '#7B4F00' : '#4A5568',
-                                                fontWeight: 600,
-                                                fontSize: '1.4rem',
-                                                mr: 2
-                                            }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '18px 16px 12px' }}>
+                                            <Avatar sx={{ width: 52, height: 52, flexShrink: 0, bgcolor: isToday ? '#FBBF24' : '#CBD5E0', color: isToday ? '#78350F' : '#4A5568', fontWeight: 700, fontSize: '1.3rem' }}>
                                                 {patient.fullName.charAt(0)}
                                             </Avatar>
-
-                                            <Box sx={{ width: 'calc(100% - 72px)' }}>
-                                                {/* Nome em linha única com ellipsis */}
-                                                <Typography variant="h6" sx={{
-                                                    fontWeight: 700,
-                                                    color: '#2D3748',
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    width: '100%'
-                                                }}>
+                                            <Box sx={{ minWidth: 0, flex: 1, pr: isToday || isPast ? 5 : 0 }}>
+                                                <Typography title={patient.fullName} sx={{ fontWeight: 700, fontSize: '1.02rem', lineHeight: 1.25, color: '#2D3748', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                                     {patient.fullName}
                                                 </Typography>
-
-                                                {/* Linha com data e idade */}
-                                                <Box sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    mt: '4px',
-                                                    width: '100%'
-                                                }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <Calendar size={16} color="#718096" />
-                                                        <Typography variant="body2" sx={{ color: '#718096' }}>
-                                                            {formatBirthday(patient.dateOfBirth)}
-                                                        </Typography>
-                                                    </Box>
-
-                                                    <Chip
-                                                        label={`${age} anos`}
-                                                        size="small"
-                                                        sx={{
-                                                            height: '22px',
-                                                            fontSize: '0.75rem',
-                                                            fontWeight: 700,
-                                                            background: 'rgba(66, 153, 225, 0.15)',
-                                                            color: '#2B6CB0',
-                                                            ml: 'auto'
-                                                        }}
-                                                    />
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', mt: '4px', color: '#718096' }}>
+                                                    <Calendar size={14} />
+                                                    <Typography variant="body2" sx={{ color: '#718096' }}>{formatBirthday(patient.dateOfBirth)}</Typography>
                                                 </Box>
                                             </Box>
                                         </Box>
 
-                                        {patient.phone && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(237, 242, 247, 0.5)', borderRadius: '12px', padding: '10px 14px', mt: 'auto' }}>
-                                                <Box sx={{ background: 'rgba(66, 153, 225, 0.1)', borderRadius: '10px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <PhoneCall size={18} color="#4299E1" />
-                                                </Box>
-                                                <Typography variant="body1" sx={{ fontWeight: 500, color: '#2D3748', fontSize: '1rem' }}>
-                                                    {patient.phone}
-                                                </Typography>
-                                            </Box>
-                                        )}
+                                        <Box sx={{ mx: 2, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Chip label={isToday ? `🎂 Faz ${age} anos hoje` : `${age} anos`} size="small"
+                                                sx={{ height: 24, fontWeight: 700, fontSize: '0.75rem', background: isToday ? 'rgba(245,158,11,0.18)' : 'rgba(66,153,225,0.15)', color: isToday ? '#92400E' : '#2B6CB0' }} />
+                                        </Box>
 
-                                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: '8px' }}>
-                                            {(() => {
-                                                const alreadySent = sentIds.has(patient._id) || !!patient.birthdayMessageSent;
-                                                const isSending = sendingId === patient._id;
-                                                const blockedReason = !isToday
-                                                    ? 'Só é possível enviar no dia do aniversário'
-                                                    : !patient.phone
-                                                        ? 'Paciente sem telefone cadastrado'
-                                                        : alreadySent
-                                                            ? 'Mensagem de aniversário já enviada'
-                                                            : '';
-                                                return (
-                                                    <Tooltip title={blockedReason || 'Enviar mensagem de aniversário (WhatsApp)'}>
-                                                        <span>
-                                                            <IconButton
-                                                                aria-label="Enviar lembrete"
-                                                                disabled={!!blockedReason || !!sendingId}
-                                                                onClick={() => handleSendBirthdayMessage(patient)}
-                                                                sx={{ borderRadius: '10px', background: 'rgba(66, 153, 225, 0.1)', '&:hover': { background: 'rgba(66, 153, 225, 0.2)' } }}
-                                                            >
-                                                                {isSending
-                                                                    ? <CircularProgress size={18} />
-                                                                    : alreadySent
-                                                                        ? <Check size={18} color="#48BB78" />
-                                                                        : <Bell size={18} color="#4299E1" />}
-                                                            </IconButton>
-                                                        </span>
-                                                    </Tooltip>
-                                                );
-                                            })()}
+                                        <Box sx={{ mx: 2, display: 'flex', alignItems: 'center', gap: 1.25, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '12px', p: '8px 12px', minHeight: 44 }}>
+                                            <PhoneCall size={16} color={patient.phone ? '#4299E1' : '#CBD5E0'} />
+                                            <Typography sx={{ fontWeight: 500, fontSize: '0.95rem', color: patient.phone ? '#2D3748' : '#A0AEC0', fontStyle: patient.phone ? 'normal' : 'italic' }}>
+                                                {patient.phone || 'Sem telefone cadastrado'}
+                                            </Typography>
+                                        </Box>
 
-                                            <Tooltip title="Agendar consulta">
-                                                <IconButton onClick={() => { setSelectedPatient(patient); handleScheduleAppointment(); }} sx={{ borderRadius: '10px', background: 'rgba(72, 187, 120, 0.1)', '&:hover': { background: 'rgba(72, 187, 120, 0.2)' } }}>
-                                                    <CalendarDays size={18} color="#48BB78" />
-                                                </IconButton>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, mt: 'auto' }}>
+                                            <Tooltip title={blockedReason || 'Enviar mensagem de aniversário (WhatsApp)'}>
+                                                <span style={{ flex: 1 }}>
+                                                    <Button
+                                                        fullWidth
+                                                        aria-label="Enviar lembrete"
+                                                        disabled={!!blockedReason || !!sendingId}
+                                                        onClick={() => handleSendBirthdayMessage(patient)}
+                                                        startIcon={isSending ? <CircularProgress size={16} color="inherit" /> : alreadySent ? <Check size={16} /> : <MessageCircle size={16} />}
+                                                        sx={{
+                                                            textTransform: 'none', fontWeight: 700, borderRadius: '10px', py: 0.9,
+                                                            color: alreadySent ? '#2F855A' : '#fff',
+                                                            background: alreadySent ? 'rgba(72,187,120,0.15)' : '#22A06B',
+                                                            '&:hover': { background: alreadySent ? 'rgba(72,187,120,0.2)' : '#1B8A5B' },
+                                                            '&.Mui-disabled': { color: alreadySent ? '#2F855A' : '#A0AEC0', background: alreadySent ? 'rgba(72,187,120,0.15)' : '#EDF2F7' },
+                                                        }}
+                                                    >
+                                                        {isSending ? 'Enviando…' : alreadySent ? 'Parabéns enviado' : 'Enviar parabéns'}
+                                                    </Button>
+                                                </span>
                                             </Tooltip>
-
                                             {patient.email && (
                                                 <Tooltip title="Enviar e-mail">
-                                                    <IconButton onClick={() => window.location.href = `mailto:${patient.email}`} sx={{ borderRadius: '10px', background: 'rgba(246, 173, 85, 0.1)', '&:hover': { background: 'rgba(246, 173, 85, 0.2)' } }}>
+                                                    <IconButton onClick={() => window.location.href = `mailto:${patient.email}`} sx={{ borderRadius: '10px', background: 'rgba(246,173,85,0.12)', '&:hover': { background: 'rgba(246,173,85,0.25)' } }}>
                                                         <Mail size={18} color="#F6AD55" />
                                                     </IconButton>
                                                 </Tooltip>
