@@ -68,8 +68,9 @@ const CardActionButton: React.FC<{
     onClick: () => void;
     title: string;
     tone?: 'neutral' | 'danger' | 'success';
+    disabled?: boolean;
     children: React.ReactNode;
-}> = ({ onClick, title, tone = 'neutral', children }) => {
+}> = ({ onClick, title, tone = 'neutral', disabled = false, children }) => {
     const toneClass = tone === 'danger'
         ? 'text-red-800 hover:bg-red-500/25'
         : tone === 'success'
@@ -78,10 +79,11 @@ const CardActionButton: React.FC<{
     return (
         <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onClick(); }}
+            onClick={(e) => { e.stopPropagation(); if (!disabled) onClick(); }}
+            disabled={disabled}
             title={title}
             // Vidro translúcido sobre a cor do card — ação secundária discreta, sem bloco branco chamativo
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/40 bg-white/20 px-2 py-1.5 text-xs font-semibold backdrop-blur-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${toneClass}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/40 bg-white/20 px-2 py-1.5 text-xs font-semibold backdrop-blur-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${disabled ? 'cursor-not-allowed opacity-45 text-gray-700' : toneClass}`}
         >
             {children}
         </button>
@@ -91,7 +93,7 @@ const CardActionButton: React.FC<{
 /**
  * Ações do card: Mudar data · Cancelar · Confirmar. Cancelar/Confirmar abrem o modal de detalhes
  * já na aba correspondente (a lógica de cancelar/finalizar continua toda no modal — nada duplicado).
- * Cancelado: só "Reativar e remarcar". Concluído/faltou: sem ações.
+ * Cancelado: só "Reativar e remarcar". Concluído: os 3 botões desabilitados. Faltou: sem ações.
  * Componente de módulo (ícones só são lidos em render — evita o TDZ entre chunks documentado abaixo).
  */
 const CardActions: React.FC<{
@@ -102,6 +104,27 @@ const CardActions: React.FC<{
 }> = ({ status, onReschedule, onCancel, onFinalize }) => {
     const canceled = CANCELED_LIKE_STATUSES.includes(status);
     const active = ['scheduled', 'confirmed', 'pre_agendado'].includes(status);
+    // Concluído: mesmos botões, desabilitados — mantém os cards alinhados e deixa claro que a ação
+    // existe mas não se aplica mais (o atendimento já aconteceu).
+    if (status === 'completed' && (onReschedule || onCancel || onFinalize)) {
+        const why = 'Atendimento já concluído';
+        return (
+            <div className="mt-2.5 flex gap-1.5">
+                <CardActionButton onClick={() => {}} disabled title={why}>
+                    <CalendarClock size={13} strokeWidth={2.3} />
+                    <span>Mudar data</span>
+                </CardActionButton>
+                <CardActionButton onClick={() => {}} disabled tone="danger" title={why}>
+                    <XCircle size={13} strokeWidth={2.3} />
+                    <span>Cancelar</span>
+                </CardActionButton>
+                <CardActionButton onClick={() => {}} disabled tone="success" title={why}>
+                    <CheckCircle size={13} strokeWidth={2.3} />
+                    <span>Confirmar</span>
+                </CardActionButton>
+            </div>
+        );
+    }
     if (!canceled && !active) return null;
     if (!(onReschedule || (active && (onCancel || onFinalize)))) return null;
     return (
