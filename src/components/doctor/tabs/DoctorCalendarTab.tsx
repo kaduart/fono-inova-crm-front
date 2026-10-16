@@ -12,6 +12,7 @@ import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePatientsContext } from '../../../contexts/PatientsContext';
+import type { CancelExtras } from '../../calendar/CancelRequesterPicker';
 import {
   CalendarMode,
   getDefaultPermissions,
@@ -123,7 +124,7 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
     setCloseModalSignal((prev) => prev + 1);
   };
 
-  const handleCancelAppointment = async (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => {
+  const handleCancelAppointment = async (id: string, reason: string, paymentState?: CancelExtras) => {
     try {
       await cancelAppointment(id, { reason, ...paymentState });
       setCloseModalSignal((prev) => prev + 1);

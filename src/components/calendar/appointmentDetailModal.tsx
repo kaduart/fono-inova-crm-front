@@ -1,5 +1,8 @@
+import { isPrepaidPackageAppointment } from '../../utils/appointmentPackageBilling';
+import { resolveBillingType } from '../../utils/appointmentBillingType';
+import AppointmentCancellationModal from './AppointmentCancellationModal';
 import { ptBR } from 'date-fns/locale';
-import { Building2, Calendar, CalendarClock, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Tag, Trash2, User, UserCheck, UserX, Wallet, X, XCircle } from 'lucide-react';
+import { Building2, Calendar, CalendarClock, CheckCircle, ClipboardCheck, Clock, DollarSign, Package, PencilIcon, Plus, Scale, Stethoscope, Trash2, User, UserCheck, UserX, Wallet, X, XCircle } from 'lucide-react';
 import {
     Button,
     Dialog,
@@ -10,6 +13,7 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import type { CancelExtras } from './CancelRequesterPicker';
 import { validateAppointmentComplete, canAddToPatientBalance } from '../../utils/appointmentCompleteGuard';
 import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
 import BillingTypeSelector from '../ui/BillingTypeSelector';
@@ -41,7 +45,7 @@ interface AppointmentDetailModalProps {
     onClose: () => void;
     doctors: IDoctor[];
     event?: SelectedEvent;
-    onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
+    onCancelAppointment: (id: string, reason: string, paymentState?: CancelExtras) => Promise<void>;
     onCompleteAppointment: (id: string, data?: {
         billingType?: string;
         paymentMethod?: string;
@@ -238,35 +242,6 @@ function getServiceTypeConfig() {
  *   5. insuranceGuide/plano preenchido         -> 'convenio'  (heurística de UI apenas)
  *   6. fallback: billingType || payment.type   -> 'particular' se não for reconhecido
  */
-function resolveBillingType(data: {
-    billingType?: string | null;
-    paymentMethod?: string | null;
-    payment?: { type?: string } | null;
-    liminarContract?: any;
-    insuranceGuide?: string | null;
-    insuranceGuideId?: string | null;
-    insurancePlan?: string | null;
-    extendedProps?: { insuranceGuide?: any } | null;
-}): 'particular' | 'convenio' | 'liminar' {
-    const hasInsuranceGuide = !!(
-        data.insuranceGuide ||
-        data.insuranceGuideId ||
-        data.insurancePlan ||
-        data.extendedProps?.insuranceGuide
-    );
-
-    if (data.liminarContract) return 'liminar';
-    if (data.billingType === 'liminar') return 'liminar';
-    if (data.billingType === 'convenio') return 'convenio';
-    if (data.paymentMethod === 'convenio') return 'convenio';
-    if (hasInsuranceGuide) return 'convenio';
-
-    const value = data.billingType ?? data.payment?.type;
-    if (value === 'liminar') return 'liminar';
-    if (value === 'convenio') return 'convenio';
-
-    return 'particular';
-}
 
 /**
  * ⚠️ LEIA ANTES DE MEXER — esse componente já quebrou 3x em regressões (jul/2026)
@@ -378,39 +353,38 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         } as IDoctor);
     }
     
-    const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>(initialTab || 'details');
 
     // 🎯 CAPABILITY: lista de tabs disponíveis baseada nas permissions
     const availableTabs = useMemo(() => {
         const tabs: Array<'details' | 'confirm' | 'cancel' | 'edit'> = ['details'];
         if (permissions.canComplete) tabs.push('confirm');
         if (permissions.canEdit) tabs.push('edit');
-        if (permissions.canCancel) tabs.push('cancel');
         return tabs;
     }, [permissions.canComplete, permissions.canEdit, permissions.canCancel]);
 
     // Se a tab ativa não estiver mais disponível, volta para details
     useEffect(() => {
-        if (!availableTabs.includes(activeTab)) {
+        if (activeTab !== 'cancel' && !availableTabs.includes(activeTab)) {
             setActiveTab('details');
         }
     }, [availableTabs, activeTab]);
     // Ao abrir (ou trocar de agendamento) vai direto para a aba pedida pelo card; sem pedido, 'details'.
     useEffect(() => {
         if (!isOpen || !event?.id) return;
-        setActiveTab(initialTab && availableTabs.includes(initialTab) ? initialTab : 'details');
+        setActiveTab(initialTab === 'cancel' && permissions.canCancel ? 'cancel' : initialTab && availableTabs.includes(initialTab) ? initialTab : 'details');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, event?.id, initialTab]);
-    const [cancelReason, setCancelReason] = useState('');
-    const [cancelError, setCancelError] = useState('');
-    const [isCancelling, setIsCancelling] = useState(false);
+    // Quem solicitou — obrigatório, sem valor padrão (relatório de compromisso)
+
+
     const [showDebtConfirm, setShowDebtConfirm] = useState(false);
     const [debtConfirmResolve, setDebtConfirmResolve] = useState<((v: boolean | null) => void) | null>(null);
     const [isCompleting, setIsCompleting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
     const [processingState, setProcessingState] = useState<{ isProcessing: boolean; message: string } | null>(null);
-    const [confirmedAbsence, setConfirmedAbsence] = useState(false);
+    // Aviso por WhatsApp: LIGADO por padrão a cada abertura (reset ao fechar). Só dispara ao confirmar.
     const [editedAppointment, setEditedAppointment] = useState({
         doctorId: '',
         patientId: '',
@@ -482,6 +456,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         const origin = (event as any).paymentOrigin || (event as any).extendedProps?.paymentOrigin || '';
         return st === 'package_session' || origin === 'package_prepaid' || !!event?.package || !!(event as any).extendedProps?.package || !!(event as any).extendedProps?.__isPackageAppointment;
     }, [event]);
+
+    const isPrepaidPackage = isPrepaidPackageAppointment({ ...event, billingType });
 
     // 💰 Saldo devedor permitido? Qualquer sessão particular pode ir pra conta corrente,
     // exceto convênio, liminar e pacote pré-pago (mesma regra do backend — ver guard).
@@ -618,8 +594,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     useEffect(() => {
         if (!isOpen) {
             setActiveTab('details');
-            setCancelReason('');
-            setConfirmedAbsence(false);
             setPayments([{ id: 1, amount: 0, date: '', method: '' }]);
             setExcludeFromProfessionalPayment(false);
             setExclusionReason('');
@@ -720,29 +694,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         };
     };
 
-    const handleCancel = async () => {
-        if (!cancelReason.trim()) {
-            toast.error('Informe o motivo do cancelamento antes de prosseguir.');
-            return;
-        }
-
-        setCancelError('');
-        console.log('❌ [Modal] Cancelando agendamento ID:', event?.id);
-        setIsCancelling(true);
-        try {
-            await onCancelAppointment(event.id, cancelReason, { paymentMethod, billingType, sessionValue: paymentAmount });
-            setCancelReason('');
-            setActiveTab('details');
-        } catch (err: any) {
-            console.error('❌ [Modal] Erro ao cancelar:', err);
-            const errorMsg = resolveErrorMsg(err, 'Erro ao cancelar agendamento. Tente novamente.');
-            setCancelError(errorMsg);
-            toast.error(errorMsg, { id: `cancel-error-${event.id}`, autoClose: 7000 });
-        } finally {
-            setIsCancelling(false);
-        }
-    };
-
     const handleComplete = async () => {
         console.log(`[AppointmentDetailModal] handleComplete disparado — appointmentId=${event?.id}, operationalStatus=${event?.operationalStatus}, billingType=${event?.billingType}, endpoint=service-resolved`);
         
@@ -756,7 +707,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
         // 🚫 BLOQUEIO: método de pagamento obrigatório para particular (exceto pacote pago)
         // Saldo devedor não recebe nada agora → não há método de pagamento a exigir.
-        if (billingType === 'particular' && !isPackageSession() && !paymentMethod && !addToBalance) {
+        if (billingType === 'particular' && !isPrepaidPackage && !paymentMethod && !addToBalance) {
             toast.error('Selecione o método de pagamento antes de concluir o atendimento.');
             return;
         }
@@ -777,7 +728,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             !!(event?.insuranceProvider) ||
             !!(event?.extendedProps?.insuranceProvider) ||
             event?.extendedProps?.billingType === 'convenio' ||
-            isPackageSession()
+            isPrepaidPackage
         );
         if (patientFinancial && patientFinancial.sessionDebt > 0 && !isThirdPartyBilling) {
             const confirmed = await new Promise<boolean | null>(resolve => {
@@ -859,7 +810,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 ? { excludeFromProfessionalPayment: true, exclusionReason: exclusionReason.trim() }
                 : {};
 
-            if (addToBalance) {
+            if (isPrepaidPackage) {
+                // O backend valida a cobertura e consome a sessão; nenhum novo recebimento é declarado.
+                await onCompleteAppointment(event.id, { ...professionalPaymentMeta });
+            } else if (addToBalance) {
                 console.log('💰 [Modal] Completando com saldo devedor:', debitAmount);
                 await onCompleteAppointment(event.id, {
                     ...billingMeta,
@@ -1021,16 +975,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             // 🚨 CANCELADO: redireciona para o handler de cancelamento.
             // Não enviamos operationalStatus='canceled' no PUT para evitar duplo
             // processamento event-driven (PUT update + PATCH cancel).
+            // Cancelar exige "quem solicitou" + motivo (relatório de compromisso): em vez
+            // de cancelar aqui com motivo fixo, leva o usuário à aba Cancelar. Nada é salvo
+            // neste clique — as demais edições continuam no formulário.
             if (operationalStatusEN === 'canceled') {
-                const { operationalStatus, ...appointmentDataWithoutStatus } = appointmentData;
-                // Só salva campos não-status antes de cancelar
-                await onEditAppointment(event.id, appointmentDataWithoutStatus);
-                await onCancelAppointment(
-                    event.id,
-                    'Cancelado via edição de status',
-                    { paymentMethod, billingType, sessionValue: paymentAmount }
-                );
-                onClose?.();
+                setProcessingState({ isProcessing: false, message: '' });
+                setIsEditing(false);
+                setActiveTab('cancel');
+                toast.info('Para cancelar, informe quem solicitou e o motivo. As outras alterações da edição não foram salvas.', {
+                    toastId: 'cancel-via-edit-redirect',
+                });
                 return;
             }
 
@@ -1179,7 +1133,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             badges.push({ key: 'avaliacao', ...getServiceTypeConfig().avaliacao });
         }
         if (st === 'package_session' || origin === 'package_prepaid' || hasPackage) {
-            badges.push({ key: 'pacote', ...getServiceTypeConfig().pacote });
+            badges.push({ key: 'pacote', ...getServiceTypeConfig().pacote, label: isPrepaidPackage ? 'Pacote pré-pago' : 'Sessão de pacote' });
         }
         if (['session', 'individual_session'].includes(st) && !hasPackage && bt !== 'convenio' && bt !== 'liminar') {
             badges.push({ key: 'sessao_avulsa', ...getServiceTypeConfig().sessao_avulsa });
@@ -1187,6 +1141,50 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
         return badges;
     };
+
+    // Resumo compacto do atendimento (substitui os cards coloridos das abas Detalhes e Finalizar)
+    const labelCls = 'text-xs font-medium text-gray-500';
+
+    const appointmentWhen = [translatedEvent?.formattedDate, !translatedEvent?.formattedDate?.includes(event.startTime || '::') ? event.startTime : null].filter(Boolean).join(' · ');
+    // Ficha do atendimento: tudo no mesmo eixo à esquerda. "full" (Detalhes) em grade 2 colunas;
+    // "compact" (Finalizar) em uma linha de identificação + linha secundária (status/motivo).
+    const showAccountLink = !!(permissions.canSeeDebt && event?.patient?.id && !(patientFinancial && patientFinancial.sessionDebt > 0));
+    const accountLink = showAccountLink && (
+        <button
+            type="button"
+            onClick={() => setIsBalanceModalOpen(true)}
+            className="inline-flex items-center gap-1 rounded text-xs font-medium text-green-700 underline decoration-dotted underline-offset-2 hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+        >
+            <DollarSign size={12} /> Ver conta corrente
+        </button>
+    );
+    const statusBadges = (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+            <span {...getStatusVisualConfig(translatedEvent?.operationalStatus ?? '', 'operational')}>
+                {getStatusConfig(translatedEvent?.operationalStatus ?? '', 'operational').label}
+            </span>
+           {/*  <span {...getStatusVisualConfig(translatedEvent?.clinicalStatus ?? '', 'clinical')}>
+                {getStatusConfig(translatedEvent?.clinicalStatus ?? '', 'clinical').label}
+            </span> */}
+        </span>
+    );
+
+    const renderSummary = (variant: 'full' | 'compact' = 'full') => (
+        <div className="space-y-3 text-left">
+            <div className="rounded-lg bg-gray-50 px-3 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-2">
+                    <div className="min-w-0 space-y-1.5">
+                        <p className="flex items-start gap-2 font-semibold text-gray-900"><User size={16} className="mt-0.5 shrink-0 text-emerald-700" /><span className="break-words">{translatedEvent?.patient?.fullName || 'Paciente não informado'}</span></p>
+                        <p className="flex items-start gap-2 text-xs text-gray-600"><Stethoscope size={16} className="shrink-0 text-gray-500" /><span className="break-words">{translatedEvent?.doctor?.fullName || 'Profissional não informado'}</span></p>
+                    </div>
+                    <p className="flex items-center gap-1.5 text-xs font-medium leading-5 text-gray-600"><CalendarClock size={14} className="shrink-0" />{appointmentWhen}</p>
+                </div>
+                {variant === 'full' && accountLink && <div className="mt-2 pl-6">{accountLink}</div>}
+            </div>
+            {variant === 'compact' && translatedEvent?.reason && <p className="text-xs text-gray-600">{translatedEvent.reason}</p>}
+            {variant === 'full' && <div><p className={labelCls}>Motivo da consulta</p><p className="mt-1 text-sm text-gray-700">{translatedEvent?.reason || 'Não informado'}</p></div>}
+        </div>
+    );
 
     const renderTabContent = () => {
         if (!translatedEvent) return null;
@@ -1197,7 +1195,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     <div className="space-y-4">
                         {/* 🔔 AVISO DE PRÉ-AGENDAMENTO */}
                         {event?.__isPreAgendamento && (
-                            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border-2 border-orange-200">
+                            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
                                 <div className="p-2 bg-orange-100 rounded-lg">
                                     <ClipboardCheck className="w-5 h-5 text-orange-600" />
                                 </div>
@@ -1212,7 +1210,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <>
                                 {/* 🚨 ALERTA: Sessão de pacote ainda sem pagamento */}
                                 {(event?.extendedProps?.__isPackageAppointment || event?.extendedProps?.serviceType === 'package_session') && !event?.extendedProps?.__hasPayment && (
-                                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+                                    <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
                                         <DollarSign className="w-4 h-4 text-amber-600" />
                                         <span className="font-medium text-sm text-amber-800">
                                             💳 Sessão do pacote ainda não paga. O pagamento pode ser registrado ao concluir ou manualmente.
@@ -1222,10 +1220,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                                 {event?.extendedProps?.paymentStatus && (
                                     <div className={`flex items-center gap-2 p-3 rounded-xl border ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
-                                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100'
+                                        ? 'bg-green-50 border-green-100'
                                         : event.extendedProps.paymentStatus === 'partial'
-                                            ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-100'
-                                            : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-100'
+                                            ? 'bg-yellow-50 border-yellow-100'
+                                            : 'bg-red-50 border-red-100'
                                     }`}>
                                         <DollarSign className={`w-4 h-4 ${event.extendedProps.paymentStatus === 'paid' || event.extendedProps.paymentStatus === 'package_paid'
                                             ? 'text-green-600'
@@ -1251,7 +1249,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         {permissions.canSeeDebt && patientFinancial && patientFinancial.sessionDebt > 0 ? (
                             <button
                                 onClick={() => setIsBalanceModalOpen(true)}
-                                className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-300 hover:border-red-400 hover:shadow-md transition-all text-left"
+                                className="w-full flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-300 hover:border-red-400  transition-all text-left"
                             >
                                 <div className="p-2 bg-red-100 rounded-lg shrink-0">
                                     <DollarSign className="w-5 h-5 text-red-600" />
@@ -1266,86 +1264,13 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     R$ {patientFinancial.sessionDebt.toFixed(2).replace('.', ',')}
                                 </span>
                             </button>
-                        ) : permissions.canSeeDebt && event?.patient?.id && (
-                            <div className="flex justify-end">
-                                <button
-                                    onClick={() => setIsBalanceModalOpen(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors text-sm font-medium"
-                                >
-                                    <DollarSign size={15} />
-                                    <span>Ver Conta Corrente</span>
-                                </button>
-                            </div>
-                        )}
+                        ) : null}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl border border-green-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-green-100 rounded-lg">
-                                        <User className="w-4 h-4 text-green-600" />
-                                    </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Paciente</h3>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900">{translatedEvent.patient?.fullName || 'Não informado'}</p>
-                            </div>
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-3 rounded-xl border border-blue-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <Stethoscope className="w-4 h-4 text-blue-600" />
-                                    </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Profissional</h3>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900">{translatedEvent.doctor?.fullName || 'Não informado'}</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-3 rounded-xl border border-purple-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-purple-100 rounded-lg">
-                                        <Calendar className="w-4 h-4 text-purple-600" />
-                                    </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Data e Hora</h3>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900">{translatedEvent.formattedDate}</p>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-xl border border-amber-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-amber-100 rounded-lg">
-                                        <Clock className="w-4 h-4 text-amber-600" />
-                                    </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Status Operacional</h3>
-                                </div>
-                                <span {...getStatusVisualConfig(translatedEvent.operationalStatus, 'operational')}>
-                                    {getStatusConfig(translatedEvent.operationalStatus, 'operational').label}
-                                </span>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-3 rounded-xl border border-teal-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-teal-100 rounded-lg">
-                                        <ClipboardCheck className="w-4 h-4 text-teal-600" />
-                                    </div>
-                                    <h3 className="text-sm font-medium text-gray-700">Status Clínico</h3>
-                                </div>
-                                <span {...getStatusVisualConfig(translatedEvent.clinicalStatus, 'clinical')}>
-                                    {getStatusConfig(translatedEvent.clinicalStatus, 'clinical').label}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-3 rounded-xl border border-gray-200">
-                            <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                                <ClipboardCheck className="w-4 h-4 text-gray-600" />
-                                Motivo da Consulta
-                            </h3>
-                            <p className="text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
-                        </div>
+                        {renderSummary()}
 
                         {/* 🏦 REMUNERAÇÃO DO PROFISSIONAL (sessão já finalizada) */}
                         {permissions.canSeeFinancial && translatedEvent.operationalStatus === 'concluído' && (
-                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-4">
+                            <div className="bg-indigo-50 rounded-lg border border-indigo-100 p-3">
                                 <div className="flex items-center gap-2 mb-3">
                                     <div className="p-1.5 bg-indigo-100 rounded-lg">
                                         <Wallet className="w-4 h-4 text-indigo-600" />
@@ -1405,7 +1330,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     {event.advancedSessions.map((session, index) => (
                                         <div
                                             key={session._id || index}
-                                            className="flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200"
+                                            className="flex items-center justify-between bg-green-50 p-3 rounded-lg border border-green-200"
                                         >
                                             <div className="flex-1">
                                                 <p className="font-semibold text-gray-800">
@@ -1457,7 +1382,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             PACKAGE_LIMIT_REACHED). packageExhausted lê um valor pronto do
                             backend, não decide nada aqui. */}
                         {packageExhausted ? (
-                            <div className="bg-gradient-to-r from-red-50 to-rose-50 border-l-4 border-red-400 p-3 rounded-xl">
+                            <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded-xl">
                                 <div className="flex items-start gap-3">
                                     <XCircle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
                                     <div>
@@ -1474,120 +1399,43 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         <>
                         {/* Toda transição desta aba completa o atendimento direto — ver nota
                             "UNIFICADO (2026-07-10)" no topo do arquivo. */}
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-400 p-3 rounded-xl">
-                            <div className="flex items-start gap-3">
-                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-                                <div>
-                                    <p className="text-sm text-green-800 font-medium">
-                                        Confirme os detalhes antes de concluir o atendimento.
-                                    </p>
-                                    <p className="text-xs text-green-600 mt-0.5">
-                                        Esta ação marcará a consulta como concluída e executará a cobrança/faturamento.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Informações do agendamento — mesmo padrão da aba Detalhes */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl border border-green-100">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <div className="p-1.5 bg-green-100 rounded-lg">
-                                        <User className="w-4 h-4 text-green-600" />
-                                    </div>
-                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Paciente</h3>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900">{translatedEvent.patient?.fullName || 'Não informado'}</p>
-                            </div>
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-3 rounded-xl border border-blue-100">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <div className="p-1.5 bg-blue-100 rounded-lg">
-                                        <Stethoscope className="w-4 h-4 text-blue-600" />
-                                    </div>
-                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Profissional</h3>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900">{translatedEvent.doctor?.fullName || 'Não informado'}</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-3 rounded-xl border border-purple-100">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <div className="p-1.5 bg-purple-100 rounded-lg">
-                                        <Calendar className="w-4 h-4 text-purple-600" />
-                                    </div>
-                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Data e Hora</h3>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900">{translatedEvent.formattedDate}</p>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-xl border border-amber-100">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <div className="p-1.5 bg-amber-100 rounded-lg">
-                                        <Clock className="w-4 h-4 text-amber-600" />
-                                    </div>
-                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status Operacional</h3>
-                                </div>
-                                <span {...getStatusVisualConfig(translatedEvent.operationalStatus, 'operational')}>
-                                    {getStatusConfig(translatedEvent.operationalStatus, 'operational').label}
-                                </span>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-3 rounded-xl border border-teal-100">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <div className="p-1.5 bg-teal-100 rounded-lg">
-                                        <ClipboardCheck className="w-4 h-4 text-teal-600" />
-                                    </div>
-                                    <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status Clínico</h3>
-                                </div>
-                                <span {...getStatusVisualConfig(translatedEvent.clinicalStatus, 'clinical')}>
-                                    {getStatusConfig(translatedEvent.clinicalStatus, 'clinical').label}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-3 rounded-xl border border-gray-200">
-                            <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1.5 flex items-center gap-2">
-                                <ClipboardCheck className="w-4 h-4 text-gray-600" />
-                                Motivo da Consulta
-                            </h3>
-                            <p className="text-sm text-gray-800">{translatedEvent.reason || 'Não informado'}</p>
-                        </div>
+                        {renderSummary('compact')}
+                        <p className="text-xs leading-relaxed text-gray-500">Ao finalizar, o atendimento será concluído e o faturamento processado.</p>
 
                         {/* 🏷️ TIPO DE ATENDIMENTO — badges informativos */}
                         {getServiceTypeBadges().length > 0 && (
-                            <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl border border-gray-200 p-3">
-                                <div className="flex items-center gap-1.5 mb-2.5">
-                                    <Tag className="w-3.5 h-3.5 text-gray-500" />
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo de atendimento</span>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {getServiceTypeBadges().map((badge) => {
-                                        const Icon = badge.icon;
-                                        return (
-                                            <span
-                                                key={badge.key}
-                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
-                                                style={{ backgroundColor: badge.bg, color: badge.color }}
-                                            >
-                                                <Icon className="w-3.5 h-3.5" />
-                                                {badge.label}
-                                            </span>
-                                        );
-                                    })}
-                                </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                <span className="text-xs font-medium text-gray-500">Tipo de atendimento</span>
+                                {getServiceTypeBadges().map((badge) => {
+                                    const Icon = badge.icon;
+                                    return (
+                                        <span
+                                            key={badge.key}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold"
+                                            style={{ backgroundColor: badge.bg, color: badge.color }}
+                                        >
+                                            <Icon className="w-3.5 h-3.5" />
+                                            {badge.label}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
-                        </div>
+
+                        {permissions.canSeeFinancial && isPrepaidPackage && (
+                            <div className="flex items-start gap-3 rounded-lg bg-emerald-50 px-4 py-3 text-emerald-900">
+                                <Package size={19} className="mt-0.5 shrink-0" />
+                                <div><p className="text-sm font-semibold">Pagamento vinculado ao pacote pré-pago</p><p className="mt-1 text-xs leading-relaxed text-emerald-800">Ao finalizar, será utilizada uma sessão do pacote. Não haverá um novo recebimento neste atendimento.</p></div>
+                            </div>
+                        )}
 
                         {/* 🏦 TIPO DE COBRANÇA */}
-                        {permissions.canSeeFinancial && (
-                            <div className="bg-white rounded-xl border border-gray-200 p-3">
-                                <div className="flex flex-wrap items-center gap-3 mb-3">
+                        {permissions.canSeeFinancial && !isPrepaidPackage && (
+                            <div className="border-t border-gray-200 pt-3">
+                                <div className="mb-2 flex flex-wrap items-center gap-3">
                                     <div className="flex items-center gap-1.5">
                                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Faturamento</span>
+                                        <span className="text-sm font-semibold text-gray-700">Faturamento</span>
                                     </div>
                                     <BillingTypeSelector
                                         value={billingType}
@@ -1654,11 +1502,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             </div>
                         )}
 
-                        {/* 💳 FORMAS DE PAGAMENTO — oculta para convênio/liminar (ver doc no topo do arquivo).
-                            NÃO adicionar exclusão por pacote/serviceType aqui de novo — sessão de pacote
-                            particular também precisa dessa seção (bug corrigido 03/07: !isPackageSession()
-                            escondia isso pra TODO pacote, não só convênio/liminar). */}
-                        {permissions.canSeeFinancial && !(
+                        {/* Recebimento por atendimento: avulso e pacote por sessão. Pré-pago possui apresentação própria. */}
+                        {permissions.canSeeFinancial && !isPrepaidPackage && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
                             event?.paymentMethod === 'convenio' ||
@@ -1671,9 +1516,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             // continua visível quando existe sinal já recebido.
                             !addToBalance || (financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0)
                         ) && (
-                            <div className="bg-white rounded-xl border border-gray-200 p-3">
+                            <div className="border-t border-gray-200 pt-4">
                                 {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0 && (
-                                    <div className="mb-3 grid grid-cols-1 gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-3">
+                                    <div className="mb-3 grid grid-cols-1 gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-3">
                                         <div className="min-w-0">
                                             <span className="block text-xs font-medium text-emerald-700">Valor da consulta</span>
                                             <strong className="block text-sm tabular-nums text-gray-900">
@@ -1696,7 +1541,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 )}
                                 {!addToBalance && (<>
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                                         {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0
                                             ? 'Pagamento do saldo'
@@ -1713,7 +1558,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </div>
 
                                 {payments.map((payment, index) => (
-                                    <div key={payment.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-2 last:mb-0">
+                                    <div key={payment.id} className="mb-2 rounded-lg bg-gray-50 p-3 last:mb-0">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-xs font-medium text-gray-600">
                                                 {financialAmounts.hasCanonicalBalance && financialAmounts.depositAmount > 0
@@ -1730,8 +1575,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                 </button>
                                             )}
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                            <div className="md:col-span-4">
+                                        <div className="grid grid-cols-1 gap-3 items-end sm:grid-cols-3">
+                                            <div className="min-w-0">
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Valor recebido agora (R$) *</label>
                                                 <InputCurrency
                                                     name={`payment-amount-${payment.id}`}
@@ -1740,7 +1585,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     className="w-full p-2 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
                                                 />
                                             </div>
-                                            <div className="md:col-span-3">
+                                            <div className="min-w-0">
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Data *</label>
                                                 <DatePicker
                                                     selected={payment.date ? buildLocalDateOnly(payment.date) : null}
@@ -1758,7 +1603,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     dateFormat="dd/MM/yyyy"
                                                 />
                                             </div>
-                                            <div className="md:col-span-5">
+                                            <div className="min-w-0">
                                                 <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pagamento *</label>
                                                 <select
                                                     value={payment.method}
@@ -1793,7 +1638,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                         {/* 💰 SEÇÃO DE SALDO DEVEDOR — oculta para convênio/liminar e sem permission */}
-                        {permissions.canSeeDebt && canUseBalance && !(
+                        {permissions.canSeeDebt && canUseBalance && !isPrepaidPackage && !(
                             ['convenio', 'liminar'].includes(event?.billingType ?? '') ||
                             ['convenio', 'liminar'].includes(billingType) ||
                             event?.paymentMethod === 'convenio' ||
@@ -1807,7 +1652,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         <DollarSign className="w-4 h-4 text-amber-600" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conta Corrente do Paciente</h3>
+                                        <h3 className="text-sm font-semibold text-gray-700">Conta Corrente do Paciente</h3>
                                         <p className="text-2xs text-gray-500">Adicionar esta sessão ao saldo devedor</p>
                                     </div>
                                     <label className="relative inline-flex cursor-pointer items-center shrink-0">
@@ -1868,7 +1713,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         <Wallet className="w-4 h-4 text-indigo-600" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">Não remunerar profissional</h3>
+                                        <h3 className="text-sm font-semibold text-indigo-900">Não remunerar profissional</h3>
                                         <p className="text-2xs text-gray-500">Desativar comissão somente neste atendimento</p>
                                     </div>
                                     <label className="relative inline-flex cursor-pointer items-center shrink-0">
@@ -1906,76 +1751,19 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 );
 
             case 'cancel':
-                return (
-                    <div className="space-y-6">
-                        <div className="bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-400 p-4 rounded-xl">
-                            <div className="flex items-start gap-3">
-                                <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                                <div>
-                                    <p className="text-sm text-red-800 font-medium">
-                                        Ao cancelar este agendamento, o paciente será notificado automaticamente.
-                                    </p>
-                                    <p className="text-xs text-red-600 mt-1">
-                                        Esta ação não poderá ser desfeita.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {cancelError && (
-                            <div className="bg-red-50 border border-red-300 text-red-700 text-sm px-4 py-3 rounded-xl flex items-start gap-2">
-                                <XCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                                <span>{cancelError}</span>
-                            </div>
-                        )}
-
-                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
-                            <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                                <XCircle className="w-4 h-4 text-red-600" />
-                                Motivo do cancelamento *
-                            </label>
-                            <textarea
-                                value={cancelReason}
-                                onChange={(e) => { setCancelReason(e.target.value); setCancelError(''); }}
-                                rows={4}
-                                className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
-                                placeholder="Descreva o motivo do cancelamento..."
-                            />
-                            <p className="mt-2 text-sm text-gray-500">Este motivo será enviado ao paciente</p>
-                        </div>
-
-                        <div className="flex items-center p-4 bg-green-50 rounded-xl border border-green-200">
-                            <input
-                                id="notify-patient"
-                                name="notify-patient"
-                                type="checkbox"
-                                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                                checked={confirmedAbsence}
-                                onChange={(e) => setConfirmedAbsence(e.target.checked)}
-                            />
-                            <label htmlFor="notify-patient" className="ml-3 block text-sm text-gray-700">
-                                Notificar paciente por WhatsApp
-                            </label>
-                        </div>
-                    </div>
-                );
+                return null;
 
             case 'edit':
                 return (
-                    <div className="space-y-3 [&_label]:text-xs [&_label]:font-medium [&_label]:text-slate-600 [&_input]:p-2 [&_select]:p-2 [&_textarea]:p-2 [&_.react-datepicker-wrapper]:w-full">
-                        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                            <PencilIcon className="h-4 w-4 shrink-0 text-amber-600" />
-                            <span><strong>Modo de edição:</strong> revise os campos e confirme em “Salvar alterações”.</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-                            <div className="space-y-1 md:col-span-3">
+                    <div className="space-y-4 text-left [&_label]:text-left [&_label]:text-xs [&_label]:font-medium [&_label]:text-slate-600 [&_input]:p-2 [&_select]:p-2 [&_textarea]:p-2 [&_.react-datepicker-wrapper]:w-full">
+                        <div className="grid grid-cols-1 gap-x-3 gap-y-3 md:grid-cols-12">
+                            <div className="space-y-1 md:col-span-6">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <User className="w-4 h-4 text-green-600" />
-                                    Paciente <span className="text-red-500">(não pode ser alterado)</span>
+                                    Paciente <span className="text-xs font-normal text-gray-400">· não editável</span>
                                 </label>
                                 {/* 🚫 BLOQUEADO: Paciente não pode ser alterado em agendamento existente */}
-                                <div className="w-full min-h-[42px] px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 flex items-center gap-2">
+                                <div className="w-full min-h-[42px] px-3 py-2 border border-transparent rounded-lg bg-gray-50 text-slate-700 flex items-center gap-2">
                                     <i className="fas fa-user-lock text-gray-500"></i>
                                     <span className="font-medium">
                                         {patients.find(p => p._id === editedAppointment.patientId)?.fullName || 
@@ -1988,7 +1776,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </p>
                             </div>
 
-                            <div className="space-y-1 md:col-span-3">
+                            <div className="space-y-1 md:col-span-6">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Stethoscope className="w-4 h-4 text-green-600" />
                                     Profissional *
@@ -2021,7 +1809,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 ) : null}
                             </div>
 
-                            <div className="space-y-1 md:col-span-2">
+                            <div className="space-y-1 md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-green-600" />
                                     Data *
@@ -2069,7 +1857,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 />
                             </div>
                         {/* 🆕 NOVO: Tipo de Serviço e Especialidade */}
-                            <div className="space-y-1 md:col-span-2">
+                            <div className="space-y-1 md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Tipo de Serviço
                                 </label>
@@ -2090,7 +1878,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </Select>
                             </div>
 
-                            <div className="space-y-1 md:col-span-2">
+                            <div className="space-y-1 md:col-span-4">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Especialidade
                                 </label>
@@ -2110,7 +1898,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     <option value="psicopedagogia">Psicopedagogia</option>
                                 </Select>
                             </div>
-                        <div className="space-y-1 md:col-span-6 md:order-2">
+                        <div className="space-y-1 md:col-span-6 md:order-1">
                             <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                 <ClipboardCheck className="w-4 h-4 text-green-600" />
                                 Motivo da Consulta
@@ -2124,7 +1912,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             />
                         </div>
 
-                            <div className="space-y-1 md:col-span-2">
+                            <div className="space-y-1 md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Status Operacional
                                 </label>
@@ -2141,7 +1929,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 </select>
                             </div>
 
-                            <div className="space-y-1 md:col-span-2">
+                            <div className="space-y-1 md:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700">
                                     Status Clínico
                                 </label>
@@ -2160,21 +1948,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         </div>
 
                         {permissions.canSeeFinancial && (
-                            <div className="bg-emerald-50/50 rounded-xl border border-emerald-100 p-3 space-y-3">
+                            <div className="space-y-3 border-t border-gray-200 pt-4">
                                 <div className="flex flex-wrap items-center gap-3">
                                     <div className="flex items-center gap-1.5">
                                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Faturamento</span>
+                                        <span className="text-sm font-semibold text-gray-700">Faturamento</span>
                                     </div>
                                     <BillingTypeSelector value={billingType} onChange={setBillingType} />
                                 </div>
 
                                 {billingType === 'particular' ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-[minmax(180px,240px)_minmax(200px,260px)] gap-3 justify-start">
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-gray-500">Valor (R$)</label>
                                             <InputCurrency name="paymentAmount" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)}
-                                                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-400 bg-white" />
+                                                className="!mt-0 w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-400 bg-white" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-gray-500">Método</label>
@@ -2210,7 +1998,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                                     × Remover
                                                 </button>
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-[minmax(180px,240px)_minmax(200px,260px)] gap-3 justify-start">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="space-y-1">
                                                     <label className="text-xs font-medium text-gray-500">Valor recebido agora (R$)</label>
                                                     <InputCurrency name="editDepositAmount" value={editDepositAmount} onChange={(e) => setEditDepositAmount(e.target.value || 0)}
@@ -2237,19 +2025,17 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => setShowEditDepositField(true)}
-                                            className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border-2 border-dashed border-teal-300 bg-teal-50/40 hover:bg-teal-100/60 hover:border-teal-400 transition-colors text-left"
+                                            title="Só se o paciente já pagou uma entrada agora"
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
                                         >
-                                            <span className="flex items-center gap-2 text-xs font-semibold text-teal-800">
-                                                <DollarSign className="w-3.5 h-3.5" /> Registrar sinal recebido
-                                            </span>
-                                            <span className="text-2xs text-teal-600 hidden sm:inline">Só se o paciente já pagou uma entrada agora</span>
+                                            <DollarSign className="h-3.5 w-3.5 text-green-700" /> Registrar sinal recebido
                                         </button>
                                     )
                                 )}
 
                                 {billingType === 'convenio' ? (
                                     <div className="space-y-3">
-                                        <div className="grid grid-cols-1 sm:grid-cols-[minmax(220px,300px)_minmax(160px,220px)] gap-3 justify-start">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-gray-500">Convênio</label>
                                                 <input type="text" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
@@ -2276,7 +2062,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                         {/* ⚖️ LIMINAR: mover atendimento para outra especialidade do plano */}
                         {billingType === 'liminar' && event?.liminarContract && (
-                            <div className="bg-purple-50/60 rounded-2xl border border-purple-100 p-4 space-y-3">
+                            <div className="bg-purple-50/60 rounded-lg border border-purple-100 p-3 space-y-3">
                                 <div className="flex items-center gap-1.5">
                                     <Scale className="w-3.5 h-3.5 text-purple-600" />
                                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Liminar — Mover especialidade</span>
@@ -2350,7 +2136,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         <button
                             onClick={handleConvert}
                             disabled={isConverting}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
+                            className="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
                             {isConverting ? (
                                 <>
@@ -2394,10 +2180,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         <button
                             onClick={handleComplete}
                             disabled={isCompleting || isAddingDebit}
-                            className={`px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl ${
+                            className={`px-5 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500  ${
                                 addToBalance
-                                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white'
-                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                    : 'bg-green-600 hover:bg-green-700 text-white'
                             }`}
                         >
                             {isCompleting || isAddingDebit ? (
@@ -2426,32 +2212,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 return null;
 
             case 'cancel':
-                return (
-                    <button
-                        onClick={handleCancel}
-                        disabled={isCancelling || !cancelReason.trim()}
-                        className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-xl hover:from-red-700 hover:to-orange-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
-                    >
-                        {isCancelling ? (
-                            <>
-                                <LoadingSpinner size="small" color="border-white" fullPage={false} />
-                                <span>Cancelando...</span>
-                            </>
-                        ) : (
-                            <>
-                                <XCircle size={18} />
-                                <span>Confirmar Cancelamento</span>
-                            </>
-                        )}
-                    </button>
-                );
+                return null;
 
             case 'edit':
                 return (
                     <button
                         onClick={handleEdit}
                         disabled={isEditing}
-                        className="bg-gradient-to-r from-amber-600 to-orange-600 text-white px-6 py-3 rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500 shadow-lg hover:shadow-xl"
+                        className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                         {isEditing ? (
                             <>
@@ -2483,18 +2251,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     };
 
     const tabConfig = getTabConfig(activeTab);
+    const HeaderIcon = tabConfig.icon;
+    if (activeTab === 'cancel') return <AppointmentCancellationModal
+        event={event} onCancelAppointment={onCancelAppointment}
+        onClose={onClose} zIndex={zIndex}
+        financialContext={{ paymentMethod, billingType, sessionValue: paymentAmount }} />;
+
 
     return (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4" style={{ zIndex }}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full flex flex-col md:flex-row max-h-[88vh] overflow-hidden border border-gray-200 relative text-sm">
-                
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[720px] text-left flex flex-col max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden relative text-sm">
+
                 {/* 🔄 OVERLAY DE PROCESSAMENTO */}
                 {processingState?.isProcessing && (
-                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-3xl">
+                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-xl">
                         <div className="relative">
-                            {/* Spinner animado */}
                             <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
-                            {/* Ícone no centro */}
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <CheckCircle className="w-6 h-6 text-green-600" />
                             </div>
@@ -2507,98 +2279,60 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <br />
                             Por favor, não feche esta janela.
                         </p>
-                        {/* Barra de progresso simulada */}
                         <div className="mt-6 w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-green-500 to-cyan-500 animate-pulse rounded-full" 
+                            <div className="h-full bg-green-600 animate-pulse rounded-full"
                                  style={{ width: '60%', animation: 'progress 2s ease-in-out infinite' }} />
                         </div>
                     </div>
                 )}
-                {/* Header Mobile */}
-                <div className="md:hidden bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-6 text-white rounded-t-3xl">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                                <tabConfig.icon className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold">{tabConfig.title}</h2>
-                                <p className="text-green-100 text-sm">{tabConfig.description}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="text-white hover:bg-white hover:bg-opacity-20 rounded-xl p-2 transition-all"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
-                    </div>
+
+                {/* Cabeçalho enxuto: só o título da seção + fechar */}
+                <div className="flex shrink-0 items-center justify-between gap-4 px-5 pb-3 pt-5 sm:px-6">
+                    <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><HeaderIcon size={19} /></span><h2 className="text-lg font-semibold leading-tight tracking-tight text-gray-900">{tabConfig.title}</h2></div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Fechar janela"
+                        className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
-                {/* Abas laterais - Desktop */}
-                <div className="hidden md:flex w-52 shrink-0 bg-gradient-to-b from-green-50 via-emerald-50 to-cyan-50 rounded-l-2xl p-4 flex-col border-r border-green-100">
-                    <div className="space-y-2">
-                        {availableTabs.map((tab) => {
-                            const config = getTabConfig(tab);
-                            const Icon = config.icon;
-                            return (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-2.5 font-semibold ${activeTab === tab
-                                            ? 'bg-gradient-to-r from-green-600 to-cyan-500 text-white shadow-md'
-                                            : 'hover:bg-white/70 text-gray-700 hover:text-gray-900'
-                                        }`}
-                                >
-                                    <Icon size={20} />
-                                    <span>{config.title.split(' ')[0]}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                {/* Abas horizontais (mesma estrutura em todos os tamanhos de tela) */}
+                <div role="tablist" aria-label="Seções do agendamento" className="flex shrink-0 gap-0.5 overflow-x-auto overflow-y-hidden border-b border-gray-200 px-3 [scrollbar-width:none] sm:gap-1 sm:px-6 [&::-webkit-scrollbar]:hidden">
+                    {availableTabs.map((tab) => {
+                        const config = getTabConfig(tab);
+                        const Icon = config.icon;
+                        const selected = activeTab === tab;
+                        return (
+                            <button
+                                key={tab}
+                                type="button"
+                                role="tab"
+                                aria-selected={selected}
+                                onClick={() => setActiveTab(tab)}
+                                className={`-mb-px flex min-w-0 flex-1 items-center justify-center rounded-t focus:outline-none focus-visible:bg-green-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600 gap-1 whitespace-nowrap border-b-2 px-1.5 py-2 text-xs font-medium transition-colors sm:flex-none sm:gap-1.5 sm:px-3 sm:text-sm ${selected
+                                        ? 'border-green-600 text-green-700'
+                                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                                    }`}
+                            >
+                                <Icon size={16} />
+                                <span>{config.title.split(' ')[0]}</span>
+                            </button>
+                        );
+                    })}
+                    <div className="ml-auto flex shrink-0 items-center pl-2 text-xs [&>span>span]:!px-2 [&>span>span]:!py-1">{statusBadges}</div>
                 </div>
 
-                {/* Abas Mobile */}
-                <div className="md:hidden bg-gradient-to-r from-gray-50 to-green-50 p-3 border-b-2 border-gray-200">
-                    <div className="flex overflow-x-auto space-x-2">
-                        {availableTabs.map((tab) => {
-                            const config = getTabConfig(tab);
-                            const Icon = config.icon;
-                            return (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`flex-shrink-0 px-4 py-2 rounded-xl transition-all duration-200 flex items-center gap-2 font-semibold ${activeTab === tab
-                                            ? 'bg-gradient-to-r from-green-600 to-cyan-500 text-white shadow-lg'
-                                            : 'text-gray-600 hover:bg-white border border-gray-200'
-                                        }`}
-                                >
-                                    <Icon size={16} />
-                                    <span className="text-sm">{config.title.split(' ')[0]}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                {/* Conteúdo */}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+                    {renderTabContent()}
                 </div>
 
-                {/* Conteúdo principal */}
-                <div className="flex-1 p-4 md:p-5 flex flex-col overflow-hidden min-w-0">
-                    {/* Header Desktop */}
-                    <div className="hidden md:flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
-                        <div className="p-2.5 bg-gradient-to-br from-green-100 to-cyan-100 rounded-xl shadow-sm">
-                            <tabConfig.icon className="w-6 h-6 text-green-600" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-900">{tabConfig.title}</h2>
-                            <p className="text-sm text-gray-600">{tabConfig.description}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto overscroll-contain pr-1">
-                        {renderTabContent()}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+                {/* Rodapé: voltar à esquerda (só no cancelamento); ações à direita */}
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-gray-200 bg-gray-50/70 px-5 py-4 sm:px-6">
+                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                         {/* 📅 Remarcação rápida: só aparece com o handler injetado pelo calendário, para quem
                             pode editar e enquanto o atendimento não é terminal (concluído/cancelado/faltou). */}
                         {activeTab === 'details'
@@ -2610,19 +2344,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <button
                                 type="button"
                                 onClick={() => onRequestReschedule(event.id)}
-                                className="px-5 py-2.5 border border-indigo-200 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-all duration-200 font-semibold flex items-center justify-center gap-2"
+                                className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
                             >
-                                <CalendarClock size={18} />
+                                <CalendarClock size={16} />
                                 <span>Mudar data</span>
                             </button>
                         )}
+                        {(
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                            >
+                                Fechar
+                            </button>
+                        )}
                         {renderActionButton()}
-                        <button
-                            onClick={onClose}
-                            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
-                        >
-                            Fechar
-                        </button>
                     </div>
                 </div>
             </div>

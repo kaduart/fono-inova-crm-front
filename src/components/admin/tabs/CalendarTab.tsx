@@ -13,10 +13,11 @@ import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { toast } from '../../../utils/toast';
 import moment from 'moment-timezone';
+import type { CancelExtras } from '../../calendar/CancelRequesterPicker';
 
 interface CalendarTabProps {
     onNewAppointment: (data: any) => Promise<void>;
-    onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
+    onCancelAppointment: (id: string, reason: string, paymentState?: CancelExtras) => Promise<void>;
     onCompleteAppointment: (id: string, data?: { addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string }) => Promise<void>;
     onConfirmAppointment?: (id: string, notes?: string) => Promise<void>;
     onEditAppointment: (id: string, data: any) => Promise<void>;
@@ -116,7 +117,7 @@ export const CalendarTab = ({
         // 🎯 Pacientes e Appointments já são atualizados via contexto
     };
 
-    const handleCancelAppointment = async (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => {
+    const handleCancelAppointment = async (id: string, reason: string, paymentState?: CancelExtras) => {
         try {
             await onCancelAppointment(id, reason, paymentState);
             // 🎯 Só fecha o modal se não der erro

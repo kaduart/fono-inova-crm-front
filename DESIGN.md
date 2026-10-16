@@ -221,7 +221,13 @@ Cantos consistentemente arredondados, escalando com o tamanho do elemento — nu
 - **Do** manter `md:` (768px) como o breakpoint de colapso do menu principal — não subir para `lg:` (1024px), já testado e revertido.
 - **Do** dar a qualquer nova animação de entrada um estado base já visível, ativando o estado oculto + a animação só sob `@media (prefers-reduced-motion: no-preference)` — o padrão estabelecido pelo Painel de Instrumentos do hero, não uma checagem de `matchMedia` em JS por padrão.
 
+- **Do** tratar WCAG AA como meta em telas operacionais: contraste suficiente, navegação completa por teclado, foco visível, rótulos associados aos campos, e status/categoria identificados também por texto ou ícone, nunca só por cor.
+- **Do** preservar os fundos coloridos dos cards da agenda por categoria (convênio, particular, liminar, pacote): a cor tem função operacional e acompanha sempre o rótulo em texto.
+- **Do** alinhar à esquerda o conteúdo operacional (formulários, fichas, relatórios); centralizar só títulos curtos de estado vazio quando fizer sentido.
+- **Do** garantir que as ações principais funcionem no celular (desktop da recepção é a prioridade, mas o celular não pode ser só leitura).
+
 ### Don't:
+- **Don't** deixar espaços vazios excessivos, caixas dentro de caixas, textos menores que `text-xs` em informação operacional, nem truncar nomes de pacientes/profissionais sem alternativa acessível (tooltip ou quebra de linha).
 - **Don't** usar azul (ou qualquer outra cor) como cor de ação/foco genérica — azul é reservado a papéis semânticos específicos (Convênio, status "processando", ícone de seção do menu).
 - **Don't** usar cor sólida `-500`/`-600` como fundo de badge/chip — isso quebra a fórmula tint-shade-ring e destoa visualmente do resto do sistema.
 - **Don't** introduzir uma nova fonte customizada — a pilha de sistema é deliberada para uma ferramenta interna de uso prolongado, não uma decisão em aberto.

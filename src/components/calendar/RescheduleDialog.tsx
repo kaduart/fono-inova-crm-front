@@ -1,4 +1,4 @@
-import { CalendarClock, Loader2, X } from 'lucide-react';
+import { CalendarClock, Check, Clock, Loader2, Stethoscope, UserRound, X } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -179,20 +179,17 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
             aria-modal="true"
             aria-label="Mudar data do agendamento"
         >
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-auto">
-                <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-gray-100">
+            <div className="flex max-h-[calc(100dvh-32px)] w-full max-w-[560px] flex-col overflow-hidden rounded-xl bg-white text-left shadow-2xl">
+                <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-5 sm:px-6">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                             <CalendarClock size={20} />
                         </div>
                         <div className="min-w-0">
-                            <h3 className="text-base font-bold text-gray-800">
+                            <h3 className="text-lg font-semibold leading-tight tracking-tight text-gray-900">
                                 {target.reactivating ? 'Reativar e remarcar' : 'Mudar data'}
                             </h3>
-                            <p className="text-xs text-gray-500 truncate">
-                                {target.patientName} · {target.doctorName}
-                                {target.specialtyLabel ? ` · ${target.specialtyLabel}` : ''}
-                            </p>
+
                         </div>
                     </div>
                     <button
@@ -206,10 +203,12 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                     </button>
                 </div>
 
-                <div className="px-5 py-4 space-y-4">
-                    <p className="text-xs text-gray-500">
-                        Atual: <span className="font-semibold text-gray-700">{formatBR(target.currentDate)} às {target.currentTime}</span>
-                    </p>
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-5 pt-1 sm:px-6">
+                    <div className="space-y-2 rounded-lg bg-gray-50 px-3 py-3">
+                        <p className="flex items-start gap-2 text-sm font-semibold text-gray-900"><UserRound size={16} className="mt-0.5 shrink-0 text-emerald-700" /><span className="break-words">{target.patientName}</span></p>
+                        <p className="flex items-start gap-2 text-xs text-gray-600"><Stethoscope size={16} className="shrink-0" /><span className="break-words">{target.doctorName}{target.specialtyLabel ? ' · ' + target.specialtyLabel : ''}</span></p>
+                        <p className="flex items-center gap-2 text-xs text-gray-600"><Clock size={16} className="shrink-0" /><span>Atual: <strong className="font-medium text-gray-800">{formatBR(target.currentDate)} às {target.currentTime}</strong></span></p>
+                    </div>
 
                     {target.reactivating && (
                         <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -218,8 +217,8 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                         </div>
                     )}
 
-                    <div>
-                        <label htmlFor="reschedule-date" className="block text-xs font-semibold text-gray-600 mb-1">
+                    <div className="w-48 max-w-full">
+                        <label htmlFor="reschedule-date" className="block text-sm font-medium text-gray-800 mb-2">
                             Nova data
                         </label>
                         <input
@@ -233,7 +232,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                                 setHint('');
                                 setError('');
                             }}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="min-h-11 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
                         />
                         {holiday && (
                             <p className="mt-1 text-xs text-red-600">
@@ -243,7 +242,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                     </div>
 
                     <div>
-                        <p className="block text-xs font-semibold text-gray-600 mb-1">Horário</p>
+                        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><p className="text-sm font-medium text-gray-800">Horário</p><span className="flex flex-wrap items-center gap-3 text-xs text-gray-600"><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-emerald-400 bg-emerald-50" />Disponível</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-700" />Selecionado</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-amber-300 bg-amber-50" />Atual</span></span></div>
                         {loadingSlots ? (
                             <div className="flex items-center gap-2 text-xs text-gray-500 py-3">
                                 <Loader2 size={14} className="animate-spin" /> Buscando horários livres…
@@ -259,7 +258,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                             {!hasFreeSlot && (
                                 <p className="text-xs text-amber-700 mb-2">Todos os horários deste dia estão ocupados. Escolha outra data.</p>
                             )}
-                            <div className="grid grid-cols-4 gap-2" role="listbox" aria-label="Horários livres">
+                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="listbox" aria-label="Horários livres">
                                 {visibleSlots.map((info) => {
                                     const slot = info.time;
                                     const isCurrent = date === target.currentDate && slot === target.currentTime;
@@ -276,19 +275,20 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                                                 setHint('');
                                                 setError('');
                                             }}
-                                            className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                                            className={`relative flex min-h-11 flex-col items-center justify-center rounded-lg border px-2 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
                                                 selected
-                                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                                    ? 'bg-emerald-700 text-white border-emerald-700 ring-2 ring-emerald-700 ring-offset-1'
                                                     : isCurrent
-                                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                                        ? 'bg-amber-50 text-amber-800 border-amber-300 cursor-not-allowed'
                                                         : !info.available
-                                                            ? 'bg-gray-50 text-gray-300 border-gray-200 line-through cursor-not-allowed'
-                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                                                            ? 'bg-gray-50 text-gray-400 border-transparent cursor-not-allowed'
+                                                            : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:border-emerald-600 hover:bg-emerald-100'
                                             }`}
                                             title={isCurrent ? 'Horário atual deste agendamento' : !info.available ? (info.label || 'Horário indisponível') : undefined}
                                         >
+                                            {selected && <Check size={12} className="absolute right-1 top-1" aria-hidden="true" />}
                                             {slot}
-                                            {isCurrent && <span className="block text-3xs font-normal leading-none mt-0.5">atual</span>}
+                                            {isCurrent && <span className="block text-2xs font-normal leading-none mt-0.5">atual</span>}
                                         </button>
                                     );
                                 })}
@@ -305,12 +305,12 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                     )}
                 </div>
 
-                <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
+                <div className="grid shrink-0 grid-cols-[auto_1fr] items-center gap-2 border-t border-gray-200 bg-gray-50/70 px-5 py-4 sm:flex sm:justify-end sm:px-6">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={submitting}
-                        className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
                         Cancelar
                     </button>
@@ -318,7 +318,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                         type="button"
                         onClick={handleConfirm}
                         disabled={!canConfirm}
-                        className="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
                     >
                         {submitting && <Loader2 size={14} className="animate-spin" />}
                         {submitting

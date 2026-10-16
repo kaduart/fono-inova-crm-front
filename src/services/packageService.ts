@@ -9,7 +9,16 @@ import {
   TherapyType
 } from '../utils/types/types';
 import API from './api';
+import type { CancelRequester } from '../components/calendar/CancelRequesterPicker';
 import { extractErrorMessage } from '../utils/errorUtils';
+
+/** Dados do cancelamento manual de pacote: quem solicitou é obrigatório. */
+export type PackageCancelInfo = {
+  cancelRequester: CancelRequester;
+  cancelRequestedAt?: string; // ISO
+  reason?: string;
+  notifyPatient?: boolean;
+};
 import { debugPayload } from '../utils/payloadDebugger';
 
 export type CreatePackageParams = {
@@ -108,6 +117,9 @@ export type UseSessionParams = {
   sessionsPerWeek?: number;
   status?: 'pending' | 'completed' | 'active';
   confirmedAbsence?: boolean;
+  /** Quem solicitou — obrigatório quando a sessão é marcada como cancelada. */
+  cancelRequester?: CancelRequester;
+  cancelRequestedAt?: string;
   professionalPaymentStatus?: 'payable' | 'non_payable';
   professionalPaymentOverride?: {
     excluded: boolean;
@@ -411,8 +423,13 @@ export const packageService = {
       result = extractV2Data(response);
     } else if (data.status === 'canceled') {
       // ✅ cancelSessionV2 sincroniza: appointment → session → package
+      if (!data.cancelRequester) {
+        throw new Error('Informe quem solicitou o cancelamento (paciente, profissional ou clínica).');
+      }
       const response = await API.patch(`/v2/appointments/${appointmentId}/cancel`, {
         reason: data.notes || 'Cancelado pelo usuário',
+        cancelRequester: data.cancelRequester,
+        cancelRequestedAt: data.cancelRequestedAt,
         confirmedAbsence: data.confirmedAbsence || false,
       });
       result = extractV2Data(response);
@@ -488,14 +505,23 @@ export const packageService = {
   // appointmentIds recebida (nunca cancela mais que isso). Falha parcial NUNCA
   // é reportada como sucesso total: `success` só é true quando todos os IDs
   // pedidos foram cancelados; `failedIds` sempre lista o que não foi.
-  bulkCancelSessions: async (packageId: string, appointmentIds: string[], confirmedAbsence: boolean = false) => {
+  // `cancel.cancelRequester` é obrigatório (quem SOLICITOU) — o backend rejeita sem ele.
+  bulkCancelSessions: async (
+    packageId: string,
+    appointmentIds: string[],
+    cancel: PackageCancelInfo,
+    confirmedAbsence: boolean = false
+  ) => {
     const canceledIds: string[] = [];
     const failedIds: { appointmentId: string; error: string }[] = [];
 
     for (const appointmentId of appointmentIds) {
       try {
         await API.patch(`/v2/appointments/${appointmentId}/cancel`, {
-          reason: 'Cancelamento em massa',
+          notifyPatient: cancel.notifyPatient === true,
+          reason: cancel.reason?.trim() || 'Cancelamento em massa',
+          cancelRequester: cancel.cancelRequester,
+          cancelRequestedAt: cancel.cancelRequestedAt,
           confirmedAbsence,
         });
         canceledIds.push(appointmentId);
@@ -519,7 +545,7 @@ export const packageService = {
   },
 
   // 🚀 Cancelar TODAS as sessões do pacote (mais simples, mais rápido)
-  cancelAllSessions: async (packageId: string, confirmedAbsence: boolean = false) => {
+  cancelAllSessions: async (packageId: string, cancel: PackageCancelInfo, confirmedAbsence: boolean = false) => {
     // 🚀 V2: Busca pacote, pega appointments e cancela um por um
     const pkgResponse = await API.get(`/v2/packages/${packageId}`);
     const pkg = extractV2Data(pkgResponse) as any;
@@ -530,7 +556,9 @@ export const packageService = {
       if (session.appointmentId && session.status !== 'canceled' && session.status !== 'completed') {
         try {
           await API.patch(`/v2/appointments/${session.appointmentId}/cancel`, {
-            reason: 'Cancelamento de todas as sessões do pacote',
+            reason: cancel.reason?.trim() || 'Cancelamento de todas as sessões do pacote',
+            cancelRequester: cancel.cancelRequester,
+            cancelRequestedAt: cancel.cancelRequestedAt,
             confirmedAbsence,
           });
           canceledCount++;

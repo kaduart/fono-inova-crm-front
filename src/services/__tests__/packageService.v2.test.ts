@@ -62,11 +62,11 @@ describe('packageService V2 — sessões de pacote', () => {
       .mockResolvedValueOnce({ data: { success: true } })
       .mockRejectedValueOnce({ response: { data: { message: 'já concluída' } } });
 
-    const result = await packageService.bulkCancelSessions('pkg-1', ['appt-1', 'appt-2']);
+    const result = await packageService.bulkCancelSessions('pkg-1', ['appt-1', 'appt-2'], { cancelRequester: 'patient' });
 
     expect(mockedAPI.patch).toHaveBeenCalledTimes(2);
-    expect(mockedAPI.patch).toHaveBeenNthCalledWith(1, '/v2/appointments/appt-1/cancel', expect.any(Object));
-    expect(mockedAPI.patch).toHaveBeenNthCalledWith(2, '/v2/appointments/appt-2/cancel', expect.any(Object));
+    expect(mockedAPI.patch).toHaveBeenNthCalledWith(1, '/v2/appointments/appt-1/cancel', expect.objectContaining({ cancelRequester: 'patient' }));
+    expect(mockedAPI.patch).toHaveBeenNthCalledWith(2, '/v2/appointments/appt-2/cancel', expect.objectContaining({ cancelRequester: 'patient' }));
     expect(result).toMatchObject({
       success: false,
       canceledCount: 1,

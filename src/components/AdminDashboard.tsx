@@ -81,6 +81,7 @@ import { SystemHealthProvider } from '../contexts/SystemHealthContext';
 import WhatsAppCriticalBanner from './admin/WhatsAppCriticalBanner';
 import usePayment from '../hooks/usePayment';
 import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppointmentParams } from '../services/appointmentService';
+import type { CancelExtras } from './calendar/CancelRequesterPicker';
 import doctorService, { CreateDoctorParams } from '../services/doctorService';
 import API from '../services/api';
 import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
@@ -513,11 +514,10 @@ export default function AdminDashboard() {
     // 🆕 Hook para mensagens de erro no chat (opcional - só funciona se estiver na aba de chat)
     const chat = useChatOptional();
 
-    const handleCancelAppointment = useCallback(async (appointmentId: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => {
+    const handleCancelAppointment = useCallback(async (appointmentId: string, reason: string, paymentState?: CancelExtras) => {
         try {
             const cancelParams: CancelParams = {
                 reason,
-                notifyPatient: true,
                 ...paymentState
             };
             const result = await cancelAppointment(appointmentId, cancelParams);

@@ -96,6 +96,9 @@ export interface ISession {
     notes?: string;
     isPaid?: boolean;
     confirmedAbsence?: boolean | null;
+    /** Só usados ao marcar a sessão como cancelada: quem solicitou (obrigatório nesse caso). */
+    cancelRequester?: 'patient' | 'professional' | 'clinic';
+    cancelRequestedAt?: string;
     professionalPaymentStatus?: 'payable' | 'non_payable';
     professionalPaymentOverride?: {
         excluded: boolean;

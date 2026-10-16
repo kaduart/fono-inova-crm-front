@@ -1,3 +1,4 @@
+import AppointmentCancellationModal from './AppointmentCancellationModal';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
@@ -19,6 +20,7 @@ import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
 import API from '../../services/api';
 import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
+import type { CancelExtras } from './CancelRequesterPicker';
 import {
     CalendarMode,
     CalendarPermissions,
@@ -26,6 +28,7 @@ import {
     getDefaultPermissions,
     getDefaultFeatureFlags,
 } from '../../types/calendarCapabilities';
+const CancellationsReport = React.lazy(() => import('../admin/CancellationsReport'));
 
 interface EnhancedCalendarProps {
     appointments: IAppointment[];
@@ -33,7 +36,7 @@ interface EnhancedCalendarProps {
     patients: IPatient[];
     onDateClick: (arg: DateClickArg) => void;
     onNewAppointment: (data: ScheduleAppointment) => Promise<void>;
-    onCancelAppointment: (id: string, reason: string, paymentState?: { paymentMethod?: string; billingType?: string; sessionValue?: number }) => Promise<void>;
+    onCancelAppointment: (id: string, reason: string, paymentState?: CancelExtras) => Promise<void>;
     onCompleteAppointment: (id: string, data?: {
         addToBalance?: boolean; balanceAmount?: number; balanceDescription?: string;
         billingType?: string; paymentMethod?: string; paymentAmount?: number; sessionValue?: number;
@@ -80,7 +83,7 @@ const CardActionButton: React.FC<{
         <button
             type="button"
             onClick={(e) => { e.stopPropagation(); if (!disabled) onClick(); }}
-            disabled={disabled}
+            disabled={disabled} data-primary={tone === 'success' ? 'true' : undefined}
             title={title}
             // Vidro translúcido sobre a cor do card — ação secundária discreta, sem bloco branco chamativo
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/40 bg-white/20 px-2 py-1.5 text-xs font-semibold backdrop-blur-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${disabled ? 'cursor-not-allowed opacity-45 text-gray-700' : toneClass}`}
@@ -91,8 +94,8 @@ const CardActionButton: React.FC<{
 };
 
 /**
- * Ações do card: Mudar data · Cancelar · Confirmar. Cancelar/Confirmar abrem o modal de detalhes
- * já na aba correspondente (a lógica de cancelar/finalizar continua toda no modal — nada duplicado).
+ * Ações do card: Mudar data · Cancelar · Confirmar. Cancelar abre sua janela única;
+ * finalizar abre o modal de atendimento. Nunca abrem os dois juntos.
  * Cancelado: só "Reativar e remarcar". Concluído: os 3 botões desabilitados. Faltou: sem ações.
  * Componente de módulo (ícones só são lidos em render — evita o TDZ entre chunks documentado abaixo).
  */
@@ -374,6 +377,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [mode, setMode] = useState<'create' | 'edit'>('create');
     const [isAppointmentDetailModalOpen, setIsAppointmentDetailModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
+    const [cancellationTarget, setCancellationTarget] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
 
     // 🆕 Convênios para resolução de nomes no calendário
@@ -399,7 +403,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // ✅ CORREÇÃO: Apenas estado essencial, SEM loading automático
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
-    const [calendarView, setCalendarView] = useState<'agenda' | 'carteira' | 'semanal'>('agenda');
+    const [calendarView, setCalendarView] = useState<'agenda' | 'carteira' | 'semanal' | 'cancelamentos'>('agenda');
 
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
@@ -483,6 +487,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             setOpenSchedule(false);
             setIsAppointmentDetailModalOpen(false);
             setSelectedEvent(null);
+            setCancellationTarget(null);
         }
     }, [closeModalSignal]);
 
@@ -653,7 +658,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             sessionValue: data.sessionValue || data.paymentAmount || extendedProps.sessionValue || extendedProps.paymentAmount || 0,
             depositAmount: data.depositAmount ?? extendedProps.depositAmount ?? 0,
             remainingAmount: data.remainingAmount ?? extendedProps.remainingAmount ?? null,
-            paymentMethod: data.paymentMethod || extendedProps.paymentMethod || 'dinheiro',
+            paymentMethod: data.paymentMethod || extendedProps.paymentMethod || '',
+            paymentOrigin: data.paymentOrigin || extendedProps.paymentOrigin || '',
             specialty: data.specialty || data.sessionType || extendedProps.specialty || extendedProps.sessionType || '',
             __isPreAgendamento: data.__isPreAgendamento || extendedProps.__isPreAgendamento || false,
             package: data.package || extendedProps.package || null,
@@ -661,6 +667,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         };
 
         console.log('📤 [Calendar] selectedEventData:', selectedEventData);
+        setCancellationTarget(null);
+        setDetailInitialTab('details');
         setSelectedEvent(selectedEventData);
         setIsAppointmentDetailModalOpen(true);
     };
@@ -714,7 +722,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             sessionValue: appt.sessionValue || appt.paymentAmount || 0,
             depositAmount: appt.depositAmount ?? 0,
             remainingAmount: appt.remainingAmount ?? null,
-            paymentMethod: appt.paymentMethod || 'dinheiro',
+            paymentMethod: appt.paymentMethod || '',
+            paymentOrigin: appt.paymentOrigin || '',
             specialty: appt.specialty || appt.sessionType || '',
             __isPreAgendamento: (appt as any).__isPreAgendamento || false,
             package: appt.package || null,
@@ -722,8 +731,18 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             backgroundColor: '',
             borderColor: ''
         };
-        setSelectedEvent(selectedEventData);
-        setIsAppointmentDetailModalOpen(true);
+        if (tab === 'cancel') {
+            setIsAppointmentDetailModalOpen(false);
+            setSelectedEvent(null);
+            setDayModalOpen(false);
+            setActivePopup(null);
+            setHoveredDay(null);
+            setCancellationTarget(selectedEventData);
+        } else {
+            setCancellationTarget(null);
+            setSelectedEvent(selectedEventData);
+            setIsAppointmentDetailModalOpen(true);
+        }
     }, []);
 
     // 🚀 AÇÕES RÁPIDAS NO CARD DO CALENDÁRIO
@@ -772,7 +791,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         });
     }, []);
 
-    // Cancelar / Confirmar do card: abre o modal de detalhes já na aba correspondente
+    // Cancelar abre a janela única; finalizar abre o modal de atendimento.
     const openDetailTabById = useCallback((appointmentId: string, tab: 'confirm' | 'cancel') => {
         const appt = appointments.find((a: any) => (a._id || a.id) === appointmentId);
         if (appt) openAppointmentDetail(appt, tab);
@@ -1032,7 +1051,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         onConfirm?: (id: string) => void;
         onComplete?: (id: string) => void;
         onReschedule?: (id: string) => void;
-        /** Abre o modal de detalhes na aba "Cancelar" / "Finalizar atendimento" (Confirmar). */
+        /** Cancelar abre a janela única; Finalizar abre o atendimento. */
         onCancelCard?: (id: string) => void;
         onFinalizeCard?: (id: string) => void;
     }) => {
@@ -1179,7 +1198,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // já calculados acima; só muda a apresentação.
         if (isPremium) {
             const isDimmed = ['canceled', 'absent'].includes(operationalStatus);
-            const isDone = operationalStatus === 'completed';
+            
             // Concluído: véu branco sobre a cor do tipo de atendimento → card "apagado",
             // contrastando com o Agendado que mantém a cor cheia e o botão "Realizar".
             // Fundo = TIPO de atendimento (particular, convênio, pacote, liminar) em tom pastel, com texto escuro legível.
@@ -1208,105 +1227,60 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             const liminarPct = isLiminar && !hasPackage && liminarTotalCredit > 0
                 ? Math.min(100, Math.round((liminarUsedCredit / liminarTotalCredit) * 100))
                 : null;
-            // Barra de progresso com o "x/y" escrito dentro dela (cabe numa linha só, legível de longe)
             const renderBar = (pct: number, label: string, title: string) => (
-                <div className="relative mt-1 h-5 w-full rounded-full bg-white overflow-hidden ring-1 ring-black/5" title={title}>
-                    <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: typeMeta.chip, opacity: 0.5 }} />
-                    <div className="absolute inset-0 flex items-center justify-center text-[11px] font-extrabold tabular-nums text-gray-900 whitespace-nowrap" style={{ textShadow: '0 0 3px #fff, 0 0 3px #fff' }}>
-                        {label}
+                <div className="mt-3" title={title}>
+                    <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-slate-800">
+                        <span>{title}</span><strong className="tabular-nums text-sm">{label}</strong>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white/60" role="progressbar" aria-label={title} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: typeMeta.chip }} />
                     </div>
                 </div>
             );
-            const guideNumberFull = appointment.insuranceGuideNumber ? String(appointment.insuranceGuideNumber) : '';
-            const guideNumberShort = guideNumberFull.length > 4 ? `…${guideNumberFull.slice(-4)}` : guideNumberFull;
-            const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+            const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const financialLabel = isConvenio ? 'A faturar pelo convênio'
+                : isLiminar && !hasPackage ? 'Vinculado ao contrato'
+                : financialStatus === 'package_paid' ? 'Pago no pacote'
+                : basePaymentBadge.label;
             return (
-                <Paper
-                    elevation={isDone ? 0 : 2}
-                    onClick={onClick}
-                    className={`w-full rounded-2xl transition-all duration-200 hover:shadow-lg cursor-pointer p-3.5 ${isPackageSessionPending ? 'animate-pulse' : ''}`}
-                    style={{
-                        background: isDone
-                            ? `linear-gradient(rgba(255,255,255,0.45), rgba(255,255,255,0.45)), ${typeMeta.bg}`
-                            : typeMeta.bg,
-                        borderLeft: `8px solid ${operationalConfig.color}`,
-                        opacity: isDimmed ? 0.65 : 1,
-                        boxShadow: isPackageSessionPending ? '0 0 15px rgba(249, 115, 22, 0.6)' : undefined,
-                    }}
-                >
-                    <div className="flex items-start gap-3">
-                        {/* Horário: o que a recepção procura primeiro */}
-                        <div className="shrink-0 w-[84px] text-center rounded-xl bg-white/90 px-1 py-2 shadow-sm">
-                            <div className="text-lg font-extrabold leading-none tabular-nums text-gray-900">
-                                {fmtTime(timeText || appointment.time || '')}
-                            </div>
-                            <div className="mt-1.5 text-[9px] font-bold uppercase tracking-normal whitespace-nowrap leading-none" style={{ color: typeMeta.chip }}>
-                                {typeMeta.label}
-                            </div>
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                                <p className={`text-base font-bold text-gray-900 leading-snug truncate ${isDimmed ? 'line-through' : ''}`}>{patientName}</p>
-                                <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold shadow-sm ring-2 ring-white/80 whitespace-nowrap ${operationalBadge.bg} ${operationalBadge.text}`}>
-                                    <OperationalIcon className="w-3 h-3" />
-                                    {operationalBadge.label}
-                                </span>
-                            </div>
-                            <p className="text-xs text-gray-700 mt-0.5 truncate">
-                                <span className="font-semibold">{doctorName}</span>{specialtyLabel ? ` · ${specialtyLabel}` : ''}
-                            </p>
-
-                            {hasPackage && (
-                                <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5">
-                                    <div className="text-xs text-gray-800 font-medium">{isLiminar ? '⚖️' : '📦'} Progresso</div>
-                                    {packagePct !== null
-                                        ? renderBar(packagePct, `${sessionsDone ?? 0}/${totalSessions} sessões`, 'Sessões realizadas / total do pacote')
-                                        : totalSessions ? <div className="mt-0.5 text-xs font-bold tabular-nums text-gray-800">{totalSessions} sessões</div> : null}
-                                </div>
-                            )}
-                            {isConvenio && (
-                                <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5">
-                                    <div className="text-xs text-gray-800 truncate" title={guideNumberFull ? `Guia #${guideNumberFull}` : undefined}>🏥 {insuranceProviderName || 'Convênio'}{guideNumberShort ? ` · Guia ${guideNumberShort}` : ''}</div>
-                                    {guidePct !== null && renderBar(guidePct, `${guideUsed}/${guideTotal} sessões`, 'Sessões usadas / autorizadas pela guia')}
-                                </div>
-                            )}
-                            {liminarPct !== null && (
-                                <div className="mt-2 rounded-lg bg-white/70 px-2 py-1.5">
-                                    <div className="text-xs text-gray-800 truncate">⚖️ Contrato{liminarContract?.processNumber ? ` · Proc. ${liminarContract.processNumber}` : ''}</div>
-                                    {renderBar(liminarPct, `${fmtBRL(liminarUsedCredit)} / ${fmtBRL(liminarTotalCredit)}`, 'Crédito usado / total do contrato liminar')}
-                                </div>
-                            )}
-                            {!hasPackage && !isConvenio && reason && (
-                                <p className="text-xs text-gray-700 italic mt-2 truncate bg-white/60 rounded-lg px-2 py-1">📝 {reason}</p>
-                            )}
-
-                            <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-black/10">
-                                {serviceLabel !== typeMeta.label && (
-                                    <span className="text-2xs text-gray-700 font-semibold whitespace-nowrap">{serviceLabel}</span>
-                                )}
-                                <div className="flex items-center gap-1.5 ml-auto">
-                                    {patientHasDebt && (
-                                        <span className="text-3xs font-bold text-red-700 bg-white/80 px-1.5 py-0.5 rounded-full whitespace-nowrap" title={`Saldo devedor do paciente (não relacionado a esta sessão/pacote): R$ ${patientBalance.toFixed(2)}`}>
-                                            ⚠️ Débito R$ {patientBalance.toFixed(0)}
-                                        </span>
-                                    )}
-                                    <span className={`${paymentBadge.bg} ${paymentBadge.text} px-2 py-0.5 rounded-full text-2xs font-bold flex items-center gap-1 shadow-sm whitespace-nowrap`}>
-                                        <span>{paymentBadge.icon}</span><span>{paymentBadge.label}</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                <Paper elevation={0} onClick={onClick}
+                    className="agenda-list-card [&_button]:min-h-9 [&_button]:flex-none [&_button]:border-0 [&_button]:bg-transparent [&_button]:backdrop-blur-none [&_button]:text-xs [&_button[data-primary=true]]:ml-auto [&_button[data-primary=true]]:bg-emerald-800 [&_button[data-primary=true]]:text-white w-full cursor-pointer rounded-xl border border-black/10 p-4 text-slate-800 transition-colors"
+                    style={{ background: typeMeta.bg, opacity: isDimmed ? 0.7 : 1 }}>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <strong className="text-[23px] font-bold leading-none tabular-nums text-slate-900">{fmtTime(timeText || appointment.time || '')}</strong>
+                        <span className="text-xs font-semibold" style={{ color: typeMeta.chip }}>{typeMeta.label}</span>
+                        <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-black/10 bg-white/50 px-2 py-1 text-xs font-semibold text-slate-800">
+                            <OperationalIcon size={13} />{operationalConfig?.label || operationalBadge.label}
+                        </span>
                     </div>
-
-                    {/* "Realizar" rápido removido (2026-10-05): finalizar passa pelo modal de detalhes
-                        (aba Finalizar Atendimento), onde o pagamento é conferido — botão "Confirmar" abaixo. */}
-                    <CardActions
-                        status={operationalStatus}
-                        onReschedule={onReschedule ? () => onReschedule(apptId) : undefined}
-                        onCancel={onCancelCard ? () => onCancelCard(apptId) : undefined}
-                        onFinalize={onFinalizeCard ? () => onFinalizeCard(apptId) : undefined}
-                    />
+                    <p className={`mt-3 break-words text-base font-bold leading-snug text-slate-900 ${isDimmed ? 'line-through' : ''}`}>{patientName}</p>
+                    <div className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed">
+                        <User size={15} className="mt-0.5 shrink-0" />
+                        <div className="min-w-0 break-words">{doctorName}{specialtyLabel && <div className="text-xs">{specialtyLabel}</div>}</div>
+                    </div>
+                    <div className="mt-3 border-t border-black/10 pt-3">
+                        <div className="break-words text-xs leading-relaxed">{serviceLabel}{isConvenio && ` · ${insuranceProviderName || 'Convênio'}`}{isConvenio && appointment.insuranceGuideNumber && ` · Guia ${appointment.insuranceGuideNumber}`}{isLiminar && liminarProcessNumber && ` · Processo ${liminarProcessNumber}`}</div>
+                        {hasPackage && (packagePct !== null
+                            ? renderBar(packagePct, `${sessionsDone ?? 0} / ${totalSessions} sessões`, 'Sessões realizadas do pacote')
+                            : totalSessions ? <p className="mt-2 text-xs">Total do pacote: {totalSessions} sessões</p> : null)}
+                        {hasPackage && sessionsRemaining !== null && <p className="mt-1 text-xs">{sessionsRemaining} sessões restantes</p>}
+                        {guidePct !== null && renderBar(guidePct, `${guideUsed} / ${guideTotal} sessões`, 'Sessões utilizadas da guia')}
+                        {liminarPct !== null && <p className="mt-3 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
+                        {!hasPackage && !isConvenio && reason && <p className="mt-2 break-words text-xs leading-relaxed">{reason}</p>}
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs leading-relaxed">
+                            <div><span className="block">{isLiminar && liminarCreditBalance !== null ? 'Crédito disponível' : isConvenio ? 'Valor tabela' : hasPackage ? 'Valor da sessão' : 'Valor do atendimento'}</span>
+                                <strong className="mt-1 block text-[15px] tabular-nums text-slate-900">{fmtBRL(isLiminar && liminarCreditBalance !== null ? Number(liminarCreditBalance) : isConvenio ? Number(appointment.insuranceValue || 0) : Number(effectiveSessionValue))}</strong>
+                            </div>
+                            <div><span className="block">Situação financeira</span><strong className="mt-1 block text-[13px]">{financialLabel}</strong></div>
+                        </div>
+                        {patientHasDebt && <p className="mt-3 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
+                    </div>
+                    <div className="mt-3 border-t border-black/10 pt-1">
+                        <CardActions status={operationalStatus}
+                            onReschedule={onReschedule ? () => onReschedule(apptId) : undefined}
+                            onCancel={onCancelCard ? () => onCancelCard(apptId) : undefined}
+                            onFinalize={onFinalizeCard ? () => onFinalizeCard(apptId) : undefined} />
+                    </div>
                 </Paper>
             );
         }
@@ -1930,7 +1904,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 }}
             />
         <Box sx={{ backgroundColor: 'grey.50', minHeight: '100vh' }}>
-            <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+            {calendarView !== 'cancelamentos' && <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
                         <Calendar size={22} className="text-emerald-600" />
@@ -1971,22 +1945,26 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </div>
             </div>
 
+            }
             {/* ── Toggle Agenda / Acompanhamento / Recorrência ── */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                 {(['agenda'] as const)
                     .concat(featureFlags.showCarteiraView ? ['carteira'] as const : [])
                     .concat(featureFlags.showRecorrenciaView ? ['semanal'] as const : [])
+                    .concat(['cancelamentos'] as const)
                     .map(tab => (
                         <button
                             key={tab}
+                            role="tab"
+                            aria-selected={calendarView === tab}
                             onClick={() => setCalendarView(tab)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
                                 calendarView === tab
-                                    ? 'bg-[#00C087] text-white shadow'
-                                    : 'bg-white text-gray-600 border border-gray-200 hover:border-[#00C087] hover:text-[#00C087]'
+                                    ? 'border-emerald-600 text-emerald-700'
+                                    : 'border-transparent text-gray-600 hover:text-gray-900'
                             }`}
                         >
-                            {tab === 'agenda' ? 'Agenda' : tab === 'carteira' ? 'Acompanhamento' : 'Recorrência'}
+                            {tab === 'agenda' ? 'Agenda' : tab === 'carteira' ? 'Acompanhamento' : tab === 'semanal' ? 'Recorrência' : 'Cancelamentos'}
                         </button>
                     ))}
             </Box>
@@ -1998,6 +1976,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         currentMonth={currentViewDate || new Date().toISOString().slice(0, 7)}
                     />
                 </Paper>
+            )}
+
+            {calendarView === 'cancelamentos' && (
+                <React.Suspense fallback={<div className="py-10 text-center text-sm text-gray-500">Carregando…</div>}>
+                    <CancellationsReport />
+                </React.Suspense>
             )}
 
             {featureFlags.showRecorrenciaView && calendarView === 'semanal' && (
@@ -2265,7 +2249,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 />
             </Paper>
 
-            {featureFlags.showLegendas && (
+            {featureFlags.showLegendas && calendarView === 'agenda' && (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>
                     <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
                         <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
@@ -2429,7 +2413,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 getHolidayName={getHolidayName}
             />
 
-            <AppointmentDetailModal
+            {cancellationTarget && <AppointmentCancellationModal
+                key={cancellationTarget.id} event={cancellationTarget}
+                onCancelAppointment={onCancelAppointment}
+                onClose={() => setCancellationTarget(null)} />}
+
+            {isAppointmentDetailModalOpen && !cancellationTarget && <AppointmentDetailModal
                 isOpen={isAppointmentDetailModalOpen}
                 onClose={() => setIsAppointmentDetailModalOpen(false)}
                 onCancelAppointment={onCancelAppointment}
@@ -2447,7 +2436,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 doctors={doctors}
                 patients={patients}
                 permissions={permissions}
-            />
+            />}
 
             {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
             {activePopup && createPortal(

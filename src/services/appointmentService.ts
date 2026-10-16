@@ -5,6 +5,7 @@ import {
     IPaginatedAppointmentResponse,
     TherapyType
 } from '../utils/types/types';
+import { toast } from 'react-toastify';
 import API from './api';
 import { extractErrorMessage } from '../utils/errorUtils';
 import { sanitizeAppointmentPayload } from '../dtos/appointment.dto';
@@ -143,6 +144,10 @@ export type RescheduleParams = {
 
 export type CancelParams = {
     reason: string;
+    /** Quem SOLICITOU o cancelamento — obrigatório em cancelamento manual (o backend rejeita sem). */
+    cancelRequester?: 'patient' | 'professional' | 'clinic';
+    /** ISO — quando o pedido realmente chegou (default: agora). */
+    cancelRequestedAt?: string;
     notifyPatient?: boolean;
     paymentMethod?: string;
     billingType?: string;

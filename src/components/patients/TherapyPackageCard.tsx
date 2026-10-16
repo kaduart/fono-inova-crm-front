@@ -1,3 +1,4 @@
+import CancelAppointmentDialog from '../calendar/CancelAppointmentDialog';
 import { Building2, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
@@ -8,6 +9,7 @@ import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { SessionListItem } from './SessionListItem';
 import { SessionModal } from './SessionModal';
+import { toRequestedAtISO, type CancelRequester } from '../calendar/CancelRequesterPicker';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
@@ -99,6 +101,12 @@ export default function TherapyPackageCard({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [isBatchCanceling, setIsBatchCanceling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  // Quem solicitou o cancelamento em lote — obrigatório, sem valor padrão
+  const [batchCancelRequester, setBatchCancelRequester] = useState<CancelRequester | null>(null);
+  const [batchCancelRequestedAt, setBatchCancelRequestedAt] = useState('');
+  const [batchCancelReason, setBatchCancelReason] = useState('');
+  const [batchNotifyPatient, setBatchNotifyPatient] = useState(true);
+  const [batchCancelError, setBatchCancelError] = useState('');
   const [sessionTab, setSessionTab] = useState<'active' | 'history'>('active');
   const [showSessionsCalendarModal, setShowSessionsCalendarModal] = useState(false);
   const [sessionsModalView, setSessionsModalView] = useState<'mes' | 'lista'>('mes');
@@ -358,11 +366,28 @@ export default function TherapyPackageCard({
 
   const handleBatchCancelSessions = async () => {
     if (selectedSessionIds.size === 0) return;
+    setBatchCancelReason('');
+    setBatchCancelRequester(null);
+    setBatchCancelRequestedAt('');
+    setBatchNotifyPatient(true);
+    setBatchCancelError('');
     setShowCancelModal(true);
   };
 
   const confirmBatchCancel = async () => {
-    setShowCancelModal(false);
+    if (isBatchCanceling) return;
+    if (!batchCancelReason.trim()) return;
+    if (!batchCancelRequester) {
+      toast.error('Informe quem solicitou o cancelamento.');
+      return;
+    }
+    const cancelInfo = {
+      reason: batchCancelReason.trim(),
+      notifyPatient: batchNotifyPatient,
+      cancelRequester: batchCancelRequester,
+      cancelRequestedAt: toRequestedAtISO(batchCancelRequestedAt),
+    };
+    setBatchCancelError('');
     setIsBatchCanceling(true);
 
     try {
@@ -376,13 +401,14 @@ export default function TherapyPackageCard({
         .filter((appointmentId: any): appointmentId is string => Boolean(appointmentId));
 
       if (appointmentIds.length === 0) {
+        setBatchCancelError('Nenhuma das sessões selecionadas possui agendamento vinculado.');
         toast.error('Nenhuma das sessões selecionadas possui agendamento vinculado.');
         return;
       }
 
       toast.info(`Cancelando ${appointmentIds.length} sessão(ões)...`);
 
-      const response = await packageService.bulkCancelSessions(pack.packageId || pack._id, appointmentIds, false);
+      const response = await packageService.bulkCancelSessions(pack.packageId || pack._id, appointmentIds, cancelInfo, false);
 
       if (response.canceledCount > 0) {
         toast.success(`${response.canceledCount} sessão(ões) cancelada(s)!`);
@@ -396,8 +422,14 @@ export default function TherapyPackageCard({
         );
       }
 
-      // Limpa seleção
-      setSelectedSessionIds(new Set());
+      if (response.failedIds.length > 0) {
+        const failed = new Set(response.failedIds.map((entry: any) => entry.appointmentId));
+        setSelectedSessionIds(new Set(selectedSessions.filter((session: any) => failed.has(session.appointmentId)).map((session: any) => session._id)));
+        setBatchCancelError(response.failedIds.length + ' sessão(ões) não foram canceladas. A seleção agora contém apenas as pendentes.');
+      } else {
+        setShowCancelModal(false);
+        setSelectedSessionIds(new Set());
+      }
 
       // 🔥 ATUALIZAÇÃO OTIMISTA: Atualiza local sem reload pesado
       if (onRefresh) {
@@ -406,6 +438,7 @@ export default function TherapyPackageCard({
         window.location.reload(); // Fallback
       }
     } catch (err: any) {
+      setBatchCancelError('Não foi possível cancelar as sessões. Seus dados foram mantidos; tente novamente.');
       // Trata erro de concorrência (409)
       if (err.response?.status === 409) {
         toast.warning('Cancelamento já em andamento. Aguarde...');
@@ -1289,55 +1322,16 @@ export default function TherapyPackageCard({
       )}
 
       {/* 🔥 NOVO: Modal de confirmação de cancelamento em lote */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-red-100 rounded-full">
-                <Trash2 className="w-6 h-6 text-red-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">Cancelar Sessões</h3>
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              Tem certeza que deseja cancelar <span className="font-bold text-red-600">{selectedSessionIds.size}</span> sessão(ões) agendada(s)?
-            </p>
-            
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
-              <p className="text-sm text-amber-800">
-                ⚠️ Esta ação não pode ser desfeita.
-              </p>
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-              >
-                Voltar
-              </button>
-              <button
-                onClick={confirmBatchCancel}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-medium hover:from-red-700 hover:to-red-800 transition-all shadow-lg"
-              >
-                Cancelar {selectedSessionIds.size}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🔥 NOVO: Loading centralizado para cancelamento em lote */}
-      {isBatchCanceling && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-            <p className="text-lg font-semibold text-gray-900">Cancelando sessões...</p>
-            <p className="text-sm text-gray-500">Aguarde enquanto processamos</p>
-          </div>
-        </div>
-      )}
-
+      {showCancelModal && <CancelAppointmentDialog
+        title="Cancelar sessões selecionadas"
+        summary={<p className="text-sm text-gray-700"><strong>{selectedSessionIds.size} sessão(ões)</strong> selecionada(s). O cancelamento respeita esta seleção.</p>}
+        cancelRequester={batchCancelRequester} setCancelRequester={setBatchCancelRequester}
+        cancelRequestedAt={batchCancelRequestedAt} setCancelRequestedAt={setBatchCancelRequestedAt}
+        cancelReason={batchCancelReason} setCancelReason={setBatchCancelReason}
+        notifyPatient={batchNotifyPatient} setNotifyPatient={setBatchNotifyPatient}
+        isCancelling={isBatchCanceling} cancelError={batchCancelError} onConfirm={confirmBatchCancel}
+        onClose={() => setShowCancelModal(false)}
+      />}
 
       {showBalanceModal && (
         <PatientBalanceModal

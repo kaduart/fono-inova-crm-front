@@ -50,6 +50,7 @@ export interface AppointmentDTO {
     insurancePlan?: string | null;
     authorizationCode?: string;
     isPackageSession?: boolean;
+    paymentOrigin?: string;
     package?: {
         _id?: string;
         sessionsRemaining?: number;
@@ -176,6 +177,7 @@ export function mapAppointmentResponseDTO(raw: any): AppointmentDTO {
         paymentStatus: extractPaymentStatus(raw),
         billingType: raw.billingType || undefined,
         paymentMethod: raw.paymentMethod || undefined,
+        paymentOrigin: raw.paymentOrigin || undefined,
         insuranceProvider: raw.insuranceProvider || undefined,
         insuranceValue: typeof raw.insuranceValue === 'number' ? raw.insuranceValue : undefined,
         insuranceGuide: raw.insuranceGuide || null,
