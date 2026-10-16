@@ -105,6 +105,13 @@ type FormState = typeof initialFormState;
 type FormErrors = Partial<Record<keyof FormState | "payments" | "slots" | "selectedGuide" | "dailySessionTimes", string>>;
 
 export default function TherapyPackageFormModal({ initialData, patient, doctors, onClose, onSubmit }: Props) {
+    const [activeStep, setActiveStep] = useState<number>(0);
+    const stepContentRef = useRef<HTMLDivElement>(null);
+    const goToStep = (step: number) => {
+        setActiveStep(step);
+        stepContentRef.current?.scrollTo({ top: 0 });
+    };
+
     const isEditing = !!initialData;
     const [errors, setErrors] = useState<FormErrors>({});
     const [formData, setFormData] = useState(initialFormState);
@@ -1091,7 +1098,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="therapy-package-modal-title"
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-all duration-300 flex flex-col"
+                className={`bg-white rounded-2xl shadow-2xl w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-[max-width] duration-200 motion-reduce:transition-none flex flex-col`}
             >
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-4 py-3.5 sm:px-5 sm:py-4 text-white relative flex-shrink-0">
@@ -1103,11 +1110,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     </button>
 
                     <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="p-2 sm:p-3 bg-white bg-opacity-20 rounded-xl flex-shrink-0">
+                        <div className="p-2 bg-white bg-opacity-20 rounded-xl flex-shrink-0">
                             {initialData ? <Save className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
                         </div>
-                        <div className="min-w-0">
-                            <h2 id="therapy-package-modal-title" className="text-lg sm:text-xl font-bold truncate">
+                        <div className="min-w-0 text-left">
+                            <h2 id="therapy-package-modal-title" className="text-lg sm:text-xl font-bold text-left">
                                 {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
                             </h2>
                             <p className="text-emerald-100 mt-0.5 text-sm truncate">
@@ -1117,10 +1124,301 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                     </div>
                 </div>
 
-                <div className="p-3 sm:p-5 flex-1 overflow-y-auto overscroll-contain min-h-0 text-sm [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:text-sm [&_select]:text-sm">
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
+                    <nav aria-label="Etapas do pacote" className="relative mx-auto max-w-2xl py-1">
+                        <div aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-5 h-1 rounded-full bg-slate-200">
+                            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${activeStep / 3 * 100}%` }} />
+                        </div>
+                        <ol className="relative grid grid-cols-4">
+                            {['Profissional', 'Pacote', 'Agenda', 'Financeiro'].map((label, index) => (
+                                <li key={label} className="flex justify-center">
+                                    <button type="button" disabled={isLoading}
+                                        aria-current={activeStep === index ? 'step' : undefined}
+                                        onClick={() => goToStep(index)}
+                                        className="flex flex-col items-center gap-2 rounded-lg px-1 text-center text-xs sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 disabled:opacity-50">
+                                        <span className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold ${activeStep > index ? 'border-emerald-600 bg-emerald-600 text-white' : activeStep === index ? 'border-emerald-600 bg-white text-emerald-700' : 'border-slate-200 bg-white text-slate-500'}`}>
+                                            {activeStep > index ? <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg> : activeStep === index ? <span className="h-3 w-3 rounded-full bg-emerald-600" aria-hidden="true" /> : index + 1}
+                                        </span>
+                                        <span className={activeStep === index ? 'font-semibold text-emerald-900' : 'text-slate-600'}>{label}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ol>
+                    </nav>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-relaxed text-slate-600" aria-live="polite">
+                        <span className="font-medium text-slate-800">{patient.fullName}</span>
+                        <span>{totalSessions} sessões</span>
+                        <span>Total: {Number(totalValuePackage || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                </div>
+
+                <div ref={stepContentRef} className="p-3 sm:p-4 shrink overflow-y-auto overscroll-contain min-h-0 text-left text-sm [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:text-sm [&_select]:text-sm">
+                    <div className="grid grid-cols-1 gap-4">
                         {/* Coluna 1 - Configuração do Pacote */}
-                        <div className="lg:col-span-3 space-y-4">
+                        <section style={{ display: activeStep === 0 ? undefined : 'none' }} aria-label="Profissional" className="mx-auto w-full max-w-2xl space-y-4 text-left [&_.form-label]:text-left [&_label]:text-left [&_h3]:justify-start [&_p]:text-left">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+
+                                <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                    <User className="w-5 h-5 text-blue-600" />
+                                    Profissional e Sessão
+                                </h3>
+                                {isEditing && (
+                                    <p className="mb-3 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600">
+                                        Estes campos não são editáveis aqui. Trocar o profissional exige atualizar também
+                                        agendamentos, sessões e pagamentos — use <strong>“Trocar terapeuta das sessões futuras”</strong>
+                                        em Detalhes do pacote. Trocar a especialidade exige transferência de sessões.
+                                    </p>
+                                )}
+                                <div className="space-y-4">
+                                    {/* Primeira linha - Profissional */}
+                                    <div>
+                                        <label className="form-label">
+                                            Profissional *
+                                        </label>
+                                        <Select
+                                            name="doctorId"
+                                            value={formData.doctorId}
+                                            onChange={handleChange}
+                                            disabled={isEditing}
+                                            className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
+                                        >
+                                            <option value="">Escolha um profissional</option>
+                                            {doctors.map((doc) => (
+                                                <option key={doc._id} value={doc._id}>
+                                                    {doc.fullName}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                        {(doctorSpecialtyMismatchMessage || errors.doctorId) && (
+                                            <p className="mt-1 text-xs font-medium text-amber-700">
+                                                ⚠️ {doctorSpecialtyMismatchMessage || errors.doctorId}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Segunda linha - 2 colunas */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="form-label">
+                                                Tipo de Sessão *
+                                            </label>
+                                            <Select
+                                                name="sessionType"
+                                                value={formData.sessionType}
+                                                onChange={handleChange}
+                                                disabled={isEditing}
+                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
+                                            >
+                                                <option value="">Escolha um tipo de terapia</option>
+                                                {THERAPY_TYPES.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">
+                                                Tipo de Pagamento *
+                                            </label>
+                                            <Select
+                                                name="paymentType"
+                                                value={formData.paymentType}
+                                                onChange={handleChange}
+                                                disabled={isEditing}
+                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
+                                            >
+                                                {PAYMENT_TYPES.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        
+
+
+                        </section>
+                        <section style={{ display: activeStep === 1 ? undefined : 'none' }} aria-label="Pacote" className="mx-auto w-full max-w-2xl space-y-4 text-left [&_.form-label]:text-left [&_label]:text-left [&_h3]:justify-start [&_p]:text-left">
+                            {/* Configuração do Pacote */}
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <Calculator className="w-5 h-5 text-emerald-600" />
+                                    Configuração do Pacote
+                                </h3>
+
+                                {isEditing ? (
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="form-label">Número de Sessões</label>
+                                                <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
+                                                    {formData.totalSessions}
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Quantidade contratada: fato histórico da venda. Para redirecionar sessões
+                                                    não realizadas, use a transferência de sessões.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="form-label">Frequência</label>
+                                                <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
+                                                    {frequencyInterval === 'biweekly' ? 'Quinzenal (a cada 15 dias)' : 'Semanal'}
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-1">Definida na criação do pacote, não editável.</p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">Observação</label>
+                                            <textarea
+                                                name="notes"
+                                                rows={3}
+                                                maxLength={500}
+                                                value={formData.notes}
+                                                onChange={handleChange}
+                                                placeholder="Anotação livre da equipe sobre este pacote"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                            />
+                                            <p className="text-xs text-emerald-700 mt-1">
+                                                Único campo editável por aqui ({formData.notes?.length || 0}/500).
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="form-label">
+                                                    Modo de Cálculo
+                                                </label>
+                                                <Select
+                                                    value={calculationMode}
+                                                    onChange={(e) => setCalculationMode(e.target.value)}
+                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                >
+                                                    <option value="sessions">Por número de sessões</option>
+                                                    <option value="duration">Por duração (meses/semanas)</option>
+                                                </Select>
+                                            </div>
+
+                                            <div>
+                                                <label className="form-label">
+                                                    Frequência
+                                                </label>
+                                                <Select
+                                                    value={frequencyInterval}
+                                                    onChange={(e) => setFrequencyInterval(e.target.value as 'weekly' | 'biweekly')}
+                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                >
+                                                    <option value="weekly">Semanal</option>
+                                                    <option value="biweekly">Quinzenal (a cada 15 dias)</option>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        {calculationMode === 'sessions' ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="form-label">
+                                                        Número de Sessões *
+                                                    </label>
+                                                    <input
+                                                        name="totalSessions"
+                                                        min="1"
+                                                        max="100"
+                                                        value={formData.totalSessions}
+                                                        onChange={handleChange}
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                    />
+                                                    {errors.totalSessions && (
+                                                        <span className="text-red-500 text-sm">{errors.totalSessions}</span>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="form-label">
+                                                        Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
+                                                    </label>
+                                                    <Select
+                                                        name="sessionsPerWeek"
+                                                        value={formData.sessionsPerWeek}
+                                                        onChange={handleChange}
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    >
+                                                        <option value="">Selecione a frequência</option>
+                                                        {FREQUENCY_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
+                                                            </option>
+                                                        ))}
+                                                    </Select>
+                                                    {errors.sessionsPerWeek && (
+                                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                                    )}
+                                                    <p className="text-xs text-emerald-600 mt-2 font-medium">
+                                                        Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="form-label">
+                                                        Duração do Pacote *
+                                                    </label>
+                                                    <Select
+                                                        name="durationMonths"
+                                                        value={formData.durationMonths}
+                                                        onChange={handleChange}
+                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                                    >
+                                                        <option value="">Escolha duração do pacote</option>
+                                                        {DURATION_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt} {opt > 1 ? 'meses' : 'mês'}
+                                                            </option>
+                                                        ))}
+                                            </Select>
+                                            {errors.durationMonths && (
+                                                <span className="text-red-500 text-sm">{errors.durationMonths}</span>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">
+                                                Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
+                                            </label>
+                                            <Select
+                                                name="sessionsPerWeek"
+                                                value={formData.sessionsPerWeek}
+                                                onChange={handleChange}
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                            >
+                                                <option value="">Escolha quantidade de vez na {occurrenceLabel}</option>
+                                                {FREQUENCY_OPTIONS.map(opt => (
+                                                    <option key={opt} value={opt}>
+                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                            {errors.sessionsPerWeek && (
+                                                <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+
+                        </section>
+                        <section style={{ display: activeStep === 2 ? undefined : 'none' }} aria-label="Agenda" className="mx-auto w-full max-w-2xl space-y-4 text-left [&_.form-label]:text-left [&_label]:text-left [&_h3]:justify-start [&_p]:text-left">
                             {/* 💰 Crédito de recebimento avulso — avisa a secretária antes de cobrar o pacote novo */}
                             {!isEditing && netAvailableCredit > 0 && (
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center gap-2">
@@ -1307,178 +1605,6 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     </div>
                                 )}
                             </div>}
-
-                            {/* Configuração do Pacote */}
-                            <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200">
-                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <Calculator className="w-5 h-5 text-emerald-600" />
-                                    Configuração do Pacote
-                                </h3>
-
-                                {isEditing ? (
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="form-label">Número de Sessões</label>
-                                                <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
-                                                    {formData.totalSessions}
-                                                </div>
-                                                <p className="text-xs text-gray-400 mt-1">
-                                                    Quantidade contratada: fato histórico da venda. Para redirecionar sessões
-                                                    não realizadas, use a transferência de sessões.
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <label className="form-label">Frequência</label>
-                                                <div className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-600">
-                                                    {frequencyInterval === 'biweekly' ? 'Quinzenal (a cada 15 dias)' : 'Semanal'}
-                                                </div>
-                                                <p className="text-xs text-gray-400 mt-1">Definida na criação do pacote, não editável.</p>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="form-label">Observação</label>
-                                            <textarea
-                                                name="notes"
-                                                rows={3}
-                                                maxLength={500}
-                                                value={formData.notes}
-                                                onChange={handleChange}
-                                                placeholder="Anotação livre da equipe sobre este pacote"
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                            />
-                                            <p className="text-xs text-emerald-700 mt-1">
-                                                Único campo editável por aqui ({formData.notes?.length || 0}/500).
-                                            </p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                            <div>
-                                                <label className="form-label">
-                                                    Modo de Cálculo
-                                                </label>
-                                                <Select
-                                                    value={calculationMode}
-                                                    onChange={(e) => setCalculationMode(e.target.value)}
-                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                >
-                                                    <option value="sessions">Por número de sessões</option>
-                                                    <option value="duration">Por duração (meses/semanas)</option>
-                                                </Select>
-                                            </div>
-
-                                            <div>
-                                                <label className="form-label">
-                                                    Frequência
-                                                </label>
-                                                <Select
-                                                    value={frequencyInterval}
-                                                    onChange={(e) => setFrequencyInterval(e.target.value as 'weekly' | 'biweekly')}
-                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                >
-                                                    <option value="weekly">Semanal</option>
-                                                    <option value="biweekly">Quinzenal (a cada 15 dias)</option>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        {calculationMode === 'sessions' ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="form-label">
-                                                        Número de Sessões *
-                                                    </label>
-                                                    <input
-                                                        name="totalSessions"
-                                                        min="1"
-                                                        max="100"
-                                                        value={formData.totalSessions}
-                                                        onChange={handleChange}
-                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                                    />
-                                                    {errors.totalSessions && (
-                                                        <span className="text-red-500 text-sm">{errors.totalSessions}</span>
-                                                    )}
-                                                </div>
-
-                                                <div>
-                                                    <label className="form-label">
-                                                        Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
-                                                    </label>
-                                                    <Select
-                                                        name="sessionsPerWeek"
-                                                        value={formData.sessionsPerWeek}
-                                                        onChange={handleChange}
-                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                    >
-                                                        <option value="">Selecione a frequência</option>
-                                                        {FREQUENCY_OPTIONS.map(opt => (
-                                                            <option key={opt} value={opt}>
-                                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
-                                                            </option>
-                                                        ))}
-                                                    </Select>
-                                                    {errors.sessionsPerWeek && (
-                                                        <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
-                                                    )}
-                                                    <p className="text-xs text-emerald-600 mt-2 font-medium">
-                                                        Duração estimada: {estimatedDuration} {estimatedDuration > 1 ? 'meses' : 'mês'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="form-label">
-                                                        Duração do Pacote *
-                                                    </label>
-                                                    <Select
-                                                        name="durationMonths"
-                                                        value={formData.durationMonths}
-                                                        onChange={handleChange}
-                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                    >
-                                                        <option value="">Escolha duração do pacote</option>
-                                                        {DURATION_OPTIONS.map(opt => (
-                                                            <option key={opt} value={opt}>
-                                                                {opt} {opt > 1 ? 'meses' : 'mês'}
-                                                            </option>
-                                                        ))}
-                                            </Select>
-                                            {errors.durationMonths && (
-                                                <span className="text-red-500 text-sm">{errors.durationMonths}</span>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <label className="form-label">
-                                                Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
-                                            </label>
-                                            <Select
-                                                name="sessionsPerWeek"
-                                                value={formData.sessionsPerWeek}
-                                                onChange={handleChange}
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                            >
-                                                <option value="">Escolha quantidade de vez na {occurrenceLabel}</option>
-                                                {FREQUENCY_OPTIONS.map(opt => (
-                                                    <option key={opt} value={opt}>
-                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                            {errors.sessionsPerWeek && (
-                                                <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
 
                     {/* Data e Hora da Primeira Sessão — apenas na criação */}
                     {!isEditing && (
@@ -1730,96 +1856,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
                     )}
 
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
 
-                                <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                    <User className="w-5 h-5 text-blue-600" />
-                                    Profissional e Sessão
-                                </h3>
-                                {isEditing && (
-                                    <p className="mb-3 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600">
-                                        Estes campos não são editáveis aqui. Trocar o profissional exige atualizar também
-                                        agendamentos, sessões e pagamentos — use <strong>“Trocar terapeuta das sessões futuras”</strong>
-                                        em Detalhes do pacote. Trocar a especialidade exige transferência de sessões.
-                                    </p>
-                                )}
-                                <div className="space-y-4">
-                                    {/* Primeira linha - Profissional */}
-                                    <div>
-                                        <label className="form-label">
-                                            Profissional *
-                                        </label>
-                                        <Select
-                                            name="doctorId"
-                                            value={formData.doctorId}
-                                            onChange={handleChange}
-                                            disabled={isEditing}
-                                            className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
-                                        >
-                                            <option value="">Escolha um profissional</option>
-                                            {doctors.map((doc) => (
-                                                <option key={doc._id} value={doc._id}>
-                                                    {doc.fullName}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                        {(doctorSpecialtyMismatchMessage || errors.doctorId) && (
-                                            <p className="mt-1 text-xs font-medium text-amber-700">
-                                                ⚠️ {doctorSpecialtyMismatchMessage || errors.doctorId}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Segunda linha - 2 colunas */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="form-label">
-                                                Tipo de Sessão *
-                                            </label>
-                                            <Select
-                                                name="sessionType"
-                                                value={formData.sessionType}
-                                                onChange={handleChange}
-                                                disabled={isEditing}
-                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
-                                            >
-                                                <option value="">Escolha um tipo de terapia</option>
-                                                {THERAPY_TYPES.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        </div>
-
-                                        <div>
-                                            <label className="form-label">
-                                                Tipo de Pagamento *
-                                            </label>
-                                            <Select
-                                                name="paymentType"
-                                                value={formData.paymentType}
-                                                onChange={handleChange}
-                                                disabled={isEditing}
-                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
-                                            >
-                                                {PAYMENT_TYPES.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
+                        </section>
                         {/* Coluna 2 - Informações e Resumo */}
-                        <div className="lg:col-span-2 space-y-4">
+                        <div style={{ display: activeStep === 3 ? undefined : 'none' }} aria-label="Financeiro e resumo" className="grid grid-cols-1 md:grid-cols-5 items-start gap-4 text-left [&_.form-label]:text-left">
 
                             {/* Informações Financeiras */}
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                            <div className="md:col-span-3 bg-white p-4 rounded-xl border border-slate-200">
                                 <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-green-600" />
                                     Informações Financeiras
@@ -2001,8 +2044,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             </div>
 
+                            <div className="md:col-span-2 space-y-3">
                             {/* Resumo do Pacote */}
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+                            <div className="md:col-span-2 bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
                                 <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <Package className="w-5 h-5 text-blue-600" />
                                     Resumo do Pacote
@@ -2049,7 +2093,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
 
                             {/* Resumo de Pagamento */}
-                            <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
+                            <div className="md:col-span-2 bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
                                 <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <TrendingUp className="w-5 h-5 text-gray-600" />
                                     {formData.paymentType === 'per-session' ? 'Forma de Pagamento' : 'Resumo de Pagamento'}
@@ -2093,12 +2137,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     )}
                                 </div>
                             </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-4 sm:px-5 py-3 flex justify-between items-center border-t border-gray-200 flex-shrink-0">
+                <div className="bg-gray-50 px-4 sm:px-5 py-3 flex flex-wrap justify-between items-center gap-3 border-t border-gray-200 flex-shrink-0">
                     <div className="text-sm text-gray-500">
                         {isEditing
                             ? (notesChanged ? null : "Nenhuma alteração a salvar")
@@ -2111,7 +2156,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     : null}
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-2">
+                        {activeStep > 0 && <Button type="button" variant="outline" onClick={() => goToStep(activeStep - 1)} disabled={isLoading} className="rounded-xl px-4 py-2.5">Voltar</Button>}
                         <Button
                             onClick={onClose}
                             variant="outline"
@@ -2119,6 +2165,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         >
                             Cancelar
                         </Button>
+                        {activeStep < 3 ? (
+                            <Button type="button" onClick={() => goToStep(activeStep + 1)} disabled={isLoading}
+                                className="rounded-xl bg-emerald-700 px-5 py-2.5 font-medium text-white hover:bg-emerald-800">
+                                Continuar
+                            </Button>
+                        ) : (
+                            <>
+
                         <Button
                             onClick={handleSave}
                             disabled={!canSubmitForm || isLoading}
@@ -2139,6 +2193,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
                             )}
                         </Button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

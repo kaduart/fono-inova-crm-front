@@ -158,6 +158,24 @@ describe('CancellationsReport', () => {
         expect(await screen.findByText('Paciente Dois')).toBeInTheDocument();
     });
 
+    it('troca rápida de período: a resposta antiga que chega depois NÃO sobrescreve a nova', async () => {
+        let resolveOld: (v: any) => void = () => {};
+        const oldReq = new Promise((res) => { resolveOld = res; });
+        const newReport = { ...report, summary: { ...report.summary, totalCanceled: 63 }, coverage: { total: 63, identified: 63, percent: 100 } };
+        const oldReport = { ...report, summary: { ...report.summary, totalCanceled: 201 }, coverage: { total: 201, identified: 201, percent: 100 } };
+        getReport.mockReset();
+        getReport.mockImplementationOnce(() => oldReq);          // carga inicial (fica pendente)
+        getReport.mockResolvedValueOnce(newReport);              // período trocado (responde primeiro)
+        render(<CancellationsReport />);
+        fireEvent.click(screen.getByRole('button', { name: 'Últimos 3 meses' }));
+        const summaryText = () => document.body.textContent || '';
+        await waitFor(() => expect(summaryText()).toMatch(/63 cancelamentos no período/));
+        resolveOld(oldReport);                                   // a antiga chega atrasada
+        await new Promise((r) => setTimeout(r, 50));
+        expect(summaryText()).not.toMatch(/201 cancelamentos no período/);
+        expect(summaryText()).toMatch(/63 cancelamentos no período/);
+    });
+
     it('exibe erro do backend sem quebrar a tela', async () => {
         getReport.mockRejectedValueOnce({ response: { data: { message: 'falhou feio' } } });
         render(<CancellationsReport />);

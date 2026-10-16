@@ -522,7 +522,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
     const allPayments = useMemo(() => mapFinancialRecordListToPaymentDTO(allPaymentsRaw), [allPaymentsRaw]);
 
     // 🚀 NOVO: Usa AppointmentsContext como fonte única de dados
-    const { appointments, fetchAppointments, isLoading: appointmentsLoading } = useAppointmentsContext();
+    const { appointments, fetchAppointments, completeAppointment, isLoading: appointmentsLoading } = useAppointmentsContext();
 
     // 🆕 Analytics de novos pacientes / retornos 45+ dias (inclui pré-agendamentos)
     const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
@@ -1165,8 +1165,19 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                     }}
                     event={appointmentToEdit}
                     doctors={effectiveDoctors}
-                    onCancelAppointment={async (id, reason) => {
-                        console.log('Cancelar agendamento:', id, reason);
+                    onCancelAppointment={async (id, reason, extras) => {
+                        // Persiste de verdade (solicitante obrigatório vem do modal) e só mostra
+                        // sucesso DEPOIS da confirmação da API. Em erro, relança: o modal mantém
+                        // os campos preenchidos e exibe a mensagem.
+                        await appointmentService.cancel(id, {
+                            reason,
+                            cancelRequester: extras?.cancelRequester,
+                            cancelRequestedAt: extras?.cancelRequestedAt,
+                            notifyPatient: extras?.notifyPatient,
+                            paymentMethod: extras?.paymentMethod,
+                            billingType: extras?.billingType,
+                            sessionValue: extras?.sessionValue,
+                        });
                         toast.success('Agendamento cancelado');
                         setIsAppointmentModalOpen(false);
                         // 🔄 RECARREGA LISTA após cancelar
@@ -1177,9 +1188,25 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                         fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                     }}
                     onCompleteAppointment={async (id, data) => {
-                        console.log('Completar agendamento:', id, data);
-                        toast.success('Agendamento completado');
+                        // Mesmo fluxo do calendário: chama a API de conclusão (settlement) e só mostra
+                        // sucesso depois da confirmação. Em erro/processamento, relança: o modal fica
+                        // aberto com os campos preenchidos para tentar de novo.
+                        const result = await completeAppointment(id, data as any);
+                        if (result?._lockReleased === true) {
+                            toast.error('Falha no processamento. Tente novamente.');
+                            throw new Error('WORKER_FAILED');
+                        }
+                        const isAsync = result?._isAsyncProcessing === true;
+                        const completed = isAsync
+                            ? result?._completed === true
+                            : result?.processing?.status !== 'processing';
+                        if (!completed) {
+                            toast.error('Não foi possível confirmar a conclusão. Tente novamente.');
+                            throw new Error('PROCESSING_FAILED');
+                        }
+                        toast.success('Atendimento finalizado com sucesso');
                         setIsAppointmentModalOpen(false);
+                        window.dispatchEvent(new CustomEvent('cash:refresh', { detail: { appointmentId: id, timestamp: Date.now() } }));
                         // 🔄 RECARREGA LISTA após completar
                         const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
                         if (range) {

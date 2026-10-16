@@ -1647,9 +1647,14 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   // (onCancelAppointment/onEditAppointment reaproveitam os mesmos endpoints que
   // o dialog antigo já usava; onCompleteAppointment continua redirecionando pra
   // agenda, igual ao Liminar hoje — nenhum fluxo de conclusão novo foi criado).
-  const handleCancelFromModal = async (id, reason) => {
+  const handleCancelFromModal = async (id, reason, extras) => {
     try {
-      await appointmentService.cancel(id, { reason: reason || 'Cancelado manualmente' });
+      await appointmentService.cancel(id, {
+        reason: reason || 'Cancelado manualmente',
+        cancelRequester: extras?.cancelRequester,
+        cancelRequestedAt: extras?.cancelRequestedAt,
+        notifyPatient: extras?.notifyPatient,
+      });
       toast.success('Agendamento cancelado');
       setEditingAppointment(null);
       await loadAppointments(guide._id);

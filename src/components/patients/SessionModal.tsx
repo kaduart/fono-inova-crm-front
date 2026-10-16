@@ -10,6 +10,7 @@ import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
+import CancelRequesterPicker from '../calendar/CancelRequesterPicker';
 
 
 interface SessionModalProps {
@@ -88,6 +89,10 @@ export const SessionModal = ({
         }
         if (!sessionData.doctorId) {
             toast.error("Profissional é obrigatório!");
+            return false;
+        }
+        if (sessionData.status === 'canceled' && !sessionData.cancelRequester) {
+            toast.error("Informe quem solicitou o cancelamento!");
             return false;
         }
         if (sessionData.professionalPaymentStatus === 'non_payable' && !sessionData.professionalPaymentOverride?.reason?.trim()) {
@@ -358,6 +363,14 @@ export const SessionModal = ({
                                         )}
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Quem solicitou o cancelamento — obrigatório (relatório de compromisso) */}
+                            {sessionData.status === 'canceled' && (
+                                <CancelRequesterPicker
+                                    value={sessionData.cancelRequester ?? null}
+                                    onChange={(v) => onSessionDataChange({ ...sessionData, cancelRequester: v })}
+                                />
                             )}
 
                             {/* Falta Confirmada */}

@@ -961,8 +961,8 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
           onClose={() => { setEditingAppointment(null); onRefresh(); }}
           event={editingAppointment}
           doctors={[] as IDoctor[]}
-          onCancelAppointment={async (id, reason) => {
-            await appointmentService.cancel(id, { reason });
+          onCancelAppointment={async (id, reason, extras) => {
+            await appointmentService.cancel(id, { reason, cancelRequester: extras?.cancelRequester, cancelRequestedAt: extras?.cancelRequestedAt, notifyPatient: extras?.notifyPatient });
             toast.success('Agendamento cancelado');
             setEditingAppointment(null);
             onRefresh();

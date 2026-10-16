@@ -124,17 +124,23 @@ export default function CancellationsReport() {
         if (p !== 'custom') setRange(presetRange(p));
     };
 
+    // Só a ÚLTIMA requisição vale: trocar o período rápido não pode deixar a resposta antiga
+    // (outro período) sobrescrever a nova sob o título do período atual.
+    const loadSeq = useRef(0);
     const load = useCallback(async () => {
         if (invalidRange) return;
+        const seq = ++loadSeq.current;
         setLoading(true);
         setError('');
         try {
-            setReport(await cancellationReportService.getReport(range));
+            const data = await cancellationReportService.getReport(range);
+            if (seq === loadSeq.current) setReport(data);
         } catch (e) {
+            if (seq !== loadSeq.current) return;
             setError(extractErrorMessage(e, 'Erro ao carregar o relatório de cancelamentos'));
             setReport(null);
         } finally {
-            setLoading(false);
+            if (seq === loadSeq.current) setLoading(false);
         }
     }, [range, invalidRange]);
 
