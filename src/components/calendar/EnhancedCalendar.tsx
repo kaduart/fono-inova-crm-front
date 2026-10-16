@@ -1228,8 +1228,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 ? Math.min(100, Math.round((liminarUsedCredit / liminarTotalCredit) * 100))
                 : null;
             const renderBar = (pct: number, label: string, title: string) => (
-                <div className="mt-3" title={title}>
-                    <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-slate-800">
+                <div className="mt-2" title={title}>
+                    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-slate-800">
                         <span>{title}</span><strong className="tabular-nums text-sm">{label}</strong>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-white/60" role="progressbar" aria-label={title} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -1244,8 +1244,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 : basePaymentBadge.label;
             return (
                 <Paper elevation={0} onClick={onClick}
-                    className="agenda-list-card [&_button]:min-h-9 [&_button]:flex-none [&_button]:border-0 [&_button]:bg-transparent [&_button]:backdrop-blur-none [&_button]:text-xs [&_button[data-primary=true]]:ml-auto [&_button[data-primary=true]]:bg-emerald-800 [&_button[data-primary=true]]:text-white w-full cursor-pointer rounded-xl border border-black/10 p-4 text-slate-800 transition-colors"
-                    style={{ background: typeMeta.bg, opacity: isDimmed ? 0.7 : 1 }}>
+                    className="agenda-list-card [&_button]:min-h-9 [&_button]:flex-none [&_button]:border-0 [&_button]:bg-transparent [&_button]:backdrop-blur-none [&_button]:text-xs [&_button[data-primary=true]]:ml-auto [&_button[data-primary=true]]:bg-emerald-800 [&_button[data-primary=true]]:text-white w-full cursor-pointer rounded-xl border border-black/10 p-3 text-slate-800 transition-colors"
+                    style={{ background: CANCELED_LIKE_STATUSES.includes(operationalStatus) ? `linear-gradient(rgba(255,255,255,0.65), rgba(255,255,255,0.65)), ${typeMeta.bg}` : typeMeta.bg, opacity: isDimmed ? 0.7 : 1 }}>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                         <strong className="text-[23px] font-bold leading-none tabular-nums text-slate-900">{fmtTime(timeText || appointment.time || '')}</strong>
                         <span className="text-xs font-semibold" style={{ color: typeMeta.chip }}>{typeMeta.label}</span>
@@ -1253,33 +1253,35 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             <OperationalIcon size={13} />{operationalConfig?.label || operationalBadge.label}
                         </span>
                     </div>
-                    <p className={`mt-3 break-words text-base font-bold leading-snug text-slate-900 ${isDimmed ? 'line-through' : ''}`}>{patientName}</p>
-                    <div className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed">
+                    <p className="mt-2 break-words text-base font-bold leading-snug text-slate-900">{patientName}</p>
+                    <div className="mt-1 flex items-start gap-2 text-[13px] leading-relaxed">
                         <User size={15} className="mt-0.5 shrink-0" />
                         <div className="min-w-0 break-words">{doctorName}{specialtyLabel && <div className="text-xs">{specialtyLabel}</div>}</div>
                     </div>
-                    <div className="mt-3 border-t border-black/10 pt-3">
-                        <div className="break-words text-xs leading-relaxed">{serviceLabel}{isConvenio && ` · ${insuranceProviderName || 'Convênio'}`}{isConvenio && appointment.insuranceGuideNumber && ` · Guia ${appointment.insuranceGuideNumber}`}{isLiminar && liminarProcessNumber && ` · Processo ${liminarProcessNumber}`}</div>
+                    <div className="mt-2 border-t border-black/10 pt-2">
+                        {(serviceLabel !== typeMeta.label || isConvenio || (isLiminar && liminarProcessNumber)) && <div className="break-words text-xs leading-relaxed">{serviceLabel !== typeMeta.label && serviceLabel}{isConvenio && ` · ${insuranceProviderName || 'Convênio'}`}{isConvenio && appointment.insuranceGuideNumber && ` · Guia ${appointment.insuranceGuideNumber}`}{isLiminar && liminarProcessNumber && ` · Processo ${liminarProcessNumber}`}</div>}
                         {hasPackage && (packagePct !== null
                             ? renderBar(packagePct, `${sessionsDone ?? 0} / ${totalSessions} sessões`, 'Sessões realizadas do pacote')
                             : totalSessions ? <p className="mt-2 text-xs">Total do pacote: {totalSessions} sessões</p> : null)}
                         {hasPackage && sessionsRemaining !== null && <p className="mt-1 text-xs">{sessionsRemaining} sessões restantes</p>}
                         {guidePct !== null && renderBar(guidePct, `${guideUsed} / ${guideTotal} sessões`, 'Sessões utilizadas da guia')}
-                        {liminarPct !== null && <p className="mt-3 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
+                        {liminarPct !== null && <p className="mt-2 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
                         {!hasPackage && !isConvenio && reason && <p className="mt-2 break-words text-xs leading-relaxed">{reason}</p>}
-                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs leading-relaxed">
+                        <div className="mt-2 grid grid-cols-2 gap-3 text-xs leading-relaxed">
                             <div><span className="block">{isLiminar && liminarCreditBalance !== null ? 'Crédito disponível' : isConvenio ? 'Valor tabela' : hasPackage ? 'Valor da sessão' : 'Valor do atendimento'}</span>
                                 <strong className="mt-1 block text-[15px] tabular-nums text-slate-900">{fmtBRL(isLiminar && liminarCreditBalance !== null ? Number(liminarCreditBalance) : isConvenio ? Number(appointment.insuranceValue || 0) : Number(effectiveSessionValue))}</strong>
                             </div>
                             <div><span className="block">Situação financeira</span><strong className="mt-1 block text-[13px]">{financialLabel}</strong></div>
                         </div>
-                        {patientHasDebt && <p className="mt-3 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
+                        {patientHasDebt && <p className="mt-2 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
                     </div>
-                    <div className="mt-3 border-t border-black/10 pt-1">
-                        <CardActions status={operationalStatus}
+                    <div className="mt-2 border-t border-black/10 pt-1 [&>div]:mt-1 [&>div]:flex-wrap">
+                        {operationalStatus === 'completed'
+                            ? (onClick && <button type="button" className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 hover:bg-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-800" onClick={(e) => { e.stopPropagation(); onClick(); }}>Ver detalhes</button>)
+                            : <CardActions status={operationalStatus}
                             onReschedule={onReschedule ? () => onReschedule(apptId) : undefined}
                             onCancel={onCancelCard ? () => onCancelCard(apptId) : undefined}
-                            onFinalize={onFinalizeCard ? () => onFinalizeCard(apptId) : undefined} />
+                            onFinalize={onFinalizeCard ? () => onFinalizeCard(apptId) : undefined} />}
                     </div>
                 </Paper>
             );
