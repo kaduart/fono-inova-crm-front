@@ -1,3 +1,4 @@
+import CommercialQuickReplies from './CommercialQuickReplies';
 // src/components/mkt/leads/OperationalView.tsx
 import { Calendar, ChevronRight, MessageCircle, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
@@ -11,6 +12,7 @@ export interface NewFollowupPayload {
   nextActionAt: string;
   followupReason: string;
   nextActionNote: string;
+  responsibleName: string;
 }
 
 function NewFollowupModal({
@@ -29,6 +31,7 @@ function NewFollowupModal({
     nextActionAt: todayStr,
     followupReason: 'nenhuma',
     nextActionNote: '',
+    responsibleName: '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -141,6 +144,10 @@ function NewFollowupModal({
             </div>
           </div>
 
+          <label className="block text-sm text-slate-700">Responsável comercial
+            <input value={form.responsibleName} onChange={e => set('responsibleName', e.target.value)} maxLength={120}
+              className="w-full mt-1 p-2 border border-slate-300 rounded-lg" placeholder="Nome de quem acompanhará" />
+          </label>
           <div>
             <label className="text-xs font-medium text-slate-600">Observação</label>
             <input
@@ -175,7 +182,9 @@ function NewFollowupModal({
 
 const PIPELINE_LABELS: Record<string, string> = {
   novo_contato: 'Novo contato',
-  aguardando_resposta: 'Aguardando resposta',
+  em_atendimento: 'Em atendimento',
+  aguardando_clinica: 'Aguardando clínica',
+  aguardando_resposta: 'Aguardando família',
   interessado: 'Interessado',
   aguardando_decisao: 'Aguardando decisão',
   retornar_depois: 'Retornar depois',
@@ -186,6 +195,8 @@ const PIPELINE_LABELS: Record<string, string> = {
 
 const PIPELINE_COLORS: Record<string, string> = {
   novo_contato: 'bg-blue-100 text-blue-800',
+  em_atendimento: 'bg-emerald-100 text-emerald-800',
+  aguardando_clinica: 'bg-purple-100 text-purple-800',
   aguardando_resposta: 'bg-yellow-100 text-yellow-800',
   interessado: 'bg-emerald-100 text-emerald-800',
   aguardando_decisao: 'bg-orange-100 text-orange-800',
@@ -281,7 +292,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
   const [urgencyFilter, setUrgencyFilter] = useState<'all' | 'atrasado' | '7d' | 'hoje' | 'sem_acao'>('all');
   const [reasonFilter, setReasonFilter] = useState<string>('all');
 
-  const safeleads = leads || [];
+  const safeleads = (leads || []).filter(l => !['virou_paciente', 'nao_fechou', 'agendado'].includes(l.operational?.pipeline));
 
   const sorted = [...safeleads].sort((a, b) => {
     const sa = getSeverity(a);
@@ -350,6 +361,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
 
   return (
     <div className="space-y-5">
+      <CommercialQuickReplies />
       {/* HEADER COM BOTÃO */}
       <div className="flex items-center justify-between">
         <div /> {/* spacer */}
@@ -549,6 +561,10 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                           <div className="text-xs text-slate-400 mt-0.5">{phone}</div>
                         )}
                         <div className="mt-1.5">{urgencyBadge(lead)}</div>
+                        <input aria-label={`Responsável por ${lead.name || 'contato'}`} placeholder="Responsável comercial" defaultValue={lead.operational?.responsibleName || ''}
+                          key={`${lead._id}-${lead.operational?.responsibleName || ''}`} maxLength={120}
+                          onBlur={e => { const value = e.target.value.trim(); if (value !== (lead.operational?.responsibleName || '')) handleFieldUpdate(lead, 'responsibleName', value); }}
+                          className="mt-2 w-full border border-slate-300 rounded-lg p-2 text-sm" />
                       </td>
 
                       {/* PIPELINE */}
