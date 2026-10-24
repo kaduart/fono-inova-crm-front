@@ -69,10 +69,7 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
 }) => {
   const [activeSpecialty, setActiveSpecialty] = useState<string | 'todos'>('todos');
 
-  const totalPendingAll = useMemo(
-    () => payments.reduce((sum, p) => sum + p.amount, 0),
-    [payments]
-  );
+
 
   const groupedBySpecialty = useMemo(() => {
     const groups = new Map<string, PaymentItem[]>();
@@ -111,6 +108,9 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
+      {payments.some(p => p.requiresReview) && <div role="status" className="p-3 rounded-lg bg-amber-50 text-amber-900 text-sm">
+        Em conferência: {payments.filter(p => p.requiresReview).length} item(ns). Valores fora do total cobrável e sem baixa até resolver a divergência.
+      </div>}
       {/* Barra de ações */}
       <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
         <button
@@ -138,7 +138,7 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
           )}
           {onOpenReceive && (
             <button
-              onClick={() => onOpenReceive(selectedPayments.size > 0 ? selectedTotal : totalPendingAll)}
+              onClick={() => onOpenReceive(selectedPayments.size > 0 ? selectedTotal : selectablePending.reduce((sum, p) => sum + p.amount, 0))}
               className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors"
               title="Valor pago não bate exatamente com os itens selecionados? Registre na aba Receber — a baixa é feita automaticamente (FIFO)."
             >
@@ -212,7 +212,7 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
                   {formatSpecialtyLabel(specialtyKey)}
                 </h4>
                 <span className="text-xs font-semibold text-gray-500">
-                  {formatCurrency(items.reduce((sum, p) => sum + p.amount, 0))}
+                  {formatCurrency(items.filter(p => p.countInDebt !== false).reduce((sum, p) => sum + p.amount, 0))}
                 </span>
               </div>
             )}
@@ -220,6 +220,7 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
               const isSelected = selectedPayments.has(payment.id);
               const specialty = payment.specialty;
               const isPackageSession = !!payment.packageId;
+              const canSettle = payment.source === 'payment' && payment.canSettle !== false && !payment.requiresReview && payment.countInDebt !== false;
 
               return (
             <div
@@ -233,6 +234,8 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => onToggleSelection(payment.id)}
+                  disabled={!canSettle}
+                  aria-label={canSettle ? 'Selecionar pagamento' : 'Lançamento disponível apenas para consulta'}
                   className="flex-shrink-0"
                 >
                   {isSelected ? (
@@ -249,6 +252,9 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
                     <p className="font-semibold text-gray-900">
                       {payment.description || 'Sessão'}
                     </p>
+                    {payment.requiresReview && <span className="text-xs font-semibold text-amber-900">Em conferência</span>}
+                    <span className="text-xs text-gray-500">{({payment:'Pagamento',balance:'Conta corrente',session:'Sessão sem lançamento',package:'Pacote'})[payment.source]}</span>
+                    {!canSettle && <p className="text-xs text-amber-800">{payment.reviewReason || 'Débito sem lançamento de pagamento. Regularização necessária antes da baixa.'}</p>}
                     {specialty && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
                         {specialty}
@@ -279,13 +285,13 @@ export const PatientBalancePendingTab: React.FC<Props> = ({
                   <p className="font-bold text-lg text-red-600">
                     {formatCurrency(payment.amount)}
                   </p>
-                  <button
+                  {canSettle && <button
                     onClick={() => onOpenQuickPayment(payment.id)}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
                   >
                     <DollarSign className="w-3 h-3" />
                     Pagar
-                  </button>
+                  </button>}
                 </div>
               </div>
             </div>

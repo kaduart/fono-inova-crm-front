@@ -25,7 +25,11 @@ import { invalidateCache } from '../../utils/cacheManager';
 
 export interface PaymentItem {
   id: string;
-  source: 'payment' | 'package';
+  source: 'payment' | 'package' | 'balance' | 'session';
+  canSettle?: boolean;
+  countInDebt?: boolean;
+  requiresReview?: boolean;
+  reviewReason?: string | null;
   amount: number;
   status: string;
   createdAt: string;
@@ -53,6 +57,10 @@ export interface PaymentItem {
 const mapToPaymentItem = (p: any): PaymentItem => ({
   id: p.id,
   source: p.source || 'payment',
+  canSettle: p.canSettle,
+  countInDebt: p.countInDebt,
+  requiresReview: p.requiresReview,
+  reviewReason: p.reviewReason,
   amount: p.amount,
   status: p.status,
   createdAt: p.createdAt,
@@ -129,7 +137,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       ]);
       setSummary({ ...summaryRes,
         totalPending: pendingRes.meta.totalPending,
-        pendingCount: pendingRes.meta.count,
+        pendingCount: pendingRes.meta.collectibleCount ?? pendingRes.meta.count,
         totalPendingNet: pendingRes.meta.totalPendingNet ?? pendingRes.meta.totalPending,
         availableCredit: pendingRes.meta.availableCredit ?? 0,
         appliedCredit: pendingRes.meta.appliedCredit ?? 0,
@@ -181,7 +189,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
   }, [isOpen, fetchData]);
 
   const selectablePending = useMemo(
-    () => pendingPayments.filter((p) => p.source === 'payment'),
+    () => pendingPayments.filter((p) => p.source === 'payment' && p.canSettle !== false && !p.requiresReview && p.countInDebt !== false),
     [pendingPayments]
   );
 
@@ -212,6 +220,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
   );
 
   const toggleSelection = (id: string) => {
+    if (!selectablePending.some(p => p.id === id)) return;
     setSelectedPayments((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -230,10 +239,11 @@ export const PatientBalanceModal: React.FC<Props> = ({
 
   const handleQuickPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickPaymentId) return;
+    if (!quickPaymentId || !selectablePending.some(p => p.id === quickPaymentId)) return;
     setIsSubmitting(true);
     try {
-      await API.patch(`/v2/payments/${quickPaymentId}/mark-as-paid`, {
+      await API.patch(`/v2/payments/${quickPaymentId}`, {
+        status: 'paid',
         paymentMethod: confirmMethod,
       });
       setConfirmMode(null);

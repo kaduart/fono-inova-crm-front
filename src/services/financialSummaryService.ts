@@ -23,7 +23,11 @@ export interface FinancialSummary {
 
 export interface PendingPayment {
   id: string;
-  source?: 'payment' | 'package';
+  source?: 'payment' | 'package' | 'balance' | 'session';
+  canSettle?: boolean;
+  countInDebt?: boolean;
+  requiresReview?: boolean;
+  reviewReason?: string | null;
   amount: number;
   status: string;
   createdAt: string;
@@ -144,7 +148,7 @@ export async function getPatientPendingPayments(patientId: string): Promise<Pend
 
 export async function getPatientPendingSnapshot(patientId: string): Promise<{
   data: PendingPayment[];
-  meta: { totalPending: number; totalPendingNet?: number; availableCredit?: number; appliedCredit?: number; count: number };
+  meta: { totalPending: number; totalPendingNet?: number; availableCredit?: number; appliedCredit?: number; count: number; collectibleCount?: number; reviewCount?: number; reviewAmount?: number };
 }> {
   const res = await API.get(`/v2/financial/patient/${patientId}/pending-payments`);
   return res.data;
