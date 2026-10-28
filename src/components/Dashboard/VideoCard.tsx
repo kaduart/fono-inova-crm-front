@@ -69,7 +69,9 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
     setLocalStatus(video.status);
     
     // Conectar ao socket
-    const socket = io(window.location.origin);
+    const socket = io(window.location.origin, {
+      auth: { token: localStorage.getItem('token') || sessionStorage.getItem('token') },
+    });
     
     // Ouvir progresso do vídeo
     socket.on(`video-progress-${video.jobId}`, (data) => {
