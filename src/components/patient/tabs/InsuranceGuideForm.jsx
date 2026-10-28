@@ -5,6 +5,7 @@ import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
 
 import { SPECIALTY_OPTIONS } from '../../../constants/specialties';
 import { useConvenios } from '../../../hooks/useConvenios';
+import { guideExpiryDateString } from '../../../utils/dateUtils';
 
 const VALID_SPECIALTIES = SPECIALTY_OPTIONS;
 
@@ -108,7 +109,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
           evaluationTime:   !isRenewal ? guide.evaluationAppointment?.time || '' : '',
           doctorId:         guide.doctor?._id || guide.doctorId || '',
           issuedAt:         guide.issuedAt ? new Date(guide.issuedAt).toISOString().substring(0, 10) : '',
-          expiresAt:        guide.expiresAt ? new Date(guide.expiresAt).toISOString().substring(0, 10) : '',
+          expiresAt:        guideExpiryDateString(guide.expiresAt),
           notes:            guide.notes || '',
           isAba:            Boolean(guide.isAba)
         });
@@ -151,7 +152,9 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
         evaluationTime: hasEval && data.evaluationTime ? data.evaluationTime : undefined,
         doctorId:         data.doctorId || undefined,
         issuedAt:      data.issuedAt ? new Date(data.issuedAt).toISOString() : undefined,
-        expiresAt:     new Date(data.expiresAt).toISOString(),
+        // Só a data (YYYY-MM-DD): o backend converte para o fim do dia em Brasília.
+        // new Date('YYYY-MM-DD').toISOString() virava 00:00 UTC e a tela mostrava o dia anterior.
+        expiresAt:     data.expiresAt,
         notes:         data.notes?.trim() || undefined
       });
     } catch (error) {

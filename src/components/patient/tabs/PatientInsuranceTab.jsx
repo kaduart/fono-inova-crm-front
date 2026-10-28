@@ -56,6 +56,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '../../../utils/toast';
+import { formatGuideExpiryBR } from '../../../utils/dateUtils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInsuranceGuides } from '../../../hooks/useInsuranceGuides';
 import { useInsurancePlan, insurancePlanQueryKey } from '../../../hooks/useInsurancePlan';
@@ -558,6 +559,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
         onInactivate={handleInactivateFromCard}
+        onGuidesChanged={refetch}
       />
 
       <GuideSection
@@ -569,6 +571,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
         onInactivate={handleInactivateFromCard}
+        onGuidesChanged={refetch}
       />
 
       <GuideSection
@@ -580,6 +583,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
         onInactivate={handleInactivateFromCard}
+        onGuidesChanged={refetch}
       />
 
       <GuideSection
@@ -591,6 +595,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
         onInactivate={handleInactivateFromCard}
+        onGuidesChanged={refetch}
       />
 
       <GuideSection
@@ -602,6 +607,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
         onCreatePlan={handleOpenPlanForm}
         onOpenDetails={handleOpenDetailsCard}
         onInactivate={handleInactivateFromCard}
+        onGuidesChanged={refetch}
       />
 
       {/* Menu de ações */}
@@ -687,7 +693,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // ----------------------------------------------------------------------
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
-const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate }) => {
+const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
   if (count === 0) return null;
 
   return (
@@ -727,6 +733,7 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
               onCreatePlan={onCreatePlan}
               onOpenDetails={onOpenDetails}
               onInactivate={onInactivate}
+              onGuidesChanged={onGuidesChanged}
             />
           ))}
         </Box>
@@ -751,7 +758,7 @@ const STATUS_SEVERITY_STYLE = {
   neutral:  { bg: '#F1F5F9', color: '#4B5563', dot: '#9CA3AF' },
 };
 
-const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate }) => {
+const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
   const guide = presentation.rawGuide;
   const {
     remaining,
@@ -772,6 +779,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
   const [generating, setGenerating] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
+  const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates } | null
   const queryClient = useQueryClient();
 
   // 🆕 (2026-08-20) Confirmação em lote das retroativas — 1 clique deliberado,
@@ -789,6 +797,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         toast.success(`${confirmed} sessão(ões) retroativa(s) confirmada(s) como realizada(s)`, { duration: 5000 });
       }
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
+      // Contadores do card (concluídas/canceladas/agendadas) vêm da lista de guias, não do plano.
+      onGuidesChanged?.();
     } catch (err) {
       const serverMsg = err?.response?.data?.message;
       toast.error(serverMsg || 'Erro ao confirmar sessões retroativas em lote');
@@ -837,30 +847,27 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         const totalLabel = appointmentsGenerated > 0
           ? `${appointmentsGenerated} sessão(ões) gerada(s), sendo ${pastAppointmentsPending} retroativa(s) (datas já passadas).`
           : `${pastAppointmentsPending} sessão(ões) retroativa(s) (datas já passadas) criada(s) como pendente.`;
-        toast((t) => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320 }}>
-            <span style={{ fontSize: 13 }}>
-              {totalLabel} Confirme só se o atendimento realmente aconteceu.
-            </span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => { toast.dismiss(t.id); confirmPastSessions(planId); }}
-                style={{ padding: '6px 12px', background: '#059669', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}
-              >
-                Confirmar {pastAppointmentsPending} como realizada(s)
-              </button>
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                style={{ padding: '6px 12px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
-              >
-                Confirmar depois
-              </button>
-            </div>
-          </div>
-        ), { duration: 20000 });
+        // 🆕 (2026-10-28): era um toast no canto que sumia sozinho e não mostrava QUAIS datas
+        // seriam confirmadas — no caso Linda Ayla (guia 16510723) o "Gerar" reaproveitou faltas
+        // canceladas nas datas antigas e o toast oferecia confirmá-las como realizadas. Agora é
+        // modal central listando as datas; confirmar continua sendo 1 clique deliberado.
+        const todayStr = new Date().toISOString().slice(0, 10);
+        let pastDates = [];
+        try {
+          const appts = await getGuideAppointments(guide._id);
+          pastDates = appts
+            .filter(a => ['pre_agendado', 'scheduled'].includes(a.operationalStatus || a.status) && (a.date || '').slice(0, 10) < todayStr)
+            .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+            .map(a => `${format(parseISO(a.date.slice(0, 10)), 'dd/MM/yyyy')}${a.time ? ` às ${a.time}` : ''}`);
+        } catch {
+          // Sem a lista o modal ainda abre com a contagem — a confirmação continua deliberada.
+        }
+        setPastConfirm({ planId, totalLabel, count: pastAppointmentsPending, dates: pastDates });
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
+      // Sem isso o card só atualizava com F5: os contadores vêm da lista de guias (estado local).
+      onGuidesChanged?.();
     } catch (err) {
       const status = err?.response?.status;
       const serverMsg = err?.response?.data?.message;
@@ -983,7 +990,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             )}
             {guide.expiresAt && (
               <span className="text-gray-500 text-xs">
-                Vence <strong className="text-gray-700 font-semibold">{format(parseISO(guide.expiresAt), 'dd/MM/yyyy')}</strong>
+                Vence <strong className="text-gray-700 font-semibold">{formatGuideExpiryBR(guide.expiresAt)}</strong>
               </span>
             )}
           </div>
@@ -1294,6 +1301,56 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
         )}
       </div>
+
+      {/* Confirmar retroativas — modal central listando as datas (substitui o toast do canto) */}
+      {pastConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-500">
+                <AlertTriangle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800">Sessões retroativas pendentes</h3>
+                <p className="text-xs text-slate-500">Guia #{guide.number} — {presentation.specialtyLabel || guide.specialty}</p>
+              </div>
+              <button onClick={() => setPastConfirm(null)} className="ml-auto text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-700 mb-3">{pastConfirm.totalLabel}</p>
+
+            {pastConfirm.dates.length > 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3 max-h-48 overflow-y-auto">
+                <ul className="text-sm text-slate-700 space-y-1">
+                  {pastConfirm.dates.map(d => <li key={d}>• {d}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                Confirme <strong>só se todos esses atendimentos realmente aconteceram</strong> — cada um passa a
+                descontar da guia. Se algum foi falta, escolha "Confirmar depois" e conclua um por um pela agenda.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setPastConfirm(null)}
+                className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
+                Confirmar depois
+              </button>
+              <button
+                onClick={() => { const { planId } = pastConfirm; setPastConfirm(null); confirmPastSessions(planId); }}
+                className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700">
+                <CheckCircle className="w-4 h-4" /> Confirmar {pastConfirm.count} como realizada(s)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Gerar sessões — mesmo padrão do modal da Liminar: confirma quantidade e início antes de gerar */}
       {generateModal?.open && (() => {
