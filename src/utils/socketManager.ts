@@ -108,8 +108,9 @@ class SocketManager {
             path: "/socket.io/",
             autoConnect: true,
             forceNew: false,
-            // 🆕 Auth token para conexão autenticada
-            auth: { token }
+            // 🔒 Auth token lido a cada (re)conexão: o back valida o JWT no handshake
+            // (SOCKET_AUTH_MODE=enforce recusa sem token — ver back/docs/WEBHOOK_SOCKET_AUTH.md)
+            auth: (cb) => cb({ token: localStorage.getItem('token') || sessionStorage.getItem('token') || token })
         });
 
         s.on("connect", () => {

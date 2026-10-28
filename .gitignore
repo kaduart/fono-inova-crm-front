@@ -28,3 +28,9 @@ dist-ssr
 
 # Resumos gerados automaticamente por ferramentas de análise
 **/mantis-summary.md
+# Saídas geradas (build antigo, relatórios de bundle, cache do tsc, varreduras)
+build/
+bundle-stats.html
+stats.html
+*.tsbuildinfo
+api-endpoints-report.txt
