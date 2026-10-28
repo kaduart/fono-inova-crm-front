@@ -461,7 +461,7 @@ export default function TherapyPackageCard({
       setShowInactivateModal(false);
       if (onRefresh) onRefresh();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error?.code || err?.response?.data?.message || 'Erro ao inativar pacote');
+      toast.error(err?.response?.data?.error?.message || err?.response?.data?.message || 'Erro ao inativar pacote');
     } finally {
       setIsInactivating(false);
     }
@@ -556,17 +556,11 @@ export default function TherapyPackageCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                // Pacote pré-pago só bloqueia inativação se ainda tiver sessão pendente
-                // (nada a cancelar quando já está 100% consumido/quitado).
-                if (pack.paymentType !== 'per-session' && (pack.sessionsRemaining ?? 0) > 0) {
-                  toast.info('Pacotes pré-pagos com sessões pendentes não podem ser inativados por esta opção. Cancele ou transfira as sessões restantes primeiro.');
-                  return;
-                }
+                // O backend consulta agendamentos reais e protege os pré-pagos.
+                // sessionsRemaining é saldo contratual, não quantidade de agendamentos pendentes.
                 setShowInactivateModal(true);
               }}
-              title={pack.paymentType === 'per-session' || (pack.sessionsRemaining ?? 0) === 0
-                ? 'Clique para inativar este pacote'
-                : 'Pacotes pré-pagos com sessões pendentes não podem ser inativados por esta opção'}
+              title="Clique para inativar este pacote"
               className={statusConfig.pill + ' order-2 ml-auto cursor-pointer hover:opacity-80 transition-opacity'}
             >
               <StatusIcon className="w-3 h-3" />

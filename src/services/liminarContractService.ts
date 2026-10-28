@@ -1,5 +1,23 @@
 import API from './api';
 
+export interface HistoricalCancellation {
+  specialty: string;
+  date: string;
+  time: string;
+  doctorId: string;
+  sessionValue: number;
+  reason: string;
+  cancelRequester: 'patient' | 'professional' | 'clinic';
+  cancelRequestedAt?: string;
+}
+export interface HistoricalCancellationResult {
+  dryRun: boolean;
+  created: number;
+  preserved: number;
+  conflicts: Array<HistoricalCancellation & { message: string }>;
+  decisions: Array<HistoricalCancellation & { action: 'create' | 'preserve' | 'conflict'; appointmentId?: string }>;
+}
+
 export interface LiminarContract {
   _id: string;
   patient: string;
@@ -162,6 +180,11 @@ const liminarContractService = {
       `/v2/liminar-contracts/${contractId}/plans/${planId}/generate-sessions`,
       data
     );
+    return res.data;
+  },
+
+  async recordHistoricalCancellations(contractId: string, planId: string, cancellations: HistoricalCancellation[], dryRun: boolean): Promise<HistoricalCancellationResult> {
+    const res = await API.post(`/v2/liminar-contracts/${contractId}/plans/${planId}/historical-cancellations`, { cancellations, dryRun });
     return res.data;
   },
 
