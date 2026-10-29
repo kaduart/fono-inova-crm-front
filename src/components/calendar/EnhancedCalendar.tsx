@@ -4,7 +4,7 @@ import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography, useTheme } from '@mui/material';
-import { ptBR } from "date-fns/locale";
+import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { AlertCircle, Calendar, CalendarClock, CalendarPlus, CheckCircle, Clock, DollarSign, Plus, RotateCcw, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -28,6 +28,12 @@ import {
     getDefaultPermissions,
     getDefaultFeatureFlags,
 } from '../../types/calendarCapabilities';
+/** yyyy-mm-dd na data local (as datas do FullCalendar chegam em horário local) */
+// "09:00 - 09:40" do FullCalendar; cai para o horário salvo se vier vazio
+const fmtSlimTime = (timeText?: string, fallback?: string) => (timeText || fallback || '').replace(/(\d{2}:\d{2}):\d{2}/g, '$1').trim();
+
+const toYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const CancellationsReport = React.lazy(() => import('../admin/CancellationsReport'));
 
 interface EnhancedCalendarProps {
@@ -403,6 +409,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // ✅ CORREÇÃO: Apenas estado essencial, SEM loading automático
     // O loading automático estava causando re-renders infinitos
     const [currentViewDate, setCurrentViewDate] = useState<string>('');
+    // Intervalo realmente visível (yyyy-mm-dd, fim exclusivo). Filtrar pelo mês escondia as sessões
+    // do mês seguinte na semana que vira o mês (ex.: 28/09–02/10 sem 01 e 02/10).
+    const [visibleRange, setVisibleRange] = useState<{ start: string; end: string } | null>(null);
     const [calendarView, setCalendarView] = useState<'agenda' | 'carteira' | 'semanal' | 'cancelamentos'>('agenda');
 
     // 🆕 Estado para feriados do backend
@@ -875,14 +884,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const events = useMemo(() => {
         if (!appointments || appointments.length === 0) return [];
 
-        // Filtra só o mês visível — evita passar 500+ eventos de uma vez ao FullCalendar
-        const monthFiltered = currentViewDate
+        // Filtra só o intervalo visível — evita passar 500+ eventos de uma vez ao FullCalendar
+        const monthFiltered = visibleRange
             ? appointmentDTOs.filter(appt => {
                 if (!appt.date) return false;
                 const dateStr = typeof appt.date === 'string'
                     ? (appt.date.includes('T') ? appt.date.split('T')[0] : appt.date)
                     : new Date(appt.date as any).toISOString().split('T')[0];
-                return dateStr.startsWith(currentViewDate);
+                return dateStr >= visibleRange.start && dateStr < visibleRange.end;
               })
             : appointmentDTOs;
 
@@ -946,7 +955,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         
         return mappedEvents;
 
-    }, [appointmentDTOs, currentViewDate, getPaymentStatusConfig, getOperationalStatusConfig]);
+    }, [appointmentDTOs, visibleRange, getPaymentStatusConfig, getOperationalStatusConfig]);
 
     // 🔹 Ref para rastrear o último range processado e evitar loops
     const lastDateRangeRef = useRef<string>('');
@@ -956,8 +965,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const start = dateInfo.start;
         const end = dateInfo.end;
 
-        const year = start.getFullYear();
-        const month = String(start.getMonth() + 1).padStart(2, '0');
+        // Mês de referência = mês da view, não o 1º dia visível (no mês, a grade começa no fim do
+        // mês anterior e o cabeçalho mostrava "2026-09" em outubro)
+        const ref = dateInfo.view?.currentStart || start;
+        const year = ref.getFullYear();
+        const month = String(ref.getMonth() + 1).padStart(2, '0');
         const viewDate = `${year}-${month}`;
 
         // ✅ Proteção contra loops: só processa se o range mudou
@@ -971,6 +983,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         // Atualiza apenas para informação visual (header)
         setCurrentViewDate(viewDate);
+        setVisibleRange({ start: toYmd(start), end: toYmd(end) });
 
         // Notifica o pai
         if (onMonthChange) {
@@ -987,7 +1000,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             center: "title",
             right: "dayGridMonth,timeGridWeek,timeGridDay"
         },
-        locales: [ptBR],
+        // Locale do FullCalendar (antes passava o locale do date-fns, e os botões saíam em inglês)
+        locales: [ptBrLocale],
         weekends: false,
         locale: 'pt-br',
         allDaySlot: false,
@@ -999,8 +1013,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         eventOverlap: false,
         slotMinTime: "07:00:00",
         slotMaxTime: "20:00:00",
-        slotDuration: "00:40:00",
-        slotLabelInterval: "00:40:00",
+        // Grade de 20 min: os horários da clínica caem em 09:20, 10:40... (com 40 min a partir das
+        // 07:00 eles ficavam no meio de um slot). Rótulo só de hora em hora, em "09:00".
+        slotDuration: "00:20:00",
+        slotLabelInterval: "01:00:00",
+        slotLabelFormat: { hour: "2-digit", minute: "2-digit", hour12: false } as Intl.DateTimeFormatOptions,
         eventDisplay: "block",
         eventTimeFormat: {
             hour: "2-digit",
@@ -1022,24 +1039,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             dayGridMonth: {
                 eventDisplay: 'none', // Oculta barras do FC — popup do dayCellContent trata o mês
             },
+            // 240px fazia um card de 1h cobrir a tarde inteira na semana/dia
             timeGridWeek: {
-                eventMinHeight: 240,
-                slotMinHeight: 140,
+                eventMinHeight: 36,
             },
             timeGridDay: {
-                eventMinHeight: 240,
-                slotMinHeight: 140,
+                eventMinHeight: 36,
             },
         },
         datesSet: handleDatesSet,
-        viewDidMount: (info: any) => {
-            if (info.view.type === 'timeGridWeek' || info.view.type === 'timeGridDay') {
-                const domEvents = document.querySelectorAll('.fc-timegrid-event');
-                domEvents.forEach((event: any) => {
-                    event.style.minHeight = '70px';
-                });
-            }
-        }
     }), [handleDatesSet]);
 
     // 🆕 COMPONENTE REUTILIZÁVEL: Card visual de agendamento (calendário + popup)
@@ -1180,7 +1188,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
         const fmtTime = (t: string) => {
             if (!t) return '';
-            if (t.length === 5 && t.includes(':')) return t;
+            // timeText do FullCalendar já vem como "09:00" ou "09:00 - 09:40"
+            if (t.includes(':')) return t;
             return t.toString().padStart(2, '0') + ':00';
         };
 
@@ -1614,6 +1623,41 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             ? convenios.find(p => p.code === insuranceProvider)?.name || insuranceProvider
             : '';
 
+        // Semana e Dia: bloco fino (horário, paciente, status). O card grande tinha 170px e ficava
+        // cortado na grade, sem o nome do paciente. Valor só para quem vê financeiro.
+        if (arg.view.type === 'timeGridWeek' || arg.view.type === 'timeGridDay') {
+            const typeTone = isLiminar
+                ? { bg: '#ffedd5', ink: '#9a3412', label: 'Liminar' }
+                : hasPackage
+                    ? { bg: '#f3e8ff', ink: '#6b21a8', label: 'Pacote' }
+                    : isConvenio
+                        ? { bg: '#dbeafe', ink: '#1e40af', label: insuranceProviderName || 'Convênio' }
+                        : { bg: '#dcfce7', ink: '#166534', label: 'Particular' };
+            const dimmed = CANCELED_LIKE_STATUSES.includes(operationalStatus) || operationalStatus === 'absent';
+            const statusLabel = operationalConfig?.label || '';
+            const range = fmtSlimTime(arg.timeText, arg.event.extendedProps.time);
+            return (
+                <div
+                    className="flex h-full min-w-0 flex-col gap-0.5 overflow-hidden rounded-md px-2 py-1 text-left leading-tight"
+                    style={{ background: typeTone.bg, borderLeft: `4px solid ${operationalConfig.color}`, opacity: dimmed ? 0.6 : 1 }}
+                    title={`${range} · ${patientName} · ${statusLabel} · ${typeTone.label}`}
+                >
+                    <div className="flex min-w-0 items-baseline gap-1.5">
+                        <span className="shrink-0 text-xs font-bold tabular-nums text-slate-900">{range}</span>
+                        <span className={`truncate text-xs font-semibold text-slate-900 ${dimmed ? 'line-through' : ''}`}>{patientName}</span>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-700">
+                        <span className="truncate">{statusLabel}</span>
+                        <span aria-hidden>·</span>
+                        <span className="truncate font-medium" style={{ color: typeTone.ink }}>{typeTone.label}</span>
+                        {permissions.canSeeFinancial && arg.event.extendedProps.paymentStatus === 'unpaid' && !isConvenio && (
+                            <span className="ml-auto shrink-0 rounded bg-rose-600 px-1 text-[10px] font-bold text-white">Em aberto</span>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         // Status financeiro: prioriza o status do agendamento, depois do pacote
         const appointmentPaymentStatus = getRealPaymentStatus(arg.event.extendedProps);
         const financialStatus = isConvenio
@@ -1838,7 +1882,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </div>
             </Tooltip>
         );
-    }, [getPaymentStatusConfig, getOperationalStatusConfig, appointments]);
+    }, [getPaymentStatusConfig, getOperationalStatusConfig, appointments, permissions.canSeeFinancial]);
 
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
         setAppointmentData(appointment);
@@ -1867,17 +1911,27 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         color: '#92400e !important', // amber-800
                         fontWeight: 'bold !important',
                     },
-                    // 🎯 Fundo azul claro para o dia de hoje (sobrescreve amarelo padrão do FC)
-                    '.fc-day-today': {
-                        backgroundColor: '#9ce0a2 !important', // blue-50
+                    // Hoje na semana/dia: só um tom leve na coluna (o verde forte cobria a grade inteira)
+                    '.fc-timeGridWeek-view .fc-day-today, .fc-timeGridDay-view .fc-day-today': {
+                        backgroundColor: '#ecfdf5 !important',
+                    },
+                    // Linhas de 20 min com 24px: uma sessão de 40 min cabe em 2 linhas (horário + nome / status)
+                    '.fc .fc-timegrid-slot': { height: '24px' },
+                    '.fc .fc-timegrid-slot-minor': { borderTopStyle: 'dotted' },
+                    '.fc .fc-timegrid-slot-label-cushion': { fontSize: '12px', fontVariantNumeric: 'tabular-nums', color: '#475569' },
+                    '.fc .fc-timegrid-event': { background: 'transparent', border: 'none', boxShadow: 'none' },
+                    '.fc .fc-timegrid-event .fc-event-main': { padding: 0 },
+                    // 🎯 Fundo verde para o dia de hoje no mês (sobrescreve amarelo padrão do FC)
+                    '.fc-dayGridMonth-view .fc-day-today': {
+                        backgroundColor: '#d1fae5 !important', // emerald-100
                         '& .fc-daygrid-day-frame': {
-                            backgroundColor: '#9ce0a2 !important',
+                            backgroundColor: '#d1fae5 !important',
                         },
                         '& .fc-daygrid-day-top': {
-                            backgroundColor: '#9ce0a2 !important',
+                            backgroundColor: '#d1fae5 !important',
                         },
                         '& .fc-scrollgrid-sync-inner': {
-                            backgroundColor: '#9ce0a2 !important',
+                            backgroundColor: '#d1fae5 !important',
                         },
                     },
                     // 🎯 Conteúdo do dia ocupa a célula inteira (permite centralizar o card de progresso)
@@ -2115,6 +2169,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         return isHoliday(dateStr) ? 'fc-day-holiday' : '';
                     }}
                     dayCellContent={(arg) => {
+                        // O card de resumo e o número em círculo são do mês; na semana/dia o FC usa a
+                        // mesma célula no topo da coluna e o card aparecia no meio da grade de horários.
+                        if (arg.view.type !== 'dayGridMonth') return null;
                         const dateStr = arg.date.toISOString().split('T')[0];
                         const isHolidayDate = isHoliday(dateStr);
                         const holidayName = isHolidayDate ? getHolidayName(dateStr) : '';
@@ -2261,7 +2318,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             Indicado pela cor da borda esquerda
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                            {Object.entries(getOperationalStatusVisualConfigMap()).map(([status, config]) => {
+                            {Object.entries(getOperationalStatusVisualConfigMap()).filter(([status]) => status !== 'absent').map(([status, config]) => {
                                 const IconComponent = config.icon;
                                 return (
                                     <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -2305,6 +2362,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </Box>
                     </Paper>
 
+                    {/* Pagamento só para quem vê financeiro (o terapeuta da clínica não vê) */}
+                    {permissions.canSeeFinancial && (
                     <Paper
                         elevation={2}
                         sx={{
@@ -2356,6 +2415,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             })}
                         </Box>
                     </Paper>
+                    )}
 
                     <style>{`
                     .fc-timegrid-more-link {

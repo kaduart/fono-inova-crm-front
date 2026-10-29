@@ -498,7 +498,12 @@ export default function DoctorDashboard() {
         return (
           <div className="p-6">
             {doctorId ? (
-              <DoctorCalendarTab doctorId={doctorId} />
+              <DoctorCalendarTab
+                doctorId={doctorId}
+                pendingEvolutionIds={pendingEvolutionIds}
+                onRegisterEvolution={handleGoToEvolution}
+                onOpenPatient={handleViewPatientHistory}
+              />
             ) : (
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Carregando agenda...</h2>

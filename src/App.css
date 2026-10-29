@@ -74,7 +74,7 @@
 }
 
 .fc .fc-button-primary:not(:disabled).fc-button-active {
-  @apply bg-blue-600 text-white;
+  @apply bg-emerald-700 border-emerald-700 text-white;
 }
 
 .fc .fc-daygrid-day-frame {
@@ -108,8 +108,10 @@
 }
 
 
+/* Botão ativo (Mês/Semana/Dia): cor sólida. O degradê claro somado ao texto branco da regra
+   acima deixava o "Mês" selecionado branco no branco. */
 .fc .fc-button-active {
-  @apply bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 text-blue-600;
+  @apply bg-emerald-700 border-emerald-700 text-white;
 }
 
 .fc .fc-daygrid-day-frame {
