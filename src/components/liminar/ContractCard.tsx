@@ -34,7 +34,7 @@ import { getSpecialtyTheme } from '../../constants/specialtyThemes';
 import InactivateEntityModal from '../common/InactivateEntityModal';
 import AppointmentDetailModal from '../calendar/appointmentDetailModal';
 import CreatePlanModal from './CreatePlanModal';
-import HistoricalCancellationForm from './HistoricalCancellationForm';
+import GenerationCancellationFlow from '../common/GenerationCancellationFlow';
 
 // Cor de "faltando/pendente de agenda" — neutra de propósito: não deve competir visualmente
 // com laranja/vermelho de risco real (saldo baixo, vencimento), que têm significado diferente.
@@ -114,8 +114,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false });
   const [generateWeeks, setGenerateWeeks] = useState<number>(4);
   const [generating, setGenerating] = useState(false);
-  const [historicalPending, setHistoricalPending] = useState(false);
-  const [generationTab, setGenerationTab] = useState<'generate' | 'cancellations'>('generate');
   const [menuOpen, setMenuOpen] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
   const [projectionDetailsExpanded, setProjectionDetailsExpanded] = useState(false);
@@ -186,8 +184,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
   async function openConfirm(weeks: number) {
     if (!plan) return;
-    setHistoricalPending(false);
-    setGenerationTab('generate');
     const allSpecialties: SpecialtyMeta[] = Object.entries(plan.therapies ?? {}).map(([key, cfg]: [string, any]) => ({
       key,
       label: key.replace(/_/g, ' '),
@@ -839,11 +835,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 </button>
               </div>
 
-              <div role="tablist" aria-label="Ações das sessões" className="sticky top-0 z-20 mb-4 flex gap-1 border-b border-slate-200 bg-white pt-1">
-                <button type="button" role="tab" id="generate-tab" aria-controls="generate-panel" aria-selected={generationTab === 'generate'} onClick={() => setGenerationTab('generate')} className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${generationTab === 'generate' ? 'border-emerald-600 text-emerald-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Gerar sessões</button>
-                <button type="button" role="tab" id="cancellations-tab" aria-controls="cancellations-panel" aria-selected={generationTab === 'cancellations'} onClick={() => setGenerationTab('cancellations')} className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${generationTab === 'cancellations' ? 'border-emerald-600 text-emerald-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Registrar cancelamentos</button>
-              </div>
-              <div role="tabpanel" id="generate-panel" aria-labelledby="generate-tab" hidden={generationTab !== 'generate'}>
               {/* Quantidade de semanas + data de início */}
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <div>
@@ -920,9 +911,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                   })}
                 </div>
               </div>
-
-
-              {historicalPending && <p className="mb-3 text-sm text-amber-800">Salve ou remova os cancelamentos informados antes de gerar sessões futuras.</p>}
               {/* Resumo */}
               <div className="bg-slate-50 rounded-xl p-4 space-y-2 mb-4 border border-slate-100">
                 <div className="flex justify-between text-sm">
@@ -948,23 +936,13 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <button onClick={() => setConfirm({ open: false })}
-                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleConfirmGenerate}
-                  disabled={selected.length === 0 || historicalPending}
-                  className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg, #1B4D6E 0%, #2563EB 100%)' }}>
-                  <CheckCircle className="w-4 h-4" /> Gerar sessões
-                </button>
-              </div>
-              </div>
-              <div role="tabpanel" id="cancellations-panel" aria-labelledby="cancellations-tab" hidden={generationTab !== 'cancellations'}>
-                {plan && <HistoricalCancellationForm contractId={contract._id} plan={plan} onRecorded={onRefresh} onPendingChange={setHistoricalPending} />}
-              </div>
+              {plan && <GenerationCancellationFlow specialties={confirm.selectedSpecialties}
+                contextKey={JSON.stringify([confirm.weeks, confirm.startDate, confirm.selectedSpecialties])}
+                disabled={confirm.selectedSpecialties.length === 0}
+                onRun={(cancellations, dryRun) => liminarContractService.generateSessions(contract._id, plan._id, {
+                  mode: 'append', weeks: confirm.weeks, startDate: confirm.startDate, specialties: confirm.selectedSpecialties, cancellations, dryRun,
+                })}
+                onApplied={() => { setConfirm({ open: false }); onRefresh(); toast.success('Sessões geradas e cancelamentos registrados.'); }} />}
             </div>
           </div>
         );
