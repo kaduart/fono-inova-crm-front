@@ -46,6 +46,9 @@ type NewEvaluationModalProps = {
     doctorSpecialty?: string;
     // Última evolução do paciente (para pré-preencher continuidade)
     lastEvolution?: any | null;
+    /** Data (yyyy-MM-dd) e hora sugeridas, ex.: a sessão pendente de evolução */
+    defaultDate?: string;
+    defaultTime?: string;
 };
 
 // ============================================
@@ -353,7 +356,9 @@ export function NewEvaluationModal({
     protocolsLoading,
     protocolsError,
     onSelectProtocol,
-    lastEvolution
+    lastEvolution,
+    defaultDate,
+    defaultTime
 }: NewEvaluationModalProps) {
     const [metrics, setMetrics] = useState<Record<string, number>>({});
     const [areaScores, setAreaScores] = useState<Record<string, number>>({});
@@ -395,8 +400,8 @@ export function NewEvaluationModal({
     useEffect(() => {
         if (!open) return;
 
-        setDate(format(new Date(), 'yyyy-MM-dd'));
-        setTime('10:00');
+        setDate(defaultDate || format(new Date(), 'yyyy-MM-dd'));
+        setTime(defaultTime || '10:00');
 
         // Sempre começa limpo — sem cards pré-carregados
         setContent('');
@@ -405,7 +410,7 @@ export function NewEvaluationModal({
         setSelectedSpecialty('');
         setMetrics({});
         setAreaScores({});
-    }, [open, lastEvolution]);
+    }, [open, lastEvolution, defaultDate, defaultTime]);
 
     // Handler para carregar template de especialidade - AGORA SÓ ADICIONA AO CATALOGO
     const handleLoadTemplate = (specialty: string) => {

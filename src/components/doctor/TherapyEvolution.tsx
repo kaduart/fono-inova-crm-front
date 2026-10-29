@@ -1,42 +1,50 @@
 // src/components/doctor/TherapyEvolution.tsx
-import { LinearProgress } from '@mui/material';
-import { format } from 'date-fns';
+// Aba Evolução do Portal do Terapeuta. Ao abrir mostra a fila de quem está sem evolução
+// (mesma regra do /v2/evolutions/pending usada no Dashboard) e os pacientes em atendimento;
+// ao escolher um paciente mostra cabeçalho, plano terapêutico e a linha do tempo das sessões
+// com o texto clínico visível, a variação de nota por área e o PDF de cada evolução.
 import {
     Activity,
-    AlertCircle,
+    AlertTriangle,
     ArrowDown,
     ArrowUp,
     BarChart3,
     ChevronDown,
+    FileDown,
     GitBranch,
     Minus,
+    MoreHorizontal,
     Plus,
+    Search,
     Target,
     Trash2,
+    TrendingDown,
     TrendingUp,
-    Users
+    UserRound,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEvolution } from '../../hooks/useEvolution';
 import API from '../../services/api';
+import { fetchMyPatients } from '../../services/doctorService';
+import { fetchPendingEvolutions, type PendingEvolution } from '../../services/evolutionService';
 import patientService from '../../services/patientService';
-import { toast } from 'react-toastify';
 import { confirmToast } from '../../utils/confirmToast';
+import { toDateString } from '../../utils/dateUtils';
 import { IPatient } from '../../utils/types/types';
 import ProtocolAnalytics from '../protocols/ProtocolAnalytics';
-import { Button } from '../ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Label } from '../ui/Label';
 import EvolutionChart from './EvolutionChart';
 import { NewEvaluationForm, NewEvaluationModal } from './NewEvaluationModal';
-
+import { ageLabel, billingChip, Chip, dayDiff, lastLabel, nextLabel } from './patient/MyPatientsPanel';
 
 type TherapyEvolutionProps = {
     patients: IPatient[];
     selectedPatient?: IPatient | null;
     onSelectPatient?: (patient: IPatient | null) => void;
     onOpenPatientDetail?: (patient: IPatient) => void;
+    /** chamado depois de salvar/excluir, para o Dashboard atualizar as pendências */
+    onEvolutionChanged?: () => void;
 };
 
 type TimelineBadge = {
@@ -44,6 +52,57 @@ type TimelineBadge = {
     label: string;
 };
 
+const EVALUATION_TYPE_LABELS: Record<string, string> = {
+    language: 'Linguagem',
+    motor: 'Motor',
+    cognitive: 'Cognitivo',
+    behavior: 'Comportamento',
+    social: 'Social',
+    linguagem_expressiva: 'Linguagem Expressiva',
+    linguagem_receptiva: 'Linguagem Receptiva',
+    pragmatica: 'Pragmática',
+    voz: 'Voz',
+    motricidade_orofacial: 'Motricidade Orofacial',
+    emocional: 'Emocional',
+    autonomia: 'Autonomia',
+    sensorial: 'Sensorial',
+    avds: 'AVDs',
+    praxia: 'Praxia',
+    grafomotor: 'Grafomotor',
+    postural: 'Controle Postural',
+    marcha: 'Marcha',
+    respiratorio: 'Respiratório',
+    neuromotor: 'Neuromotor',
+    atencao: 'Atenção',
+    memoria: 'Memória',
+    visuoespacial: 'Visuoespacial',
+    executivo: 'Executivo',
+    comunicacao: 'Comunicação',
+    expressao_emocional: 'Expressão Emocional',
+    socializacao: 'Socialização',
+    motor_musical: 'Motor (via música)'
+};
+
+function formatAreaName(id: string): string {
+    return id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+const areaLabel = (id?: string, name?: string) => EVALUATION_TYPE_LABELS[id || ''] || name || formatAreaName(id || '');
+
+const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+/** Notas da sessão por área/métrica, para comparar com a sessão anterior. */
+function scoresOf(evo: any): Record<string, number> {
+    const out: Record<string, number> = {};
+    (Array.isArray(evo?.metrics) ? evo.metrics : []).forEach((m: any) => { if (m?.name) out['m:' + m.name] = Number(m.value ?? 0); });
+    (Array.isArray(evo?.evaluationAreas) ? evo.evaluationAreas : []).forEach((a: any) => {
+        const id = a?.id || a?.name;
+        if (id && a.score !== undefined && a.score !== null) out['a:' + id] = Number(a.score);
+    });
+    return out;
+}
+
+// Antes comparava só `metrics`; as sessões guardam a nota em `evaluationAreas`, então as
+// etiquetas Evolução/Regressão/Estável nunca apareciam. Agora compara as duas.
 function getTimelineBadges(current: any, previous: any | null): TimelineBadge[] {
     const badges: TimelineBadge[] = [];
 
@@ -52,36 +111,21 @@ function getTimelineBadges(current: any, previous: any | null): TimelineBadge[] 
         return badges;
     }
 
-    // Detecta mudança de protocolo
     const prevProtocol = previous.therapeuticPlan?.protocol?.code;
     const currProtocol = current.therapeuticPlan?.protocol?.code;
     if (prevProtocol && currProtocol && prevProtocol !== currProtocol) {
         badges.push({ type: 'protocol_change', label: 'Mudança de protocolo' });
     }
 
-    // Compara métricas
-    const prevMetrics: Record<string, number> = {};
-    if (previous.metrics && Array.isArray(previous.metrics)) {
-        previous.metrics.forEach((m: any) => {
-            prevMetrics[m.name] = Number(m.value ?? 0);
-        });
-    }
-
-    let improved = 0;
-    let regressed = 0;
-    let stable = 0;
-
-    if (current.metrics && Array.isArray(current.metrics)) {
-        current.metrics.forEach((m: any) => {
-            const prevValue = prevMetrics[m.name];
-            if (prevValue !== undefined) {
-                const currValue = Number(m.value ?? 0);
-                if (currValue > prevValue) improved++;
-                else if (currValue < prevValue) regressed++;
-                else stable++;
-            }
-        });
-    }
+    const prev = scoresOf(previous);
+    const curr = scoresOf(current);
+    let improved = 0, regressed = 0, stable = 0;
+    Object.entries(curr).forEach(([k, v]) => {
+        if (prev[k] === undefined) return;
+        if (v > prev[k]) improved++;
+        else if (v < prev[k]) regressed++;
+        else stable++;
+    });
 
     if (regressed > 0) badges.push({ type: 'regression', label: 'Regressão detectada' });
     if (improved > 0) badges.push({ type: 'improvement', label: 'Evolução' });
@@ -90,14 +134,95 @@ function getTimelineBadges(current: any, previous: any | null): TimelineBadge[] 
     return badges;
 }
 
+const BADGE_STYLE: Record<TimelineBadge['type'], string> = {
+    improvement: 'border-green-200 bg-green-50 text-green-800',
+    regression: 'border-red-200 bg-red-50 text-red-800',
+    stable: 'border-gray-300 bg-gray-50 text-gray-700',
+    protocol_change: 'border-blue-200 bg-blue-50 text-blue-800',
+    first: 'border-amber-200 bg-amber-50 text-amber-800',
+};
+const BADGE_ICON = { improvement: ArrowUp, regression: ArrowDown, stable: Minus, protocol_change: GitBranch, first: Activity };
+
+/** "dd/MM/yyyy" sem fuso: a data da evolução é gravada como meia-noite UTC do dia. */
+function fmtDate(iso?: string | Date) {
+    const ymd = toDateString(typeof iso === 'string' ? iso : iso ? new Date(iso).toISOString() : '');
+    if (!ymd) return '—';
+    const [y, m, d] = ymd.split('-');
+    return `${d}/${m}/${y}`;
+}
+function weekday(iso?: string | Date) {
+    const ymd = toDateString(typeof iso === 'string' ? iso : iso ? new Date(iso).toISOString() : '');
+    if (!ymd) return '';
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { weekday: 'long' }).replace('-feira', '');
+}
+
+function pendingAge(iso: string) {
+    const n = -dayDiff(iso);
+    return { n, label: n <= 0 ? 'hoje' : n === 1 ? '1 dia' : `${n} dias` };
+}
+
+function reviewInfo(date?: string | Date | null) {
+    if (!date) return null;
+    const iso = typeof date === 'string' ? date : new Date(date).toISOString();
+    const n = dayDiff(iso);
+    if (n < 0) return { text: `vencida há ${-n} ${-n === 1 ? 'dia' : 'dias'}`, tone: 'text-red-700' };
+    if (n === 0) return { text: 'hoje', tone: 'text-amber-800' };
+    return { text: `em ${n} ${n === 1 ? 'dia' : 'dias'}`, tone: n <= 7 ? 'text-amber-800' : 'text-gray-600' };
+}
+
+const TREND = {
+    improving: { label: 'melhorando', Icon: TrendingUp, tone: 'text-green-700' },
+    stable: { label: 'estável', Icon: Minus, tone: 'text-gray-600' },
+    regressing: { label: 'regredindo', Icon: TrendingDown, tone: 'text-red-700' },
+} as const;
+
+const btn = 'inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50';
+const btnPrimary = `${btn} border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800`;
+const btnSoft = `${btn} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`;
+const btnGhost = `${btn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
+const btnSm = 'min-h-9 px-2.5';
+const card = 'rounded-2xl border border-gray-200 bg-white min-w-0';
+const tabBtn = (on: boolean) => `-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-gray-600 hover:text-gray-900'}`;
+
+function EntryMenu({ label, deleting, onDelete }: { label: string; deleting: boolean; onDelete: () => void }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+        const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('mousedown', close);
+        document.addEventListener('keydown', esc);
+        return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+    }, [open]);
+    return (
+        <div className="relative" ref={ref}>
+            <button type="button" className={`${btnGhost} ${btnSm} w-9 px-0`} aria-label={`Mais ações da evolução de ${label}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+                <MoreHorizontal className="h-4 w-4" aria-hidden />
+            </button>
+            {open && (
+                <div role="menu" className="absolute right-0 top-10 z-20 min-w-[190px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+                    <button role="menuitem" type="button" disabled={deleting} onClick={() => { setOpen(false); onDelete(); }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 focus:bg-red-50 focus:outline-none disabled:opacity-50">
+                        <Trash2 className="h-4 w-4" aria-hidden />Excluir evolução
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function TherapyEvolution({
     patients,
     selectedPatient,
     onSelectPatient,
     onOpenPatientDetail,
+    onEvolutionChanged,
 }: TherapyEvolutionProps) {
     const { user } = useAuth();
     const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+    const [resolvedPatient, setResolvedPatient] = useState<IPatient | null>(null);
 
     // Busca de paciente — mesmo padrão do ScheduleAppointmentModal
     const [patientSearch, setPatientSearch] = useState('');
@@ -105,13 +230,31 @@ export default function TherapyEvolution({
     const [isSearchingPatient, setIsSearchingPatient] = useState(false);
     const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
     const searchDropdownRef = useRef<HTMLDivElement>(null);
+    const detailRef = useRef<HTMLDivElement>(null);
+
+    // Fila: pendentes de evolução + pacientes em atendimento (dados do back, não do cache do Dashboard)
+    const [pending, setPending] = useState<PendingEvolution[]>([]);
+    const [activeList, setActiveList] = useState<any[]>([]);
+    const [queueLoading, setQueueLoading] = useState(true);
+    const [patientInfo, setPatientInfo] = useState<any | null>(null);
+
+    const loadQueue = useCallback(async () => {
+        setQueueLoading(true);
+        const [pend, act] = await Promise.all([
+            fetchPendingEvolutions().catch(() => [] as PendingEvolution[]),
+            fetchMyPatients({ care: 'active', sort: 'next', limit: 50 }).then(r => r.data || []).catch(() => [] as any[]),
+        ]);
+        setPending(Array.isArray(pend) ? pend : []);
+        setActiveList(Array.isArray(act) ? act : []);
+        setQueueLoading(false);
+    }, []);
+    useEffect(() => { loadQueue(); }, [loadQueue]);
 
     // Debounced search → API
     useEffect(() => {
         const term = patientSearch.trim();
         setSearchedPatients([]);
         if (term.length < 2) return;
-        if (selectedPatientId && resolvedPatient?.fullName?.toLowerCase() === term.toLowerCase()) return;
 
         const t = setTimeout(async () => {
             setIsSearchingPatient(true);
@@ -124,20 +267,10 @@ export default function TherapyEvolution({
         return () => clearTimeout(t);
     }, [patientSearch]);
 
-    // Resolver: selectedPatient prop → preenche campo de busca com o nome
-    useEffect(() => {
-        if (selectedPatient?.fullName) {
-            setPatientSearch(selectedPatient.fullName);
-        } else if (!selectedPatient) {
-            setPatientSearch('');
-        }
-    }, [selectedPatient?._id]);
-
     // Fechar dropdown ao clicar fora
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
-                setSearchedPatients([]);
                 setIsPatientDropdownOpen(false);
             }
         };
@@ -157,30 +290,32 @@ export default function TherapyEvolution({
     } = useEvolution(selectedPatientId || null);
 
     const [isAdding, setIsAdding] = useState(false);
-    const [showDetails, setShowDetails] = useState<number | null>(null);
+    const [addDefaults, setAddDefaults] = useState<{ date?: string; time?: string }>({});
+    const [openIds, setOpenIds] = useState<Set<string>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [pdfId, setPdfId] = useState<string | null>(null);
 
-    // ID é a fonte de verdade — dados derivados do prop ou do item selecionado no search
-    const [resolvedPatient, setResolvedPatient] = useState<IPatient | null>(null);
-    const selectedPatientData = resolvedPatient || ({} as IPatient);
-
-    // Opções do dropdown: pacientes do próprio terapeuta (já carregados no dashboard)
-    // filtrados localmente + resultados da busca global na API, sem duplicar.
-    const patientOptions = (() => {
+    // Opções do dropdown: pacientes do próprio terapeuta + resultados da busca global, sem duplicar.
+    const patientOptions = useMemo(() => {
         const term = patientSearch.trim().toLowerCase();
-        const own = (patients || []).filter(p => !term || p.fullName?.toLowerCase().includes(term));
+        if (!term) return [];
+        const own = (patients || []).filter(p => p.fullName?.toLowerCase().includes(term));
         const seen = new Set(own.map(p => p._id));
-        return [...own, ...searchedPatients.filter(p => !seen.has(p._id))];
-    })();
+        return [...own, ...searchedPatients.filter(p => !seen.has(p._id))].slice(0, 30);
+    }, [patientSearch, patients, searchedPatients]);
 
-    const handlePickPatient = (p: IPatient) => {
+    const pickPatient = (p: IPatient) => {
         setSelectedPatientId(p._id);
         setResolvedPatient(p);
-        setPatientSearch(p.fullName);
+        setPatientSearch('');
         setSearchedPatients([]);
         setIsPatientDropdownOpen(false);
         onSelectPatient?.(p);
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+        }
     };
+
     const [protocols, setProtocols] = useState<any[]>([]);
     const [protocolsLoading, setProtocolsLoading] = useState(false);
     const [protocolsError, setProtocolsError] = useState<string | null>(null);
@@ -191,7 +326,7 @@ export default function TherapyEvolution({
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 5;
 
-    // Sincroniza patientId externo com estado local
+    // Sincroniza paciente externo (ex.: "Registrar evolução" no Dashboard) com estado local
     useEffect(() => {
         if (selectedPatient && selectedPatient._id) {
             setSelectedPatientId(selectedPatient._id);
@@ -202,7 +337,19 @@ export default function TherapyEvolution({
         }
         setCurrentPage(1);
         setEvolutionSubTab('history');
+        setOpenIds(new Set());
     }, [selectedPatient]);
+
+    // Dados de cabeçalho do paciente (idade, responsável, convênio, próxima sessão)
+    useEffect(() => {
+        setPatientInfo(null);
+        if (!selectedPatientId) return;
+        let alive = true;
+        fetchMyPatients({ ids: [selectedPatientId], limit: 1 })
+            .then(r => { if (alive) setPatientInfo((r.data || [])[0] || null); })
+            .catch(() => { /* paciente de outro profissional: usa o que veio da busca */ });
+        return () => { alive = false; };
+    }, [selectedPatientId]);
 
     // Sincroniza protocolo selecionado com plano terapêutico carregado
     useEffect(() => {
@@ -251,40 +398,9 @@ export default function TherapyEvolution({
         }
     };
 
-    const EVALUATION_TYPE_LABELS: Record<string, string> = {
-        language: 'Linguagem',
-        motor: 'Motor',
-        cognitive: 'Cognitivo',
-        behavior: 'Comportamento',
-        social: 'Social',
-        linguagem_expressiva: 'Linguagem Expressiva',
-        linguagem_receptiva: 'Linguagem Receptiva',
-        pragmatica: 'Pragmática',
-        voz: 'Voz',
-        motricidade_orofacial: 'Motricidade Orofacial',
-        emocional: 'Emocional',
-        autonomia: 'Autonomia',
-        sensorial: 'Sensorial',
-        avds: 'AVDs',
-        praxia: 'Praxia',
-        grafomotor: 'Grafomotor',
-        postural: 'Controle Postural',
-        marcha: 'Marcha',
-        respiratorio: 'Respiratório',
-        neuromotor: 'Neuromotor',
-        atencao: 'Atenção',
-        memoria: 'Memória',
-        visuoespacial: 'Visuoespacial',
-        executivo: 'Executivo',
-        comunicacao: 'Comunicação',
-        expressao_emocional: 'Expressão Emocional',
-        socializacao: 'Socialização',
-        motor_musical: 'Motor (via música)'
-    };
-
     const handleSaveEvaluation = async (form: NewEvaluationForm) => {
         if (!selectedPatientId) {
-            alert('Selecione um paciente antes de salvar a avaliação.');
+            toast.warn('Selecione um paciente antes de salvar a avaliação.');
             return;
         }
 
@@ -300,8 +416,7 @@ export default function TherapyEvolution({
                 score: Number(score)
             }));
 
-        const areasWithScore = evaluationAreas;
-        const evaluationTypes = areasWithScore.map(a => a.id);
+        const evaluationTypes = evaluationAreas.map(a => a.id);
 
         const protocolCode =
             progressData?.currentPlan?.protocol?.code ||
@@ -362,12 +477,10 @@ export default function TherapyEvolution({
         const result = await create(payload as any);
         if (result.success) {
             setIsAdding(false);
+            loadQueue();
+            onEvolutionChanged?.();
         }
     };
-
-    function formatAreaName(id: string): string {
-        return id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
 
     const handleDeleteEvaluation = async (evaluationId: string) => {
         const confirmed = await confirmToast(
@@ -380,9 +493,33 @@ export default function TherapyEvolution({
             const result = await remove(evaluationId);
             if (!result.success) {
                 console.error(result.error);
+            } else {
+                loadQueue();
+                onEvolutionChanged?.();
             }
         } finally {
             setDeletingId(null);
+        }
+    };
+
+    const handleDownloadPdf = async (evaluation: any) => {
+        try {
+            setPdfId(evaluation._id);
+            const response = await API.get(`/v2/evolutions/${evaluation._id}/pdf`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            const name = (resolvedPatient?.fullName || 'paciente').replace(/\s+/g, '_');
+            link.setAttribute('download', `Evolucao_${name}_${toDateString(evaluation.date)}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Erro ao gerar PDF da evolução:', error);
+            toast.error('Não foi possível gerar o PDF desta evolução.');
+        } finally {
+            setPdfId(null);
         }
     };
 
@@ -390,16 +527,12 @@ export default function TherapyEvolution({
         // 🎯 Prioridade 1: Plano Terapêutico (objetivos com currentScore / targetScore)
         if (progressData?.objectives && progressData.objectives.length > 0) {
             const activeObjectives = progressData.objectives.filter((obj: any) => !obj.achieved);
-            if (activeObjectives.length === 0) {
-                // Todos os objetivos atingidos → 100%
-                return 100;
-            }
+            if (activeObjectives.length === 0) return 100;
             const total = activeObjectives.reduce((sum: number, obj: any) => {
                 const current = Number(obj.current ?? obj.currentScore ?? 0);
                 const target = Number(obj.target ?? obj.targetScore ?? 10);
                 if (target <= 0) return sum;
-                const pct = Math.min((current / target) * 100, 100);
-                return sum + pct;
+                return sum + Math.min((current / target) * 100, 100);
             }, 0);
             return Math.round(total / activeObjectives.length);
         }
@@ -411,7 +544,6 @@ export default function TherapyEvolution({
 
         let totalProgress = 0;
         let count = 0;
-
         metricKeys.forEach(key => {
             const metric = chartData.metrics[key];
             if (!metric?.values || metric.values.length < 2) return;
@@ -424,9 +556,43 @@ export default function TherapyEvolution({
                 count++;
             }
         });
-
         return count > 0 ? totalProgress / count : 0;
     };
+
+    const pendingIds = useMemo(() => new Set(pending.map(p => String(p._id))), [pending]);
+    const activeNotPending = useMemo(() => activeList.filter(p => !pendingIds.has(String(p._id))), [activeList, pendingIds]);
+    const selectedPending = pending.find(p => String(p._id) === selectedPatientId) || null;
+    const info = { ...(resolvedPatient || {}), ...(patientInfo || {}) } as any;
+    const objectives = progressData?.objectives || [];
+    const plan = progressData?.currentPlan;
+    const review = reviewInfo(plan?.reviewDate);
+    const progress = Math.round(calculateProgress());
+    const hasChart = !!(chartData && chartData.dates && chartData.dates.length > 0);
+
+    const openAdd = (defaults: { date?: string; time?: string } = {}) => { setAddDefaults(defaults); setIsAdding(true); };
+    const toggleOpen = (id: string) => setOpenIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+    const queueRow = (p: { _id: string; fullName: string }, sub: React.ReactNode, aside?: React.ReactNode) => {
+        const on = String(p._id) === selectedPatientId;
+        return (
+            <li key={p._id}>
+                <button type="button" onClick={() => pickPatient(p as IPatient)} aria-current={on ? 'true' : undefined}
+                    className={`flex w-full items-center justify-between gap-3 border-t border-gray-100 px-4 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${on ? 'bg-emerald-50 shadow-[inset_3px_0_0_#047857]' : 'hover:bg-gray-50'}`}>
+                    <span className="min-w-0">
+                        <span className="block truncate font-semibold text-gray-900">{p.fullName}</span>
+                        <span className="block truncate text-xs text-gray-600">{sub}</span>
+                    </span>
+                    {aside}
+                </button>
+            </li>
+        );
+    };
+
+    const sectionLabel = 'px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600';
+
+    const pageCount = Math.ceil(evaluations.length / ITEMS_PER_PAGE);
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const paginated = evaluations.slice(start, start + ITEMS_PER_PAGE);
 
     return (
         <>
@@ -444,638 +610,340 @@ export default function TherapyEvolution({
                 onSpecialtyChange={(specialty) => setSelectedSpecialty(specialty)}
                 doctorSpecialty={(user as any)?.specialty}
                 lastEvolution={lastEvolution}
+                defaultDate={addDefaults.date}
+                defaultTime={addDefaults.time}
             />
 
-            <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-cyan-50 py-8 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-7xl mx-auto">
+            <div className="space-y-4 text-left">
+                <div role="tablist" aria-label="Evolução" className="flex gap-1 border-b border-gray-200">
+                    <button role="tab" type="button" aria-selected={activeTab === 'evolution'} className={tabBtn(activeTab === 'evolution')} onClick={() => setActiveTab('evolution')}>
+                        <Activity className="mr-1.5 inline h-4 w-4" aria-hidden />Evolução de pacientes
+                    </button>
+                    <button role="tab" type="button" aria-selected={activeTab === 'analytics'} className={tabBtn(activeTab === 'analytics')} onClick={() => setActiveTab('analytics')}>
+                        <BarChart3 className="mr-1.5 inline h-4 w-4" aria-hidden />Analytics de protocolos
+                    </button>
+                </div>
 
-                    {/* ✅ TABS */}
-                    <div className="bg-white rounded-xl border-2 border-gray-200 shadow-xl mb-6">
-                        <div className="border-b border-gray-200 px-4">
-                            <nav className="flex gap-2 -mb-px">
-                                <button
-                                    onClick={() => setActiveTab('evolution')}
-                                    className={`px-6 py-4 text-base font-semibold border-b-4 transition-all ${activeTab === 'evolution'
-                                        ? 'border-green-500 text-green-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    <Activity className="h-5 w-5 inline mr-2" />
-                                    Evolução de Pacientes
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('analytics')}
-                                    className={`px-6 py-4 text-base font-semibold border-b-4 transition-all ${activeTab === 'analytics'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    <BarChart3 className="h-5 w-5 inline mr-2" />
-                                    Analytics
-                                </button>
-                            </nav>
-                        </div>
-                    </div>
-
-                    {/* ✅ ABA EVOLUÇÃO */}
-                    {activeTab === 'evolution' && (
-                        <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
-                            <Card className="border-0">
-                                <CardHeader className="bg-gradient-to-r from-green-600 via-green-500 to-cyan-500 p-4 sm:p-8">
-                                    <CardTitle className="flex items-center gap-3 sm:gap-4 text-white text-xl sm:text-3xl font-bold drop-shadow-lg">
-                                        <Activity className="h-8 w-8" />
-                                        Evolução Terapêutica
-                                    </CardTitle>
-                                </CardHeader>
-
-                                <CardContent className="p-3 sm:p-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-10">
-                                        {/* seleção de paciente */}
-                                        <div className="space-y-4 p-6 bg-gradient-to-br from-green-50 to-white rounded-2xl border-2 border-green-100 shadow-lg hover:shadow-xl transition-all">
-                                            <Label
-                                                htmlFor="patientId"
-                                                className="block font-bold text-gray-800 flex items-center gap-3 text-lg"
-                                            >
-                                                <Users size={24} className="text-green-600" />
-                                                Selecione o Paciente
-                                            </Label>
-                                            <div className="relative" ref={searchDropdownRef}>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={patientSearch}
-                                                        onFocus={() => setIsPatientDropdownOpen(true)}
-                                                        onChange={(e) => {
-                                                            setPatientSearch(e.target.value);
-                                                            setIsPatientDropdownOpen(true);
-                                                            if (!e.target.value) {
-                                                                setSelectedPatientId('');
-                                                                onSelectPatient?.(null);
-                                                            }
-                                                        }}
-                                                        placeholder="Digite o nome do paciente..."
-                                                        className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md text-base font-medium pr-10"
-                                                    />
-                                                    {isSearchingPatient && (
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                            <svg className="animate-spin h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24">
-                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                            </svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {isPatientDropdownOpen && (
-                                                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                                                        {patientOptions.length === 0 ? (
-                                                            <div className="px-4 py-3 text-sm text-gray-400">
-                                                                {isSearchingPatient
-                                                                    ? 'Buscando...'
-                                                                    : patientSearch.trim().length >= 2
-                                                                        ? 'Nenhum paciente encontrado'
-                                                                        : 'Nenhum paciente vinculado. Digite o nome para buscar.'}
-                                                            </div>
-                                                        ) : (
-                                                            <ul className="max-h-64 overflow-auto">
-                                                                {patientOptions.map(p => (
-                                                                    <li
-                                                                        key={p._id}
-                                                                        onMouseDown={() => handlePickPatient(p)}
-                                                                        className="px-4 py-3 cursor-pointer hover:bg-green-50 text-sm text-gray-700 font-medium border-b border-gray-50 last:border-0"
-                                                                    >
-                                                                        {p.fullName}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* progresso geral */}
-                                        <div className="space-y-4 p-6 bg-gradient-to-br from-cyan-50 to-white rounded-2xl border-2 border-cyan-100 shadow-lg hover:shadow-xl transition-all">
-                                            <label className="block font-bold text-gray-800 text-lg flex items-center gap-3">
-                                                <span className="text-2xl">📈</span>
-                                                Progresso Geral
-                                            </label>
-                                            {calculateProgress() > 0 || (progressData?.objectives && progressData.objectives.length > 0) || (chartData?.metrics && Object.keys(chartData.metrics).length > 0) ? (
-                                                <div className="flex items-center gap-6">
-                                                    <div className="flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full h-4 overflow-hidden shadow-inner">
-                                                        <LinearProgress
-                                                            variant="determinate"
-                                                            value={calculateProgress()}
-                                                            className="h-full rounded-full"
-                                                            sx={{
-                                                                backgroundColor: 'transparent',
-                                                                '& .MuiLinearProgress-bar': {
-                                                                    background: 'linear-gradient(90deg, #2563eb 0%, #06b6d4 100%)',
-                                                                    borderRadius: '9999px'
-                                                                }
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500 min-w-[60px] sm:min-w-[80px] text-right">
-                                                        {Math.round(calculateProgress())}%
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center py-4">
-                                                    <p className="text-sm text-gray-500">
-                                                        Nenhum plano terapêutico ou métrica registrada para calcular progresso.
-                                                    </p>
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        Registre objetivos no plano terapêutico ou métricas nas evoluções.
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
+                {activeTab === 'evolution' && (
+                    <div className="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+                        {/* ── Fila ─────────────────────────────────── */}
+                        <section className={card} aria-labelledby="evo-fila">
+                            <h2 id="evo-fila" className="border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900">Pacientes</h2>
+                            <div className="relative p-3" ref={searchDropdownRef}>
+                                <label htmlFor="evo-busca" className="sr-only">Buscar paciente</label>
+                                <Search className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden />
+                                <input
+                                    id="evo-busca"
+                                    type="search"
+                                    autoComplete="off"
+                                    value={patientSearch}
+                                    onFocus={() => setIsPatientDropdownOpen(true)}
+                                    onChange={(e) => { setPatientSearch(e.target.value); setIsPatientDropdownOpen(true); }}
+                                    placeholder="Buscar paciente pelo nome"
+                                    className="min-h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                />
+                                {isPatientDropdownOpen && patientSearch.trim() && (
+                                    <div className="absolute left-3 right-3 z-20 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                                        {patientOptions.length === 0 ? (
+                                            <p className="px-4 py-3 text-sm text-gray-600">
+                                                {isSearchingPatient ? 'Buscando...' : patientSearch.trim().length >= 2 ? 'Nenhum paciente encontrado' : 'Digite ao menos 2 letras'}
+                                            </p>
+                                        ) : (
+                                            <ul className="max-h-64 overflow-auto">
+                                                {patientOptions.map(p => (
+                                                    <li key={p._id}>
+                                                        <button type="button" onMouseDown={(e) => { e.preventDefault(); pickPatient(p); }} onClick={() => pickPatient(p)}
+                                                            className="w-full border-b border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-gray-800 last:border-0 hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none">
+                                                            {p.fullName}
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                     </div>
+                                )}
+                            </div>
 
-                                    {/* plano terapêutico atual */}
-                                    {selectedPatient && (
-                                        <div className="mb-10">
-                                            <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg p-6">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <Target className="h-6 w-6 text-green-600" />
-                                                        <div>
-                                                            <h3 className="text-xl font-bold text-gray-900">
-                                                                Plano Terapêutico Atual
-                                                            </h3>
-                                                            <p className="text-sm text-gray-500">
-                                                                Progresso em relação aos objetivos definidos no plano.
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                            <p className={sectionLabel}>Evolução pendente · {queueLoading ? '…' : pending.length}</p>
+                            {!queueLoading && pending.length === 0 && (
+                                <p className="px-4 pb-3 text-sm text-gray-600">Tudo em dia: todo atendimento recente tem evolução.</p>
+                            )}
+                            <ul>
+                                {pending.map(p => {
+                                    const age = pendingAge(p.lastCompletedDate);
+                                    return queueRow(p, `atendido ${lastLabel(p.lastCompletedDate)}`,
+                                        <span className={`shrink-0 rounded-full px-2 py-px text-xs font-semibold ${age.n >= 3 ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>{age.label}</span>);
+                                })}
+                            </ul>
 
-                                                    {progressData?.currentPlan?.protocol && (
-                                                        <div className="text-right text-sm text-gray-600">
-                                                            <p className="font-semibold text-gray-800">
-                                                                {progressData.currentPlan.protocol.name}
-                                                            </p>
-                                                            <p className="text-gray-500 text-xs">
-                                                                Código: {progressData.currentPlan.protocol.code}
-                                                            </p>
-                                                            {progressData.currentPlan.reviewDate && (
-                                                                <p className="text-gray-500 text-xs">
-                                                                    Revisão em:{' '}
-                                                                    {new Date(progressData.currentPlan.reviewDate).toLocaleDateString('pt-BR')}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )}
+                            <p className={`${sectionLabel} mt-1`}>Em atendimento · {queueLoading ? '…' : activeNotPending.length}</p>
+                            {!queueLoading && activeNotPending.length === 0 && (
+                                <p className="px-4 pb-3 text-sm text-gray-600">Nenhum outro paciente com sessão marcada.</p>
+                            )}
+                            <ul className="max-h-[420px] overflow-auto pb-1">
+                                {activeNotPending.map(p => {
+                                    const next = nextLabel(p.nextAppointment);
+                                    return queueRow(p, `última sessão ${lastLabel(p.lastAppointment)}${next ? ` · próxima ${next}` : ''}`);
+                                })}
+                            </ul>
+                        </section>
+
+                        {/* ── Paciente ─────────────────────────────── */}
+                        <div ref={detailRef} className="min-w-0 scroll-mt-4 space-y-4">
+                            {!selectedPatientId ? (
+                                <div className={`${card} px-6 py-14 text-center`}>
+                                    <Activity className="mx-auto mb-3 h-10 w-10 text-emerald-600" aria-hidden />
+                                    <p className="text-lg font-semibold text-gray-900">Escolha um paciente</p>
+                                    <p className="mx-auto mt-1 max-w-md text-sm text-gray-600">
+                                        Clique em alguém da lista para ver o plano terapêutico e o histórico de sessões, ou registrar a evolução de hoje.
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Cabeçalho */}
+                                    <section className={card} aria-label="Paciente selecionado">
+                                        <div className="flex flex-wrap items-start justify-between gap-4 p-4 sm:p-5">
+                                            <div className="min-w-0">
+                                                <h2 className="text-xl font-semibold text-gray-900">{info.fullName}</h2>
+                                                <p className="mt-0.5 text-sm text-gray-600">
+                                                    {[ageLabel(info.dateOfBirth), info.legalGuardian ? `Resp.: ${info.legalGuardian}` : null, info.mainComplaint ? `Queixa: ${info.mainComplaint}` : null].filter(Boolean).join(' · ') || 'Dados do paciente na ficha'}
+                                                </p>
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    {billingChip(info)}
+                                                    {info.careStatus === 'active' && <Chip tone="ok">Em atendimento</Chip>}
+                                                    {info.careStatus === 'no_next' && <Chip tone="warn">Sem próxima sessão</Chip>}
+                                                    {info.nextAppointment && <Chip tone="neu">próxima: {nextLabel(info.nextAppointment)}</Chip>}
+                                                    {!isLoading && <Chip tone="neu">{evaluations.length} {evaluations.length === 1 ? 'evolução' : 'evoluções'}</Chip>}
                                                 </div>
-
-                                                {isLoading && (
-                                                    <p className="text-sm text-gray-500 italic">
-                                                        Carregando progresso...
-                                                    </p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {onOpenPatientDetail && (
+                                                    <button type="button" className={btnGhost} onClick={() => onOpenPatientDetail(info as IPatient)}>
+                                                        <UserRound className="h-4 w-4" aria-hidden />Ver ficha
+                                                    </button>
                                                 )}
-
-                                                {!isLoading &&
-                                                    (!progressData || !progressData.objectives || progressData.objectives.length === 0) && (
-                                                        <p className="text-sm text-gray-500 italic">
-                                                            Nenhum plano terapêutico estruturado encontrado para este paciente.
-                                                        </p>
-                                                    )}
-
-                                                {!isLoading &&
-                                                    progressData?.objectives &&
-                                                    progressData.objectives.length > 0 && (
-                                                        <div className="space-y-4 mt-4">
-                                                            {progressData.objectives.map((obj: any, idx: number) => (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="p-4 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white"
-                                                                >
-                                                                    <div className="flex items-start justify-between gap-3">
-                                                                        <div>
-                                                                            <p className="text-xs font-semibold uppercase tracking-wide text-green-600 mb-1">
-                                                                                {obj.area}
-                                                                            </p>
-                                                                            <p className="text-sm font-semibold text-gray-800">
-                                                                                {obj.description}
-                                                                            </p>
-                                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                                Meta: {obj.target} • Atual: {obj.current ?? '-'}
-                                                                            </p>
-                                                                            {obj.targetDate && (
-                                                                                <p className="text-xs text-gray-500">
-                                                                                    Prazo alvo:{' '}
-                                                                                    {new Date(obj.targetDate).toLocaleDateString('pt-BR')}
-                                                                                </p>
-                                                                            )}
-                                                                            {obj.projectedCompletion && (
-                                                                                <p className="text-xs text-gray-500">
-                                                                                    Projeção de conclusão:{' '}
-                                                                                    {new Date(obj.projectedCompletion).toLocaleDateString('pt-BR')}
-                                                                                </p>
-                                                                            )}
-                                                                        </div>
-
-                                                                        <div className="flex flex-col items-end gap-1">
-                                                                            <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
-                                                                                <TrendingUp className="h-4 w-4 text-green-500" />
-                                                                                <span>
-                                                                                    {obj.trend === 'improving' && 'Melhorando'}
-                                                                                    {obj.trend === 'stable' && 'Estável'}
-                                                                                    {obj.trend === 'regressing' && 'Regredindo'}
-                                                                                    {!obj.trend && '-'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <span className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-cyan-500">
-                                                                                {Math.round(obj.progress ?? 0)}%
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="mt-3">
-                                                                        <LinearProgress
-                                                                            variant="determinate"
-                                                                            value={obj.progress ?? 0}
-                                                                            className="h-2 rounded-full"
-                                                                            sx={{
-                                                                                backgroundColor: '#e5e7eb',
-                                                                                '& .MuiLinearProgress-bar': {
-                                                                                    background:
-                                                                                        'linear-gradient(90deg, #16a34a 0%, #22c55e 50%, #22d3ee 100%)',
-                                                                                    borderRadius: '9999px'
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                <button type="button" className={btnPrimary} onClick={() => openAdd()}>
+                                                    <Plus className="h-4 w-4" aria-hidden />{evaluations.length === 0 && !isLoading ? 'Registrar primeira evolução' : 'Registrar evolução'}
+                                                </button>
                                             </div>
                                         </div>
-                                    )}
-
-                                    {selectedPatient ? (
-                                        <div className="space-y-6">
-                                            {/* Header com ação */}
-                                            <div className="flex flex-wrap justify-between items-center gap-3 p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border-2 border-gray-200 shadow-md">
-                                                <div>
-                                                    <h3 className="font-bold text-lg sm:text-2xl text-gray-900 flex items-center gap-2 sm:gap-3">
-                                                        <span className="text-2xl sm:text-3xl">📋</span>
-                                                        Evoluções — {selectedPatientData.fullName}
-                                                    </h3>
-                                                    <p className="text-gray-500 text-sm mt-1">
-                                                        {evaluations.length} registro{evaluations.length !== 1 ? 's' : ''} encontrado{evaluations.length !== 1 ? 's' : ''}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    onClick={() => setIsAdding(true)}
-                                                    className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
-                                                >
-                                                    <Plus className="h-5 w-5 mr-2" />
-                                                    Nova Evolução
-                                                </Button>
+                                        {selectedPending && (
+                                            <div role="status" className="mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900 sm:mx-5">
+                                                <span className="flex items-center gap-2">
+                                                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                                                    Sessão de {fmtDate(selectedPending.lastCompletedDate)} ({lastLabel(selectedPending.lastCompletedDate)}) ainda sem evolução.
+                                                </span>
+                                                <button type="button" className={`${btnSoft} ${btnSm}`} onClick={() => openAdd({ date: toDateString(selectedPending.lastCompletedDate) })}>
+                                                    Registrar essa sessão
+                                                </button>
                                             </div>
+                                        )}
+                                    </section>
 
-                                            {/* Sub-tabs: Histórico / Gráfico */}
-                                            <div className="bg-white rounded-xl border-2 border-gray-200 shadow-sm">
-                                                <div className="border-b border-gray-200 px-4">
-                                                    <nav className="flex gap-2 -mb-px">
-                                                        <button
-                                                            onClick={() => { setEvolutionSubTab('history'); setCurrentPage(1); }}
-                                                            className={`px-5 py-3 text-sm font-semibold border-b-4 transition-all ${evolutionSubTab === 'history'
-                                                                ? 'border-green-500 text-green-600'
-                                                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                                                }`}
-                                                        >
-                                                            <Activity className="h-4 w-4 inline mr-2" />
-                                                            Histórico
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setEvolutionSubTab('chart')}
-                                                            className={`px-5 py-3 text-sm font-semibold border-b-4 transition-all ${evolutionSubTab === 'chart'
-                                                                ? 'border-blue-500 text-blue-600'
-                                                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                                                }`}
-                                                        >
-                                                            <BarChart3 className="h-4 w-4 inline mr-2" />
-                                                            Gráfico
-                                                        </button>
-                                                    </nav>
-                                                </div>
-
-                                                <div className="p-4 sm:p-6">
-                                                    {/* ─── ABA HISTÓRICO (Timeline Clínica) ─── */}
-                                                    {evolutionSubTab === 'history' && (
-                                                        <div className="space-y-4">
-                                                            {evaluations.length > 0 ? (
-                                                                <>
-                                                                    {(() => {
-                                                                        const totalPages = Math.ceil(evaluations.length / ITEMS_PER_PAGE);
-                                                                        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-                                                                        const paginated = evaluations.slice(start, start + ITEMS_PER_PAGE);
-                                                                        return (
-                                                                            <>
-                                                                                {/* Timeline vertical */}
-                                                                                <div className="relative">
-                                                                                    {/* Linha vertical */}
-                                                                                    <div className="absolute left-[19px] top-3 bottom-3 w-0.5 bg-gray-200" />
-
-                                                                                    {paginated.map((evaluation: any, index: number) => {
-                                                                                        const realIndex = start + index;
-                                                                                        const previous = evaluations[realIndex + 1] || null;
-                                                                                        const badges = getTimelineBadges(evaluation, previous);
-                                                                                        const isOpen = showDetails === realIndex;
-
-                                                                                        return (
-                                                                                            <div key={evaluation._id} className="relative pl-12 pb-8 last:pb-0">
-                                                                                                {/* Dot na linha */}
-                                                                                                <div className={`absolute left-2 top-2 w-5 h-5 rounded-full border-2 bg-white flex items-center justify-center shadow-sm ${
-                                                                                                    badges.some(b => b.type === 'regression')
-                                                                                                        ? 'border-red-400'
-                                                                                                        : badges.some(b => b.type === 'improvement')
-                                                                                                            ? 'border-green-400'
-                                                                                                            : badges.some(b => b.type === 'protocol_change')
-                                                                                                                ? 'border-blue-400'
-                                                                                                                : 'border-gray-300'
-                                                                                                }`}>
-                                                                                                    <div className={`w-2.5 h-2.5 rounded-full ${
-                                                                                                        badges.some(b => b.type === 'regression')
-                                                                                                            ? 'bg-red-400'
-                                                                                                            : badges.some(b => b.type === 'improvement')
-                                                                                                                ? 'bg-green-400'
-                                                                                                                : badges.some(b => b.type === 'protocol_change')
-                                                                                                                    ? 'bg-blue-400'
-                                                                                                                    : 'bg-gray-300'
-                                                                                                    }`} />
-                                                                                                </div>
-
-                                                                                                {/* Card */}
-                                                                                                <div className="bg-white border-2 border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-lg transition-all hover:border-green-200">
-                                                                                                    {/* Header: data + badges + ações */}
-                                                                                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                                                                                                        <div className="flex-1 min-w-[200px]">
-                                                                                                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                                                                                                                <span className="font-bold text-base text-gray-900">
-                                                                                                                    {format(new Date(evaluation.date), 'dd/MM/yyyy')}
-                                                                                                                </span>
-                                                                                                                <span className="text-sm text-gray-500">
-                                                                                                                    às {evaluation.time}
-                                                                                                                </span>
-                                                                                                            </div>
-
-                                                                                                            {/* Badges clínicos */}
-                                                                                                            {badges.length > 0 && (
-                                                                                                                <div className="flex gap-2 flex-wrap">
-                                                                                                                    {badges.map((badge, bIdx) => {
-                                                                                                                        const styles = {
-                                                                                                                            improvement: 'bg-green-50 text-green-700 border-green-200',
-                                                                                                                            regression: 'bg-red-50 text-red-700 border-red-200',
-                                                                                                                            stable: 'bg-gray-50 text-gray-600 border-gray-200',
-                                                                                                                            protocol_change: 'bg-blue-50 text-blue-700 border-blue-200',
-                                                                                                                            first: 'bg-amber-50 text-amber-700 border-amber-200',
-                                                                                                                        }[badge.type];
-                                                                                                                        const Icon = {
-                                                                                                                            improvement: ArrowUp,
-                                                                                                                            regression: ArrowDown,
-                                                                                                                            stable: Minus,
-                                                                                                                            protocol_change: GitBranch,
-                                                                                                                            first: Activity,
-                                                                                                                        }[badge.type];
-                                                                                                                        return (
-                                                                                                                            <span
-                                                                                                                                key={bIdx}
-                                                                                                                                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border ${styles}`}
-                                                                                                                            >
-                                                                                                                                <Icon className="h-3 w-3" />
-                                                                                                                                {badge.label}
-                                                                                                                            </span>
-                                                                                                                        );
-                                                                                                                    })}
-                                                                                                                </div>
-                                                                                                            )}
-                                                                                                        </div>
-
-                                                                                                        <div className="flex items-center gap-2">
-                                                                                                            <Button
-                                                                                                                variant="outline"
-                                                                                                                size="sm"
-                                                                                                                onClick={() => setShowDetails(isOpen ? null : realIndex)}
-                                                                                                                className="text-gray-600 hover:text-green-600 border-2 border-gray-300 hover:border-green-400 rounded-xl p-2 transition-all hover:scale-110"
-                                                                                                            >
-                                                                                                                <ChevronDown
-                                                                                                                    className={`h-5 w-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
-                                                                                                                />
-                                                                                                            </Button>
-                                                                                                            <Button
-                                                                                                                variant="outline"
-                                                                                                                size="sm"
-                                                                                                                disabled={deletingId === evaluation._id}
-                                                                                                                onClick={() => handleDeleteEvaluation(evaluation._id)}
-                                                                                                                className="text-red-600 border-2 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-400 rounded-xl p-2 transition-all hover:scale-110"
-                                                                                                                title="Excluir avaliação"
-                                                                                                            >
-                                                                                                                <Trash2 className="h-5 w-5" />
-                                                                                                            </Button>
-                                                                                                        </div>
-                                                                                                    </div>
-
-                                                                                                    {/* Linha resumo */}
-                                                                                                    <div className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                                                                                                        <Users size={14} className="text-green-600" />
-                                                                                                        <span className="font-medium">{evaluation.doctor?.fullName}</span>
-                                                                                                        <span className="text-gray-400">•</span>
-                                                                                                        <span>{evaluation.doctor?.specialty}</span>
-                                                                                                    </div>
-
-                                                                                                    {/* Tipos de avaliação */}
-                                                                                                    {evaluation.evaluationTypes?.length > 0 && (
-                                                                                                        <div className="flex gap-2 flex-wrap mt-2">
-                                                                                                            {evaluation.evaluationTypes.map((type: string) => (
-                                                                                                                <span
-                                                                                                                    key={type}
-                                                                                                                    className="px-2 py-0.5 text-2xs font-bold rounded-full bg-gradient-to-r from-green-100 to-cyan-100 text-green-800 border border-green-200"
-                                                                                                                >
-                                                                                                                    {type}
-                                                                                                                </span>
-                                                                                                            ))}
-                                                                                                        </div>
-                                                                                                    )}
-
-                                                                                                    {/* Detalhes expandidos */}
-                                                                                                    {isOpen && (
-                                                                                                        <div className="mt-5 space-y-5 pt-5 border-t-2 border-gray-200">
-                                                                                                            <div>
-                                                                                                                <h4 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2">
-                                                                                                                    <span className="text-base">📊</span>
-                                                                                                                    Métricas Registradas
-                                                                                                                </h4>
-                                                                                                                {evaluation.metrics && evaluation.metrics.length > 0 ? (
-                                                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                                                                                        {evaluation.metrics.map((metric: any) => (
-                                                                                                                            <div
-                                                                                                                                key={metric.name}
-                                                                                                                                className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-white p-3 rounded-xl border-2 border-gray-200"
-                                                                                                                            >
-                                                                                                                                <span className="font-semibold text-gray-800 text-sm">{metric.name}</span>
-                                                                                                                                <span className="bg-gradient-to-r from-green-500 to-cyan-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-sm">
-                                                                                                                                    {metric.value}
-                                                                                                                                </span>
-                                                                                                                            </div>
-                                                                                                                        ))}
-                                                                                                                    </div>
-                                                                                                                ) : (
-                                                                                                                    <p className="text-gray-500 text-sm italic">Nenhuma métrica registrada</p>
-                                                                                                                )}
-                                                                                                            </div>
-
-                                                                                                            <div>
-                                                                                                                <h4 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2">
-                                                                                                                    <span className="text-base">📝</span>
-                                                                                                                    Relatório Clínico
-                                                                                                                </h4>
-                                                                                                                <div className="bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl border-2 border-gray-200">
-                                                                                                                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed font-light text-sm">
-                                                                                                                        {evaluation.content || 'Nenhum relatório registrado'}
-                                                                                                                    </p>
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    })}
-                                                                                </div>
-
-                                                                                {/* Paginação */}
-                                                                                {totalPages > 1 && (
-                                                                                    <div className="flex items-center justify-between pt-4">
-                                                                                        <p className="text-sm text-gray-500">
-                                                                                            Página {currentPage} de {totalPages}
-                                                                                        </p>
-                                                                                        <div className="flex gap-2">
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                disabled={currentPage === 1}
-                                                                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                                                                className="rounded-lg px-4"
-                                                                                            >
-                                                                                                Anterior
-                                                                                            </Button>
-                                                                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                                                                                <button
-                                                                                                    key={page}
-                                                                                                    onClick={() => setCurrentPage(page)}
-                                                                                                    className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${currentPage === page
-                                                                                                        ? 'bg-green-600 text-white shadow-md'
-                                                                                                        : 'bg-white text-gray-600 border-2 border-gray-200 hover:border-green-300'
-                                                                                                        }`}
-                                                                                                >
-                                                                                                    {page}
-                                                                                                </button>
-                                                                                            ))}
-                                                                                            <Button
-                                                                                                variant="outline"
-                                                                                                size="sm"
-                                                                                                disabled={currentPage === totalPages}
-                                                                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                                                                className="rounded-lg px-4"
-                                                                                            >
-                                                                                                Próxima
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </>
-                                                                        );
-                                                                    })()}
-                                                                </>
-                                                            ) : (
-                                                                <div className="text-center py-16 bg-gradient-to-br from-green-50 to-cyan-50 rounded-2xl border-2 border-dashed border-green-200">
-                                                                    <Activity className="h-16 w-16 mx-auto text-green-300 mb-4" />
-                                                                    <p className="text-gray-700 font-bold text-lg mb-1">
-                                                                        Nenhuma avaliação registrada
-                                                                    </p>
-                                                                    <p className="text-gray-400 text-sm mb-6">
-                                                                        Registre a primeira evolução deste paciente
-                                                                    </p>
-                                                                    <Button
-                                                                        onClick={() => setIsAdding(true)}
-                                                                        className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
-                                                                    >
-                                                                        <Plus className="h-5 w-5 mr-2" />
-                                                                        Adicionar Evolução
-                                                                    </Button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-{/* ─── ABA GRÁFICO ─── */}
-                                                    {evolutionSubTab === 'chart' && (
-                                                        <div>
-                                                            {chartData && chartData.dates && chartData.dates.length > 0 ? (
-                                                                <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-3 sm:p-6 hover:shadow-2xl transition-shadow">
-                                                                    <EvolutionChart chartData={chartData} />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-center py-16 bg-gradient-to-br from-green-50 to-cyan-50 rounded-2xl border-2 border-dashed border-green-200">
-                                                                    <BarChart3 className="h-16 w-16 mx-auto text-green-300 mb-4" />
-                                                                    <p className="text-gray-700 font-bold text-lg mb-1">
-                                                                        Nenhum dado para exibir
-                                                                    </p>
-                                                                    <p className="text-gray-400 text-sm mb-6">
-                                                                        Clique no botão abaixo para adicionar a primeira evolução e gerar os gráficos
-                                                                    </p>
-                                                                    <Button
-                                                                        onClick={() => setIsAdding(true)}
-                                                                        className="bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
-                                                                    >
-                                                                        <Plus className="h-5 w-5 mr-2" />
-                                                                        Adicionar Evolução
-                                                                    </Button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
+                                    {/* Plano terapêutico */}
+                                    {isLoading ? (
+                                        <div className={`${card} px-4 py-4 text-sm text-gray-600`}>Carregando plano e histórico...</div>
+                                    ) : objectives.length === 0 ? (
+                                        <div className={`${card} flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm text-gray-600`}>
+                                            <span className="flex items-center gap-2"><Target className="h-4 w-4 text-emerald-700" aria-hidden />
+                                                Sem plano terapêutico ainda. Ele é criado ao escolher o protocolo numa evolução.</span>
+                                            {progress > 0 && <span>Progresso pelas métricas: <b className="text-gray-900">{progress}%</b></span>}
                                         </div>
                                     ) : (
-                                        <div className="text-center py-24 bg-gradient-to-br from-green-50 to-cyan-50 rounded-2xl border-2 border-dashed border-green-200">
-                                            <Activity className="h-24 w-24 mx-auto text-green-300 mb-8" />
-                                            <p className="text-gray-700 font-bold text-2xl mb-3">
-                                                Selecione um paciente
-                                            </p>
-                                            <p className="text-gray-500 text-lg">
-                                                Escolha um paciente para visualizar a evolução terapêutica
-                                            </p>
-                                        </div>
+                                        <section className={card} aria-labelledby="evo-plano">
+                                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-200 px-4 py-3">
+                                                <h3 id="evo-plano" className="text-base font-semibold text-gray-900">
+                                                    Plano terapêutico{plan?.protocol?.name ? ` · ${plan.protocol.name}` : ''}
+                                                    {plan?.protocol?.code && <span className="ml-1.5 text-xs font-medium text-gray-600">{plan.protocol.code}</span>}
+                                                </h3>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                                                    <span>Progresso geral <b className="text-gray-900">{progress}%</b></span>
+                                                    {plan?.reviewDate && review && (
+                                                        <span>Revisão <b className="text-gray-900">{fmtDate(plan.reviewDate).slice(0, 5)}</b> · <span className={`font-semibold ${review.tone}`}>{review.text}</span></span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <ul className="grid sm:grid-cols-2 xl:grid-cols-3">
+                                                {objectives.map((obj: any, idx: number) => {
+                                                    const t = TREND[obj.trend as keyof typeof TREND];
+                                                    const pct = Math.max(0, Math.min(100, Math.round(obj.progress ?? 0)));
+                                                    return (
+                                                        <li key={idx} className="border-t border-gray-100 px-4 py-3 sm:border-r">
+                                                            <p className="text-xs font-semibold text-emerald-800">{areaLabel(obj.area)}</p>
+                                                            <p className="mt-0.5 font-semibold text-gray-900">{obj.description}</p>
+                                                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso em ${areaLabel(obj.area)}`}>
+                                                                <div className="h-full rounded-full bg-emerald-600" style={{ width: `${pct}%` }} />
+                                                            </div>
+                                                            <div className="mt-1.5 flex items-center justify-between gap-2 text-xs text-gray-600">
+                                                                <span>{obj.current ?? '—'} de {obj.target ?? 10} · {pct}%</span>
+                                                                {t ? <span className={`inline-flex items-center gap-1 font-semibold ${t.tone}`}><t.Icon className="h-3.5 w-3.5" aria-hidden />{t.label}</span> : <span>—</span>}
+                                                            </div>
+                                                            {(obj.targetDate || obj.projectedCompletion) && (
+                                                                <p className="mt-1 text-xs text-gray-600">
+                                                                    {obj.targetDate && <>Prazo alvo {fmtDate(obj.targetDate)}</>}
+                                                                    {obj.targetDate && obj.projectedCompletion && ' · '}
+                                                                    {obj.projectedCompletion && <>Projeção {new Date(obj.projectedCompletion).toLocaleDateString('pt-BR')}</>}
+                                                                </p>
+                                                            )}
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </section>
                                     )}
-                                </CardContent>
-                            </Card>
+
+                                    {/* Histórico / Gráfico */}
+                                    {!isLoading && (
+                                        <section className={card} aria-label="Histórico de evoluções">
+                                            <div role="tablist" className="flex gap-1 border-b border-gray-200 px-3">
+                                                <button role="tab" type="button" aria-selected={evolutionSubTab === 'history'} className={tabBtn(evolutionSubTab === 'history')} onClick={() => { setEvolutionSubTab('history'); setCurrentPage(1); }}>
+                                                    Histórico · {evaluations.length}
+                                                </button>
+                                                {evaluations.length > 0 && (
+                                                    <button role="tab" type="button" aria-selected={evolutionSubTab === 'chart'} className={tabBtn(evolutionSubTab === 'chart')} onClick={() => setEvolutionSubTab('chart')}>
+                                                        Gráfico
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {evolutionSubTab === 'history' && (
+                                                evaluations.length === 0 ? (
+                                                    <div className="px-6 py-10 text-center">
+                                                        <p className="font-semibold text-gray-900">Nenhuma evolução registrada</p>
+                                                        <p className="mt-1 text-sm text-gray-600">A primeira evolução cria o histórico e, se você escolher um protocolo, o plano terapêutico.</p>
+                                                        <button type="button" className={`${btnPrimary} mt-4`} onClick={() => openAdd()}>
+                                                            <Plus className="h-4 w-4" aria-hidden />Registrar primeira evolução
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <ol>
+                                                            {paginated.map((evaluation: any, index: number) => {
+                                                                const realIndex = start + index;
+                                                                const previous = evaluations[realIndex + 1] || null;
+                                                                const badges = getTimelineBadges(evaluation, previous);
+                                                                const isOpen = openIds.has(evaluation._id);
+                                                                const prevScores = scoresOf(previous);
+                                                                const areas: any[] = Array.isArray(evaluation.evaluationAreas) ? evaluation.evaluationAreas : [];
+                                                                const areaIds = new Set(areas.map(a => a.id || a.name));
+                                                                const extraTypes: string[] = (evaluation.evaluationTypes || []).filter((t: string) => !areaIds.has(t));
+                                                                const text = typeof evaluation.content === 'string' ? evaluation.content.trim() : '';
+                                                                return (
+                                                                    <li key={evaluation._id} className="grid gap-3 border-t border-gray-100 px-4 py-4 first:border-t-0 sm:grid-cols-[92px_minmax(0,1fr)_auto]">
+                                                                        <div>
+                                                                            <p className="font-semibold text-gray-900">{fmtDate(evaluation.date)}</p>
+                                                                            <p className="text-xs text-gray-600">{weekday(evaluation.date)}{evaluation.time ? ` · ${evaluation.time}` : ''}</p>
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {badges.map((badge, bIdx) => {
+                                                                                    const Icon = BADGE_ICON[badge.type];
+                                                                                    return (
+                                                                                        <span key={bIdx} className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-xs font-semibold ${BADGE_STYLE[badge.type]}`}>
+                                                                                            <Icon className="h-3 w-3" aria-hidden />{badge.label}
+                                                                                        </span>
+                                                                                    );
+                                                                                })}
+                                                                                {areas.map((a: any) => {
+                                                                                    const id = a.id || a.name;
+                                                                                    const before = prevScores['a:' + id];
+                                                                                    const diff = before !== undefined ? Number(a.score) - before : 0;
+                                                                                    return (
+                                                                                        <span key={id} className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-gray-50 px-2 py-px text-xs font-medium text-gray-800">
+                                                                                            {areaLabel(a.id, a.name)} {num(Number(a.score))}
+                                                                                            {diff !== 0 && <b className={diff > 0 ? 'text-green-700' : 'text-red-700'}>{diff > 0 ? '+' : '−'}{num(Math.abs(diff))}</b>}
+                                                                                        </span>
+                                                                                    );
+                                                                                })}
+                                                                                {extraTypes.map(type => (
+                                                                                    <span key={type} className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-px text-xs font-medium text-emerald-800">{areaLabel(type)}</span>
+                                                                                ))}
+                                                                            </div>
+                                                                            <p className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-800 ${isOpen ? '' : 'line-clamp-2'}`}>
+                                                                                {text || <span className="italic text-gray-600">Nenhum relatório registrado</span>}
+                                                                            </p>
+                                                                            <p className="mt-1.5 text-xs text-gray-600">
+                                                                                {evaluation.doctor?.fullName}{evaluation.doctor?.specialty ? ` · ${evaluation.doctor.specialty}` : ''}
+                                                                            </p>
+                                                                            {isOpen && (
+                                                                                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                                                                    <p className="mb-1.5 text-sm font-semibold text-gray-900">Métricas registradas</p>
+                                                                                    {evaluation.metrics && evaluation.metrics.length > 0 ? (
+                                                                                        <ul className="grid gap-1.5 sm:grid-cols-2">
+                                                                                            {evaluation.metrics.map((metric: any) => {
+                                                                                                const before = prevScores['m:' + metric.name];
+                                                                                                const diff = before !== undefined ? Number(metric.value) - before : 0;
+                                                                                                return (
+                                                                                                    <li key={metric.name} className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm">
+                                                                                                        <span className="text-gray-800">{metric.name}</span>
+                                                                                                        <span className="font-semibold text-gray-900">{metric.value}{metric.unit ? ` ${metric.unit}` : ''}
+                                                                                                            {diff !== 0 && <b className={`ml-1 text-xs ${diff > 0 ? 'text-green-700' : 'text-red-700'}`}>{diff > 0 ? '+' : '−'}{num(Math.abs(diff))}</b>}
+                                                                                                        </span>
+                                                                                                    </li>
+                                                                                                );
+                                                                                            })}
+                                                                                        </ul>
+                                                                                    ) : (
+                                                                                        <p className="text-sm italic text-gray-600">Nenhuma métrica registrada</p>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-start gap-2">
+                                                                            <button type="button" className={`${btnGhost} ${btnSm}`} aria-expanded={isOpen} onClick={() => toggleOpen(evaluation._id)}>
+                                                                                <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden />{isOpen ? 'Recolher' : 'Ver tudo'}
+                                                                            </button>
+                                                                            <button type="button" className={`${btnGhost} ${btnSm}`} disabled={pdfId === evaluation._id} onClick={() => handleDownloadPdf(evaluation)} aria-label={`Baixar PDF da evolução de ${fmtDate(evaluation.date)}`}>
+                                                                                <FileDown className="h-4 w-4" aria-hidden />{pdfId === evaluation._id ? 'Gerando…' : 'PDF'}
+                                                                            </button>
+                                                                            <EntryMenu label={fmtDate(evaluation.date)} deleting={deletingId === evaluation._id} onDelete={() => handleDeleteEvaluation(evaluation._id)} />
+                                                                        </div>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ol>
+
+                                                        {pageCount > 1 && (
+                                                            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-3 text-sm text-gray-600">
+                                                                <span>Página {currentPage} de {pageCount} · {ITEMS_PER_PAGE} por página</span>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    <button type="button" className={`${btnGhost} ${btnSm}`} disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Anterior</button>
+                                                                    {Array.from({ length: pageCount }, (_, i) => i + 1).map(page => (
+                                                                        <button key={page} type="button" aria-current={currentPage === page ? 'page' : undefined} onClick={() => setCurrentPage(page)}
+                                                                            className={`${btn} ${btnSm} w-9 px-0 ${currentPage === page ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+                                                                            {page}
+                                                                        </button>
+                                                                    ))}
+                                                                    <button type="button" className={`${btnGhost} ${btnSm}`} disabled={currentPage === pageCount} onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}>Próxima</button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )
+                                            )}
+
+                                            {evolutionSubTab === 'chart' && (
+                                                <div className="p-3 sm:p-5">
+                                                    {hasChart ? (
+                                                        <EvolutionChart chartData={chartData} />
+                                                    ) : (
+                                                        <p className="py-8 text-center text-sm text-gray-600">Ainda não há notas suficientes para o gráfico.</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </section>
+                                    )}
+                                </>
+                            )}
                         </div>
-                    )}
+                    </div>
+                )}
 
-                    {/* ✅ ABA ANALYTICS */}
-                    {activeTab === 'analytics' && (
-                        <div className="bg-white rounded-3xl border-2 border-gray-200 shadow-2xl overflow-hidden">
-                            <Card className="border-0">
-                                <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 p-4 sm:p-8">
-                                    <CardTitle className="flex items-center gap-3 text-white text-xl sm:text-3xl font-bold drop-shadow-lg">
-                                        <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8" />
-                                        Analytics de Protocolos
-                                    </CardTitle>
-                                </CardHeader>
-
-                                <CardContent className="p-3 sm:p-8">
-                                    <ProtocolAnalytics specialty={(user as any)?.specialty} />
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-
-                </div>
+                {activeTab === 'analytics' && (
+                    <section className={`${card} p-3 sm:p-6`} aria-label="Analytics de protocolos">
+                        <ProtocolAnalytics specialty={(user as any)?.specialty} />
+                    </section>
+                )}
             </div>
         </>
     );

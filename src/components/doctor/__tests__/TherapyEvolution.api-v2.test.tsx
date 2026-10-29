@@ -123,7 +123,7 @@ describe('TherapyEvolution - Integração API V2', () => {
     expect(
       screen.getByText((content) => content.includes('01/06/2025'))
     ).toBeInTheDocument();
-    expect(screen.getByText('language')).toBeInTheDocument();
+    expect(screen.getByText('Linguagem')).toBeInTheDocument();
   });
 
   it('deve renderizar timeline clínica com badges de evolução/regressão', async () => {
@@ -204,5 +204,38 @@ describe('TherapyEvolution - Integração API V2', () => {
     // Sanity: as funções de API existem e foram mockadas com envelope V2
     expect(mockedAPI.post).toBeDefined();
     expect(mockedAPI.delete).toBeDefined();
+  });
+
+  it('compara as notas por área com a sessão anterior (etiqueta e diferença)', async () => {
+    vi.restoreAllMocks(); // o teste anterior espiona useEvolution
+    const older = {
+      _id: 'evoA', date: '2025-06-01T00:00:00.000Z', time: '10:00', content: 'Sessão A',
+      doctor: { fullName: 'Dr. Ana', specialty: 'Fonoaudiologia' },
+      evaluationAreas: [{ id: 'pragmatica', name: 'Pragmática', score: 4 }],
+    };
+    const newer = { ...older, _id: 'evoB', date: '2025-06-08T00:00:00.000Z', content: 'Sessão B',
+      evaluationAreas: [{ id: 'pragmatica', name: 'Pragmática', score: 5.5 }] };
+
+    mockedAPI.get.mockImplementation(async (url: string) => {
+      if (url.includes('/progress')) return { data: { success: true, data: null } };
+      if (url.includes('/last')) return { data: { success: true, data: newer } };
+      if (url.includes('/v2/evolutions/patient/')) return { data: { success: true, data: [newer, older] } };
+      if (url.includes('/v2/evolutions/chart/')) return { data: { success: true, data: null } };
+      return { data: {} };
+    });
+
+    render(
+      <TherapyEvolution
+        patients={[mockPatient]}
+        selectedPatient={{ ...mockPatient, _id: 'p-areas' }}
+        onSelectPatient={vi.fn()}
+        onOpenPatientDetail={vi.fn()}
+      />
+    );
+
+    await screen.findByText(/08\/06\/2025/);
+    expect(screen.getByText('Evolução')).toBeInTheDocument();
+    expect(screen.getByText('+1,5')).toBeInTheDocument();
+    expect(screen.getByText('Sessão B')).toBeInTheDocument();
   });
 });

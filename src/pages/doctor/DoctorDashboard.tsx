@@ -485,14 +485,13 @@ export default function DoctorDashboard() {
 
       case 'therapy':
         return (
-          <div className="p-6">
-            <TherapyEvolution
-              patients={allPatients ?? []}
-              selectedPatient={selectedPatient}
-              onSelectPatient={setSelectedPatient}
-              onOpenPatientDetail={handleViewPatientDetails}
-            />
-          </div>
+          <TherapyEvolution
+            patients={allPatients ?? []}
+            selectedPatient={selectedPatient}
+            onSelectPatient={setSelectedPatient}
+            onOpenPatientDetail={handleViewPatientDetails}
+            onEvolutionChanged={() => loadOverview(true)}
+          />
         );
 
       case 'appointments':
@@ -582,7 +581,7 @@ export default function DoctorDashboard() {
 
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
-        <div className={activeTab === 'overview' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
+        <div className={activeTab === 'overview' || activeTab === 'therapy' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
           {renderTabContent()}
         </div>
       </div>

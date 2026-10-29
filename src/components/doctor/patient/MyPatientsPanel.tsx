@@ -36,7 +36,7 @@ const chipTone = {
     pur: 'border-purple-200 bg-purple-50 text-purple-800',
     neu: 'border-gray-300 bg-gray-50 text-gray-700',
 };
-const Chip = ({ tone, children }: { tone: keyof typeof chipTone; children: React.ReactNode }) => (
+export const Chip = ({ tone, children }: { tone: keyof typeof chipTone; children: React.ReactNode }) => (
     <span className={`inline-flex items-center rounded-full border px-2 py-px text-xs font-semibold ${chipTone[tone]}`}>{children}</span>
 );
 
@@ -46,7 +46,7 @@ const btnGhost = `${btn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50
 const btnIcon = `${btnGhost} w-10 px-0`;
 const linkBtn = 'inline-flex min-h-8 items-center gap-1 rounded-md px-1.5 text-sm text-gray-700 hover:bg-gray-100 hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 
-function ageLabel(dob?: string) {
+export function ageLabel(dob?: string) {
     if (!dob) return null;
     const d = new Date(dob); // meia-noite UTC do dia pretendido
     const now = new Date();
@@ -55,13 +55,13 @@ function ageLabel(dob?: string) {
     return age >= 0 ? `${age} ${age === 1 ? 'ano' : 'anos'}` : null;
 }
 
-function dayDiff(iso: string) {
+export function dayDiff(iso: string) {
     const [y, m, d] = toDateString(iso).split('-').map(Number);
     const now = new Date();
     return Math.round((new Date(y, m - 1, d).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
 }
 
-function lastLabel(iso?: string | null) {
+export function lastLabel(iso?: string | null) {
     if (!iso) return '—';
     const n = -dayDiff(iso);
     if (n <= 0) return 'hoje';
@@ -69,7 +69,7 @@ function lastLabel(iso?: string | null) {
     return `há ${n} dias`;
 }
 
-function nextLabel(apt?: { date: string; time?: string } | null) {
+export function nextLabel(apt?: { date: string; time?: string } | null) {
     if (!apt) return null;
     const n = dayDiff(apt.date);
     const time = apt.time ? ` · ${apt.time}` : '';
@@ -80,7 +80,7 @@ function nextLabel(apt?: { date: string; time?: string } | null) {
     return `${label}${time}`;
 }
 
-function billingChip(p: Patient) {
+export function billingChip(p: Patient) {
     if (p.billingType === 'liminar' || p.hasLiminar) return <Chip tone="pur">Liminar</Chip>;
     if (p.billingType === 'convenio') return <Chip tone="info">{p.insuranceProvider || 'Convênio'}</Chip>;
     if (p.billingType === 'particular') return <Chip tone="neu">Particular</Chip>;
