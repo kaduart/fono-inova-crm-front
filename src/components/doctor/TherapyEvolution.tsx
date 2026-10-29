@@ -957,7 +957,7 @@ export default function TherapyEvolution({
                                             {evolutionSubTab === 'chart' && (
                                                 <div className="p-3 sm:p-5">
                                                     {hasChart ? (
-                                                        <EvolutionChart chartData={chartData} />
+                                                        <EvolutionChart chartData={chartData} objectives={objectives} />
                                                     ) : (
                                                         <p className="py-8 text-center text-sm text-gray-600">Ainda não há notas suficientes para o gráfico.</p>
                                                     )}
