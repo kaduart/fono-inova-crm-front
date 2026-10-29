@@ -318,29 +318,24 @@ const ManageDoctors: React.FC<ManageDoctorsProps> = ({
     };
 
     return (
-        <div>
-            <div className="mb-3 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+        <div className="p-4 text-left sm:p-6">
+            <div className="mb-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
-                        <Users size={22} className="text-emerald-600" />
-                    </div>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                        <Users size={20} aria-hidden />
+                    </span>
                     <div className="min-w-0">
-                        <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">
-                            Gestão de Profissionais
-                        </h1>
-                        <p className="mt-0.5 text-sm text-gray-600">
-                            Cadastre e gerencie os profissionais da clínica.
-                        </p>
+                        <h1 className="text-xl font-bold leading-tight text-gray-900 dark:text-gray-50">Profissionais</h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Equipe, ocupação da agenda e cadastro.</p>
                     </div>
                 </div>
-
                 <button
                     type="button"
-                    onClick={handleAddOrEditDoctor}
-                    className="flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    onClick={() => handleAddOrEditDoctor(null)}
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-700 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                 >
-                    <Plus size={14} />
-                    Novo Profissional
+                    <Plus size={16} aria-hidden />
+                    Novo profissional
                 </button>
             </div>
 
