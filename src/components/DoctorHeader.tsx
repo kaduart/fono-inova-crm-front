@@ -1,4 +1,5 @@
 // src/pages/doctor/components/DoctorHeader.tsx
+import ThemeToggle from './common/ThemeToggle';
 import {
     BarChart2,
     Calendar,
@@ -193,8 +194,9 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                         </NavButton>
                     </nav>
 
-                    {/* Perfil + Hamburguer */}
+                    {/* Tema + Perfil + Hamburguer */}
                     <div className="flex items-center gap-2">
+                        <ThemeToggle />
                         {/* Hamburguer - só no mobile */}
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
