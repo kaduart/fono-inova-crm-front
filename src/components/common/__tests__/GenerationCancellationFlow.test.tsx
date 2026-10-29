@@ -21,7 +21,7 @@ describe('Confirmação única de geração e cancelamentos', () => {
     const view = render(<GenerationCancellationFlow {...props} />);
     fireEvent.click(screen.getByRole('button', { name: 'Conferir geração' })); await screen.findByText('Prévia — nada foi salvo');
     view.rerender(<GenerationCancellationFlow {...props} contextKey="2" />);
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Confirmar e gerar' }) as HTMLButtonElement).disabled).toBe(true));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Confirmar e gerar' })).toBeNull());
     expect(onRun).toHaveBeenCalledOnce();
   });
 });
