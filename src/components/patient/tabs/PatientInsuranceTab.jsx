@@ -1,5 +1,6 @@
 // src/components/patient/tabs/PatientInsuranceTab.jsx
 import React, { useState, useMemo, useEffect } from 'react';
+import GenerationCancellationFlow from '../../common/GenerationCancellationFlow';
 import { AppointmentOrigin } from '../../patients/AppointmentOrigin';
 import {
   Box,
@@ -902,7 +903,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
     // Mesmo padrão do "Gerar sessões" da Liminar: sempre abre modal confirmando
     // quantidade e data de início antes de gerar, em vez de disparar direto.
     const startDateStr = plan?.startDate ? plan.startDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
-    setGenerateModal({ open: true, planId, startDate: startDateStr });
+    setGenerateModal({ open: true, planId, startDate: startDateStr, tab: 'generate' });
   };
 
   const handleConfirmGenerate = async () => {
@@ -1358,13 +1359,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         const startsInPast = generateModal.startDate < todayStr;
         return (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 text-left">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: theme.to }}>
                   <Zap className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">Gerar sessões</h3>
+                  <h3 className="font-bold text-slate-800 text-left">Sessões da guia</h3>
                   <p className="text-xs text-slate-500">Guia #{guide.number} — {presentation.specialtyLabel || guide.specialty}</p>
                 </div>
                 <button onClick={() => setGenerateModal(null)} className="ml-auto text-slate-400 hover:text-slate-600">
@@ -1404,19 +1405,15 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <button onClick={() => setGenerateModal(null)}
-                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleConfirmGenerate}
-                  disabled={!generateModal.startDate}
-                  className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40"
-                  style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)` }}>
-                  <CheckCircle className="w-4 h-4" /> Gerar sessões
-                </button>
-              </div>
+              <GenerationCancellationFlow specialties={[plan?.specialty || guide.specialty]}
+                contextKey={JSON.stringify([generateModal.startDate, generateModal.planId])} disabled={!generateModal.startDate}
+                onRun={async (cancellations, dryRun) => {
+                  const response = await API.post(`/v2/insurance-plans/${generateModal.planId}/generate-sessions`, {
+                    startDate: generateModal.startDate, allowPastGeneration: startsInPast, cancellations, dryRun,
+                  }, { timeout: 60000 });
+                  return response.data?.data || response.data;
+                }}
+                onApplied={() => { setGenerateModal(null); queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) }); onGuidesChanged?.(); toast.success('Sessões geradas e cancelamentos registrados.'); }} />
             </div>
           </div>
         );
