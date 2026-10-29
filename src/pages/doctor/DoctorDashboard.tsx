@@ -498,7 +498,12 @@ export default function DoctorDashboard() {
         return (
           <div className="p-6">
             {doctorId ? (
-              <DoctorCalendarTab doctorId={doctorId} />
+              <DoctorCalendarTab
+                doctorId={doctorId}
+                pendingEvolutionIds={pendingEvolutionIds}
+                onRegisterEvolution={handleGoToEvolution}
+                onOpenPatient={handleViewPatientHistory}
+              />
             ) : (
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Carregando agenda...</h2>
@@ -509,22 +514,17 @@ export default function DoctorDashboard() {
 
       case 'insights':
         return (
-          <div className="p-6">
-            <DoctorInsightsSection
+          <DoctorInsightsSection
               insights={doctorInsights.insights}
               loading={doctorInsights.loading}
               error={doctorInsights.error}
               timeRange={doctorInsights.timeRange}
               onTimeRangeChange={doctorInsights.setTimeRange}
               onRefresh={doctorInsights.refresh}
-              onPatientClick={(patientId, patientName) => {
-                const found = patients?.find(p => p._id === patientId);
-                if (found) handleOpenPatientModal(found);
-              }}
+              onPatientClick={handleViewPatientHistory}
               onSchedule={handleScheduleRiskPatient}
               onViewHistory={handleViewPatientHistory}
             />
-          </div>
         );
 
       case 'financial':
@@ -581,7 +581,7 @@ export default function DoctorDashboard() {
 
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
-        <div className={activeTab === 'overview' || activeTab === 'therapy' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
+        <div className={activeTab === 'overview' || activeTab === 'therapy' || activeTab === 'insights' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
           {renderTabContent()}
         </div>
       </div>

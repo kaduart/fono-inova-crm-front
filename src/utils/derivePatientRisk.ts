@@ -11,24 +11,29 @@ export type RiskLevel = 'high' | 'medium' | 'low';
 export type RecommendedAction = 'schedule_followup' | 'send_reminder' | 'review_evolution' | 'none';
 
 export interface AttendanceSummary {
-    patient: { _id: string; fullName: string };
+    patient: { _id: string; fullName: string; phone?: string | null; legalGuardian?: string | null };
     total: number;
     attended: number;
     missed: number;
     canceled: number;
     pending: number;
-    frequency: number;
-    lastSession: string;
+    /** null = nenhuma sessão prevista até agora no período */
+    frequency: number | null;
+    lastSession: string | null;
+    expected?: number;
     // Campos opcionais — backend pode não retornar ainda (Fase 2 os traz sempre)
     nextAppointment?: { date: string; time?: string } | null;
     lastSessionType?: string;
 }
 
 export interface PatientRisk {
-    patient: { _id: string; fullName: string };
+    patient: { _id: string; fullName: string; phone?: string | null; legalGuardian?: string | null };
     riskLevel: RiskLevel;
     reasons: string[];
-    frequency: number;
+    /** motivos em forma de código, para os chips de filtro */
+    flags: Array<'low_frequency' | 'missed' | 'no_session' | 'no_next'>;
+    frequency: number | null;
+    lastSession?: string | null;
     daysSinceLastSession: number;
     missed: number;
     recommendedAction: RecommendedAction;
@@ -40,34 +45,39 @@ function deriveRecommendedAction(
     riskLevel: RiskLevel,
     daysSinceLastSession: number,
     missed: number,
-    frequency: number
+    frequency: number | null
 ): RecommendedAction {
     if (riskLevel === 'low') return 'none';
     if (daysSinceLastSession > 14) return 'schedule_followup';
     if (missed >= 4) return 'send_reminder';
-    if (frequency < 75) return 'review_evolution';
+    if (frequency !== null && frequency < 75) return 'review_evolution';
     return 'none';
 }
 
 export function derivePatientRisk(item: AttendanceSummary): PatientRisk {
     const reasons: string[] = [];
+    const flags: PatientRisk['flags'] = [];
+    const freq = typeof item.frequency === 'number' ? item.frequency : null;
 
     const daysSinceLastSession = item.lastSession
         ? Math.floor((Date.now() - new Date(item.lastSession).getTime()) / (1000 * 60 * 60 * 24))
         : 999;
 
-    if (item.frequency < 60) reasons.push(`Frequência crítica (${item.frequency}%)`);
-    else if (item.frequency < 75) reasons.push(`Frequência baixa (${item.frequency}%)`);
+    if (freq !== null && freq < 60) { reasons.push(`Frequência crítica (${freq}%)`); flags.push('low_frequency'); }
+    else if (freq !== null && freq < 75) { reasons.push(`Frequência baixa (${freq}%)`); flags.push('low_frequency'); }
 
-    if (item.missed >= 3) reasons.push(`${item.missed} faltas acumuladas`);
+    if (item.missed >= 3) { reasons.push(`${item.missed} faltas no período`); flags.push('missed'); }
 
-    if (daysSinceLastSession > 30) reasons.push(`${daysSinceLastSession} dias sem sessão`);
-    else if (daysSinceLastSession > 14) reasons.push(`${daysSinceLastSession} dias sem sessão`);
+    if (daysSinceLastSession > 14 && daysSinceLastSession < 999) { reasons.push(`${daysSinceLastSession} dias sem sessão`); flags.push('no_session'); }
+
+    // Sem próxima sessão só vira motivo quando o back informa (campo presente) e há outro sinal
+    const knowsNext = item.nextAppointment !== undefined;
+    if (knowsNext && !item.nextAppointment && reasons.length) { reasons.push('Sem próxima sessão'); flags.push('no_next'); }
 
     let riskLevel: RiskLevel = 'low';
-    if (item.frequency < 60 || daysSinceLastSession > 30 || item.missed >= 4) {
+    if ((freq !== null && freq < 60) || (daysSinceLastSession > 30 && daysSinceLastSession < 999) || item.missed >= 4) {
         riskLevel = 'high';
-    } else if (item.frequency < 75 || daysSinceLastSession > 14 || item.missed >= 3) {
+    } else if ((freq !== null && freq < 75) || (daysSinceLastSession > 14 && daysSinceLastSession < 999) || item.missed >= 3) {
         riskLevel = 'medium';
     }
 
@@ -75,7 +85,9 @@ export function derivePatientRisk(item: AttendanceSummary): PatientRisk {
         patient: item.patient,
         riskLevel,
         reasons,
-        frequency: item.frequency,
+        flags,
+        frequency: freq,
+        lastSession: item.lastSession,
         daysSinceLastSession,
         missed: item.missed,
         recommendedAction: deriveRecommendedAction(riskLevel, daysSinceLastSession, item.missed, item.frequency),
@@ -90,6 +102,9 @@ export function deriveAllRisks(data: AttendanceSummary[]): PatientRisk[] {
         .filter(r => r.riskLevel !== 'low')
         .sort((a, b) => {
             const order = { high: 0, medium: 1, low: 2 };
-            return order[a.riskLevel] - order[b.riskLevel];
+            // risco; depois quem não tem próxima sessão; depois menor frequência
+            return order[a.riskLevel] - order[b.riskLevel]
+                || Number(!!a.nextAppointment) - Number(!!b.nextAppointment)
+                || (a.frequency ?? 101) - (b.frequency ?? 101);
         });
 }

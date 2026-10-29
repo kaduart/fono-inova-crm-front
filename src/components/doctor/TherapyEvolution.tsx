@@ -88,6 +88,9 @@ function formatAreaName(id: string): string {
 }
 const areaLabel = (id?: string, name?: string) => EVALUATION_TYPE_LABELS[id || ''] || name || formatAreaName(id || '');
 
+/** minúsculas e sem acento, para a busca achar "Jose" em "José" */
+const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
 /** Notas da sessão por área/métrica, para comparar com a sessão anterior. */
@@ -228,8 +231,7 @@ export default function TherapyEvolution({
     const [patientSearch, setPatientSearch] = useState('');
     const [searchedPatients, setSearchedPatients] = useState<IPatient[]>([]);
     const [isSearchingPatient, setIsSearchingPatient] = useState(false);
-    const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
-    const searchDropdownRef = useRef<HTMLDivElement>(null);
+    const [mySearched, setMySearched] = useState<any[]>([]);
     const detailRef = useRef<HTMLDivElement>(null);
 
     // Fila: pendentes de evolução + pacientes em atendimento (dados do back, não do cache do Dashboard)
@@ -237,46 +239,47 @@ export default function TherapyEvolution({
     const [activeList, setActiveList] = useState<any[]>([]);
     const [queueLoading, setQueueLoading] = useState(true);
     const [patientInfo, setPatientInfo] = useState<any | null>(null);
+    // Últimas 5 avaliações registradas pelo profissional (atalho em chips)
+    const [recent, setRecent] = useState<any[]>([]);
+    const [focusEvoId, setFocusEvoId] = useState<string | null>(null);
 
     const loadQueue = useCallback(async () => {
         setQueueLoading(true);
-        const [pend, act] = await Promise.all([
+        const [pend, act, rec] = await Promise.all([
             fetchPendingEvolutions().catch(() => [] as PendingEvolution[]),
             fetchMyPatients({ care: 'active', sort: 'next', limit: 50 }).then(r => r.data || []).catch(() => [] as any[]),
+            // Promise.resolve: uma falha síncrona (ou mock sem retorno) não derruba a fila inteira
+            Promise.resolve().then(() => API.get('/v2/evolutions/search', { params: { limit: 5 } })).then(r => r?.data?.data || []).catch(() => [] as any[]),
         ]);
         setPending(Array.isArray(pend) ? pend : []);
         setActiveList(Array.isArray(act) ? act : []);
+        setRecent(Array.isArray(rec) ? rec.filter((e: any) => e?.patient?._id).slice(0, 5) : []);
         setQueueLoading(false);
     }, []);
     useEffect(() => { loadQueue(); }, [loadQueue]);
 
-    // Debounced search → API
+    // Busca: filtra a própria fila na hora e, com 2+ letras, busca no back os pacientes do
+    // terapeuta (inclui sem próxima sessão/inativos) e os demais pacientes da clínica.
     useEffect(() => {
         const term = patientSearch.trim();
         setSearchedPatients([]);
+        setMySearched([]);
         if (term.length < 2) return;
 
+        let alive = true;
         const t = setTimeout(async () => {
             setIsSearchingPatient(true);
-            try {
-                const results = await patientService.search(term);
-                setSearchedPatients(results);
-            } catch { /* silently */ }
-            finally { setIsSearchingPatient(false); }
+            const [mine, all] = await Promise.all([
+                fetchMyPatients({ search: term, sort: 'name', limit: 30 }).then(r => r.data || []).catch(() => [] as any[]),
+                patientService.search(term).catch(() => [] as IPatient[]),
+            ]);
+            if (!alive) return;
+            setMySearched(Array.isArray(mine) ? mine : []);
+            setSearchedPatients(Array.isArray(all) ? all : []);
+            setIsSearchingPatient(false);
         }, 300);
-        return () => clearTimeout(t);
+        return () => { alive = false; clearTimeout(t); };
     }, [patientSearch]);
-
-    // Fechar dropdown ao clicar fora
-    useEffect(() => {
-        const handleClick = (e: MouseEvent) => {
-            if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
-                setIsPatientDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, []);
 
     // 🧬 Hook de evolução — abstrai toda a lógica de API, cache e estados
     const {
@@ -295,21 +298,16 @@ export default function TherapyEvolution({
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [pdfId, setPdfId] = useState<string | null>(null);
 
-    // Opções do dropdown: pacientes do próprio terapeuta + resultados da busca global, sem duplicar.
-    const patientOptions = useMemo(() => {
-        const term = patientSearch.trim().toLowerCase();
-        if (!term) return [];
-        const own = (patients || []).filter(p => p.fullName?.toLowerCase().includes(term));
-        const seen = new Set(own.map(p => p._id));
-        return [...own, ...searchedPatients.filter(p => !seen.has(p._id))].slice(0, 30);
-    }, [patientSearch, patients, searchedPatients]);
+
+    const term = norm(patientSearch.trim());
+    const matches = (name?: string) => !term || norm(name || '').includes(term);
 
     const pickPatient = (p: IPatient) => {
         setSelectedPatientId(p._id);
         setResolvedPatient(p);
         setPatientSearch('');
         setSearchedPatients([]);
-        setIsPatientDropdownOpen(false);
+        setMySearched([]);
         onSelectPatient?.(p);
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
             setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
@@ -339,6 +337,16 @@ export default function TherapyEvolution({
         setEvolutionSubTab('history');
         setOpenIds(new Set());
     }, [selectedPatient]);
+
+    // Veio de um chip de "Últimas avaliações": abre aquela evolução quando o histórico carregar
+    useEffect(() => {
+        if (!focusEvoId || isLoading) return;
+        const idx = evaluations.findIndex((e: any) => e._id === focusEvoId);
+        if (idx === -1) return;
+        setOpenIds(new Set([focusEvoId]));
+        setCurrentPage(Math.floor(idx / 5) + 1);
+        setFocusEvoId(null);
+    }, [focusEvoId, evaluations, isLoading, selectedPatient]);
 
     // Dados de cabeçalho do paciente (idade, responsável, convênio, próxima sessão)
     useEffect(() => {
@@ -561,6 +569,17 @@ export default function TherapyEvolution({
 
     const pendingIds = useMemo(() => new Set(pending.map(p => String(p._id))), [pending]);
     const activeNotPending = useMemo(() => activeList.filter(p => !pendingIds.has(String(p._id))), [activeList, pendingIds]);
+    const pendingShown = pending.filter(p => matches(p.fullName));
+    const activeShown = activeNotPending.filter(p => matches(p.fullName));
+    // Com busca: meus outros pacientes (sem próxima sessão/inativos) e depois o resto da clínica
+    const shownIds = new Set([...pendingShown, ...activeShown].map(p => String(p._id)));
+    const mineExtra = term ? mySearched.filter(p => !shownIds.has(String(p._id)) && !pendingIds.has(String(p._id))) : [];
+    mineExtra.forEach(p => shownIds.add(String(p._id)));
+    const ownLocal = term ? (patients || []).filter(p => matches(p.fullName) && !shownIds.has(String(p._id))) : [];
+    ownLocal.forEach(p => shownIds.add(String(p._id)));
+    // o back também acha por telefone/CPF; com letras, mantém só quem tem o nome parecido
+    const byName = /[a-z]/.test(term);
+    const othersShown = term ? searchedPatients.filter(p => !shownIds.has(String(p._id)) && (!byName || matches(p.fullName))).slice(0, 20) : [];
     const selectedPending = pending.find(p => String(p._id) === selectedPatientId) || null;
     const info = { ...(resolvedPatient || {}), ...(patientInfo || {}) } as any;
     const objectives = progressData?.objectives || [];
@@ -624,12 +643,30 @@ export default function TherapyEvolution({
                     </button>
                 </div>
 
+                {activeTab === 'evolution' && recent.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Últimas avaliações registradas">
+                        <span className="text-sm font-medium text-gray-600">Últimas avaliações:</span>
+                        {recent.map((e: any) => {
+                            const on = String(e.patient._id) === selectedPatientId;
+                            const name = String(e.patient.fullName || '').split(' ').filter(Boolean).slice(0, 2).join(' ');
+                            return (
+                                <button key={e._id} type="button" aria-pressed={on}
+                                    onClick={() => { setFocusEvoId(e._id); pickPatient(e.patient as IPatient); }}
+                                    title={`${e.patient.fullName} · ${fmtDate(e.date)}`}
+                                    className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+                                    <b className="tabular-nums">{fmtDate(e.date).slice(0, 5)}</b>{name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {activeTab === 'evolution' && (
                     <div className="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
                         {/* ── Fila ─────────────────────────────────── */}
                         <section className={card} aria-labelledby="evo-fila">
                             <h2 id="evo-fila" className="border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900">Pacientes</h2>
-                            <div className="relative p-3" ref={searchDropdownRef}>
+                            <div className="relative p-3">
                                 <label htmlFor="evo-busca" className="sr-only">Buscar paciente</label>
                                 <Search className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden />
                                 <input
@@ -637,55 +674,50 @@ export default function TherapyEvolution({
                                     type="search"
                                     autoComplete="off"
                                     value={patientSearch}
-                                    onFocus={() => setIsPatientDropdownOpen(true)}
-                                    onChange={(e) => { setPatientSearch(e.target.value); setIsPatientDropdownOpen(true); }}
+                                    onChange={(e) => setPatientSearch(e.target.value)}
                                     placeholder="Buscar paciente pelo nome"
                                     className="min-h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200"
                                 />
-                                {isPatientDropdownOpen && patientSearch.trim() && (
-                                    <div className="absolute left-3 right-3 z-20 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-                                        {patientOptions.length === 0 ? (
-                                            <p className="px-4 py-3 text-sm text-gray-600">
-                                                {isSearchingPatient ? 'Buscando...' : patientSearch.trim().length >= 2 ? 'Nenhum paciente encontrado' : 'Digite ao menos 2 letras'}
-                                            </p>
-                                        ) : (
-                                            <ul className="max-h-64 overflow-auto">
-                                                {patientOptions.map(p => (
-                                                    <li key={p._id}>
-                                                        <button type="button" onMouseDown={(e) => { e.preventDefault(); pickPatient(p); }} onClick={() => pickPatient(p)}
-                                                            className="w-full border-b border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-gray-800 last:border-0 hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none">
-                                                            {p.fullName}
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                )}
                             </div>
 
-                            <p className={sectionLabel}>Evolução pendente · {queueLoading ? '…' : pending.length}</p>
-                            {!queueLoading && pending.length === 0 && (
-                                <p className="px-4 pb-3 text-sm text-gray-600">Tudo em dia: todo atendimento recente tem evolução.</p>
+                            <p className={sectionLabel}>Evolução pendente · {queueLoading ? '…' : pendingShown.length}</p>
+                            {!queueLoading && pendingShown.length === 0 && (
+                                <p className="px-4 pb-3 text-sm text-gray-600">{term ? 'Ninguém pendente com esse nome.' : 'Tudo em dia: todo atendimento recente tem evolução.'}</p>
                             )}
                             <ul>
-                                {pending.map(p => {
+                                {pendingShown.map(p => {
                                     const age = pendingAge(p.lastCompletedDate);
                                     return queueRow(p, `atendido ${lastLabel(p.lastCompletedDate)}`,
                                         <span className={`shrink-0 rounded-full px-2 py-px text-xs font-semibold ${age.n >= 3 ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>{age.label}</span>);
                                 })}
                             </ul>
 
-                            <p className={`${sectionLabel} mt-1`}>Em atendimento · {queueLoading ? '…' : activeNotPending.length}</p>
-                            {!queueLoading && activeNotPending.length === 0 && (
-                                <p className="px-4 pb-3 text-sm text-gray-600">Nenhum outro paciente com sessão marcada.</p>
+                            <p className={`${sectionLabel} mt-1`}>Em atendimento · {queueLoading ? '…' : activeShown.length}</p>
+                            {!queueLoading && activeShown.length === 0 && (
+                                <p className="px-4 pb-3 text-sm text-gray-600">{term ? 'Ninguém em atendimento com esse nome.' : 'Nenhum outro paciente com sessão marcada.'}</p>
                             )}
                             <ul className="max-h-[420px] overflow-auto pb-1">
-                                {activeNotPending.map(p => {
+                                {activeShown.map(p => {
                                     const next = nextLabel(p.nextAppointment);
                                     return queueRow(p, `última sessão ${lastLabel(p.lastAppointment)}${next ? ` · próxima ${next}` : ''}`);
                                 })}
                             </ul>
+
+                            {term && (
+                                <>
+                                    <p className={`${sectionLabel} mt-1`}>Outros resultados · {isSearchingPatient ? '…' : mineExtra.length + ownLocal.length + othersShown.length}</p>
+                                    {patientSearch.trim().length < 2 ? (
+                                        <p className="px-4 pb-3 text-sm text-gray-600">Digite ao menos 2 letras para buscar em todos os pacientes.</p>
+                                    ) : !isSearchingPatient && mineExtra.length + ownLocal.length + othersShown.length === 0 ? (
+                                        <p className="px-4 pb-3 text-sm text-gray-600">Nenhum outro paciente com esse nome.</p>
+                                    ) : null}
+                                    <ul className="max-h-[360px] overflow-auto pb-1">
+                                        {mineExtra.map(p => queueRow(p, `meu paciente · última sessão ${lastLabel(p.lastAppointment)}`))}
+                                        {ownLocal.map(p => queueRow(p, 'meu paciente'))}
+                                        {othersShown.map(p => queueRow(p, 'paciente da clínica'))}
+                                    </ul>
+                                </>
+                            )}
                         </section>
 
                         {/* ── Paciente ─────────────────────────────── */}
@@ -925,7 +957,7 @@ export default function TherapyEvolution({
                                             {evolutionSubTab === 'chart' && (
                                                 <div className="p-3 sm:p-5">
                                                     {hasChart ? (
-                                                        <EvolutionChart chartData={chartData} />
+                                                        <EvolutionChart chartData={chartData} objectives={objectives} />
                                                     ) : (
                                                         <p className="py-8 text-center text-sm text-gray-600">Ainda não há notas suficientes para o gráfico.</p>
                                                     )}

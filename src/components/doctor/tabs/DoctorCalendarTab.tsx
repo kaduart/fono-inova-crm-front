@@ -9,6 +9,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import moment from 'moment-timezone';
 import { toast } from '../../../utils/toast';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
+import DoctorAgendaPanel, { type AgendaMode } from './DoctorAgendaPanel';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePatientsContext } from '../../../contexts/PatientsContext';
@@ -21,9 +22,27 @@ import {
 
 interface DoctorCalendarTabProps {
   doctorId: string;
+  pendingEvolutionIds?: Set<string>;
+  onRegisterEvolution?: (p: { _id: string; fullName: string }) => void;
+  onOpenPatient?: (id: string, name: string) => void;
 }
 
-export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
+const MODE_KEY = 'doctor.agenda.mode';
+const initialMode = (): AgendaMode => {
+  try {
+    const saved = localStorage.getItem(MODE_KEY);
+    if (saved === 'list' || saved === 'calendar') return saved;
+  } catch { /* storage bloqueado */ }
+  // celular abre em Lista; desktop no Calendário (como era)
+  return typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'calendar';
+};
+
+export const DoctorCalendarTab = ({ doctorId, pendingEvolutionIds, onRegisterEvolution, onOpenPatient }: DoctorCalendarTabProps) => {
+  const [mode, setMode] = useState<AgendaMode>(initialMode);
+  const changeMode = useCallback((m: AgendaMode) => {
+    setMode(m);
+    try { localStorage.setItem(MODE_KEY, m); } catch { /* ignore */ }
+  }, []);
   const {
     appointments: allAppointments,
     fetchAppointments,
@@ -165,24 +184,37 @@ export const DoctorCalendarTab = ({ doctorId }: DoctorCalendarTabProps) => {
   };
 
   return (
-    <EnhancedCalendar
-      mode="doctor"
-      permissions={getDefaultPermissions('doctor')}
-      featureFlags={getDefaultFeatureFlags('doctor')}
-      appointments={doctorAppointments}
-      doctors={doctors}
-      patients={patients}
-      onDateClick={() => {}}
-      onNewAppointment={handleNewAppointment}
-      onCancelAppointment={handleCancelAppointment}
-      onCompleteAppointment={handleCompleteAppointment}
-      onConfirmAppointment={handleConfirmAppointment}
-      onEditAppointment={handleEditAppointment}
-      onFetchAvailableSlots={handleFetchAvailableSlots}
-      onMonthChange={handleMonthChange}
-      closeModalSignal={closeModalSignal}
-      loading={loading}
-    />
+    <div className="space-y-4">
+      <DoctorAgendaPanel
+        doctorId={doctorId}
+        mode={mode}
+        onModeChange={changeMode}
+        refreshKey={closeModalSignal}
+        pendingEvolutionIds={pendingEvolutionIds}
+        onRegisterEvolution={onRegisterEvolution}
+        onOpenPatient={onOpenPatient}
+      />
+      {mode === 'calendar' && (
+        <EnhancedCalendar
+          mode="doctor"
+          permissions={getDefaultPermissions('doctor')}
+          featureFlags={getDefaultFeatureFlags('doctor')}
+          appointments={doctorAppointments}
+          doctors={doctors}
+          patients={patients}
+          onDateClick={() => {}}
+          onNewAppointment={handleNewAppointment}
+          onCancelAppointment={handleCancelAppointment}
+          onCompleteAppointment={handleCompleteAppointment}
+          onConfirmAppointment={handleConfirmAppointment}
+          onEditAppointment={handleEditAppointment}
+          onFetchAvailableSlots={handleFetchAvailableSlots}
+          onMonthChange={handleMonthChange}
+          closeModalSignal={closeModalSignal}
+          loading={loading}
+        />
+      )}
+    </div>
   );
 };
 
