@@ -12,7 +12,7 @@ import { IPatient } from '../../utils/types/types';
 
 import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
 import PatientDetail from '../../components/doctor/patient/PatientDetail';
-import PatientsTable from '../../components/doctor/patient/PatientsTable';
+import MyPatientsPanel from '../../components/doctor/patient/MyPatientsPanel';
 import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
 import useDoctorInsights from '../../hooks/useDoctorInsights';
 import ScheduleAppointmentModal from '../../components/patients/ScheduleAppointmentModal';
@@ -130,6 +130,7 @@ export default function DoctorDashboard() {
   const [scheduleRiskTarget, setScheduleRiskTarget] = useState<{ _id: string; fullName: string; lastSessionType?: string } | null>(null);
   const [scheduleModalLoading, setScheduleModalLoading] = useState(false);
   const [scheduleModalSignal, setScheduleModalSignal] = useState(0);
+  const [patientsRefreshKey, setPatientsRefreshKey] = useState(0);
 
   const {
     doctorData,
@@ -148,8 +149,6 @@ export default function DoctorDashboard() {
     loadTherapy,
     loadPatients,
     ensurePatientsLoaded,
-    patientsPagination,
-    setPatientsPagination,
     pendingEvolutions
   } = useDoctorDashboard();
 
@@ -277,6 +276,7 @@ export default function DoctorDashboard() {
       // Recarrega pacientes se estiver na aba
       if (activeTab === 'patients') {
         loadPatients(true);
+        setPatientsRefreshKey(k => k + 1);
       }
       return true;
     } catch (error: any) {
@@ -468,23 +468,16 @@ export default function DoctorDashboard() {
           );
         }
         return (
-          <div className="p-6">
-            <PatientsTable
-              patients={patients ?? []}
-              pagination={patientsPagination}
-              onPageChange={(page) => {
-                setPatientsPagination(prev => ({ ...prev, page }));
-                loadPatients(true, page);
-              }}
-              onSearchChange={(search) => {
-                setPatientsPagination(prev => ({ ...prev, search, page: 1 }));
-                loadPatients(true, 1, search);
-              }}
-              onPatientClick={handleOpenPatientModal}
-              onViewPatientDetails={handleViewPatientDetails}
-              onCreateAnamnesis={handleCreateAnamnesis}
-              onCreateSchoolReport={handleCreateSchoolReport}
-              onViewMedicalReports={handleViewMedicalReports}
+          <div>
+            <MyPatientsPanel
+              pendingEvolutionIds={pendingEvolutionIds}
+              refreshKey={patientsRefreshKey}
+              onOpenPatient={(p) => handleViewPatientDetails(p as IPatient)}
+              onCreateAnamnesis={(p) => handleCreateAnamnesis(p as IPatient)}
+              onCreateSchoolReport={(p) => handleCreateSchoolReport(p as IPatient)}
+              onViewReports={(p) => handleViewMedicalReports(p as IPatient)}
+              onRegisterEvolution={handleGoToEvolution}
+              onSchedule={(p) => handleScheduleRiskPatient(p._id, p.fullName)}
               onAddNewPatient={handleAddNewPatient}
             />
           </div>
@@ -589,7 +582,7 @@ export default function DoctorDashboard() {
 
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
-        <div className={activeTab === 'overview' ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
+        <div className={activeTab === 'overview' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
           {renderTabContent()}
         </div>
       </div>

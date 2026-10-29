@@ -255,6 +255,29 @@ export const fetchPatients = async (params?: { page?: number; limit?: number; se
   }
 };
 
+export type CareStatus = 'active' | 'no_next' | 'inactive';
+export interface MyPatientsQuery { page?: number; limit?: number; search?: string; care?: string; sort?: string; ids?: string[] }
+export interface MyPatientsSummary { total: number; active: number; no_next: number; inactive: number; birthday: number }
+
+/** Lista "Meus pacientes" com status de atendimento, filtros e resumo (GET /doctors/patients). */
+export const fetchMyPatients = async (params: MyPatientsQuery = {}) => {
+  const query = new URLSearchParams();
+  if (params.page) query.append('page', String(params.page));
+  if (params.limit) query.append('limit', String(params.limit));
+  if (params.search) query.append('search', params.search);
+  if (params.care) query.append('care', params.care);
+  if (params.sort) query.append('sort', params.sort);
+  if (params.ids?.length) query.append('ids', params.ids.join(','));
+  const response = await API.get(`/doctors/patients?${query.toString()}`);
+  const body = response.data || {};
+  return {
+    data: (body.data || []) as any[],
+    meta: (body.meta || { total: 0, page: 1, totalPages: 0, limit: params.limit || 20 }) as {
+      total: number; page: number; totalPages: number; limit: number; summary?: MyPatientsSummary;
+    },
+  };
+};
+
 export const fetchStats = async (_doctorId?: string) => {
   const response = await API.get(`/doctors/appointments/stats`);
   // Backend legado retorna objeto direto
