@@ -27,6 +27,8 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
   const [doctorId, setDoctorId] = useState<string | null>(null);
   
   // Dados por aba
+  // Falha do overview: a tela mostra erro + tentar de novo em vez de "Tudo em dia"
+  const [overviewError, setOverviewError] = useState(false);
   const [overviewData, setOverviewData] = useState({
     patients: [] as IPatient[],
     appointments: [] as Appointment[],
@@ -111,8 +113,10 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
         futureAppointments: futureRes || []
       });
       setAllPatients(patientList);
+      setOverviewError(false);
     } catch (error) {
       console.error('[useDoctorDashboard] Erro ao carregar overview:', error);
+      setOverviewError(true);
       toast.error('Erro ao carregar overview');
     } finally {
       setLoadingTabsState(prev => ({ ...prev, overview: false }));
@@ -363,6 +367,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
 
     // Loading por aba
     loading: loadingTabsState,
+    overviewError,
 
     // Paginação de pacientes
     patientsPagination,

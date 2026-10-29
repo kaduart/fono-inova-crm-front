@@ -103,6 +103,7 @@ export default function TherapyEvolution({
     const [patientSearch, setPatientSearch] = useState('');
     const [searchedPatients, setSearchedPatients] = useState<IPatient[]>([]);
     const [isSearchingPatient, setIsSearchingPatient] = useState(false);
+    const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
     const searchDropdownRef = useRef<HTMLDivElement>(null);
 
     // Debounced search → API
@@ -137,6 +138,7 @@ export default function TherapyEvolution({
         const handleClick = (e: MouseEvent) => {
             if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
                 setSearchedPatients([]);
+                setIsPatientDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClick);
@@ -161,6 +163,24 @@ export default function TherapyEvolution({
     // ID é a fonte de verdade — dados derivados do prop ou do item selecionado no search
     const [resolvedPatient, setResolvedPatient] = useState<IPatient | null>(null);
     const selectedPatientData = resolvedPatient || ({} as IPatient);
+
+    // Opções do dropdown: pacientes do próprio terapeuta (já carregados no dashboard)
+    // filtrados localmente + resultados da busca global na API, sem duplicar.
+    const patientOptions = (() => {
+        const term = patientSearch.trim().toLowerCase();
+        const own = (patients || []).filter(p => !term || p.fullName?.toLowerCase().includes(term));
+        const seen = new Set(own.map(p => p._id));
+        return [...own, ...searchedPatients.filter(p => !seen.has(p._id))];
+    })();
+
+    const handlePickPatient = (p: IPatient) => {
+        setSelectedPatientId(p._id);
+        setResolvedPatient(p);
+        setPatientSearch(p.fullName);
+        setSearchedPatients([]);
+        setIsPatientDropdownOpen(false);
+        onSelectPatient?.(p);
+    };
     const [protocols, setProtocols] = useState<any[]>([]);
     const [protocolsLoading, setProtocolsLoading] = useState(false);
     const [protocolsError, setProtocolsError] = useState<string | null>(null);
@@ -484,8 +504,10 @@ export default function TherapyEvolution({
                                                     <input
                                                         type="text"
                                                         value={patientSearch}
+                                                        onFocus={() => setIsPatientDropdownOpen(true)}
                                                         onChange={(e) => {
                                                             setPatientSearch(e.target.value);
+                                                            setIsPatientDropdownOpen(true);
                                                             if (!e.target.value) {
                                                                 setSelectedPatientId('');
                                                                 onSelectPatient?.(null);
@@ -504,24 +526,22 @@ export default function TherapyEvolution({
                                                     )}
                                                 </div>
 
-                                                {patientSearch.trim().length >= 2 && (
+                                                {isPatientDropdownOpen && (
                                                     <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                                                        {isSearchingPatient ? (
-                                                            <div className="px-4 py-3 text-sm text-gray-500">Buscando...</div>
-                                                        ) : searchedPatients.length === 0 ? (
-                                                            <div className="px-4 py-3 text-sm text-gray-400">Nenhum paciente encontrado</div>
+                                                        {patientOptions.length === 0 ? (
+                                                            <div className="px-4 py-3 text-sm text-gray-400">
+                                                                {isSearchingPatient
+                                                                    ? 'Buscando...'
+                                                                    : patientSearch.trim().length >= 2
+                                                                        ? 'Nenhum paciente encontrado'
+                                                                        : 'Nenhum paciente vinculado. Digite o nome para buscar.'}
+                                                            </div>
                                                         ) : (
-                                                            <ul className="max-h-48 overflow-auto">
-                                                                {searchedPatients.map(p => (
+                                                            <ul className="max-h-64 overflow-auto">
+                                                                {patientOptions.map(p => (
                                                                     <li
                                                                         key={p._id}
-                                                                        onMouseDown={() => {
-                                                                            setSelectedPatientId(p._id);
-                                                                            setResolvedPatient(p);
-                                                                            setPatientSearch(p.fullName);
-                                                                            setSearchedPatients([]);
-                                                                            onSelectPatient?.(p);
-                                                                        }}
+                                                                        onMouseDown={() => handlePickPatient(p)}
                                                                         className="px-4 py-3 cursor-pointer hover:bg-green-50 text-sm text-gray-700 font-medium border-b border-gray-50 last:border-0"
                                                                     >
                                                                         {p.fullName}

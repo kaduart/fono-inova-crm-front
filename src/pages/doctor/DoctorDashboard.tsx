@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Box, Card, CardContent, Dialog, DialogContent, DialogTitle, Grid, List, ListItemButton, ListItemText, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Card, CardContent, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
@@ -14,17 +14,19 @@ import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
 import PatientDetail from '../../components/doctor/patient/PatientDetail';
 import PatientsTable from '../../components/doctor/patient/PatientsTable';
 import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
-import SpecialtyStatsCard from '../../components/doctor/SpecialtyStatsCard';
 import useDoctorInsights from '../../hooks/useDoctorInsights';
 import ScheduleAppointmentModal from '../../components/patients/ScheduleAppointmentModal';
 import appointmentService from '../../services/appointmentService';
 import TherapyEvolution from '../../components/doctor/TherapyEvolution';
-import TodayAppointmentsCard from '../../components/doctor/TodayAppointmentsCard';
 import DoctorFinancialTab from '../../components/doctor/tabs/DoctorFinancialTab';
-import { Activity, Calendar, CheckCircle, Users } from 'lucide-react';
-import KPICard from '../../components/doctor/DoctorKPICard';
-import AlertsPanel from '../../components/doctor/AlertsPanel';
-import QuickActions from '../../components/doctor/QuickActions';
+import { AlertTriangle, CalendarDays, FileText, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import DayBar from '../../components/doctor/overview/DayBar';
+import TodayAgendaPanel from '../../components/doctor/overview/TodayAgendaPanel';
+import PatientQuickSearch from '../../components/doctor/overview/PatientQuickSearch';
+import { MonthPanel, PendingPanel, TomorrowPanel } from '../../components/doctor/overview/OverviewSidePanels';
+import { aptDateTime, isCanceled, isOpen, patientOf, todayLocal } from '../../components/doctor/overview/agendaUtils';
+
+const quickBtn = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 import { notifyApiError } from '../../utils/notifyApiError';
 
 // Skeleton para KPI
@@ -119,7 +121,6 @@ const initialPatientState: IPatient = {
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const [showTodayAppointments, setShowTodayAppointments] = useState(true);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
@@ -141,6 +142,7 @@ export default function DoctorDashboard() {
     calendarEvents,
     therapySessions,
     loading,
+    overviewError,
     loadOverview,
     loadAppointments,
     loadTherapy,
@@ -148,10 +150,8 @@ export default function DoctorDashboard() {
     ensurePatientsLoaded,
     patientsPagination,
     setPatientsPagination,
-    handleUpdateStatus,
     pendingEvolutions
   } = useDoctorDashboard();
-  const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
 
   const doctorInsights = useDoctorInsights(doctorId);
 
@@ -304,102 +304,62 @@ export default function DoctorDashboard() {
     setActiveTab('therapy');
   }, []);
 
-  const calculateKPIs = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const appointmentsList = appointments ?? [];
-    const todayAppointments = appointmentsList.filter(
-      apt => toDateString(apt.date) === today
-    );
+  // "Hoje" é a data LOCAL (toISOString virava o dia seguinte depois das 21h)
+  const todayAppointments = useMemo(() => {
+    const today = todayLocal();
+    return (appointments ?? []).filter(apt => toDateString(apt.date) === today);
+  }, [appointments]);
 
-    const nextAppointment = (futureAppointments ?? [])[0];
-    const nextAppointmentTime = nextAppointment
-      ? `${nextAppointment.time}`
-      : 'Nenhuma';
+  // Próxima sessão: a primeira de hoje ainda em aberto (tolerância de 10 min); senão a primeira futura
+  const nextAppointment = useMemo(() => {
+    const now = Date.now();
+    const openToday = todayAppointments
+      .filter(a => isOpen(a) && (aptDateTime(a)?.getTime() ?? 0) >= now - 10 * 60000)
+      .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+    if (openToday[0]) return { apt: openToday[0], isToday: true };
+    const future = (futureAppointments ?? [])
+      .filter(a => !isCanceled(a) && toDateString(a.date) !== todayLocal())
+      .sort((a, b) => (aptDateTime(a)?.getTime() ?? 0) - (aptDateTime(b)?.getTime() ?? 0));
+    return future[0] ? { apt: future[0], isToday: false } : null;
+  }, [todayAppointments, futureAppointments]);
 
-    return {
-      activePatients: (stats as any)?.activePatients ?? 0,
-      monthAppointments: (stats as any)?.monthlyAppointments ?? 0,
-      attendanceRate: (stats as any)?.attendanceRate ?? 0,
-      todayCount: todayAppointments.length,
-      nextAppointmentTime
-    };
-  }, [stats, appointments, futureAppointments]);
+  const pendingEvolutionIds = useMemo(() => new Set(pendingEvolutions.map(p => p._id)), [pendingEvolutions]);
 
-  const generateAlerts = useMemo(() => {
-    const alerts: any[] = [];
-    const patientsList = patients ?? [];
-    const appointmentsList = appointments ?? [];
+  // Métricas do mês: todas vêm do backend (/doctors/appointments/stats). Sem tendência inventada.
+  const overviewKpis = useMemo(() => {
+    const st = (stats as any) || {};
+    const next = nextAppointment?.apt;
+    const nextDay = next
+      ? nextAppointment!.isToday ? 'hoje' : aptDateTime(next)?.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+      : null;
+    return [
+      { label: 'Pacientes ativos', value: st.activePatients ?? '—', hint: 'atendidos neste mês', onClick: () => handleTabChange('patients') },
+      { label: 'Sessões no mês', value: st.monthlyAppointments ?? '—', hint: typeof st.monthlyCompleted === 'number' ? `${st.monthlyCompleted} concluídas` : '' },
+      { label: 'Comparecimento', value: typeof st.attendanceRate === 'number' ? `${st.attendanceRate}%` : '—', hint: 'concluídas ÷ previstas até hoje' },
+      { label: 'Próxima consulta', value: next?.time || '—', hint: next ? `${nextDay} · ${patientOf(next).fullName.split(' ')[0]}` : 'nenhuma marcada' },
+    ] as { label: string; value: string | number; hint?: string; onClick?: () => void }[];
+  }, [stats, nextAppointment, handleTabChange]);
 
-    // 🎂 Aniversariantes do mês (apenas pacientes deste médico)
-    // 🐛 FIX (2026-09-22): dateOfBirth é gravado como meia-noite UTC representando o dia
-    // pretendido, sem semântica de horário. getMonth()/getDate() locais em Brasília
-    // (UTC-3) voltam pro dia anterior — mesmo bug corrigido em BirthdayCard.tsx,
-    // DashboardContentOptimized.tsx e back/routes/patient.js (aniversariantes). Sempre
-    // getUTCMonth()/getUTCDate() aqui.
+  // 🎂 Aniversariantes do mês (apenas pacientes deste terapeuta)
+  // 🐛 FIX (2026-09-22): dateOfBirth é gravado como meia-noite UTC representando o dia
+  // pretendido. Sempre getUTCMonth()/getUTCDate() aqui (mesmo bug de BirthdayCard.tsx).
+  const birthdayPatients = useMemo(() => {
     const currentMonth = new Date().getMonth();
     const currentDay = new Date().getDate();
-    const birthdayPatients = patientsList.filter(p => {
+    return (patients ?? []).filter(p => {
       if (!p.dateOfBirth) return false;
-      try {
-        const birthMonth = new Date(p.dateOfBirth).getUTCMonth();
-        return birthMonth === currentMonth;
-      } catch { return false; }
+      try { return new Date(p.dateOfBirth).getUTCMonth() === currentMonth; } catch { return false; }
     }).sort((a, b) => {
-      const dayA = new Date(a.dateOfBirth!).getUTCDate();
-      const dayB = new Date(b.dateOfBirth!).getUTCDate();
-      // Hoje primeiro, depois ordem crescente
-      const distA = ((dayA - currentDay) + 31) % 31;
-      const distB = ((dayB - currentDay) + 31) % 31;
+      const distA = ((new Date(a.dateOfBirth!).getUTCDate() - currentDay) + 31) % 31;
+      const distB = ((new Date(b.dateOfBirth!).getUTCDate() - currentDay) + 31) % 31;
       return distA - distB;
     });
+  }, [patients]);
 
-    if (birthdayPatients.length > 0) {
-      const todayBirthdays = birthdayPatients.filter(p => new Date(p.dateOfBirth!).getUTCDate() === currentDay);
-      const preview = birthdayPatients.slice(0, 3).map(p => p.fullName).join(', ');
-      const extra = birthdayPatients.length > 3 ? ` e mais ${birthdayPatients.length - 3}` : '';
-      alerts.push({
-        id: 'birthdays',
-        type: todayBirthdays.length > 0 ? 'urgent' : 'info',
-        title: todayBirthdays.length > 0
-          ? `🎂 Aniversário hoje: ${todayBirthdays.map(p => p.fullName).join(', ')}`
-          : `🎂 Aniversariantes do mês (${birthdayPatients.length})`,
-        description: todayBirthdays.length > 0
-          ? `Não esqueça de parabenizar!`
-          : `${preview}${extra}`,
-        count: birthdayPatients.length,
-        onClick: () => handleTabChange('patients')
-      });
-    }
-
-    // Pendência calculada no backend: atendido (completed/paid) sem evolução após o último atendimento
-    if (pendingEvolutions.length > 0) {
-      alerts.push({
-        id: 'no-evolution',
-        type: 'warning',
-        title: 'Evoluções pendentes',
-        description: `${pendingEvolutions.length} paciente(s) atendido(s) sem evolução`,
-        count: pendingEvolutions.length,
-        onClick: () => setPendingDialogOpen(true)
-      });
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    const todayPending = appointmentsList.filter(
-      apt => toDateString(apt.date) === today && apt.status === 'scheduled'
-    );
-
-    if (todayPending.length > 0) {
-      alerts.push({
-        id: 'today-pending',
-        type: 'info',
-        title: 'Consultas pendentes hoje',
-        description: `${todayPending.length} consultas agendadas aguardando atendimento`,
-        count: todayPending.length
-      });
-    }
-
-    return alerts;
-  }, [patients, appointments, handleTabChange, pendingEvolutions]);
+  const openPatient = useCallback((p: { _id: string; fullName: string }) => {
+    if (!p?._id) return;
+    handleViewPatientDetails(p as IPatient);
+  }, [handleViewPatientDetails]);
 
   // Skeleton enquanto carrega dados iniciais
   if (!doctorData || !doctorId) {
@@ -410,71 +370,89 @@ export default function DoctorDashboard() {
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="space-y-6 p-6">
-            {loading.overview ? (
-              <Grid container spacing={3}>
-                {[1, 2, 3, 4].map((i) => (
-                  <Grid item xs={12} sm={6} lg={3} key={i}>
-                    <KPICardSkeleton />
-                  </Grid>
-                ))}
-              </Grid>
+          <div className="space-y-4 text-left">
+            {!overviewError && <DayBar
+              doctorName={doctorData?.fullName || doctorData?.name || ''}
+              specialty={doctorData?.specialty}
+              todayAppointments={todayAppointments}
+              nextAppointment={nextAppointment?.apt ?? null}
+              nextIsToday={!!nextAppointment?.isToday}
+            />}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <PatientQuickSearch patients={allPatients ?? []} onPick={handleViewPatientDetails} />
+              <button type="button" onClick={() => handleTabChange('appointments')} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
+                <Plus className="h-4 w-4" aria-hidden />Nova consulta
+              </button>
+              <button type="button" onClick={handleAddNewPatient} className={quickBtn}>
+                <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
+              </button>
+              <button type="button" onClick={() => handleTabChange('therapy')} className={quickBtn}>
+                <FileText className="h-4 w-4" aria-hidden />Evolução rápida
+              </button>
+              <button type="button" onClick={() => handleTabChange('appointments')} className={quickBtn}>
+                <CalendarDays className="h-4 w-4" aria-hidden />Ver agenda
+              </button>
+            </div>
+
+            {overviewError ? (
+              <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-red-900">Não foi possível carregar a agenda e os números de hoje.</p>
+                    <p className="text-sm text-red-800">Verifique a conexão e tente de novo. A busca de paciente e os atalhos acima continuam funcionando.</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => loadOverview(true)} disabled={loading.overview} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 text-sm font-medium text-red-800 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-60">
+                  <RefreshCw className={`h-4 w-4 ${loading.overview ? 'animate-spin' : ''}`} aria-hidden />{loading.overview ? 'Carregando…' : 'Tentar de novo'}
+                </button>
+              </div>
+            ) : loading.overview && !stats ? (
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true">
+                {[1, 2, 3, 4].map(i => <div key={i} className="h-[76px] animate-pulse rounded-xl bg-gray-100" />)}
+              </div>
             ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <KPICard
-                    title="Pacientes Ativos"
-                    value={calculateKPIs.activePatients}
-                    icon={Users}
-                    color="primary"
-                    onClick={() => handleTabChange('patients')}
-                  />
-                  <KPICard
-                    title="Consultas este Mês"
-                    value={calculateKPIs.monthAppointments}
-                    icon={Calendar}
-                    color="success"
-                  />
-                  <KPICard
-                    title="Taxa de Comparecimento"
-                    value={`${calculateKPIs.attendanceRate}%`}
-                    icon={CheckCircle}
-                    color="info"
-                    trend={{ value: 5, isPositive: true }}
-                  />
-                  <KPICard
-                    title="Próxima Consulta"
-                    value={calculateKPIs.nextAppointmentTime}
-                    icon={Activity}
-                    color="warning"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <AlertsPanel alerts={generateAlerts} />
-                  <TodayAppointmentsCard
-                    appointments={appointments ?? []}
-                    showAll={showTodayAppointments}
-                    onToggleShow={() => setShowTodayAppointments(!showTodayAppointments)}
-                    onUpdateStatus={handleUpdateStatus}
-                    onPatientClick={handleGoToEvolution}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <QuickActions
-                    onNewAppointment={() => handleTabChange('appointments')}
-                    onNewPatient={handleAddNewPatient}
-                    onQuickEvolution={() => handleTabChange('therapy')}
-                    onViewCalendar={() => handleTabChange('appointments')}
-                  />
-                  <SpecialtyStatsCard
-                    doctorData={doctorData}
-                    stats={stats}
-                  />
-                </div>
-              </>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {overviewKpis.map(k => {
+                  const body = (
+                    <>
+                      <span className="text-xs font-medium text-gray-600">{k.label}</span>
+                      <span className="text-2xl font-bold leading-tight tabular-nums text-gray-900">{k.value}</span>
+                      {k.hint && <span className="text-xs text-gray-600">{k.hint}</span>}
+                    </>
+                  );
+                  return k.onClick ? (
+                    <button key={k.label} type="button" onClick={k.onClick} className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-left hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">{body}</button>
+                  ) : (
+                    <div key={k.label} className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-2.5">{body}</div>
+                  );
+                })}
+              </div>
             )}
+
+            {!overviewError && <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <TodayAgendaPanel
+                appointments={todayAppointments}
+                nextAppointmentId={nextAppointment?.isToday ? nextAppointment.apt._id : null}
+                pendingEvolutionIds={pendingEvolutionIds}
+                loading={loading.overview}
+                onRegisterEvolution={handleGoToEvolution}
+                onOpenPatient={openPatient}
+              />
+              <div className="flex flex-col gap-4">
+                <PendingPanel
+                  pendingEvolutions={pendingEvolutions}
+                  todayAppointments={todayAppointments}
+                  birthdayPatients={birthdayPatients}
+                  onRegisterEvolution={handleGoToEvolution}
+                  onOpenPatient={openPatient}
+                  onSeeAgenda={() => handleTabChange('appointments')}
+                />
+                <TomorrowPanel futureAppointments={futureAppointments ?? []} />
+                <MonthPanel stats={stats} />
+              </div>
+            </div>}
           </div>
         );
 
@@ -610,7 +588,8 @@ export default function DoctorDashboard() {
       />
 
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm ">
+        {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
+        <div className={activeTab === 'overview' ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
           {renderTabContent()}
         </div>
       </div>
@@ -644,28 +623,6 @@ export default function DoctorDashboard() {
         />
       )}
 
-      {/* ── Pacientes com evolução pendente ── */}
-      <Dialog open={pendingDialogOpen} onClose={() => setPendingDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Evoluções pendentes</DialogTitle>
-        <DialogContent dividers>
-          <List dense>
-            {pendingEvolutions.map((p) => (
-              <ListItemButton
-                key={p._id}
-                onClick={() => {
-                  setPendingDialogOpen(false);
-                  handleGoToEvolution({ _id: p._id, fullName: p.fullName } as any);
-                }}
-              >
-                <ListItemText
-                  primary={p.fullName}
-                  secondary={`Último atendimento: ${new Date(p.lastCompletedDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
