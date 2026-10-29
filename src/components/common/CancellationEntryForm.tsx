@@ -54,15 +54,21 @@ export default function CancellationEntryForm({ specialties, onSubmit, onRecorde
   }
   return (
     <section className="text-left" aria-label="Cancelamentos históricos">
-      <h4 className="text-sm font-semibold text-slate-800">Registrar data cancelada</h4>
-      <p className="mt-1 text-sm text-slate-600">Adicione o atendimento que foi cancelado e não aparece na agenda.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-sm font-semibold text-slate-900">{embedded ? 'Houve cancelamentos?' : 'Datas canceladas'}</h4>
+          <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">{rows.length ? 'Preencha os dados de cada atendimento cancelado.' : 'Opcional. Inclua datas que ainda não constam na agenda.'}</p>
+        </div>
+        <button type="button" aria-label="Adicionar cancelamento ausente" disabled={busy || disabled || rows.length >= 50} onClick={add} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"><Plus size={16} />Adicionar data</button>
+      </div>
       {rows.map((row, index) => (
-        <fieldset key={index} disabled={busy || disabled} className="mt-4 space-y-3 border-b border-slate-200 pb-4 text-left">
-          <legend className="text-left text-sm font-semibold text-slate-700">Cancelamento {index + 1}</legend>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <label className="block text-left text-xs font-medium text-slate-700">Especialidade<select className={inputClass} value={row.specialty} onChange={e => change(index, { specialty: e.target.value })}>
+        <fieldset key={index} disabled={busy || disabled} className="mt-4 space-y-3 border-t border-slate-200 pt-3 text-left">
+          <legend className="px-0 pr-2 text-left text-xs font-semibold text-slate-700">Cancelamento {index + 1}{specialties.length === 1 ? ` · ${row.specialty.replace(/_/g, ' ')}` : ''}</legend>
+          <div className="flex justify-end"><button type="button" aria-label={`Remover cancelamento ${index + 1}`} className="inline-flex min-h-9 items-center gap-1 rounded px-2 text-xs font-medium text-slate-500 hover:bg-red-50 hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" onClick={() => { setRows(prev => prev.filter((_, i) => i !== index)); setPreview(null); setError(''); }}><X size={14} />Remover</button></div>
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3">
+            {specialties.length > 1 && <label className="block text-left text-xs font-medium text-slate-700">Especialidade<select className={inputClass} value={row.specialty} onChange={e => change(index, { specialty: e.target.value })}>
               {specialties.map(key => <option key={key} value={key}>{key.replace(/_/g, ' ')}</option>)}
-            </select></label>
+            </select></label>}
             <label className="block text-left text-xs font-medium text-slate-700">Profissional<select className={inputClass} value={row.doctorId} onChange={e => change(index, { doctorId: e.target.value })}>
               <option value="">Selecione quem atenderia</option>{doctors.map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
             </select></label>
@@ -74,10 +80,8 @@ export default function CancellationEntryForm({ specialties, onSubmit, onRecorde
             </select></label>
           </div>
           <label className="block text-left text-xs font-medium text-slate-700">Motivo<textarea className={inputClass + " h-auto min-h-[60px]"} maxLength={2000} rows={2} value={row.reason} onChange={e => change(index, { reason: e.target.value })} /></label>
-          <button type="button" className="inline-flex items-center gap-1 text-sm text-red-700 underline disabled:opacity-50" onClick={() => { setRows(prev => prev.filter((_, i) => i !== index)); setPreview(null); setError(''); }}><X size={16} />Remover</button>
         </fieldset>
       ))}
-      <button type="button" disabled={busy || disabled || rows.length >= 50} onClick={add} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 disabled:opacity-50"><Plus size={16} />{rows.length ? 'Adicionar outra data' : 'Adicionar cancelamento ausente'}</button>
       {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="mt-3 text-sm text-emerald-800">{message}</p>}
       {preview && <div className="mt-3 space-y-2 text-sm text-slate-700" aria-live="polite">

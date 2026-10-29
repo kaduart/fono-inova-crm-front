@@ -1358,50 +1358,44 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
         const todayStr = new Date().toISOString().slice(0, 10);
         const startsInPast = generateModal.startDate < todayStr;
         return (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 text-left">
-              <div className="flex items-center gap-3 mb-5">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div role="dialog" aria-modal="true" aria-label="Gerar sessões da guia" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90dvh] overflow-y-auto p-5 text-left sm:p-6">
+              <div className="flex items-start gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: theme.to }}>
-                  <Zap className="w-5 h-5 text-white" />
+                  <Calendar className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-left">Sessões da guia</h3>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-800 text-left">Gerar sessões</h3>
                   <p className="text-xs text-slate-500">Guia #{guide.number} — {presentation.specialtyLabel || guide.specialty}</p>
                 </div>
-                <button onClick={() => setGenerateModal(null)} className="ml-auto text-slate-400 hover:text-slate-600">
+                <button onClick={() => setGenerateModal(null)} aria-label="Fechar geração de sessões" className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 gap-4 mb-4 min-[420px]:grid-cols-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Data de início</label>
                   <input
                     type="date"
                     value={generateModal.startDate}
                     onChange={(e) => setGenerateModal(prev => (prev ? { ...prev, startDate: e.target.value } : prev))}
-                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 bg-slate-50"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-2">Sessões a gerar</label>
                   <div className="w-full p-3 text-sm border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-between">
                     <span className="font-semibold text-slate-800">{remaining}</span>
-                    <span className="text-2xs text-slate-400">autorizado</span>
+                    <span className="text-xs text-slate-500">autorizado</span>
                   </div>
                 </div>
               </div>
 
               {startsInPast && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700">
-                    Vai criar uma sessão pendente pra cada dia/horário do plano entre{' '}
-                    <strong>{format(parseISO(generateModal.startDate), 'dd/MM/yyyy')}</strong> e hoje.{' '}
-                    <strong>Nenhuma sessão retroativa é marcada como realizada automaticamente</strong> — cada uma
-                    fica pendente na agenda até alguém confirmar manualmente que o atendimento realmente aconteceu
-                    (só assim ela desconta da guia). Não gera cobrança nem desconto de guia sozinho.
-                  </p>
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="leading-5">As datas anteriores a hoje ficarão <strong>pendentes de confirmação</strong>, sem marcar atendimento realizado ou consumir a guia.</p>
                 </div>
               )}
 
