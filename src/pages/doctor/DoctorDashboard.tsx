@@ -19,7 +19,7 @@ import ScheduleAppointmentModal from '../../components/patients/ScheduleAppointm
 import appointmentService from '../../services/appointmentService';
 import TherapyEvolution from '../../components/doctor/TherapyEvolution';
 import DoctorFinancialTab from '../../components/doctor/tabs/DoctorFinancialTab';
-import { CalendarDays, FileText, Plus, UserPlus } from 'lucide-react';
+import { AlertTriangle, CalendarDays, FileText, Plus, RefreshCw, UserPlus } from 'lucide-react';
 import DayBar from '../../components/doctor/overview/DayBar';
 import TodayAgendaPanel from '../../components/doctor/overview/TodayAgendaPanel';
 import PatientQuickSearch from '../../components/doctor/overview/PatientQuickSearch';
@@ -142,6 +142,7 @@ export default function DoctorDashboard() {
     calendarEvents,
     therapySessions,
     loading,
+    overviewError,
     loadOverview,
     loadAppointments,
     loadTherapy,
@@ -370,17 +371,17 @@ export default function DoctorDashboard() {
       case 'overview':
         return (
           <div className="space-y-4 text-left">
-            <DayBar
+            {!overviewError && <DayBar
               doctorName={doctorData?.fullName || doctorData?.name || ''}
               specialty={doctorData?.specialty}
               todayAppointments={todayAppointments}
               nextAppointment={nextAppointment?.apt ?? null}
               nextIsToday={!!nextAppointment?.isToday}
-            />
+            />}
 
             <div className="flex flex-wrap items-center gap-2">
               <PatientQuickSearch patients={allPatients ?? []} onPick={handleViewPatientDetails} />
-              <button type="button" onClick={() => handleTabChange('appointments')} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
+              <button type="button" onClick={() => handleTabChange('appointments')} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
                 <Plus className="h-4 w-4" aria-hidden />Nova consulta
               </button>
               <button type="button" onClick={handleAddNewPatient} className={quickBtn}>
@@ -394,7 +395,20 @@ export default function DoctorDashboard() {
               </button>
             </div>
 
-            {loading.overview && !stats ? (
+            {overviewError ? (
+              <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-red-900">Não foi possível carregar a agenda e os números de hoje.</p>
+                    <p className="text-sm text-red-800">Verifique a conexão e tente de novo. A busca de paciente e os atalhos acima continuam funcionando.</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => loadOverview(true)} disabled={loading.overview} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 text-sm font-medium text-red-800 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-60">
+                  <RefreshCw className={`h-4 w-4 ${loading.overview ? 'animate-spin' : ''}`} aria-hidden />{loading.overview ? 'Carregando…' : 'Tentar de novo'}
+                </button>
+              </div>
+            ) : loading.overview && !stats ? (
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true">
                 {[1, 2, 3, 4].map(i => <div key={i} className="h-[76px] animate-pulse rounded-xl bg-gray-100" />)}
               </div>
@@ -417,7 +431,7 @@ export default function DoctorDashboard() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            {!overviewError && <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <TodayAgendaPanel
                 appointments={todayAppointments}
                 nextAppointmentId={nextAppointment?.isToday ? nextAppointment.apt._id : null}
@@ -438,7 +452,7 @@ export default function DoctorDashboard() {
                 <TomorrowPanel futureAppointments={futureAppointments ?? []} />
                 <MonthPanel stats={stats} />
               </div>
-            </div>
+            </div>}
           </div>
         );
 

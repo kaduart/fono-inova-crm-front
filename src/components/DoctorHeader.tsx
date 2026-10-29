@@ -106,7 +106,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     );
 
     return (
-        <header className="shadow-lg border-b text-white" style={{ backgroundColor: 'rgb(13 138 108)', borderColor: 'rgba(255,255,255,0.2)' }}>
+        <header className="shadow-lg border-b text-white" style={{ backgroundColor: 'rgb(4 120 87)', borderColor: 'rgba(255,255,255,0.2)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
                     {/* Logo e nome da clínica */}
@@ -133,7 +133,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                     </div>
 
                     {/* Navegação Principal */}
-                    <nav className="hidden md:flex items-center space-x-1">
+                    <nav className="hidden lg:flex items-center space-x-1">
                         <NavButton
                             active={activeTab === "overview"}
                             onClick={() => handleTabChange("overview")}
@@ -198,8 +198,8 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                         {/* Hamburguer - só no mobile */}
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="md:hidden p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-                            aria-label="Menu"
+                            className="lg:hidden p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                            aria-label="Menu" aria-expanded={isMobileMenuOpen}
                         >
                             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                         </button>
@@ -207,6 +207,9 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                     <div className="relative">
                         <button
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                            aria-label="Menu do perfil"
+                            aria-haspopup="menu"
+                            aria-expanded={isProfileDropdownOpen}
                             className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
                         >
                           {/*   <div className="hidden sm:flex flex-col items-end">
@@ -264,7 +267,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
 
                 {/* Menu Mobile */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1">
+                    <div className="lg:hidden border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1">
                         <button onClick={() => handleMobileTabChange("overview")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "overview" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
                             <Home size={18} className="text-blue-400" /> Dashboard
                         </button>

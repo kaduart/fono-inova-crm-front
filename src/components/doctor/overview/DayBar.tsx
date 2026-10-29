@@ -41,7 +41,7 @@ export default function DayBar({ doctorName, specialty, todayAppointments, nextA
     const lostParts = [canceled && `${canceled} cancelada${canceled > 1 ? 's' : ''}`, missed && `${missed} falta${missed > 1 ? 's' : ''}`].filter(Boolean);
 
     return (
-        <section aria-label="Resumo do dia" className="grid grid-cols-1 items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 md:grid-cols-[1.2fr_1fr_1fr]">
+        <section aria-label="Resumo do dia" className="grid grid-cols-1 items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr]">
             <div className="min-w-0">
                 <h1 className="text-lg font-bold text-gray-900 first-letter:uppercase">{dateLabel}</h1>
                 <p className="text-sm text-gray-600">
@@ -70,7 +70,7 @@ export default function DayBar({ doctorName, specialty, todayAppointments, nextA
                 )}
             </div>
 
-            <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+            <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-emerald-100 sm:col-span-2 lg:col-span-1 bg-emerald-50 px-3 py-2.5">
                 <div className="min-w-0">
                     <p className="text-xs text-gray-600">{nextHint}</p>
                     <p className="font-semibold text-gray-900 break-words">{nextPatient ? nextPatient.fullName : 'Sem próximas sessões'}</p>

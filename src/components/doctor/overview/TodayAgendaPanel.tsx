@@ -63,7 +63,7 @@ function journeyChip(apt: any) {
 }
 
 const btn = 'inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 disabled:opacity-60';
-const btnPrimary = `${btn} border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700`;
+const btnPrimary = `${btn} border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800`;
 const btnSoft = `${btn} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`;
 const btnGhost = `${btn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
 const btnIcon = `${btn} w-10 px-0 border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
@@ -134,7 +134,7 @@ export default function TodayAgendaPanel({
             ) : sorted.length === 0 ? (
                 <div className="px-4 py-8 text-left">
                     <p className="font-medium text-gray-800">Nenhuma sessão marcada para hoje.</p>
-                    <p className="text-sm text-gray-600">Quando a recepção agendar, a sessão aparece aqui com as ações de concluir e evoluir.</p>
+                    <p className="text-sm text-gray-600">Quando a recepção agendar, a sessão aparece aqui com o status, o faturamento e o atalho para a evolução.</p>
                 </div>
             ) : (
                 <ol>
