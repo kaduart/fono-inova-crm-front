@@ -1,7 +1,7 @@
 // Gráfico da aba Evolução: um gráfico de linha por área/métrica (small multiples), escala fixa
 // 0–10 como no plano, meta do plano tracejada, chips de período e vista em tabela.
 // Antes: barras agrupadas por data num card escuro fixo, que não diziam se a área melhorava.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Objective = { area?: string; description?: string; target?: number };
 
@@ -64,9 +64,19 @@ type Series = { key: string; label: string; values: (number | null)[]; target?: 
 
 function MiniChart({ s, dates }: { s: Series; dates: string[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  // viewBox com a largura real do card: num card largo o SVG escalava e o texto ficava enorme
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(240);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(200, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const pts = s.values.map((v, i) => ({ v, i })).filter(p => p.v !== null && p.v !== undefined) as { v: number; i: number }[];
   const max = Math.max(10, ...pts.map(p => Math.ceil(p.v)), s.target ?? 0);
-  const W = 240, H = 120, L = 22, R = 8, T = 12, B = 20, iw = W - L - R, ih = H - T - B;
+  const H = 120, L = 22, R = 8, T = 12, B = 20, iw = W - L - R, ih = H - T - B;
   const x = (i: number) => L + (dates.length === 1 ? iw / 2 : (i * iw) / (dates.length - 1));
   const y = (v: number) => T + ih - (v / max) * ih;
   const ticks = [0, Math.round(max / 2), max];
@@ -74,7 +84,7 @@ function MiniChart({ s, dates }: { s: Series; dates: string[] }) {
   const every = Math.max(1, Math.ceil(dates.length / 6));
   const last = pts[pts.length - 1];
   return (
-    <div className="relative">
+    <div className="relative" ref={boxRef}>
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full overflow-visible" role="img"
         aria-label={`${s.label}: ${pts.map(p => `${shortDate(dates[p.i])} ${fmt(p.v)}`).join(', ')}`}>
         {ticks.map(t => (
@@ -169,7 +179,7 @@ const EvolutionChart = ({ chartData, objectives = [] }: Props) => {
           key, label, color: i % SERIES.length,
           values: raw.slice(from).map((v: any) => (v === null || v === undefined || v === '' ? null : Number(v))),
           target: obj?.target ?? (typeof data?.config?.target === 'number' ? data.config.target : undefined),
-          goal: obj?.description,
+          goal: obj?.description && !/^objetivo em /i.test(obj.description.trim()) ? obj.description : undefined,
         };
       });
       // nomes quase iguais (ex.: "Lingagem receptiva" e "Linguagem receptiva"): avisa, não junta
@@ -198,7 +208,7 @@ const EvolutionChart = ({ chartData, objectives = [] }: Props) => {
     <section className="space-y-2" aria-label={title}>
       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{title}</h3>
       {view === 'chart' ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {list.map(s => <SeriesCard key={s.key} s={s} dates={dates} />)}
         </div>
       ) : (
