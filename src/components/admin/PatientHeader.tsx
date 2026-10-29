@@ -15,6 +15,7 @@ import {
     UserCircle,
     X
 } from "lucide-react";
+import ThemeToggle from '../common/ThemeToggle';
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -103,6 +104,8 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                             <Clock size={12} />
                             Novo
                         </button>
+
+                        <ThemeToggle />
 
                         {/* Hamburguer - só no mobile */}
                         <button

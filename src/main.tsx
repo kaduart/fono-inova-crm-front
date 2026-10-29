@@ -13,10 +13,10 @@ if (typeof window !== 'undefined' && !window.requestIdleCallback) {
 }
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@mui/material/styles";
 import "./index.css";
+import "./styles/dark.css";
 import App from "./App";
-import { theme } from "./theme";
+import { ThemeModeProvider } from "./contexts/ThemeModeContext";
 import { interceptApiCalls } from "./utils/payloadDebugger";
 
 // 🔥 ATIVA DEBUGGER DE PAYLOAD V2
@@ -38,7 +38,7 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
+    <ThemeModeProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
@@ -50,6 +50,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
-    </ThemeProvider>
+    </ThemeModeProvider>
   </React.StrictMode>
 );

@@ -11,6 +11,13 @@
     <!-- Se for .ico:
     <link rel="icon" type="image/x-icon" href="/logo-clinica.ico" />
     -->
+    <!-- Tema escuro antes da primeira pintura (evita piscar branco). Ver ThemeModeContext. -->
+    <script>
+      try {
+        var t = localStorage.getItem('fono-theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
 
   <body>

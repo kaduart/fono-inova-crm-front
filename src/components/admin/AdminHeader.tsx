@@ -1,3 +1,4 @@
+import ThemeToggle from '../common/ThemeToggle';
 import {
     Activity,
     ChevronDown,
@@ -386,6 +387,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
                     <div className="flex items-center gap-2 md:gap-3">
                         <NotificationBellFixed />
+                        <ThemeToggle />
 
                         {/* Hamburguer - mobile */}
                         <button
