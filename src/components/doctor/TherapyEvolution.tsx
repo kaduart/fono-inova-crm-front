@@ -248,7 +248,8 @@ export default function TherapyEvolution({
         const [pend, act, rec] = await Promise.all([
             fetchPendingEvolutions().catch(() => [] as PendingEvolution[]),
             fetchMyPatients({ care: 'active', sort: 'next', limit: 50 }).then(r => r.data || []).catch(() => [] as any[]),
-            API.get('/v2/evolutions/search', { params: { limit: 5 } }).then(r => r.data?.data || []).catch(() => [] as any[]),
+            // Promise.resolve: uma falha síncrona (ou mock sem retorno) não derruba a fila inteira
+            Promise.resolve().then(() => API.get('/v2/evolutions/search', { params: { limit: 5 } })).then(r => r?.data?.data || []).catch(() => [] as any[]),
         ]);
         setPending(Array.isArray(pend) ? pend : []);
         setActiveList(Array.isArray(act) ? act : []);
@@ -956,7 +957,7 @@ export default function TherapyEvolution({
                                             {evolutionSubTab === 'chart' && (
                                                 <div className="p-3 sm:p-5">
                                                     {hasChart ? (
-                                                        <EvolutionChart chartData={chartData} />
+                                                        <EvolutionChart chartData={chartData} objectives={objectives} />
                                                     ) : (
                                                         <p className="py-8 text-center text-sm text-gray-600">Ainda não há notas suficientes para o gráfico.</p>
                                                     )}

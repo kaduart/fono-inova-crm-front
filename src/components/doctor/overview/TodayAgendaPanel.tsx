@@ -34,7 +34,7 @@ const Chip = ({ tone, children }: { tone: keyof typeof chip; children: React.Rea
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-xs font-semibold ${chip[tone]}`}>{children}</span>
 );
 
-function statusChip(apt: any) {
+export function statusChip(apt: any) {
     const s = opStatus(apt);
     if (s === 'completed') return <Chip tone="ok"><CheckCircle2 className="h-3 w-3" aria-hidden />Concluído</Chip>;
     if (s === 'confirmed') return <Chip tone="info">Confirmado</Chip>;
@@ -46,7 +46,7 @@ function statusChip(apt: any) {
     return <Chip tone="warn">Agendado · não confirmado</Chip>;
 }
 
-function billingChip(apt: any) {
+export function billingChip(apt: any) {
     const type = apt.billingType || (apt.liminarContract ? 'liminar' : apt.insuranceProvider ? 'convenio' : 'particular');
     if (type === 'liminar') return <Chip tone="pur">Liminar</Chip>;
     if (type === 'convenio') return <Chip tone="info">Convênio{apt.insuranceProvider ? ` · ${apt.insuranceProvider}` : ''}</Chip>;
