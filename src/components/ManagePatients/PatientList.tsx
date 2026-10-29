@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ExternalLink, Mail, Pencil, Phone, Power, Search, User, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, Mail, Pencil, Phone, Power, Search, User, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '../../utils/toast';
 import patientService from '../../services/patientService';
@@ -164,43 +164,66 @@ const TABS: { key: TabType; label: string; Icon: React.ElementType }[] = [
     { key: 'lead',     label: 'Leads',    Icon: Users },
 ];
 
+const PAGE_SIZE = 10;
+// status do PatientsView no back (o "lead" da tela é o "prospect" de lá)
+const VIEW_STATUS: Record<TabType, string> = { active: 'active', inactive: 'inactive', lead: 'prospect' };
+
 const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) => {
     const [patients, setPatients] = useState<any[]>([]);
+    const [total, setTotal] = useState(0);
+    const [counts, setCounts] = useState<Record<TabType, number | null>>({ active: null, inactive: null, lead: null });
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [query, setQuery] = useState('');
+    const [page, setPage] = useState(0);
     const [activeTab, setActiveTab] = useState<TabType>('active');
+
+    // Busca no servidor depois de uma pausa na digitação. Antes a tela pedia 500 pacientes de uma
+    // vez e filtrava no navegador; com o saldo de cada um calculado no back, passava dos 15s do
+    // timeout e travava o back (as Secretárias caíam junto).
+    useEffect(() => {
+        const t = setTimeout(() => { setQuery(search.trim()); setPage(0); }, 350);
+        return () => clearTimeout(t);
+    }, [search]);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await patientService.list({ limit: 500 });
-            setPatients(result.patients);
+            const result = await patientService.list({
+                limit: PAGE_SIZE,
+                skip: page * PAGE_SIZE,
+                status: VIEW_STATUS[activeTab],
+                ...(query ? { search: query } : {}),
+            });
+            setPatients(result.patients || []);
+            setTotal(result.pagination?.total ?? (result.patients || []).length);
         } catch {
             toast.error('Erro ao carregar pacientes');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page, activeTab, query]);
 
     useEffect(() => {
         load();
     }, [load, refreshSignal]);
 
-    const countByStatus = (s: string) =>
-        patients.filter(p => (p.status || 'active') === s).length;
-
-    const filtered = patients
-        .filter(p => (p.status || 'active') === activeTab)
-        .filter(p => {
-            if (!search.trim()) return true;
-            const q = search.toLowerCase();
-            return (
-                (p.fullName || p.name || '').toLowerCase().includes(q) ||
-                (p.phone || '').includes(q) ||
-                (p.email || '').toLowerCase().includes(q) ||
-                (p.cpf || '').includes(q)
-            );
+    // Contagem de cada aba: uma consulta de 1 item por status, só para ler o total
+    useEffect(() => {
+        let alive = true;
+        (Object.keys(VIEW_STATUS) as TabType[]).forEach(async tab => {
+            try {
+                const r = await patientService.list({ limit: 1, status: VIEW_STATUS[tab], ...(query ? { search: query } : {}) });
+                if (alive) setCounts(c => ({ ...c, [tab]: r.pagination?.total ?? 0 }));
+            } catch { /* a contagem fica "…" */ }
         });
+        return () => { alive = false; };
+    }, [query, refreshSignal]);
+
+    const pickTab = (tab: TabType) => { setActiveTab(tab); setPage(0); };
+    const filtered = patients;
+    const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const countByStatus = (s: TabType) => counts[s] ?? '…';
 
     return (
         <div className="space-y-6">
@@ -210,7 +233,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                     {TABS.map(({ key, label, Icon }) => (
                         <button
                             key={key}
-                            onClick={() => setActiveTab(key)}
+                            onClick={() => pickTab(key)}
                             className={`shrink-0 whitespace-nowrap px-5 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
                                 activeTab === key
                                     ? 'bg-white text-emerald-700 shadow-sm'
@@ -268,6 +291,23 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                             onEdit={onEdit}
                         />
                     ))}
+                </div>
+            )}
+
+            {total > PAGE_SIZE && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
+                    <span>Mostrando {page * PAGE_SIZE + 1}–{Math.min(total, (page + 1) * PAGE_SIZE)} de {total}</span>
+                    <div className="flex gap-2">
+                        <button type="button" disabled={page === 0 || loading} onClick={() => setPage(p => Math.max(0, p - 1))}
+                            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                            <ChevronLeft size={15} aria-hidden />Anterior
+                        </button>
+                        <span className="self-center tabular-nums">{page + 1} de {pageCount}</span>
+                        <button type="button" disabled={page + 1 >= pageCount || loading} onClick={() => setPage(p => p + 1)}
+                            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                            Próxima<ChevronRight size={15} aria-hidden />
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
