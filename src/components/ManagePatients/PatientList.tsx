@@ -1,25 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Mail, Pencil, Phone, Power, Search, User, Users } from 'lucide-react';
+// Gestão > Pacientes: lista paginada no servidor (10 por vez), busca no back e chips de filtro.
+// Lista é o padrão (nome inteiro, tipo, profissional, última/próxima sessão e saldo lado a lado);
+// os cartões de antes continuam no botão "Cartões".
+import React, { useCallback, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, ExternalLink, LayoutGrid, List, Mail, Pencil, Phone, Search, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '../../utils/toast';
 import patientService from '../../services/patientService';
+import { getSpecialtyLabel } from '../../constants/specialties';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const COLORS = [
-    { bg: 'bg-blue-100',    text: 'text-blue-700',    border: 'border-blue-300' },
-    { bg: 'bg-purple-100',  text: 'text-purple-700',  border: 'border-purple-300' },
-    { bg: 'bg-pink-100',    text: 'text-pink-700',    border: 'border-pink-300' },
-    { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300' },
-    { bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-amber-300' },
-    { bg: 'bg-cyan-100',    text: 'text-cyan-700',    border: 'border-cyan-300' },
-    { bg: 'bg-indigo-100',  text: 'text-indigo-700',  border: 'border-indigo-300' },
-    { bg: 'bg-rose-100',    text: 'text-rose-700',    border: 'border-rose-300' },
-];
-
-function getColor(name: string) {
-    return COLORS[(name?.charCodeAt(0) || 65) % COLORS.length];
-}
 
 function getInitials(name: string) {
     if (!name) return '?';
@@ -36,15 +25,6 @@ function formatPhone(phone?: string) {
     return phone;
 }
 
-function formatDate(iso?: string | null) {
-    if (!iso) return null;
-    try {
-        return new Date(iso).toLocaleDateString('pt-BR');
-    } catch {
-        return null;
-    }
-}
-
 function resolveDate(field: any): string | null {
     if (!field) return null;
     if (typeof field === 'string') return field;
@@ -52,131 +32,171 @@ function resolveDate(field: any): string | null {
     return null;
 }
 
-// ─── STATUS ───────────────────────────────────────────────────────────────────
-
-const STATUS_CFG: Record<string, { label: string; dot: string; text: string }> = {
-    active:   { label: 'Ativo',   dot: 'bg-emerald-500', text: 'text-emerald-600' },
-    inactive: { label: 'Inativo', dot: 'bg-gray-400',    text: 'text-gray-400' },
-    lead:     { label: 'Lead',    dot: 'bg-amber-500',   text: 'text-amber-600' },
+// datas de agendamento representam o DIA (UTC): compara pelo dia UTC
+const dayDiff = (iso: string) => {
+    const d = new Date(iso);
+    const day = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((day - today) / 86400000);
+};
+const shortDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+const lastLabel = (iso: string | null) => {
+    if (!iso) return null;
+    const n = -dayDiff(iso);
+    if (n <= 0) return 'hoje';
+    if (n === 1) return 'ontem';
+    return n < 60 ? `há ${n} dias` : shortDate(iso) + '/' + new Date(iso).getUTCFullYear();
+};
+const nextLabel = (iso: string | null, time?: string) => {
+    if (!iso) return null;
+    const n = dayDiff(iso);
+    const d = n === 0 ? 'hoje' : n === 1 ? 'amanhã' : shortDate(iso);
+    return time ? `${d} · ${time}` : d;
+};
+const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const ageOf = (iso?: string) => {
+    if (!iso) return null;
+    const b = new Date(iso);
+    if (isNaN(b.getTime())) return null;
+    const now = new Date();
+    let a = now.getFullYear() - b.getUTCFullYear();
+    if (now.getMonth() < b.getUTCMonth() || (now.getMonth() === b.getUTCMonth() && now.getDate() < b.getUTCDate())) a--;
+    return a >= 0 && a < 120 ? (a === 1 ? '1 ano' : `${a} anos`) : null;
 };
 
-// ─── PatientCard ──────────────────────────────────────────────────────────────
+const typeOf = (p: any): { label: string; cls: string } => {
+    if (p.hasLiminarContract) return { label: 'Liminar', cls: 'border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-200' };
+    if (p.healthPlan?.name) return { label: p.healthPlan.name, cls: 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-200' };
+    return { label: 'Particular', cls: 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300' };
+};
+const debtOf = (p: any) => Number(p.balance?.current ?? p.stats?.totalPendingParticularNet ?? 0);
 
-interface PatientCardProps {
-    patient: any;
-    onEdit: (p: any) => void;
-}
+const btn = 'inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50';
+const btnGhost = `${btn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800`;
+const chipCls = (on: boolean) => `inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-700 bg-emerald-50 text-emerald-900 dark:border-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-200' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200'}`;
+const segCls = (on: boolean) => `inline-flex min-h-9 items-center gap-1.5 px-3 text-sm font-semibold ${on ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200' : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200'}`;
 
-const PatientCard: React.FC<PatientCardProps> = ({ patient, onEdit }) => {
+// ─── PatientCard (vista em cartões) ───────────────────────────────────────────
+
+const PatientCard: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ patient, onEdit }) => {
     const navigate = useNavigate();
     const name = patient.fullName || patient.name || '';
-    const color = getColor(name);
-    const initials = getInitials(name);
-    const status = patient.status || 'active';
-    const st = STATUS_CFG[status] || STATUS_CFG.active;
     const id = patient._id || patient.patientId;
-
-    const nextDate = formatDate(resolveDate(patient.nextAppointment));
-    const lastDate = formatDate(resolveDate(patient.lastAppointment));
+    const next = nextLabel(resolveDate(patient.nextAppointment), patient.nextAppointment?.time);
+    const last = lastLabel(resolveDate(patient.lastAppointment));
     const phone = formatPhone(patient.phone);
+    const t = typeOf(patient);
+    const debt = debtOf(patient);
 
     return (
-        <div className="rounded-xl border border-gray-200 bg-white hover:shadow-md transition-shadow flex flex-col">
-
-            {/* Header — altura fixa 80px */}
-            <div className="p-4 h-20 flex items-start gap-3 flex-shrink-0">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold border-2 ${color.bg} ${color.text} ${color.border}`}>
-                    {initials}
-                </div>
+        <div className="flex min-w-0 flex-col rounded-xl border border-gray-200 bg-white text-left dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex items-start gap-3 p-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{getInitials(name)}</span>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-gray-900 truncate leading-tight" title={name}>
-                        {name}
-                    </p>
-                    <span className={`inline-flex items-center gap-1 text-2xs font-medium ${st.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                        {st.label}
-                    </span>
+                    <p className="break-words font-semibold leading-snug text-gray-900 dark:text-gray-100">{name}</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                        <span className={`rounded-full border px-2 py-px text-xs font-semibold ${t.cls}`}>{t.label}</span>
+                        {debt > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-2 py-px text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">deve {brl(debt)}</span>}
+                    </div>
                 </div>
             </div>
-
-            {/* Linha de data — altura fixa 20px, sempre presente */}
-            <div className="px-4 h-5 flex-shrink-0">
-                {nextDate ? (
-                    <p className="text-2xs text-gray-500 truncate">Próx: {nextDate}</p>
-                ) : lastDate ? (
-                    <p className="text-2xs text-gray-400 truncate">Última: {lastDate}</p>
-                ) : (
-                    <p className="text-2xs text-gray-300">Sem agendamento</p>
-                )}
+            <div className="space-y-1 px-4 text-sm text-gray-700 dark:text-gray-300">
+                <p>{next ? <>Próxima: <b className="font-semibold text-gray-900 dark:text-gray-100">{next}</b></> : last ? <>Última: {last}</> : 'Sem sessões'}</p>
+                <p className="flex items-center gap-2"><Phone size={13} className="shrink-0 text-gray-500" aria-hidden />{phone ?? '—'}</p>
+                {patient.email && <p className="flex min-w-0 items-center gap-2"><Mail size={13} className="shrink-0 text-gray-500" aria-hidden /><span className="truncate" title={patient.email}>{patient.email}</span></p>}
             </div>
-
-            {/* Contato — altura fixa 52px */}
-            <div className="px-4 pt-2 pb-1 h-[52px] flex-shrink-0 space-y-1 overflow-hidden">
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <Phone size={11} className="text-gray-400 flex-shrink-0" />
-                    <span className="truncate">{phone ?? '-'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 h-4">
-                    {patient.email ? (
-                        <>
-                            <Mail size={11} className="text-gray-400 flex-shrink-0" />
-                            <span className="truncate" title={patient.email}>{patient.email}</span>
-                        </>
-                    ) : (
-                        <span className="text-gray-300 text-2xs">Sem e-mail</span>
-                    )}
-                </div>
-            </div>
-
-            {/* Ações — sempre no fundo */}
-            <div className="px-4 pt-2 pb-4 flex gap-2 mt-auto">
-                <button
-                    onClick={() => onEdit(patient)}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
-                >
-                    <Pencil size={11} />
-                    Editar
-                </button>
-                <button
-                    onClick={() => navigate(`/patients/${id}`)}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-gray-200 hover:bg-emerald-50 hover:text-emerald-700 text-gray-700 rounded-lg text-xs font-semibold transition-colors"
-                >
-                    <ExternalLink size={11} />
-                    Detalhes
-                </button>
+            <div className="mt-auto flex gap-2 p-4">
+                <button type="button" onClick={() => onEdit(patient)} className={`${btnGhost} flex-1`}><Pencil size={14} aria-hidden />Editar</button>
+                <button type="button" onClick={() => navigate(`/patients/${id}`)} className={`${btnGhost} flex-1`}><ExternalLink size={14} aria-hidden />Ficha</button>
             </div>
         </div>
+    );
+};
+
+// ─── Linha da lista ───────────────────────────────────────────────────────────
+
+const PatientRow: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ patient, onEdit }) => {
+    const navigate = useNavigate();
+    const name = patient.fullName || patient.name || '';
+    const id = patient._id || patient.patientId;
+    const t = typeOf(patient);
+    const debt = debtOf(patient);
+    const last = lastLabel(resolveDate(patient.lastAppointment) || patient.stats?.lastAppointmentDate || null);
+    const nextIso = resolveDate(patient.nextAppointment) || patient.stats?.nextAppointmentDate || null;
+    const next = nextLabel(nextIso, patient.nextAppointment?.time);
+    const age = ageOf(patient.dateOfBirth);
+    const phone = formatPhone(patient.phone);
+    const prof = patient.doctorName || patient.nextAppointment?.doctorName || patient.lastAppointment?.doctorName;
+
+    return (
+        <li className="grid gap-x-4 gap-y-2 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-800 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_auto] md:items-center">
+            <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{getInitials(name)}</span>
+                <div className="min-w-0">
+                    <button type="button" onClick={() => navigate(`/patients/${id}`)} className="text-left font-semibold leading-snug text-gray-900 hover:underline dark:text-gray-100">{name}</button>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{[age, phone].filter(Boolean).join(' · ') || '—'}</p>
+                </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`rounded-full border px-2 py-px text-xs font-semibold ${t.cls}`}>{t.label}</span>
+                {debt > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-2 py-px text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">deve {brl(debt)}</span>}
+            </div>
+            <div className="min-w-0 text-sm text-gray-700 dark:text-gray-300">
+                <p className="truncate">{prof || <span className="text-gray-500">sem profissional</span>}</p>
+                {patient.specialty && <p className="truncate text-xs text-gray-600 dark:text-gray-400">{getSpecialtyLabel(patient.specialty)}</p>}
+            </div>
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+                {next ? <p>Próxima: <b className="font-semibold text-gray-900 dark:text-gray-100">{next}</b></p>
+                    : <p><span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-px text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200">sem próxima</span></p>}
+                <p className="text-xs text-gray-600 dark:text-gray-400">{last ? `Última: ${last}` : 'Nenhuma sessão ainda'}</p>
+            </div>
+            <div className="flex gap-1.5 md:justify-end">
+                <button type="button" onClick={() => navigate(`/patients/${id}`)} className={btnGhost}><ExternalLink size={14} aria-hidden />Ficha</button>
+                <button type="button" onClick={() => onEdit(patient)} className={btnGhost} aria-label={`Editar ${name}`}><Pencil size={14} aria-hidden />Editar</button>
+            </div>
+        </li>
     );
 };
 
 // ─── PatientList ──────────────────────────────────────────────────────────────
 
 type TabType = 'active' | 'inactive' | 'lead';
+type ViewMode = 'list' | 'cards';
 
 interface PatientListProps {
     onEdit: (patient: any) => void;
     refreshSignal?: number;
 }
 
-const TABS: { key: TabType; label: string; Icon: React.ElementType }[] = [
-    { key: 'active',   label: 'Ativos',   Icon: User },
-    { key: 'inactive', label: 'Inativos', Icon: Power },
-    { key: 'lead',     label: 'Leads',    Icon: Users },
+const TABS: { key: TabType; label: string }[] = [
+    { key: 'active', label: 'Ativos' },
+    { key: 'inactive', label: 'Inativos' },
+    { key: 'lead', label: 'Leads' },
 ];
 
 const PAGE_SIZE = 10;
 // status do PatientsView no back (o "lead" da tela é o "prospect" de lá)
 const VIEW_STATUS: Record<TabType, string> = { active: 'active', inactive: 'inactive', lead: 'prospect' };
+const VIEW_KEY = 'gestao.pacientes.view';
 
 const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) => {
     const [patients, setPatients] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
-    const [counts, setCounts] = useState<Record<TabType, number | null>>({ active: null, inactive: null, lead: null });
+    const [counts, setCounts] = useState<Record<TabType | 'debt', number | null>>({ active: null, inactive: null, lead: null, debt: null });
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [query, setQuery] = useState('');
     const [page, setPage] = useState(0);
     const [activeTab, setActiveTab] = useState<TabType>('active');
+    const [onlyDebt, setOnlyDebt] = useState(false);
+    const [view, setView] = useState<ViewMode>(() => {
+        try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'list'; } catch { return 'list'; }
+    });
+    const changeView = (v: ViewMode) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
 
     // Busca no servidor depois de uma pausa na digitação. Antes a tela pedia 500 pacientes de uma
     // vez e filtrava no navegador; com o saldo de cada um calculado no back, passava dos 15s do
@@ -193,6 +213,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                 limit: PAGE_SIZE,
                 skip: page * PAGE_SIZE,
                 status: VIEW_STATUS[activeTab],
+                hasDebt: onlyDebt,
                 ...(query ? { search: query } : {}),
             });
             setPatients(result.patients || []);
@@ -202,109 +223,93 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
         } finally {
             setLoading(false);
         }
-    }, [page, activeTab, query]);
+    }, [page, activeTab, onlyDebt, query]);
 
     useEffect(() => {
         load();
     }, [load, refreshSignal]);
 
-    // Contagem de cada aba: uma consulta de 1 item por status, só para ler o total
+    // Contagem de cada chip: uma consulta de 1 item, só para ler o total
     useEffect(() => {
         let alive = true;
-        (Object.keys(VIEW_STATUS) as TabType[]).forEach(async tab => {
+        const search = query ? { search: query } : {};
+        const count = async (key: TabType | 'debt', opts: Record<string, any>) => {
             try {
-                const r = await patientService.list({ limit: 1, status: VIEW_STATUS[tab], ...(query ? { search: query } : {}) });
-                if (alive) setCounts(c => ({ ...c, [tab]: r.pagination?.total ?? 0 }));
+                const r = await patientService.list({ limit: 1, ...opts, ...search });
+                if (alive) setCounts(c => ({ ...c, [key]: r.pagination?.total ?? 0 }));
             } catch { /* a contagem fica "…" */ }
-        });
+        };
+        (Object.keys(VIEW_STATUS) as TabType[]).forEach(tab => count(tab, { status: VIEW_STATUS[tab] }));
+        count('debt', { status: VIEW_STATUS[activeTab], hasDebt: true });
         return () => { alive = false; };
-    }, [query, refreshSignal]);
+    }, [query, refreshSignal, activeTab]);
 
     const pickTab = (tab: TabType) => { setActiveTab(tab); setPage(0); };
-    const filtered = patients;
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    const countByStatus = (s: TabType) => counts[s] ?? '…';
+    const shown = (n: number | null) => (n === null ? '…' : n);
+    const tabLabel = TABS.find(t => t.key === activeTab)!.label.toLowerCase();
 
     return (
-        <div className="space-y-6">
-            {/* Controles */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
-                    {TABS.map(({ key, label, Icon }) => (
-                        <button
-                            key={key}
-                            onClick={() => pickTab(key)}
-                            className={`shrink-0 whitespace-nowrap px-5 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
-                                activeTab === key
-                                    ? 'bg-white text-emerald-700 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-800'
-                            }`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <Icon size={15} />
-                                {label}
-                                <span className={`px-2 py-0.5 rounded-full text-xs ${
-                                    activeTab === key
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-gray-200 text-gray-600'
-                                }`}>
-                                    {countByStatus(key)}
-                                </span>
-                            </span>
+        <div className="space-y-4 text-left">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Filtros de pacientes">
+                    {TABS.map(({ key, label }) => (
+                        <button key={key} type="button" aria-pressed={activeTab === key} onClick={() => pickTab(key)} className={chipCls(activeTab === key)}>
+                            {label} <b>{shown(counts[key])}</b>
                         </button>
                     ))}
+                    <span className="mx-1 hidden w-px self-stretch bg-gray-200 dark:bg-gray-700 sm:block" aria-hidden />
+                    <button type="button" aria-pressed={onlyDebt} onClick={() => { setOnlyDebt(v => !v); setPage(0); }} className={chipCls(onlyDebt)}>
+                        Com saldo devedor <b className={!onlyDebt && (counts.debt ?? 0) > 0 ? 'text-red-800 dark:text-red-300' : ''}>{shown(counts.debt)}</b>
+                    </button>
                 </div>
 
-                <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    <input
-                        type="text"
-                        placeholder="Nome, telefone, CPF..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-8 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-64"
-                    />
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                    <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
+                        <span className="sr-only">Buscar paciente</span>
+                        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden />
+                        <input type="search" placeholder="Nome, telefone ou CPF" value={search} onChange={e => setSearch(e.target.value)}
+                            className="min-h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+                    </label>
+                    <div className="inline-flex overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600" role="group" aria-label="Vista">
+                        <button type="button" aria-pressed={view === 'list'} onClick={() => changeView('list')} className={segCls(view === 'list')}><List size={15} aria-hidden />Lista</button>
+                        <button type="button" aria-pressed={view === 'cards'} onClick={() => changeView('cards')} className={`${segCls(view === 'cards')} border-l border-gray-300 dark:border-gray-600`}><LayoutGrid size={15} aria-hidden />Cartões</button>
+                    </div>
                 </div>
             </div>
 
-            {/* Conteúdo */}
-            {loading ? (
-                <div className="flex justify-center py-16">
-                    <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-            ) : filtered.length === 0 ? (
-                <div className="rounded-xl bg-gray-50 border border-gray-200 p-12 text-center">
-                    <User className="mx-auto text-gray-400 mb-4" size={40} />
-                    <h3 className="text-lg font-medium text-gray-900">Nenhum paciente encontrado</h3>
-                    <p className="text-gray-500 mt-1 text-sm">
-                        {search.trim()
-                            ? `Sem resultados para "${search}"`
-                            : `Nenhum paciente ${activeTab === 'active' ? 'ativo' : activeTab === 'inactive' ? 'inativo' : 'lead'} cadastrado`}
+            {loading && patients.length === 0 ? (
+                <p className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">Carregando pacientes...</p>
+            ) : patients.length === 0 ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900">
+                    <User className="mx-auto mb-3 text-gray-400" size={36} aria-hidden />
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">Nenhum paciente encontrado</p>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        {query ? `Sem resultados para "${query}" em ${tabLabel}${onlyDebt ? ' com saldo devedor' : ''}.` : `Nenhum paciente em ${tabLabel}${onlyDebt ? ' com saldo devedor' : ''}.`}
                     </p>
                 </div>
+            ) : view === 'list' ? (
+                <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 ${loading ? 'opacity-60' : ''}`}>
+                    <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_auto] gap-x-4 border-b border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:text-gray-400 md:grid">
+                        <span>Paciente</span><span>Tipo</span><span>Profissional</span><span>Sessões</span><span className="w-[164px]" />
+                    </div>
+                    <ul>{patients.map(p => <PatientRow key={p._id || p.patientId} patient={p} onEdit={onEdit} />)}</ul>
+                </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {filtered.map(p => (
-                        <PatientCard
-                            key={p._id || p.patientId}
-                            patient={p}
-                            onEdit={onEdit}
-                        />
-                    ))}
+                <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${loading ? 'opacity-60' : ''}`}>
+                    {patients.map(p => <PatientCard key={p._id || p.patientId} patient={p} onEdit={onEdit} />)}
                 </div>
             )}
 
             {total > PAGE_SIZE && (
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <span>Mostrando {page * PAGE_SIZE + 1}–{Math.min(total, (page + 1) * PAGE_SIZE)} de {total}</span>
-                    <div className="flex gap-2">
-                        <button type="button" disabled={page === 0 || loading} onClick={() => setPage(p => Math.max(0, p - 1))}
-                            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                    <div className="flex items-center gap-2">
+                        <button type="button" disabled={page === 0 || loading} onClick={() => setPage(p => Math.max(0, p - 1))} className={btnGhost}>
                             <ChevronLeft size={15} aria-hidden />Anterior
                         </button>
-                        <span className="self-center tabular-nums">{page + 1} de {pageCount}</span>
-                        <button type="button" disabled={page + 1 >= pageCount || loading} onClick={() => setPage(p => p + 1)}
-                            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                        <span className="tabular-nums">{page + 1} de {pageCount}</span>
+                        <button type="button" disabled={page + 1 >= pageCount || loading} onClick={() => setPage(p => p + 1)} className={btnGhost}>
                             Próxima<ChevronRight size={15} aria-hidden />
                         </button>
                     </div>
