@@ -12,12 +12,26 @@ import { useSearchParams } from 'react-router-dom';
 import API from '../services/api';
 import { AttendanceSummary, deriveAllRisks, PatientRisk } from '../utils/derivePatientRisk';
 
-export type TimeRange = '7d' | '30d' | '90d' | '6m';
+export type TimeRange = 'month' | 'last_month' | '7d' | '30d' | '90d' | '6m';
+const RANGES: TimeRange[] = ['month', 'last_month', '7d', '30d', '90d', '6m'];
+
+/** Totais do período, calculados no back (mesma conta do Dashboard). */
+export interface PeriodTotals {
+    total: number;
+    attended: number;
+    missed: number;
+    canceled: number;
+    pending: number;
+    expected: number;
+    attendanceRate: number | null;
+    canceledBy: { patient: number; professional: number; clinic: number; unknown: number };
+    patients?: number;
+}
 
 interface DoctorStats {
     activePatients: number;
     monthlyAppointments: number;
-    attendanceRate: number;
+    attendanceRate: number | null;
 }
 
 interface SessionTotals {
@@ -40,7 +54,12 @@ export interface DoctorInsights {
     avgFrequency: number;
     riskCount: number;
     totalSessions: number;
-    attendanceRate: number;
+    attendanceRate: number | null;
+
+    // Período (do back): totais, período anterior e datas
+    period: PeriodTotals | null;
+    previous: PeriodTotals | null;
+    range: { start: string; end: string; prevStart: string; prevEnd: string } | null;
 
     // Dados por paciente
     attendanceData: AttendanceSummary[];
@@ -65,7 +84,10 @@ const EMPTY_INSIGHTS: DoctorInsights = {
     avgFrequency: 0,
     riskCount: 0,
     totalSessions: 0,
-    attendanceRate: 0,
+    attendanceRate: null,
+    period: null,
+    previous: null,
+    range: null,
     attendanceData: [],
     riskPatients: [],
     sessionTotals: { total: 0, attended: 0, missed: 0, canceled: 0, pending: 0 },
@@ -75,10 +97,12 @@ const EMPTY_INSIGHTS: DoctorInsights = {
 export default function useDoctorInsights(doctorId: string | null): UseDoctorInsightsReturn {
     const [attendanceData, setAttendanceData] = useState<AttendanceSummary[]>([]);
     const [stats, setStats] = useState<DoctorStats | null>(null);
+    const [meta, setMeta] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
-    const timeRange = (searchParams.get('timeRange') as TimeRange) ?? '30d';
+    const fromUrl = searchParams.get('timeRange') as TimeRange | null;
+    const timeRange: TimeRange = fromUrl && RANGES.includes(fromUrl) ? fromUrl : 'month';
     const setTimeRange = useCallback((range: TimeRange) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
@@ -96,23 +120,26 @@ export default function useDoctorInsights(doctorId: string | null): UseDoctorIns
             // Fase 1: endpoints legados
             // Fase 2: trocar por /v2/analytics/doctors/:id/overview + attendance
             const [attendanceRes, statsRes] = await Promise.allSettled([
-                API.get(`/doctors/${doctorId}/attendance-summary`),
+                API.get(`/doctors/${doctorId}/attendance-summary`, { params: { range: timeRange } }),
                 API.get('/doctors/appointments/stats'),
             ]);
 
             if (attendanceRes.status === 'fulfilled' && attendanceRes.value.data.success) {
                 setAttendanceData(attendanceRes.value.data.data ?? []);
+                setMeta(attendanceRes.value.data.meta ?? null);
+            } else {
+                setError('Não foi possível carregar a frequência do período.');
             }
             if (statsRes.status === 'fulfilled') {
                 setStats(statsRes.value.data ?? null);
             }
-            setFetchedFor(doctorId);
+            setFetchedFor(`${doctorId}:${timeRange}`);
         } catch (err: any) {
             setError('Erro ao carregar insights');
         } finally {
             setLoading(false);
         }
-    }, [doctorId]);
+    }, [doctorId, timeRange]);
 
     const refresh = useCallback(() => {
         fetchInsights();
@@ -120,15 +147,15 @@ export default function useDoctorInsights(doctorId: string | null): UseDoctorIns
 
     // Auto-fetch quando doctorId muda (primeira vez ou troca de médico)
     useEffect(() => {
-        if (doctorId && doctorId !== fetchedFor) {
+        if (doctorId && `${doctorId}:${timeRange}` !== fetchedFor) {
             fetchInsights();
         }
     // fetchedFor não entra nas deps para não causar loop — só reagimos ao doctorId
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [doctorId, fetchInsights]);
+    }, [doctorId, timeRange, fetchInsights]);
 
     const insights = useMemo<DoctorInsights>(() => {
-        if (!attendanceData.length && !stats) return EMPTY_INSIGHTS;
+        if (!attendanceData.length && !stats && !meta) return EMPTY_INSIGHTS;
 
         const sessionTotals: SessionTotals = attendanceData.reduce(
             (acc, p) => ({
@@ -141,8 +168,10 @@ export default function useDoctorInsights(doctorId: string | null): UseDoctorIns
             { total: 0, attended: 0, missed: 0, canceled: 0, pending: 0 }
         );
 
-        const avgFrequency = attendanceData.length
-            ? Math.round(attendanceData.reduce((acc, p) => acc + p.frequency, 0) / attendanceData.length)
+        // Frequência null = paciente sem sessão prevista até agora no período (só futuras/canceladas)
+        const withFreq = attendanceData.filter(p => typeof p.frequency === 'number');
+        const avgFrequency = withFreq.length
+            ? Math.round(withFreq.reduce((acc, p) => acc + (p.frequency as number), 0) / withFreq.length)
             : 0;
 
         const riskPatients = deriveAllRisks(attendanceData);
@@ -150,17 +179,17 @@ export default function useDoctorInsights(doctorId: string | null): UseDoctorIns
         const frequencyDistribution: FrequencyBucket[] = [
             {
                 label: '≥ 90%',
-                count: attendanceData.filter(p => p.frequency >= 90).length,
+                count: withFreq.filter(p => (p.frequency as number) >= 90).length,
                 color: '#10b981',
             },
             {
                 label: '75–89%',
-                count: attendanceData.filter(p => p.frequency >= 75 && p.frequency < 90).length,
+                count: withFreq.filter(p => (p.frequency as number) >= 75 && (p.frequency as number) < 90).length,
                 color: '#f59e0b',
             },
             {
                 label: '< 75%',
-                count: attendanceData.filter(p => p.frequency < 75).length,
+                count: withFreq.filter(p => (p.frequency as number) < 75).length,
                 color: '#ef4444',
             },
         ];
@@ -170,13 +199,16 @@ export default function useDoctorInsights(doctorId: string | null): UseDoctorIns
             avgFrequency,
             riskCount: riskPatients.length,
             totalSessions: sessionTotals.total,
-            attendanceRate: stats?.attendanceRate ?? avgFrequency,
+            attendanceRate: meta?.summary ? meta.summary.attendanceRate : (stats?.attendanceRate ?? avgFrequency),
+            period: meta?.summary ?? null,
+            previous: meta?.previous ?? null,
+            range: meta ? { start: meta.start, end: meta.end, prevStart: meta.prevStart, prevEnd: meta.prevEnd } : null,
             attendanceData,
             riskPatients,
             sessionTotals,
             frequencyDistribution,
         };
-    }, [attendanceData, stats]);
+    }, [attendanceData, stats, meta]);
 
     return { insights, loading, error, timeRange, setTimeRange, refresh };
 }
