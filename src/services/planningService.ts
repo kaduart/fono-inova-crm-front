@@ -67,6 +67,38 @@ export interface StrategicOverview {
     totalAppointments: number;
 }
 
+export type AnnualMonthStatus = 'batida' | 'nao_batida' | 'no_ritmo' | 'abaixo_do_ritmo' | 'futuro' | 'sem_meta';
+
+export interface AnnualPlanningMonth {
+    month: number;
+    planningId: string | null;
+    meta: number;
+    metaSessoes: number;
+    sessoesRealizadas: number | null;
+    realizado: number | null;
+    percentual: number | null;
+    percentualEsperado: number;
+    falta: number | null;
+    isCurrent: boolean;
+    isFuture: boolean;
+    status: AnnualMonthStatus;
+}
+
+export interface AnnualPlanning {
+    year: number;
+    months: AnnualPlanningMonth[];
+    totals: {
+        metaAno: number;
+        realizadoAno: number;
+        percentualAno: number | null;
+        metaAteAgora: number;
+        diferencaAteAgora: number;
+        mesesComMeta: number;
+        mesesBatidos: number;
+        mesesFechados: number;
+    };
+}
+
 export const planningService = {
     // Criar planejamento
     create: async (data: Partial<Planning>) => {
@@ -120,6 +152,12 @@ export const planningService = {
     getAllWithRefresh: async (filters?: { type?: string; status?: string; startDate?: string; endDate?: string; month?: number; year?: number }) => {
         const response = await api.get('/planning', { params: { ...filters, refresh: true } });
         return response.data as { success: boolean; count: number; data: Planning[]; projection?: MonthlyProjection; refreshQueued?: boolean };
+    },
+
+    // Metas do ano: meta e realizado (regra da Meta Realizada) de cada mês, somados no back
+    getAnnual: async (year: number) => {
+        const response = await api.get('/planning/annual', { params: { year } });
+        return response.data as { success: boolean; data: AnnualPlanning };
     },
 
     // Buscar detalhes completos de um planejamento

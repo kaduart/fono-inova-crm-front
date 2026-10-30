@@ -91,7 +91,11 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
     const [receiving, setReceiving] = useState(false);
     const [target, setTarget] = useState<ReceiptTarget | null>(null);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
-    const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
+    // Sem data padrão de propósito: é o dia em que o dinheiro caiu (extrato). Com "hoje"
+    // preenchido (e em UTC, que vira o dia seguinte depois das 21h), repasse antigo
+    // entrava no caixa de hoje. Mesma regra do "Receber selecionados" em Faturadas.
+    const [receivedDate, setReceivedDate] = useState('');
+    const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     const [page, setPage] = useState(1);
     const [editingInvoice, setEditingInvoice] = useState<InvoiceReceivable | null>(null);
     const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
@@ -345,7 +349,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                                     </div>
                                     <span className="text-2xs font-black text-slate-500">{progress}%</span>
                                     {view === 'pending' && (
-                                        <button type="button" onClick={() => setTarget({ invoice })} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
+                                        <button type="button" onClick={() => { setReceivedDate(""); setTarget({ invoice }); }} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
                                             <WalletCards size={14} /> Baixar saldo da NF
                                         </button>
                                     )}
@@ -374,7 +378,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                                                 {guide.status === 'received' ? 'Recebida' : guide.status === 'partial' ? 'Parcial' : `${guide.pendingSessions} pendente(s)`}
                                             </span>
                                             {view === 'pending' && guide.status !== 'received' && guide.guideId && (
-                                                <button type="button" onClick={() => setTarget({ invoice, guide })} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50">
+                                                <button type="button" onClick={() => { setReceivedDate(""); setTarget({ invoice, guide }); }} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50">
                                                     Baixar guia
                                                 </button>
                                             )}
@@ -473,11 +477,11 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                         </div>
                         <div className="space-y-4 px-5 py-5">
                             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-5 text-amber-800">
-                                Esta ação registra entrada real no financeiro e atualiza os Payments faturados deste recorte.
+                                Esta ação registra entrada real no financeiro e atualiza os Payments faturados deste recorte. Use a data do depósito no extrato.
                             </div>
                             <div>
                                 <label htmlFor="invoice-received-date" className="mb-1.5 block text-xs font-bold text-slate-700">Data do recebimento</label>
-                                <input id="invoice-received-date" type="date" value={receivedDate} onChange={event => setReceivedDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                                <input id="invoice-received-date" type="date" max={todaySP} value={receivedDate} onChange={event => setReceivedDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3.5">

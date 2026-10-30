@@ -81,8 +81,9 @@ export interface CertificateUploadPayload {
 }
 
 export const fiscalService = {
-  async getProfile(cnpj: string): Promise<FiscalProfileResponse> {
-    const { data } = await API.get('/v2/fiscal/profile', { params: { cnpj } });
+  /** Sem CNPJ o back devolve o perfil ativo da clínica. */
+  async getProfile(cnpj?: string): Promise<FiscalProfileResponse> {
+    const { data } = await API.get('/v2/fiscal/profile', { params: cnpj ? { cnpj } : undefined });
     return data;
   },
 
@@ -125,7 +126,12 @@ export const fiscalService = {
     return data;
   },
 
-  async listInvoices(params?: { status?: string; patient?: string; limit?: number; page?: number }): Promise<any> {
+  async testConnection(): Promise<any> {
+    const { data } = await API.post('/v2/fiscal/test-connection');
+    return data;
+  },
+
+  async listInvoices(params?: { status?: string; patient?: string; q?: string; month?: number; year?: number; limit?: number; page?: number }): Promise<any> {
     const { data } = await API.get('/v2/fiscal/nfse', { params });
     return data;
   },
@@ -140,8 +146,8 @@ export const fiscalService = {
     return data;
   },
 
-  async cancelInvoice(id: string): Promise<any> {
-    const { data } = await API.post(`/v2/fiscal/nfse/${id}/cancel`);
+  async cancelInvoice(id: string, reason: string): Promise<any> {
+    const { data } = await API.post(`/v2/fiscal/nfse/${id}/cancel`, { reason });
     return data;
   },
 

@@ -17,8 +17,8 @@ export interface PatientsWithoutNextSession {
 }
 
 export const operationalService = {
-  getPatientsWithoutNextSession: async (): Promise<PatientsWithoutNextSession> => {
-    const res = await API.get('/v2/operational/patients-without-next-session');
+  getPatientsWithoutNextSession: async (date?: string): Promise<PatientsWithoutNextSession> => {
+    const res = await API.get('/v2/operational/patients-without-next-session', { params: date ? { date } : undefined });
     return res.data;
   },
 };

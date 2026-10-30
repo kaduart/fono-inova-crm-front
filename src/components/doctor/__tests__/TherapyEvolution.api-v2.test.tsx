@@ -173,7 +173,7 @@ describe('TherapyEvolution - Integração API V2', () => {
 
     await screen.findByText(/10\/06\/2025/);
     expect(screen.getByText(/01\/06\/2025/)).toBeInTheDocument();
-    expect(screen.getByText(/Regressão detectada/)).toBeInTheDocument();
+    expect(screen.getByText(/Regressão em 1 área/)).toBeInTheDocument();
     expect(screen.getByText(/Mudança de protocolo/)).toBeInTheDocument();
   });
 
@@ -234,7 +234,7 @@ describe('TherapyEvolution - Integração API V2', () => {
     );
 
     await screen.findByText(/08\/06\/2025/);
-    expect(screen.getByText('Evolução')).toBeInTheDocument();
+    expect(screen.getByText(/^Evolução em 1 área/)).toBeInTheDocument();
     expect(screen.getByText('+1,5')).toBeInTheDocument();
     expect(screen.getByText('Sessão B')).toBeInTheDocument();
   });

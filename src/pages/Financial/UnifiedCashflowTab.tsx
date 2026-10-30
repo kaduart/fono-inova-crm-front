@@ -3,13 +3,15 @@ import {
     Alert, Chip, MenuItem, Skeleton, Tab, Tabs, Badge, Tooltip, IconButton,
     FormControl, InputLabel, Select, LinearProgress
 } from '@mui/material';
-import { format, isSameDay, parseISO, subDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatNavigation } from '../../contexts/ChatNavigationContext';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
+import CashflowOverview from './components/CashflowOverview';
+import CashflowMonthChart from './components/CashflowMonthChart';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
 import { beginCashflowLoad } from '../../services/financialLoadCoordinator';
 import { operationalService } from '../../services/operationalService';
@@ -39,7 +41,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
 import { EmitFiscalInvoiceModal } from '../../components/fiscal/EmitFiscalInvoiceModal';
 import AppointmentPackageProgress from '../../components/appointments/AppointmentPackageProgress';
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts';
 
 interface DayData {
     date: string;
@@ -104,6 +105,7 @@ interface UnifiedCashflowTabProps {
     defaultViewMode?: 'day' | 'month';
     onLoadingChange?: (loading: boolean) => void;
     refreshTarget?: HTMLDivElement | null;
+    onDateChange?: (date: string) => void;
 }
 
 // 🩹 Recria o status financeiro legado a partir dos dados atuais do agendamento
@@ -136,9 +138,8 @@ const resolveStatusFinanceiro = (a: any): string => {
     return 'Pendente';
 };
 
-const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoadingChange, refreshTarget }: UnifiedCashflowTabProps) => {
+const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoadingChange, refreshTarget, onDateChange }: UnifiedCashflowTabProps) => {
     const [dailyCashflow, setDailyCashflow] = useState<CashflowV2Response | null>(null);
-    const [previousDayCashflow, setPreviousDayCashflow] = useState<CashflowV2Response | null>(null);
 
     const [monthData, setMonthData] = useState<DayData[]>([]);
     const [monthResumo, setMonthResumo] = useState<{
@@ -155,9 +156,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     const [faturarSubFilter, setFaturarSubFilter] = useState<'pacotes' | 'convenios' | 'liminares'>('pacotes');
+    // Resumo aberto por padrão: os números do dia não ficam escondidos.
     const [dashboardOpen, setDashboardOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    // Horário de Brasília (toISOString é UTC e depois das 21h abria o dia seguinte).
+    const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
     const [manualDateOverride, setManualDateOverride] = useState(false);
     const [dayAppointments, setDayAppointments] = useState<any[]>([]);
     const [appointmentFilter, setAppointmentFilter] = useState<string>('all');
@@ -228,18 +231,19 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const [patientsWithoutNextRecurrent, setPatientsWithoutNextRecurrent] = useState(0);
     const [patientsWithoutNextImpact, setPatientsWithoutNextImpact] = useState(0);
     const [patientsWithoutNextLoading, setPatientsWithoutNextLoading] = useState(false);
+    const [patientsWithoutNextError, setPatientsWithoutNextError] = useState(false);
     const [patientsWithoutNextList, setPatientsWithoutNextList] = useState<any[]>([]);
     const [semProximaModalOpen, setSemProximaModalOpen] = useState(false);
     const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
     const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
-        const period = dateRange || { startDate: selectedDate, endDate: selectedDate };
+        const period = !manualDateOverride && dateRange ? dateRange : { startDate: selectedDate, endDate: selectedDate };
         await Promise.all([
             fetchAnalytics({ startDate: period.startDate, endDate: period.endDate, mode: 'date' }),
             fetchAnalyticsCreated({ startDate: period.startDate, endDate: period.endDate, mode: 'createdAt' })
         ]);
-    }, [fetchAnalytics, fetchAnalyticsCreated, selectedDate, dateRange]);
+    }, [fetchAnalytics, fetchAnalyticsCreated, selectedDate, dateRange, manualDateOverride]);
 
     // Reset manual override e sincroniza viewMode quando o filtro externo muda
     useEffect(() => {
@@ -254,13 +258,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
     // Carrega dados do dia selecionado (ou range)
     useEffect(() => {
+        if (viewMode !== 'day') return;
         const guard = { active: true };
         loadDayData(guard);
         loadDayAppointments(guard);
         fetchAnalyticsForPeriod();
         return () => { guard.active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDate, dateRange, manualDateOverride]);
+    }, [selectedDate, dateRange, manualDateOverride, viewMode]);
 
     // Recarrega agendamentos quando o usuário NAVEGA para a aba (não no mount inicial)
     useEffect(() => {
@@ -276,16 +281,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     // Busca pacientes sem próxima sessão (somente em modo dia)
     useEffect(() => {
         if (viewMode !== 'day') return;
+        let active = true;
         setPatientsWithoutNextLoading(true);
-        operationalService.getPatientsWithoutNextSession()
+        setPatientsWithoutNextError(false);
+        operationalService.getPatientsWithoutNextSession(selectedDate)
             .then(res => {
+                if (!active) return;
                 setPatientsWithoutNext(res.total);
                 setPatientsWithoutNextRecurrent(res.recurrent);
                 setPatientsWithoutNextImpact(res.impactMonthly);
                 setPatientsWithoutNextList(res.patients || []);
             })
-            .catch(err => console.error('[UnifiedCashflowTab] Erro ao buscar pacientes sem próxima sessão:', err))
-            .finally(() => setPatientsWithoutNextLoading(false));
+            .catch(() => { if (active) setPatientsWithoutNextError(true); })
+            .finally(() => { if (active) setPatientsWithoutNextLoading(false); });
+        return () => { active = false; };
     }, [viewMode, selectedDate]);
 
     // Carrega dados do mês quando muda para visualização mensal ou quando o filtro global muda
@@ -305,16 +314,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
             let res;
             if (dateRange && !manualDateOverride && dateRange.startDate !== dateRange.endDate) {
                 res = await cashflowService.getCashflowRange(dateRange.startDate, dateRange.endDate, refresh);
-                setPreviousDayCashflow(null);
             } else {
                 const currentDate = dateRange && !manualDateOverride ? dateRange.startDate : selectedDate;
-                const previousDate = format(subDays(parseISO(currentDate), 1), 'yyyy-MM-dd');
-                const [currentResponse, previousResponse] = await Promise.all([
-                    cashflowService.getDailyCashflow(currentDate, refresh),
-                    cashflowService.getDailyCashflow(previousDate, refresh),
-                ]);
-                res = currentResponse;
-                if (guard.active) setPreviousDayCashflow(previousResponse.data);
+                res = await cashflowService.getDailyCashflow(currentDate, refresh);
             }
             if (!guard.active) return;
             setDailyCashflow(res.data);
@@ -360,8 +362,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const loadDayAppointments = async (guard = { active: true }) => {
         setLoadingAppointments(true);
         try {
-            const start = dateRange ? dateRange.startDate : selectedDate;
-            const end = dateRange ? dateRange.endDate : selectedDate;
+            const start = dateRange && !manualDateOverride ? dateRange.startDate : selectedDate;
+            const end = dateRange && !manualDateOverride ? dateRange.endDate : selectedDate;
             console.log('[UnifiedCashflowTab] Buscando agendamentos para:', start, 'a', end);
             const res = await API.get<{ success: boolean; data: { appointments: any[]; pagination: any } }>('/v2/appointments', {
                 params: { startDate: start, endDate: end, limit: 500 }
@@ -395,38 +397,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         return `${format(start, 'dd/MM')} a ${format(end, 'dd/MM/yyyy')}`;
     };
 
-    const isRangeActive = !!dateRange;
+    const isRangeActive = !!dateRange && !manualDateOverride;
     const isMultiDayRange = isRangeActive && dateRange!.startDate !== dateRange!.endDate;
     const periodLabel = isMultiDayRange ? 'Período' : 'Dia';
     const periodTitle = isMultiDayRange ? 'do Período' : 'do Dia';
 
     const data = dailyCashflow?.data;
-    const hourlyCashComparison = useMemo(() => {
-        if (!data || !previousDayCashflow?.data || isMultiDayRange) return [];
-        const buildHourlyTotals = (transactions: CashflowV2Data['transacoes']) => {
-            const totals = new Map<number, number>();
-            (transactions || []).forEach(transaction => {
-                const hour = Number.parseInt(String(transaction.hora || '0').split(':')[0], 10);
-                if (!Number.isFinite(hour)) return;
-                totals.set(hour, (totals.get(hour) || 0) + Number(transaction.valor || 0));
-            });
-            return totals;
-        };
-        const todayByHour = buildHourlyTotals(data.transacoes);
-        const previousByHour = buildHourlyTotals(previousDayCashflow.data.transacoes);
-        const populatedHours = [...todayByHour.keys(), ...previousByHour.keys()];
-        const firstHour = Math.min(7, ...(populatedHours.length ? populatedHours : [7]));
-        const lastHour = Math.max(19, ...(populatedHours.length ? populatedHours : [19]));
-        let todayAccumulated = 0;
-        let previousAccumulated = 0;
-        return Array.from({ length: lastHour - firstHour + 1 }, (_, index) => {
-            const hour = firstHour + index;
-            todayAccumulated += todayByHour.get(hour) || 0;
-            previousAccumulated += previousByHour.get(hour) || 0;
-            return { hour: `${String(hour).padStart(2, '0')}h`, hoje: todayAccumulated, anterior: previousAccumulated };
-        });
-    }, [data, previousDayCashflow, isMultiDayRange]);
-
     // Cálculos para o mês
     const monthTotals = useMemo(() => {
         const totalCaixa = monthData.reduce((sum, d) => sum + d.caixa, 0);
@@ -474,16 +450,6 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         <div>
             {refreshTarget && createPortal(
                 <div className="flex flex-wrap items-center justify-end gap-3">
-                        {/* Toggle Dia/Mês */}
-                        <select
-                            value={viewMode}
-                            onChange={(e) => setViewMode(e.target.value as 'day' | 'month')}
-                            className="h-10 border border-gray-300 rounded-md px-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        >
-                            <option value="day">📅 {isMultiDayRange ? 'Período' : 'Dia'}</option>
-                            <option value="month">📊 Mês</option>
-                        </select>
-
                         {viewMode === 'day' ? (
                             isMultiDayRange ? (
                                 <span className="inline-flex h-10 items-center px-3 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md">
@@ -491,9 +457,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 </span>
                             ) : (
                                 <input
+                                    aria-label="Escolher dia do caixa"
                                     type="date"
                                     value={selectedDate}
                                     onChange={(e) => {
+                                        if (!e.target.value) return;
+                                        onDateChange?.(e.target.value);
                                         setSelectedDate(e.target.value);
                                         setManualDateOverride(true);
                                     }}
@@ -533,94 +502,18 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     aria-busy={refreshing}
                 >
                 <div>
-                    {/* Accordion: Resumo do Dia */}
-                    <button
-                        onClick={() => setDashboardOpen(open => !open)}
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-3 transition-colors border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                        aria-expanded={dashboardOpen}
-                    >
-                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3 text-left">
-                            <span className="shrink-0 text-sm font-bold uppercase tracking-wide text-emerald-800">Resumo do Dia</span>
-                            {!dashboardOpen && data?.eficienciaFinanceira && (
-                                <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
-                                    {/* 🐛 FIX (2026-09-15): esse chip mostrava eficienciaFinanceira.geraramCaixaHoje
-                                        sob o rótulo "Caixa hoje" — uma métrica mais estreita (só o valor das SESSÕES
-                                        de hoje que geraram caixa novo, sem contar venda de pacote pro resto das
-                                        sessões futuras), diferente do caixa real recebido (data.caixa.total, que
-                                        bate com o total de Recebimentos). Rótulo "Caixa hoje" chamando um número
-                                        menor que Recebimentos confundia (casos Bento/Julia, 2026-09-15). Agora
-                                        "Caixa hoje" é sempre o caixa real; a métrica de eficiência ganha rótulo
-                                        próprio, sem prometer ser o total. */}
-                                    <Tooltip title="Total de dinheiro que entrou no caixa hoje — soma de tudo que aparece na aba Recebimentos." arrow>
-                                        <span className="pr-3 cursor-help">
-                                            <span className="block text-xs font-medium text-emerald-700">Caixa hoje</span>
-                                            <strong className="block text-base tabular-nums text-purple-700">{formatCurrency(data.caixa?.total || 0)}</strong>
-                                        </span>
-                                    </Tooltip>
-                                    <Tooltip title="Da produção de hoje, quanto virou dinheiro novo no caixa hoje mesmo. Não inclui o valor de pacotes vendidos hoje que cobre sessões futuras (isso já está em Caixa hoje, mas não aqui)." arrow>
-                                        <span className="px-3 cursor-help">
-                                            <span className="block text-xs font-medium text-emerald-700">Gerado por atendimentos</span>
-                                            <strong className="block text-base tabular-nums text-emerald-700">{formatCurrency(data.eficienciaFinanceira.geraramCaixaHoje.valor)}</strong>
-                                        </span>
-                                    </Tooltip>
-                                    <Tooltip title="Valor da produção de hoje que ainda não foi recebido (ex: convênio a faturar, sessão não paga)." arrow>
-                                        <span className="px-3 cursor-help">
-                                            <span className="block text-xs font-medium text-emerald-700">A receber</span>
-                                            <strong className="block text-base tabular-nums text-red-600">{formatCurrency(data.eficienciaFinanceira.aReceberFuturamente.valor)}</strong>
-                                        </span>
-                                    </Tooltip>
-                                    <Tooltip title="Sessões de hoje pagas com crédito recebido em dias anteriores (pacote pré-pago comprado antes de hoje, ou liminar)." arrow>
-                                        <span className="px-3 cursor-help">
-                                            <span className="block text-xs font-medium text-emerald-700">Créditos usados</span>
-                                            <strong className="block text-base tabular-nums text-indigo-700">{formatCurrency(data.eficienciaFinanceira.consumiramCredito.valor)}</strong>
-                                        </span>
-                                    </Tooltip>
-                                    <Tooltip title="Valor total gerado pelos atendimentos de hoje, recebido ou não (Gerado por atendimentos + A receber + Créditos usados)." arrow>
-                                        <span className="px-3 cursor-help">
-                                            <span className="block text-xs font-medium text-emerald-700">Produção</span>
-                                            <strong className="block text-base tabular-nums text-blue-700">{formatCurrency(data.producao?.total || 0)}</strong>
-                                        </span>
-                                    </Tooltip>
-                                    {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length > 0 && (
-                                        <Tooltip title="Pacientes que tiveram o primeiro agendamento/atendimento na clínica hoje." arrow>
-                                            <span className="px-3 cursor-help">
-                                                <span className="block text-xs font-medium text-emerald-700">Pacientes novos</span>
-                                                <strong className="block text-base tabular-nums text-fuchsia-700">
-                                                    {(analyticsCreatedData?.leads || []).length + (analyticsCreatedData?.novos || []).length}
-                                                </strong>
-                                            </span>
-                                        </Tooltip>
-                                    )}
-                                    {(analyticsData?.novosEspecialidade || []).length > 0 && (
-                                        <Tooltip title="Pacientes que já eram da clínica e começaram uma especialidade nova hoje (ex: já fazia fono e começou psicologia)." arrow>
-                                            <span className="px-3 cursor-help">
-                                                <span className="block text-xs font-medium text-emerald-700">Nova especialidade</span>
-                                                <strong className="block text-base tabular-nums text-violet-600">
-                                                    {(analyticsData?.novosEspecialidade || []).length}
-                                                </strong>
-                                            </span>
-                                        </Tooltip>
-                                    )}
-                                    {data.atendimentos && (
-                                        <Tooltip title="Atendimentos já realizados hoje e quantos ainda faltam acontecer, do total agendado pro dia." arrow>
-                                            <span className="pl-3 cursor-help">
-                                                <span className="block text-xs font-medium text-emerald-700">Agenda</span>
-                                                <strong className="block text-base tabular-nums text-gray-900">
-                                                    {data.atendimentos.realizados} atendidos
-                                                    <span className="ml-1.5 font-medium text-amber-800">· {data.atendimentos.faltantes} aguardando</span>
-                                                </strong>
-                                            </span>
-                                        </Tooltip>
-                                    )}
-                                </span>
-                            )}
-                        </span>
-                        <ExpandMoreIcon
-                            className={`shrink-0 text-emerald-700 transition-transform duration-200 ${dashboardOpen ? 'rotate-180' : ''}`}
-                            style={{ fontSize: 20 }}
-                        />
+                    <CashflowOverview data={data} periodLabel={periodTitle} patientsWithoutNext={patientsWithoutNext}
+                        patientsLoading={patientsWithoutNextLoading} patientsError={patientsWithoutNextError} patientsImpact={patientsWithoutNextImpact}
+                        recurrent={patientsWithoutNextRecurrent} onSchedule={() => setSemProximaModalOpen(true)}
+                        onCollect={() => setActiveTab(1)} onBill={() => { setActiveTab(2); setFaturarSubFilter('convenios'); }}
+                        slotsAtRisk={retentionCritical} slotImpact={retentionLoss} onFit={() => navigate('/retention')}
+                        onContact={handleOpenWhatsApp} />
+                    <button type="button" onClick={() => setDashboardOpen(open => !open)} aria-expanded={dashboardOpen}
+                        aria-controls="cashflow-day-details" className="mb-4 flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-emerald-600">
+                        {dashboardOpen ? 'Ocultar detalhes' : 'Ver detalhes'} {periodTitle.toLowerCase()}
+                        <ExpandMoreIcon className={dashboardOpen ? 'rotate-180' : ''} />
                     </button>
-                    {dashboardOpen && <>
+                    <div id="cashflow-day-details" hidden={!dashboardOpen}>
                     {/* ========== RECEITA PREVISTA vs REALIZADA ========== */}
                     {(() => {
                         const sessaoApts = dayAppointments.filter((a: any) => !['canceled', 'pre_agendado', 'converted'].includes(a.operationalStatus));
@@ -943,48 +836,6 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     </div>
 
-                    {/* ========== COMPARATIVO HORÁRIO DE CAIXA ========== */}
-                    {!isMultiDayRange && hourlyCashComparison.length > 0 && (
-                        <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <ShowChartIcon style={{ fontSize: 18 }} className="text-emerald-600" />
-                                        <h3 className="text-sm font-bold leading-5 text-slate-900">Evolução do Caixa por Horário</h3>
-                                    </div>
-                                    <p className="mt-1 text-2xs text-slate-500">Recebimentos acumulados ao longo do dia comparados ao dia anterior.</p>
-                                </div>
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                    <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Hoje {formatCurrency(data.caixa.total)}</span>
-                                    <span className="rounded-lg bg-blue-50 px-3 py-1.5 font-bold text-blue-700">Dia anterior {formatCurrency(previousDayCashflow?.data?.caixa.total || 0)}</span>
-                                </div>
-                            </div>
-                            <div className="h-64 w-full sm:h-72">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={hourlyCashComparison} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-                                        <defs>
-                                            <linearGradient id="cashTodayGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.34} />
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.03} />
-                                            </linearGradient>
-                                            <linearGradient id="cashPreviousGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.24} />
-                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="hour" axisLine={{ stroke: '#cbd5e1' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} width={72} tickFormatter={(value) => `R$ ${Number(value).toLocaleString('pt-BR', { notation: 'compact' })}`} />
-                                        <RechartsTooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 10px 25px rgba(15,23,42,.08)' }} />
-                                        <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} formatter={(value) => value === 'hoje' ? 'Hoje' : 'Dia anterior'} />
-                                        <Area type="monotone" dataKey="anterior" stroke="#3b82f6" strokeWidth={2.25} fill="url(#cashPreviousGradient)" activeDot={{ r: 4 }} />
-                                        <Area type="monotone" dataKey="hoje" stroke="#10b981" strokeWidth={2.75} fill="url(#cashTodayGradient)" activeDot={{ r: 5 }} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    )}
-
                     {/* ========== EFICIÊNCIA FINANCEIRA DO DIA ========== */}
                     {!isMultiDayRange && data.eficienciaFinanceira && data.eficienciaFinanceira.atendimentos > 0 && (() => {
                         const ef = data.eficienciaFinanceira;
@@ -1108,6 +959,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
+                    </div>
                     {/* Modal: Pré-agendados Novos */}
                     {newPatientsModalOpen && (() => {
                         const leads = [
@@ -1280,6 +1132,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
+                    <div hidden={!dashboardOpen}>
                     {/* ========== KPIs Executivos ========== */}
                     {dayAppointments.length > 0 && (() => {
                         const allApts = dayAppointments.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
@@ -1287,7 +1140,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         const receitaPerdida = cancelados.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
                         const cancelRate = allApts.length > 0 ? Math.round((cancelados.length / allApts.length) * 100) : 0;
                         const atendidos = dayAppointments.filter((a: any) => a.operationalStatus === 'completed').length;
-                        const ticketCaixa = (data.transacoes?.length || 0) > 0 ? data.caixa.total / data.transacoes!.length : 0;
+                        const ticketCaixa = data.estatisticas.ticketMedio;
                         return (
                             <div className="flex flex-wrap gap-2 mb-3 px-1">
                                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
@@ -1313,7 +1166,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             </div>
                         );
                     })()}
-                    </>}
+                    </div>
 
                     {/* Tabs de Detalhes */}
                     <div className="mb-3">
@@ -1324,7 +1177,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 { label: 'A Faturar',          count: (data.pacotesAtendidos?.length || 0) + (data.conveniosAtendidos?.length || 0) + (data.liminaresAtendidos?.length || 0), icon: <InventoryIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Agenda do Dia',      count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Especialidades',     count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Profissionais',      count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Profissionais',      count: new Set([...(data.transacoes || []).map((t: any) => t.profissional || 'Não informado'), ...dayAppointments.map((a: any) => a.professionalName || 'Não informado')]).size,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
                             ].map((tab, i) => (
                                 <button key={i} onClick={() => setActiveTab(i)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -2447,12 +2300,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         </div>
                                         <LinearProgress 
                                             variant="determinate" 
-                                            value={(esp.recebido / esp.total) * 100} 
+                                            value={esp.total > 0 ? (esp.recebido / esp.total) * 100 : 0} 
                                             className="mt-2 h-1.5 rounded-full"
                                         />
-                                        <div className="flex justify-between text-xs mt-1">
-                                            <span className="text-emerald-600">{formatCurrency(esp.recebido)} recebido</span>
-                                            <span className="text-amber-600">{formatCurrency(esp.pendente)} pendente</span>
+                                        <div className="flex flex-wrap justify-between gap-x-2 text-xs mt-1">
+                                            <span className="text-emerald-700">{formatCurrency(esp.recebido)} recebido</span>
+                                            {(esp as any).convenio > 0 && <span className="text-blue-700">{formatCurrency((esp as any).convenio)} convênio</span>}
+                                            <span className="text-amber-700">{formatCurrency(esp.pendente)} pendente</span>
                                         </div>
                                     </div>
                                 ))}
@@ -2551,6 +2405,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
             ) : viewMode === 'month' ? (
                 // ===== VISUALIZAÇÃO MENSAL =====
                 <div>
+                    <CashflowMonthChart days={monthData} />
                     {/* Painel Analítico — Visão Gerencial */}
                     {monthResumo && (
                         <div className="mb-4 border border-gray-200 rounded-xl bg-white p-4">
@@ -2615,7 +2470,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 </thead>
                                 <tbody>
                                     {monthData
-                                        .filter(d => (d.caixa > 0 || d.producao > 0) && d.date <= new Date().toISOString().slice(0, 10))
+                                        .filter(d => (d.caixa > 0 || d.producao > 0) && d.date <= new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
                                         .map((day) => {
                                             const ticket = day.atendimentos > 0 ? day.producao / day.atendimentos : 0;
                                             return (

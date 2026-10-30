@@ -173,7 +173,9 @@ const EvolutionChart = ({ chartData, objectives = [] }: Props) => {
     const build = (entries: [string, any][], kind: 'area' | 'metric'): Series[] => {
       const list: Series[] = entries.map(([key, data], i) => {
         const raw = Array.isArray(data) ? data : data?.values || [];
-        const label = kind === 'metric' ? (data?.config?.description ? prettyName(String(data.config.description)) : prettyName(key)) : prettyName(key);
+        // área: nome salvo na evolução (o back manda em evaluationLabels); senão o id formatado
+        const saved = kind === 'area' ? chartData?.evaluationLabels?.[key] : data?.config?.description;
+        const label = saved && saved !== key ? prettyName(String(saved)) : prettyName(key);
         const obj = kind === 'area' ? goalOf(key, label) : undefined;
         return {
           key, label, color: i % SERIES.length,

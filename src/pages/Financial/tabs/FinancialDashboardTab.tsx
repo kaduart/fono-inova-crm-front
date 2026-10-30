@@ -203,7 +203,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const fetchManualReviewCount = useCallback(async () => {
     setLoadingManualReview(true);
     try {
-      const res = await api.get('/api/v2/financial/dashboard/audits/convenio-payments-review-count');
+      const res = await api.get('/v2/financial/dashboard/audits/convenio-payments-review-count');
       setManualReviewCount(res.data?.data?.revisaoManual ?? null);
     } catch (err) {
       console.error('Erro ao buscar contador de revisão manual:', err);
@@ -406,8 +406,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
   useEffect(() => {
     const key = `${month}-${year}`;
-    // Tab 0 (Decisão Executiva) tem seção de recebíveis
-    if (activeTab === 0 && insuranceLoaded.current !== key) {
+    // Visão Geral e Decisão Executiva usam recebíveis/pendências de convênio. Antes só
+    // carregava no índice 0 e abrir Decisão direto mostrava R$ 0 e "nenhum pendente".
+    const tabId = getDashboardTabs()[activeTab]?.id;
+    const needsInsurance = tabId === 'visao-geral' || tabId === 'decisao';
+    if (needsInsurance && insuranceLoaded.current !== key) {
       insuranceLoaded.current = key;
       fetchPendingInsurance();
       fetchInsuranceHistorical();
@@ -486,11 +489,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 <div className={`h-full ${progressColor} rounded-full transition-all`} style={{ width: `${Math.min(pctRealizado, 100)}%` }} />
               </div>
               <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>Resultado econômico acumulado</span>
+                <span>Meta realizada acumulada</span>
                 <span>Meta mensal</span>
               </div>
               <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-                <span className="text-gray-500">🏥 Produção: <span className="font-black text-blue-600">{pctRealizado.toFixed(1)}%</span></span>
+                <span className="text-gray-500">🎯 Meta realizada: <span className="font-black text-blue-600">{pctRealizado.toFixed(1)}%</span></span>
                 <span className="text-gray-500">💰 Caixa: <span className="font-black text-emerald-700">{pctCaixa.toFixed(1)}%</span></span>
                 <span className="text-gray-400">📈 Dif.: <span className="font-semibold text-gray-500">{(pctCaixa - pctRealizado) >= 0 ? '+' : ''}{(pctCaixa - pctRealizado).toFixed(1)} p.p.</span></span>
                 <span className="text-gray-500">⏳ A Receber: <span className="font-semibold text-amber-600">{formatCurrency(totalAReceberProducaoSemLiminar)}</span></span>
@@ -498,17 +501,17 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             </div>
           </div>
           <div className="space-y-2">
-            <MetricRow label="Esperado até hoje (produção)" value={formatCurrency(metas.ritmo.esperadoAteAgora ?? 0)} />
+            <MetricRow label="Esperado até hoje (meta)" value={formatCurrency(metas.ritmo.esperadoAteAgora ?? 0)} />
             {/* 🚨 FIX (2026-09-02): usava metas.camadas.producao.atingido, que é a
                 produção TOTAL (com Liminar) — inconsistente com o % mostrado acima
                 (pctRealizado já vem sem Liminar de metas.ritmo.percentualRealizado).
                 realizadoAteAgora é a mesma base sem Liminar usada no %, e diferenca
                 já vem calculada certa do backend — evita recalcular com bases
                 misturadas aqui. */}
-            <MetricRow label="Produção realizada" value={formatCurrency(metas.ritmo?.realizadoAteAgora ?? totalProducaoSemLiminar)} />
+            <MetricRow label="Meta realizada (caixa)" value={formatCurrency(metas.ritmo?.realizadoAteAgora ?? totalProducaoSemLiminar)} />
             <MetricRow label="Caixa realizado" value={formatCurrency(totalCaixa)} />
             <MetricRow
-              label="Diferença produção"
+              label="Diferença para o esperado"
               value={formatCurrency(metas.ritmo?.diferenca ?? 0)}
               valueColor={(metas.ritmo?.diferenca ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
             />
@@ -1105,7 +1108,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
   const renderDespesas = () => {
     const comissoes = expenses.breakdown?.comissoes || 0;
-    const outrasDespesas = expenses.breakdown?.expenses || expenses.total;
+    const outrasDespesas = expenses.breakdown?.expenses ?? expenses.total;
     return (
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1607,7 +1610,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                       </p>
                       {item.name === 'Caixa' && totalAntecipacoes > 0 && (
                         <p className="text-3xs text-sky-500 mt-0.5 leading-tight">
-                          ↩ {formatCurrency(totalAntecipacoes)} retroativos
+                          ↩ {formatCurrency(totalAntecipacoes)} de antecipações
                         </p>
                       )}
                     </div>
@@ -1992,7 +1995,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div style={{ color: accentHex }}>{getAcaoIcon(acao.tipo)}</div>
-                        <span className={`text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-${priorColor}-100 text-${priorColor}-700`}>
+                        <span className={`text-3xs font-black uppercase px-2 py-0.5 rounded-full ${priorColor === 'rose' ? 'bg-rose-100 text-rose-700' : priorColor === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                           {acao.prioridade}
                         </span>
                       </div>
@@ -2421,8 +2424,8 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
             ))}
           </div>
         </div>
-        {rankingSubTab === 0 && <DashboardEspecialidades />}
-        {rankingSubTab === 1 && <RankingProfissionais />}
+        {rankingSubTab === 0 && <DashboardEspecialidades month={month} year={year} />}
+        {rankingSubTab === 1 && <RankingProfissionais month={month} year={year} />}
         {rankingSubTab === 2 && <ListaPacientesVIP />}
         {rankingSubTab === 3 && (
           <PerformancePorProfissional

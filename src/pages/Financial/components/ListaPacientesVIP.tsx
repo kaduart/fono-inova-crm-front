@@ -56,7 +56,7 @@ export const ListaPacientesVIP: React.FC<ListaPacientesVIPProps> = ({
   data,
   loading,
   title = 'Pacientes VIP (Top 10 LTV)',
-  subtitle = 'Pacientes com maior lifetime value do período',
+  subtitle = 'Pacientes com maior valor pago em todo o histórico',
 }) => {
   const { patientsList, loadingPatients, fetchPatientsList } = useFinancialAnalytics();
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);

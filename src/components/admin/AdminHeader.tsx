@@ -3,9 +3,11 @@ import {
     Activity,
     ChevronDown,
     ClipboardList,
+    CalendarDays,
     Clock,
     DollarSign,
     Eye,
+    Gauge,
     Home,
     LogOut,
     Menu,
@@ -21,7 +23,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOperationalCounts } from "../../hooks/useOperationalCounts";
 import { useRetentionAlert } from "../../hooks/useRetentionAlert";
-import NavButton from "../ui/NavButton";
+import HeaderNavButton, { HeaderBrand, HeaderCount, HEADER_ICON_BUTTON_CLASS, HEADER_SHELL_CLASS } from "../ui/HeaderNavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
 import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
 import { WhatsAppNotificationButton } from "../notifications/WhatsAppNotificationButton";
@@ -132,45 +134,32 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     };
 
     return (
-        <header className="shadow-lg border-b text-white py-3 sticky top-0 z-50" style={{ backgroundColor: 'rgb(13 138 108)', borderColor: 'rgba(255,255,255,0.2)' }}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between">
+        <header className={HEADER_SHELL_CLASS}>
+            <div className="mx-auto max-w-[1440px] px-4 py-2.5 sm:px-6">
+                <div className="flex items-center justify-between gap-4">
                     {/* Logo e nome da clínica */}
                     <NavLink
                         to="/admin"
-                        className="flex items-center gap-3"
+                        className="flex items-center rounded-xl pr-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 min-[1400px]:border-r min-[1400px]:border-white/15"
                         onClick={() => handleTabChange("Dashboard")}
+                        aria-label="Fono Inova, ir para o Dashboard"
                     >
-                        <div className="h-12 w-12 rounded-lg bg-white flex items-center justify-center overflow-hidden">
-                            <img className="h-12 w-12 object-cover" src="images/logo-padrao-3d-encurtada.png" alt="Clínica Fênix" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-xl font-bold leading-tight tracking-tight text-white">
-                                Fono Inova
-                            </span>
-                            <span className="hidden text-xs font-medium leading-4 text-emerald-100 sm:block">
-                                Gestão Clínica
-                            </span>
-                        </div>
+                        <HeaderBrand subtitle="Gestão Clínica" />
                     </NavLink>
 
                     {/* Navegação desktop */}
-                    <nav className="hidden md:flex items-center space-x-1">
+                    <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Menu principal">
                         {/* (mesmo conteúdo, mantido) */}
                         <div className="relative" ref={gestaoRef}>
-                            <NavButton
+                            <HeaderNavButton
                                 active={activeTab === "Add Profissional" || activeTab === "Add Paciente" || activeTab === "Add Secretária"}
                                 onClick={() => toggleMenu("gestao")}
                                 hasChevron
-                                icon={<Users size={16} className="text-purple-500" />}
-                                className={
-                                    activeTab === "Add Profissional" || activeTab === "Add Paciente" || activeTab === "Add Secretária"
-                                        ? "bg-emerald-100 text-emerald-700"
-                                        : "!text-white"
-                                }
+                                open={openMenu === "gestao"}
+                                icon={<Users />}
                             >
                                 Gestão
-                            </NavButton>
+                            </HeaderNavButton>
                             {openMenu === "gestao" && (
                                 <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
                                     <NavDropdownItem
@@ -207,48 +196,36 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             )}
                         </div>
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "Calendário"}
                             onClick={() => handleTabChange("Calendário")}
-                            icon={<Clock className="h-4 w-4 text-amber-500" />}
-                            className={activeTab === "Calendário" ? "bg-emerald-100 text-emerald-700" : "!text-white"}
+                            icon={<CalendarDays />}
+                            badge={!retentionAlert.loading && retentionAlert.total > 0
+                                ? <HeaderCount value={retentionAlert.total} active={activeTab === "Calendário"} label={`${retentionAlert.total} alertas de acompanhamento`} />
+                                : undefined}
                         >
-                            <span className="flex items-center gap-1.5">
-                                Agenda
-                                {!retentionAlert.loading && retentionAlert.total > 0 && (
-                                    <span className="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
-                                        {retentionAlert.total}
-                                    </span>
-                                )}
-                            </span>
-                        </NavButton>
+                            Agenda
+                        </HeaderNavButton>
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "Financeiro"}
                             onClick={() => handleTabChange("Financeiro")}
-                            icon={<DollarSign className="h-4 w-4 text-green-500" />}
-                            className={activeTab === "Financeiro" ? "bg-emerald-100 text-emerald-700" : "!text-white"}
+                            icon={<DollarSign />}
                         >
                             Financeiro
-                        </NavButton>
+                        </HeaderNavButton>
 
                         <div className="relative" ref={vendasRef}>
-                            <NavButton
+                            <HeaderNavButton
                                 active={isVendasMarketingActive}
                                 onClick={() => toggleMenu("vendas-marketing")}
-                                icon={<Activity className="h-4 w-4 text-cyan-500" />}
+                                icon={<Activity />}
                                 hasChevron
-                                className={isVendasMarketingActive ? "bg-emerald-100 text-emerald-700" : "!text-white"}
+                                open={openMenu === "vendas-marketing"}
+                                badge={opCounts.total > 0 ? <HeaderCount value={opCounts.total} hot label={`${opCounts.total} leads pedindo ação`} /> : undefined}
                             >
-                                <span className="flex items-center gap-1.5">
-                                    Vendas & Marketing
-                                    {opCounts.total > 0 && (
-                                        <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
-                                            {opCounts.total}
-                                        </span>
-                                    )}
-                                </span>
-                            </NavButton>
+                                Vendas & Marketing
+                            </HeaderNavButton>
                             {openMenu === "vendas-marketing" && (
                                 <div className="absolute z-10 mt-2 w-64 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
                                     {/* SEÇÃO VENDAS */}
@@ -332,21 +309,23 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             )}
                         </div>
 
-                        <WhatsAppNotificationButton 
+                        <WhatsAppNotificationButton
                             onClick={() => handleTabChange("Mensagens")}
+                            label="Conversas"
+                            active={activeTab === "Mensagens"}
                         />
 
                         {/* Menu Sistema/Dev */}
                         <div className="relative" ref={sistemaRef}>
-                            <NavButton
+                            <HeaderNavButton
                                 active={isSistemaActive}
                                 onClick={() => toggleMenu("sistema")}
-                                icon={<Eye className="h-4 w-4 text-orange-500" />}
+                                icon={<Gauge />}
                                 hasChevron
-                                className={isSistemaActive ? "bg-emerald-100 text-emerald-700" : "!text-white"}
+                                open={openMenu === "sistema"}
                             >
                                 Sistema
-                            </NavButton>
+                            </HeaderNavButton>
                             {openMenu === "sistema" && (
                                 <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
                                     <NavDropdownItem
@@ -385,15 +364,15 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     </nav>
 
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
-                    <div className="flex items-center gap-2 md:gap-3">
+                    <div className="flex shrink-0 items-center gap-1.5">
                         <NotificationBellFixed />
-                        <ThemeToggle />
+                        <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
 
                         {/* Hamburguer - mobile */}
                         <button
                             type="button"
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="min-h-11 min-w-11 rounded-lg bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:hidden"
+                            className={`${HEADER_ICON_BUTTON_CLASS} lg:hidden`}
                             aria-label="Menu"
                             aria-expanded={isMobileMenuOpen}
                         >
@@ -401,23 +380,23 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         </button>
 
                         {/* Perfil - desktop */}
-                        <div className="relative hidden md:block" ref={profileRef}>
+                        <div className="relative hidden lg:block" ref={profileRef}>
                             <button
                                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                                 aria-label={`Menu de perfil — logado como ${adminInfo?.fullName || "Administrador"}`}
                                 aria-haspopup="true"
                                 aria-expanded={isProfileDropdownOpen}
-                                className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
+                                className="ml-1 flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/[0.08] py-1 pl-3 pr-1.5 text-white transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                             >
                                 <div className="hidden sm:flex flex-col items-end">
                                     <span className="text-sm font-medium leading-tight">
                                         {adminInfo?.fullName?.split(' ')[0] || "Admin"}
                                     </span>
-                                    <span className="text-xs text-emerald-100 leading-tight">
-                                        {adminInfo?.role || "Administrador"}
+                                    <span className="text-[11px] leading-tight text-white/70">
+                                        {adminInfo?.role === 'admin' || !adminInfo?.role ? "Administrador" : adminInfo.role}
                                     </span>
                                 </div>
-                                <div className="h-9 w-9 rounded-lg bg-white/20 flex items-center justify-center border border-white/30 flex-shrink-0">
+                                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br from-amber-200 to-amber-400 text-amber-950">
                                     <span className="text-sm font-bold">
                                         {adminInfo?.fullName?.charAt(0) || "A"}
                                     </span>
@@ -462,7 +441,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                 {/* Menu Mobile - refinado */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden border-t border-emerald-600 mt-3 pt-3 pb-2 space-y-1">
+                    <div className="lg:hidden border-t border-emerald-600 mt-3 pt-3 pb-2 space-y-1">
                         <div className="px-3 py-2 bg-emerald-800/30 rounded-lg mb-2">
                             <p className="text-xs text-emerald-200 font-medium">
                                 Olá, {adminInfo?.fullName?.split(' ')[0] || "Admin"}

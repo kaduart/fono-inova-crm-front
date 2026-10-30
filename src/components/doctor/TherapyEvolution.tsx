@@ -130,8 +130,10 @@ function getTimelineBadges(current: any, previous: any | null): TimelineBadge[] 
         else stable++;
     });
 
-    if (regressed > 0) badges.push({ type: 'regression', label: 'Regressão detectada' });
-    if (improved > 0) badges.push({ type: 'improvement', label: 'Evolução' });
+    // Diz quantas áreas mudaram: "Regressão" e "Evolução" juntos, sem número, pareciam contraditórios
+    const areas = (n: number) => `${n} ${n === 1 ? 'área' : 'áreas'}`;
+    if (regressed > 0) badges.push({ type: 'regression', label: `Regressão em ${areas(regressed)}` });
+    if (improved > 0) badges.push({ type: 'improvement', label: `Evolução em ${areas(improved)}` });
     if (regressed === 0 && improved === 0 && stable > 0) badges.push({ type: 'stable', label: 'Estável' });
 
     return badges;

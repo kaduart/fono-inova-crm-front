@@ -67,7 +67,11 @@ export function FiscalConfiguration() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
-  const [cnpj] = useState('60359243000142');
+  // O CNPJ vem do perfil ativo no back (antes era fixo aqui; editar criava outro perfil).
+  const cnpj = '';
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [certificates, setCertificates] = useState<any[]>([]);
   const [certModalOpen, setCertModalOpen] = useState(false);
   // Perfil completo entra em modo de visualização (resumo) por padrão; formulário só aparece
@@ -118,7 +122,11 @@ export function FiscalConfiguration() {
     setLoading(true);
     try {
       const [profileResponse, certificatesResponse] = await Promise.all([
-        fiscalService.getProfile(cnpj),
+        fiscalService.getProfile().catch((err: any) => {
+          // 404 = ainda não existe perfil (normal na primeira vez); o resto é erro de verdade.
+          if (err?.response?.status === 404) return { success: false, data: null } as any;
+          throw err;
+        }),
         fiscalService.listCertificates('active')
       ]);
       if (profileResponse.success && profileResponse.data) {
@@ -128,8 +136,9 @@ export function FiscalConfiguration() {
       if (certificatesResponse.success && Array.isArray(certificatesResponse.data)) {
         setCertificates(certificatesResponse.data);
       }
+      setLoadError(null);
     } catch (err: any) {
-      console.log('Perfil fiscal não encontrado, será criado no primeiro save.');
+      setLoadError(err?.response?.data?.message || 'Não foi possível carregar a configuração fiscal.');
     } finally {
       setLoading(false);
     }
@@ -259,7 +268,12 @@ export function FiscalConfiguration() {
   // RENDER
   // ============================================================
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8 bg-gray-50 min-h-screen">
+    <div className="space-y-6">
+      {loadError && (
+        <Alert severity="error" className="rounded-xl" action={<Button size="small" color="inherit" onClick={load}>Tentar de novo</Button>}>
+          {loadError}
+        </Alert>
+      )}
       {/* Cabeçalho */}
       <div className="flex items-center gap-3">
         <div className="p-2 bg-indigo-100 rounded-xl">
@@ -279,8 +293,8 @@ export function FiscalConfiguration() {
         <div className="flex flex-col gap-1">
           <span className="font-semibold text-base">
             {isProfileComplete && isCertificateLinked
-              ? '✅ Pronto para emitir NFSe'
-              : '⚙️ Configure os dados para habilitar a emissão de NFSe'}
+              ? 'Dados completos para emitir NFS-e'
+              : 'Configure os dados para habilitar a emissão de NFS-e'}
           </span>
           <span className="text-sm text-gray-600">
             {isProfileComplete
@@ -289,6 +303,23 @@ export function FiscalConfiguration() {
                 : 'Perfil fiscal salvo, mas ainda não foi vinculado a um certificado digital.'
               : 'Preencha e salve o Perfil Fiscal para depois vincular o certificado digital.'}
           </span>
+          {profile?.ambiente === 'producao_restrita' && (
+            <span className="text-sm font-semibold text-amber-800">Ambiente de homologação: as notas emitidas não têm valor fiscal.</span>
+          )}
+          {isProfileComplete && isCertificateLinked && (
+            <span className="mt-1 flex flex-wrap items-center gap-2">
+              <Button size="small" variant="outlined" disabled={testing} onClick={async () => {
+                setTesting(true); setTestResult(null);
+                try {
+                  const r = await fiscalService.testConnection();
+                  setTestResult({ ok: !!r.success, message: r.success ? 'Conexão com o provedor fiscal OK.' : (r.data?.message || 'O provedor fiscal não respondeu como esperado.') });
+                } catch (e: any) {
+                  setTestResult({ ok: false, message: e?.response?.data?.data?.message || e?.response?.data?.message || 'Falha ao testar a conexão.' });
+                } finally { setTesting(false); }
+              }}>{testing ? 'Testando…' : 'Testar conexão'}</Button>
+              {testResult && <span className={`text-sm ${testResult.ok ? 'text-emerald-700' : 'text-red-700'}`}>{testResult.message}</span>}
+            </span>
+          )}
         </div>
       </Alert>
 

@@ -6,12 +6,20 @@ import { socketManager } from '../../utils/socketManager';
 interface WhatsAppNotificationButtonProps {
   onClick?: () => void;
   className?: string;
+  /** Texto ao lado do ícone (header A). Sem label, continua só o ícone. */
+  label?: string;
+  active?: boolean;
 }
 
 export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProps> = ({
   onClick,
-  className = ""
+  className = "",
+  label,
+  active = false
 }) => {
+  const labeledClass = active
+    ? 'inline-flex items-center gap-2 rounded-[10px] bg-[#fff] px-2.5 py-2 text-sm font-semibold text-[#065f46]'
+    : 'inline-flex items-center gap-2 rounded-[10px] px-2.5 py-2 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white';
   // Usa useContext diretamente para ter controle sobre o erro
   const contactsContext = useContext(ContactsContext);
   const [socketNotifications, setSocketNotifications] = useState(0);
@@ -21,10 +29,11 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
     return (
       <button
         onClick={onClick}
-        className={`relative p-2 rounded-lg transition-all duration-200 hover:bg-emerald-600 text-white ${className}`}
+        className={label ? `relative ${labeledClass} ${className}` : `relative p-2 rounded-lg transition-all duration-200 hover:bg-emerald-600 text-white ${className}`}
         title="WhatsApp"
       >
-        <MessageCircle className="h-5 w-5" />
+        <MessageCircle className={label ? "hidden h-4 w-4 min-[1400px]:block" : "h-5 w-5"} aria-hidden={!!label} />
+        {label && <span>{label}</span>}
       </button>
     );
   }
@@ -69,14 +78,15 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
   return (
     <button
       onClick={handleClick}
-      className={`
+      className={label ? `relative ${labeledClass} transition-colors ${className}` : `
         relative p-2 rounded-lg transition-all duration-200
         hover:bg-emerald-600 text-white
         ${className}
       `}
       title={totalUnread > 0 ? `${totalUnread} mensagem(ns) não lida(s)` : "WhatsApp"}
     >
-      <MessageCircle className="h-5 w-5" />
+      <MessageCircle className={label ? "hidden h-4 w-4 min-[1400px]:block" : "h-5 w-5"} aria-hidden={!!label} />
+      {label && <span>{label}</span>}
       
       {/* Badge de notificação */}
       {totalUnread > 0 && (

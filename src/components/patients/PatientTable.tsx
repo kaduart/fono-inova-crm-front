@@ -1,4 +1,6 @@
-import { Calendar, ChevronDown, ChevronUp, DollarSign, Edit, Eye, FileHeart, List, Package, Phone, Search, Trash2, User, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Edit, Eye, MoreHorizontal, Search, User, X } from "lucide-react";
+import { openWhatsApp, reactivationMessage, renewalMessage } from "../commercial/commercialCopy";
+import { getSpecialtyLabel } from "../../constants/specialties";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from "react-router-dom";
 import patientService from '../../services/patientService';
@@ -16,40 +18,16 @@ interface PatientTableProps {
     onPaymentAdvancedSuccess?: (patient: PatientDTO) => void;
     onRegisterPayment?: (patient: PatientDTO) => void;
     isRefreshing?: boolean;
-}
-
-interface WhatsAppActionButtonsProps {
-    phone: string;
-    nome?: string;
-    profissional?: string;
-    data?: Date;
-    hora?: string;
-    servico?: string;
-    restantes?: string;
+    /** Total de pacientes cadastrados (o título mostra "X de Y"). */
+    totalCount?: number;
+    /** Quantos estão sem próxima sessão (fila comercial) e como abrir a fila. */
+    noNextCount?: number;
+    onOpenNoNext?: () => void;
 }
 
 // ============================================================================
 // Componentes auxiliares (tipados)
 // ============================================================================
-
-const WhatsAppActionButtons: React.FC<WhatsAppActionButtonsProps> = ({
-    phone,
-    nome,
-    profissional,
-    data,
-    hora,
-    servico,
-    restantes,
-}) => (
-    <div className="flex gap-2">
-        <button className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors">
-            📱 Lembrete
-        </button>
-        <button className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors">
-            💬 Mensagem
-        </button>
-    </div>
-);
 
 // ============================================================================
 // Utilitários
@@ -76,7 +54,19 @@ const PatientTable: React.FC<PatientTableProps> = ({
     onPaymentAdvancedSuccess,
     onRegisterPayment,
     isRefreshing = false,
+    totalCount,
+    noNextCount,
+    onOpenNoNext,
 }) => {
+    const [menuFor, setMenuFor] = useState<string | null>(null);
+    useEffect(() => {
+        if (!menuFor) return;
+        const close = () => setMenuFor(null);
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+        document.addEventListener('click', close);
+        document.addEventListener('keydown', onKey);
+        return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); };
+    }, [menuFor]);
     // ------------------------------------------------------------
     // Hooks (sempre no topo)
     // ------------------------------------------------------------
@@ -218,400 +208,275 @@ const PatientTable: React.FC<PatientTableProps> = ({
     };
 
     // ------------------------------------------------------------
-    // Renderização
+    // Renderização (mock aprovado em 30/10: https://claude.ai/artifact/MoYkuNDdaGko6QwwWTTqBS)
+    // Terapia e próxima sessão numa coluna; ver/editar à mostra, o resto no "…";
+    // devedor marcado só no selo do saldo. Nenhuma informação da versão anterior saiu.
     // ------------------------------------------------------------
+    const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const shownTotal = onlyWithDebt && debtTotal !== null ? debtTotal : filteredPatients.length;
+    const chipCls = (active: boolean) => `shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors ${active
+        ? 'border-red-300 bg-red-50 font-semibold text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300'
+        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'}`;
+
     return (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
-            {/* 🔄 Overlay suave de refresh — NÃO desmonta a tabela, preserva filtro */}
+        <div className="relative text-left">
+            {/* Overlay suave de refresh — NÃO desmonta a tabela, preserva filtro */}
             {isRefreshing && (
-                <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-600" />
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-[1px] dark:bg-gray-900/60">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-emerald-600" />
                 </div>
             )}
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-100">
-                <h3 className="flex items-center gap-3 text-lg font-semibold text-gray-800">
-                    <div className="p-1.5 bg-gray-100 rounded-lg">
-                        <List className="w-5 h-5 text-gray-600" />
-                    </div>
-                    Pacientes
-                    <span className="ml-auto text-xs font-normal text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
-                        {isSearching ? '...' : filteredPatients.length} paciente{filteredPatients.length !== 1 ? 's' : ''}
-                    </span>
-                </h3>
-            </div>
 
-            <div className="p-4">
-                    {/* Busca + filtro de saldo devedor */}
-                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div className="relative w-full flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Buscar paciente..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm"
-                            />
-                            {isSearching ? (
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600" />
-                                </div>
-                            ) : searchTerm && (
-                                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                    <X className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-                        <button
-                            onClick={() => {
-                                setOnlyWithDebt(prev => !prev);
-                                if (onlyWithDebt) { setDebtTotal(null); setDebtTotalAmount(null); } // desligando: descarta resultado da última consulta
-                                setCurrentPage(1);
-                            }}
-                            title="Buscar no servidor somente pacientes com saldo devedor"
-                            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                                onlyWithDebt
-                                    ? 'bg-red-100 text-red-700 border-red-300'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                            }`}
-                        >
-                            <DollarSign className="w-4 h-4" />
-                            Saldo devedor
-                            {onlyWithDebt && debtTotal !== null && (
-                                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-3xs font-bold bg-red-600 text-white">
-                                    {debtTotal}
-                                </span>
-                            )}
-                            {onlyWithDebt && debtTotalAmount !== null && debtTotalAmount > 0 && (
-                                <span className="text-3xs font-bold text-red-700">
-                                    R$ {debtTotalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-
-                    {isEmpty ? (
-                        <div className="py-12 text-center">
-                            <User className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                            <h3 className="text-base font-semibold text-gray-600 mb-1">Nenhum paciente encontrado</h3>
-                            <p className="text-sm text-gray-400">
-                                {onlyWithDebt
-                                    ? 'Nenhum paciente com saldo devedor no momento'
-                                    : searchTerm ? 'Tente buscar com outros termos' : 'Os dados dos pacientes estão sendo carregados...'}
-                            </p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Header row */}
-                            <div className="flex items-center gap-3 px-3 py-2 mb-1 border-b border-gray-200">
-                                <div className="flex-1 min-w-0">
-                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <User className="w-3 h-3" /> Paciente
-                                    </span>
-                                </div>
-                                <div className="w-44 shrink-0 hidden md:block">
-                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Package className="w-3 h-3" /> Terapia
-                                    </span>
-                                </div>
-                                <div className="w-40 shrink-0 hidden lg:block cursor-pointer" onClick={() => sortData('nextAppointment')}>
-                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Calendar className="w-3 h-3" /> Próxima consulta
-                                        {sortConfig.key === 'nextAppointment' && (
-                                            <span className="text-gray-600">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
-                                        )}
-                                    </span>
-                                </div>
-                                <div className="w-28 shrink-0 hidden sm:block">
-                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <DollarSign className="w-3 h-3" /> Saldo
-                                    </span>
-                                </div>
-                                <div className="w-36 shrink-0 text-center">
-                                    <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider">Ações</span>
-                                </div>
-                                <div className="w-6 shrink-0" />
-                            </div>
-
-                            {/* Rows */}
-                            <div className="space-y-1.5">
-                                {paginatedPatients.map((patient) => {
-                                    const isExpanded = expandedRows[patient.id];
-                                    const hasDebt = (patient.debt ?? 0) > 0;
-                                    const rowAccent = hasDebt
-                                        ? 'border-l-[4px] border-l-red-400 bg-red-50 hover:bg-red-100'
-                                        : 'border-l-[4px] border-l-gray-200 bg-white hover:bg-gray-50';
-
-                                    return (
-                                        <div key={patient.id}>
-                                            <div
-                                                className={`flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-200 transition-all shadow-sm cursor-pointer ${rowAccent}`}
-                                                onClick={() => toggleRow(patient.id)}
-                                            >
-                                                {/* Paciente */}
-                                                <div className="flex-1 min-w-0 flex items-center gap-2.5">
-                                                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm shrink-0">
-                                                        {patient.fullName?.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <span className="font-semibold text-gray-800 text-sm truncate">{patient.fullName || '-'}</span>
-                                                            {patient.tags?.includes('vip') && (
-                                                                <span className="px-1.5 py-0 rounded text-3xs font-bold bg-amber-100 text-amber-700 border border-amber-200 shrink-0">VIP</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                                <Phone className="w-3 h-3" />
-                                                                {patient.phone || '-'}
-                                                            </span>
-                                                            {(() => {
-                                                                const planName = patient.healthPlan?.name;
-                                                                const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
-                                                                return isConvenio ? (
-                                                                    <span className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-600 px-1.5 py-0 rounded text-3xs font-medium">
-                                                                        <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
-                                                                        {planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio'}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="inline-flex items-center gap-0.5 bg-orange-50 text-orange-600 px-1.5 py-0 rounded text-3xs font-medium">
-                                                                        <span className="w-1 h-1 bg-orange-500 rounded-full"></span>
-                                                                        Particular
-                                                                    </span>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Terapia — pacote ativo ou resumo de sessões */}
-                                                <div className="w-44 shrink-0 hidden md:block">
-                                                    {(() => {
-                                                        const activePackages = patient.packages?.filter(p => p.status === 'active') || [];
-                                                        const totalCompleted = patient.totalCompleted ?? 0;
-                                                        const nextSpecialty = patient.nextAppointment?.specialty || patient.nextAppointment?.sessionType;
-                                                        const lastSpecialty = patient.lastAppointment?.specialty || patient.lastAppointment?.sessionType;
-                                                        if (activePackages.length > 0) {
-                                                            const pkg = activePackages[0];
-                                                            const pct = pkg.totalSessions > 0 ? (pkg.sessionsDone / pkg.totalSessions) * 100 : 0;
-                                                            return (
-                                                                <div className="flex flex-col gap-1">
-                                                                    <div className="flex items-center justify-between gap-1">
-                                                                        <span className="text-xs font-medium text-gray-700 truncate">{pkg.sessionType || 'Pacote'}</span>
-                                                                        <span className="text-3xs text-purple-600 font-semibold shrink-0">{pkg.sessionsDone}/{pkg.totalSessions}</span>
-                                                                    </div>
-                                                                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                                        <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                                                    </div>
-                                                                    <span className="text-3xs text-gray-400">{pkg.sessionsRemaining} restante{pkg.sessionsRemaining !== 1 ? 's' : ''}{activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}</span>
-                                                                    {(patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name) && (
-                                                                        <span className="text-3xs text-gray-400 truncate">
-                                                                            {patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        }
-                                                        if (totalCompleted > 0) {
-                                                            return (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-xs text-gray-500">{totalCompleted} sessão{totalCompleted !== 1 ? 'ões' : ''} total</span>
-                                                                    {nextSpecialty ? (
-                                                                        <span className="text-3xs text-gray-400 truncate">Próxima: {nextSpecialty}</span>
-                                                                    ) : lastSpecialty ? (
-                                                                        <span className="text-3xs text-gray-400 truncate">Última: {lastSpecialty}</span>
-                                                                    ) : null}
-                                                                </div>
-                                                            );
-                                                        }
-                                                        if (nextSpecialty) {
-                                                            return (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-xs text-gray-500 truncate">{nextSpecialty}</span>
-                                                                    <span className="text-3xs text-gray-400">Próxima consulta</span>
-                                                                </div>
-                                                            );
-                                                        }
-                                                        if (lastSpecialty) {
-                                                            return (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-xs text-gray-500 truncate">{lastSpecialty}</span>
-                                                                    <span className="text-3xs text-gray-400">Última consulta</span>
-                                                                </div>
-                                                            );
-                                                        }
-                                                        return <span className="text-gray-300 text-xs">—</span>;
-                                                    })()}
-                                                </div>
-
-                                                {/* Próxima consulta + última */}
-                                                <div className="w-40 shrink-0 hidden lg:block">
-                                                    {patient.nextAppointment?.date ? (
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-md text-xs font-medium">
-                                                                <Calendar className="w-3 h-3" />
-                                                                {formatDateBrazilian(patient.nextAppointment.date)}
-                                                            </span>
-                                                            {patient.lastAppointment?.date && (
-                                                                <span className="text-3xs text-gray-400 pl-0.5">
-                                                                    Última: {formatDateBrazilian(patient.lastAppointment.date)}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span className="text-gray-400 text-xs">Sem agendamento</span>
-                                                            {patient.lastAppointment?.date && (
-                                                                <span className="text-3xs text-gray-400">
-                                                                    Última: {formatDateBrazilian(patient.lastAppointment.date)}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Saldo */}
-                                                <div className="w-28 shrink-0 hidden sm:block">
-                                                    {(() => {
-                                                        const saldo = patient.debt ?? 0;
-                                                        const totalPending = patient.totalPending ?? 0;
-                                                        const convenioPending = totalPending - (patient.totalPendingParticular ?? 0);
-                                                        if (saldo > 0) return (
-                                                            <div>
-                                                                <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold text-xs bg-red-100 px-2 py-0.5 rounded animate-pulse">
-                                                                    <DollarSign className="w-3 h-3" /> R$ {saldo.toFixed(2)}
-                                                                </span>
-                                                                {convenioPending > 0.01 && (
-                                                                    <div className="text-3xs text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                        if (saldo < 0) return (
-                                                            <span className="inline-flex items-center gap-0.5 text-green-700 text-xs font-medium">
-                                                                <DollarSign className="w-3 h-3" /> -R$ {Math.abs(saldo).toFixed(2)}
-                                                            </span>
-                                                        );
-                                                        return (
-                                                            <div>
-                                                                <span className="text-gray-400 text-xs">R$ 0,00</span>
-                                                                {convenioPending > 0.01 && (
-                                                                    <div className="text-3xs text-blue-600 mt-0.5">+R$ {convenioPending.toFixed(2)} conv.</div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
-
-                                                {/* Ações */}
-                                                <div className="w-36 shrink-0">
-                                                    <div className="flex gap-0.5 items-center justify-center">
-                                                        <Link
-                                                            to={`/patient-dashboard/${patient.patientId || patient.id}`}
-                                                            title="Ver detalhes"
-                                                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </Link>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); onEditPatient?.(patient); }}
-                                                            title="Editar"
-                                                            className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                        <Link
-                                                            to={`/patient-dashboard/${patient.patientId || patient.id}?tab=evolucoes`}
-                                                            title="Ver evoluções"
-                                                            className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <FileHeart className="w-4 h-4" />
-                                                        </Link>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); onDeletePatient?.(patient); }}
-                                                            title="Deletar paciente"
-                                                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* Chevron */}
-                                                <div className="w-6 shrink-0 flex justify-center">
-                                                    {isExpanded
-                                                        ? <ChevronUp className="w-4 h-4 text-gray-400" />
-                                                        : <ChevronDown className="w-4 h-4 text-gray-400" />
-                                                    }
-                                                </div>
-                                            </div>
-
-                                            {/* Expanded stats + WhatsApp */}
-                                            {isExpanded && (
-                                                <div className="mx-1 mb-1 bg-gray-50 rounded-b-lg border border-t-0 border-gray-200 px-4 py-3 space-y-3">
-                                                    {/* Stats grid */}
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                        {[
-                                                            { label: 'Atendidos', value: patient.totalCompleted, color: 'text-green-700', bg: 'bg-green-50' },
-                                                            { label: 'Cancelamentos', value: patient.totalCanceled, color: 'text-red-600', bg: 'bg-red-50' },
-                                                            { label: 'Receita total', value: `R$ ${(patient.totalRevenue ?? 0).toLocaleString('pt-BR')}`, color: 'text-gray-700', bg: 'bg-white' },
-                                                            { label: 'Pendente', value: (patient.totalPendingNet ?? patient.totalPending) > 0 ? `R$ ${(patient.totalPendingNet ?? patient.totalPending).toLocaleString('pt-BR')}` : '—', color: (patient.totalPendingNet ?? patient.totalPending) > 0 ? 'text-amber-700' : 'text-gray-400', bg: (patient.totalPendingNet ?? patient.totalPending) > 0 ? 'bg-amber-50' : 'bg-white' },
-                                                        ].map(s => (
-                                                            <div key={s.label} className={`${s.bg} border border-gray-100 rounded-lg px-3 py-2`}>
-                                                                <div className="text-3xs text-gray-400 mb-0.5">{s.label}</div>
-                                                                <div className={`text-sm font-bold ${s.color}`}>{s.value}</div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    {/* WhatsApp */}
-                                                    {patient.phone && (
-                                                        <div>
-                                                            <h4 className="text-3xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Contato rápido</h4>
-                                                            <WhatsAppActionButtons
-                                                                phone={patient.phone.startsWith('+') ? patient.phone.slice(1) : patient.phone}
-                                                                nome={patient.name}
-                                                                profissional={patient.nextAppointment?.doctor?.name}
-                                                                data={patient.nextAppointment?.date ? new Date(patient.nextAppointment.date) : undefined}
-                                                                hora={patient.nextAppointment?.date
-                                                                    ? new Date(patient.nextAppointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                                                                    : undefined
-                                                                }
-                                                                servico={patient.lastAppointment?.doctor?.specialty}
-                                                                restantes="2"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Paginação */}
-                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3">
-                                <div className="flex items-center gap-3 text-xs text-gray-500">
-                                    <span>Mostrando {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}</span>
-                                    <div className="flex items-center gap-2">
-                                        <span>Exibir:</span>
-                                        <select
-                                            value={itemsPerPage}
-                                            onChange={handleItemsPerPageChange}
-                                            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
-                                        >
-                                            <option value={5}>5</option>
-                                            <option value={10}>10</option>
-                                            <option value={20}>20</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <Pagination page={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} accentClassName="bg-gray-800" />
-                            </div>
-                        </>
+            {/* Busca + filtros */}
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative w-full flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+                    <input
+                        type="search"
+                        aria-label="Buscar paciente"
+                        placeholder="Buscar por nome ou telefone"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-10 text-sm text-gray-800 placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                    {isSearching ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2"><div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" /></div>
+                    ) : searchTerm && (
+                        <button type="button" aria-label="Limpar busca" onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
                     )}
                 </div>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        aria-pressed={onlyWithDebt}
+                        onClick={() => {
+                            setOnlyWithDebt(prev => !prev);
+                            if (onlyWithDebt) { setDebtTotal(null); setDebtTotalAmount(null); } // desligando: descarta resultado da última consulta
+                            setCurrentPage(1);
+                        }}
+                        title="Busca na base toda só quem tem saldo devedor"
+                        className={chipCls(onlyWithDebt)}
+                    >
+                        Saldo devedor
+                        {onlyWithDebt && debtTotal !== null && <span className="ml-1 opacity-80">{debtTotal}</span>}
+                        {onlyWithDebt && debtTotalAmount !== null && debtTotalAmount > 0 && <span className="ml-1 font-bold">· {brl(debtTotalAmount)}</span>}
+                    </button>
+                    {onOpenNoNext && (noNextCount ?? 0) > 0 && (
+                        <button type="button" onClick={onOpenNoNext} title="Abre a fila de quem foi atendido e não tem nada marcado"
+                            className="shrink-0 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                            Sem próxima sessão <span className="opacity-80">{noNextCount}</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                {isSearching ? 'Buscando…' : searchTerm || onlyWithDebt
+                    ? `${shownTotal} ${shownTotal === 1 ? 'paciente encontrado' : 'pacientes encontrados'}`
+                    : `${filteredPatients.length} mexidos por último${totalCount ? ` de ${totalCount.toLocaleString('pt-BR')} cadastrados` : ''} · busque para ver os outros`}
+            </p>
+
+            {isEmpty ? (
+                <div className="py-10 text-center">
+                    <User className="mx-auto mb-3 h-12 w-12 text-gray-300" aria-hidden />
+                    <p className="font-semibold text-gray-700 dark:text-gray-200">Nenhum paciente encontrado</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {onlyWithDebt ? 'Ninguém com saldo devedor agora.' : searchTerm ? 'Tente outro nome ou telefone.' : 'Carregando os pacientes…'}
+                    </p>
+                </div>
+            ) : (
+                <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[640px] border-collapse text-sm">
+                            <thead>
+                                <tr className="border-b border-gray-200 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    <th className="px-3 py-2">Paciente</th>
+                                    <th className="px-3 py-2">
+                                        <button type="button" onClick={() => sortData('nextAppointment')} className="inline-flex items-center gap-1 uppercase hover:text-gray-700">
+                                            Terapia · próxima sessão {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                                        </button>
+                                    </th>
+                                    <th className="px-3 py-2">Saldo</th>
+                                    <th className="px-3 py-2 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedPatients.map((patient, rowIndex) => {
+                                    const pid = patient.patientId || patient.id;
+                                    const isExpanded = expandedRows[patient.id];
+                                    const p: any = patient;
+                                    const planName = patient.healthPlan?.name;
+                                    const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
+                                    const activePackages: any[] = (patient.packages || []).filter((x: any) => x.status === 'active');
+                                    const pkg = activePackages[0];
+                                    const pkgLeft = pkg ? (pkg.sessionsRemaining ?? Math.max(0, (pkg.totalSessions || 0) - (pkg.sessionsDone || 0))) : null;
+                                    const nextDate = patient.nextAppointment?.date || patient.nextAppointmentDate;
+                                    const lastDate = p.lastAppointment?.date || patient.lastAppointmentDate || p.raw?.lastAppointment?.date;
+                                    const specialty = pkg?.sessionType || p.raw?.specialty || p.nextAppointment?.specialty || p.nextAppointment?.sessionType || p.lastAppointment?.specialty || p.lastAppointment?.sessionType || patient.lastAppointment?.doctor?.specialty;
+                                    const doctor = patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name;
+                                    const saldo = patient.debt ?? 0;
+                                    const convenioPending = (patient.totalPending ?? 0) - (patient.totalPendingParticular ?? 0);
+                                    // Nas últimas linhas o menu abre para cima, senão a rolagem da tabela o corta
+                                    const menuUp = paginatedPatients.length > 2 && rowIndex >= paginatedPatients.length - 2;
+                                    const daysSinceLast = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86_400_000) : null;
+                                    return (
+                                        <React.Fragment key={patient.id}>
+                                            <tr onClick={() => toggleRow(patient.id)} className="cursor-pointer border-b border-gray-100 align-middle hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50">
+                                                {/* Paciente */}
+                                                <td className="px-3 py-2.5">
+                                                    <div className="flex min-w-0 items-center gap-2.5">
+                                                        <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                                            {patient.fullName?.charAt(0).toUpperCase()}
+                                                        </span>
+                                                        <div className="min-w-0">
+                                                            <p className="flex items-center gap-1.5 truncate font-semibold text-gray-900 dark:text-gray-50">
+                                                                {patient.fullName || '-'}
+                                                                {patient.tags?.includes('vip') && <span className="rounded bg-amber-100 px-1.5 text-[10px] font-bold text-amber-700">VIP</span>}
+                                                            </p>
+                                                            <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                                <span className="tabular-nums">{patient.phone || 'sem telefone'}</span>
+                                                                <span aria-hidden>·</span>
+                                                                <span className={`rounded-full px-1.5 text-[11px] font-semibold ${isConvenio ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300'}`}>
+                                                                    {isConvenio ? (planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio') : 'Particular'}
+                                                                </span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                {/* Terapia · próxima sessão */}
+                                                <td className="px-3 py-2.5">
+                                                    <p className="truncate text-gray-800 dark:text-gray-200">
+                                                        {specialty ? (/^[a-z_]+$/.test(specialty) ? getSpecialtyLabel(specialty) : specialty) : <span className="text-gray-400">Terapia não definida</span>}
+                                                        {doctor && <span className="text-gray-500 dark:text-gray-400"> · {doctor}</span>}
+                                                    </p>
+                                                    {pkg && (
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                            Pacote {pkg.sessionsDone}/{pkg.totalSessions}{activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}
+                                                            {pkgLeft !== null && pkgLeft <= 2 && (
+                                                                <button type="button" onClick={(e) => { e.stopPropagation(); openWhatsApp(patient.phone, renewalMessage({ name: patient.fullName, specialty: pkg.sessionType, remaining: pkgLeft })); }}
+                                                                    disabled={!patient.phone} title="WhatsApp com a mensagem de renovação"
+                                                                    className="ml-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60 dark:bg-amber-500/10 dark:text-amber-300">
+                                                                    {pkgLeft === 0 ? 'acabou' : pkgLeft === 1 ? '1 restante' : '2 restantes'} · renovar
+                                                                </button>
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                    {nextDate ? (
+                                                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                                                            Próxima: {new Date(nextDate).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')}
+                                                            {lastDate && <span className="font-normal text-gray-500 dark:text-gray-400"> · última {formatDateBrazilian(lastDate)}</span>}
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                            Sem próxima sessão{daysSinceLast !== null ? ` · última há ${daysSinceLast} ${daysSinceLast === 1 ? 'dia' : 'dias'}` : ''}
+                                                            {daysSinceLast !== null && patient.phone && (
+                                                                <button type="button" onClick={(e) => { e.stopPropagation(); openWhatsApp(patient.phone, reactivationMessage({ name: patient.fullName, specialty })); }}
+                                                                    title="WhatsApp com convite para voltar" className="ml-1.5 font-semibold underline-offset-2 hover:underline">
+                                                                    chamar
+                                                                </button>
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                </td>
+                                                {/* Saldo */}
+                                                <td className="px-3 py-2.5 tabular-nums">
+                                                    {saldo > 0 ? (
+                                                        <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-500/10 dark:text-red-300">deve {brl(saldo)}</span>
+                                                    ) : saldo < 0 ? (
+                                                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">crédito {brl(Math.abs(saldo))}</span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">{brl(0)}</span>
+                                                    )}
+                                                    {convenioPending > 0.01 && <p className="mt-0.5 text-[11px] text-blue-600 dark:text-blue-400">+{brl(convenioPending)} conv.</p>}
+                                                </td>
+                                                {/* Ações */}
+                                                <td className="px-3 py-2.5">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Link to={`/patient-dashboard/${pid}`} title="Ver paciente" aria-label="Ver paciente" onClick={(e) => e.stopPropagation()}
+                                                            className="grid h-8 w-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+                                                            <Eye className="h-4 w-4" />
+                                                        </Link>
+                                                        <button type="button" title="Editar" aria-label="Editar" onClick={(e) => { e.stopPropagation(); onEditPatient?.(patient); }}
+                                                            className="grid h-8 w-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+                                                            <Edit className="h-4 w-4" />
+                                                        </button>
+                                                        <span className="relative">
+                                                            <button type="button" aria-label="Mais ações" aria-haspopup="menu" aria-expanded={menuFor === patient.id}
+                                                                onClick={(e) => { e.stopPropagation(); setMenuFor(m => (m === patient.id ? null : patient.id)); }}
+                                                                className="grid h-8 w-8 place-items-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </button>
+                                                            {menuFor === patient.id && (
+                                                                <div role="menu" onClick={(e) => e.stopPropagation()}
+                                                                    className={`absolute right-0 z-20 min-w-[190px] ${menuUp ? 'bottom-9' : 'top-9'} rounded-lg border border-gray-200 bg-white p-1 text-left shadow-lg dark:border-gray-700 dark:bg-gray-900`}>
+                                                                    {patient.phone && (
+                                                                        <button type="button" role="menuitem" onClick={() => { setMenuFor(null); openWhatsApp(patient.phone); }}
+                                                                            className="block w-full rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">Abrir WhatsApp</button>
+                                                                    )}
+                                                                    <Link role="menuitem" to={`/patient-dashboard/${pid}?tab=evolucoes`} onClick={() => setMenuFor(null)}
+                                                                        className="block rounded-md px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">Ver evoluções</Link>
+                                                                    {onRegisterPayment && (
+                                                                        <button type="button" role="menuitem" onClick={() => { setMenuFor(null); onRegisterPayment(patient); }}
+                                                                            className="block w-full rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">Registrar pagamento</button>
+                                                                    )}
+                                                                    {onDeletePatient && (
+                                                                        <button type="button" role="menuitem" onClick={() => { setMenuFor(null); onDeletePatient(patient); }}
+                                                                            className="block w-full rounded-md px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">Excluir paciente</button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </span>
+                                                        <span className="grid h-8 w-6 place-items-center text-gray-400" aria-hidden>
+                                                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {/* Detalhes da linha */}
+                                            {isExpanded && (
+                                                <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/40">
+                                                    <td colSpan={4} className="px-3 py-3">
+                                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                            {[
+                                                                { label: 'Atendidos', value: patient.totalCompleted ?? 0 },
+                                                                { label: 'Cancelamentos', value: patient.totalCanceled ?? 0 },
+                                                                { label: 'Receita total', value: brl(patient.totalRevenue ?? 0) },
+                                                                { label: 'Pendente', value: (patient.totalPendingNet ?? patient.totalPending) > 0 ? brl(patient.totalPendingNet ?? patient.totalPending) : '—' },
+                                                            ].map(s => (
+                                                                <div key={s.label} className="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
+                                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{s.label}</p>
+                                                                    <p className="font-bold text-gray-900 dark:text-gray-50">{s.value}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Paginação */}
+                    <div className="mt-3 flex flex-col items-center justify-between gap-3 border-t border-gray-100 pt-3 sm:flex-row dark:border-gray-800">
+                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                            <span>Mostrando {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredPatients.length)} de {filteredPatients.length}</span>
+                            <label className="flex items-center gap-2">
+                                <span>Exibir</span>
+                                <select value={itemsPerPage} onChange={handleItemsPerPageChange}
+                                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                                    <option value={5}>5</option>
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                </select>
+                            </label>
+                        </div>
+                        <Pagination page={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} accentClassName="bg-gray-800" />
+                    </div>
+                </>
+            )}
         </div>
     );
 };

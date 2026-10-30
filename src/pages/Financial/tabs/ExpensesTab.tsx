@@ -1,6 +1,6 @@
 // src/pages/Financial/tabs/ExpensesTab.tsx
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { getAvatarColor } from '../../../constants/avatarColors';
 import { getInitials } from '../../../constants/specialtyColors';
 import {
@@ -9,12 +9,8 @@ import {
   type CommissionSessionsSummary
 } from './commissionSessionsSummary';
 import {
-  Chip,
   IconButton,
-  TextField,
-  MenuItem,
   Avatar,
-  Divider,
   Tooltip,
   Alert,
   Skeleton,
@@ -36,8 +32,6 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  Download,
-  Filter,
   RefreshCw,
   BarChart3,
   ChevronUp,
@@ -68,6 +62,7 @@ import {
 } from '../../../services/expenseService';
 
 import { notifyApiError } from '../../../utils/notifyApiError';
+import { Chip as FinChip, KpiStrip, brl } from '../components/finUi';
 
 // Configuração de categorias com cores e ícones
 //
@@ -124,6 +119,18 @@ const ORIGIN_CONFIG: Record<'particular' | 'convenio' | 'liminar', { color: stri
   liminar: { color: '#7C3AED', bgColor: '#F5F3FF', label: 'Liminar' }
 };
 
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  pix: 'Pix',
+  dinheiro: 'Dinheiro',
+  cartao_credito: 'Cartão de crédito',
+  cartao_debito: 'Cartão de débito',
+  cartao: 'Cartão',
+  boleto: 'Boleto',
+  transferencia_bancaria: 'Transferência',
+  transferencia: 'Transferência',
+  cheque: 'Cheque',
+};
+
 interface ExpensesTabProps {
   month: number;
   year: number;
@@ -131,8 +138,9 @@ interface ExpensesTabProps {
   onYearChange?: (year: number) => void;
 }
 
-const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabProps) => {
-  const { expenses, loading, generatingCommissions, totals, byOrigin, fetchExpenses, cancelExpense, deleteExpense, markAsPaid, generateCommissions } = useExpenses();
+// Mês e ano vêm do seletor do topo do Financeiro; a aba não repete esses filtros.
+const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
+  const { expenses, statusCounts, error: listError, loading, generatingCommissions, totals, byOrigin, pagination, fetchExpenses, cancelExpense, deleteExpense, markAsPaid, generateCommissions } = useExpenses();
   // Sub-abas: "Do mês" (lista) e "Fixas" (CRUD dos modelos)
   const [view, setView] = useState<'month' | 'fixed'>('month');
   // Lixeira: confirma explicitamente — "Excluir" (avulsa pendente) ou "Cancelar" (demais)
@@ -212,9 +220,20 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     setFilters(prev => ({ ...prev, month, year }));
   }, [month, year]);
 
+  // Paginação no servidor (50 por página). Antes a lista parava nas 50 primeiras sem aviso.
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [filters]);
+  const listParams = useMemo(() => ({
+    ...filters,
+    page,
+    limit: 50,
+    // Sem status escolhido, o back já tira as canceladas (antes ocupavam vaga na página).
+    excludeCanceled: filters.status === '',
+  }), [filters, page]);
+
   useEffect(() => {
-    fetchExpenses(filters);
-  }, [filters, fetchExpenses]);
+    fetchExpenses(listParams);
+  }, [listParams, fetchExpenses]);
 
   // Já existe comissão (não cancelada) no mês? Define qual botão aparece: "Gerar" (nenhuma
   // ainda) ou "Regenerar" (já gerada). Consulta própria, independente dos filtros da lista —
@@ -276,7 +295,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       } else {
         toast.info('Nenhuma despesa nova — as fixas deste mês já existem');
       }
-      await Promise.all([fetchExpenses(filters), refreshPendingFixed()]);
+      await Promise.all([fetchExpenses(listParams), refreshPendingFixed()]);
     } catch (error: any) {
       notifyApiError(error, 'Erro ao gerar despesas fixas');
     } finally {
@@ -288,7 +307,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     setPayingId(id);
     try {
       await markAsPaid(id);
-      await fetchExpenses(filters);
+      await fetchExpenses(listParams);
     } catch {
       /* toast já exibido no hook */
     } finally {
@@ -303,7 +322,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       if (rowAction.kind === 'delete') await deleteExpense(rowAction.expense._id);
       else await cancelExpense(rowAction.expense._id);
       setRowAction(null);
-      await fetchExpenses(filters);
+      await fetchExpenses(listParams);
       if (rowAction.expense.category === 'commission') refreshCommissionsGenerated();
       // Cancelar uma fixa gerada NÃO recria no "Gerar" (o doc permanece), mas o aviso é recalculado
       refreshPendingFixed();
@@ -543,28 +562,17 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
         </Alert>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#EF4444' }}>
-            <TrendingDown className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Despesas</h2>
-            <p className="text-sm text-gray-500">Controle de gastos, comissões e contas a pagar</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+      {/* Ações (o título já está no cartão do topo do Financeiro) */}
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
           {/* Gerar e Regenerar são mutuamente exclusivos: sem comissão no mês → Gerar;
               já gerada → Regenerar. Enquanto desconhecido (null), nenhum aparece. */}
           {commissionsGenerated === false && (
             <button
               onClick={async () => {
                 try {
-                  await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters));
+                  await generateCommissions(filters.month, filters.year, () => fetchExpenses(listParams));
                 } catch {
-                  fetchExpenses(filters);
+                  fetchExpenses(listParams);
                 } finally {
                   refreshCommissionsGenerated();
                 }
@@ -593,172 +601,73 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               setEditingExpense(null);
               setModalOpen(true);
             }}
-            className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-sm font-medium hover:from-red-600 hover:to-red-700 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus size={18} />
-            Nova Despesa
+            Nova despesa
           </button>
-        </div>
-        {generatingCommissions && (
-          <p className="text-xs text-gray-500 mt-2 text-center md:text-right">
-            Processando comissões em segundo plano. Isso pode levar alguns segundos...
-          </p>
-        )}
       </div>
+      {generatingCommissions && (
+        <p className="-mt-2 mb-3 text-xs text-gray-500 sm:text-right">
+          Processando comissões em segundo plano. Isso pode levar alguns segundos...
+        </p>
+      )}
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-        {/* Total Pago */}
-        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-          <div style={{ height: 3, backgroundColor: '#10B981' }} />
-          <div className="p-4 bg-white">
-            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Total Pago</p>
-            <p className="text-2xl font-black text-emerald-700 mb-1">
-              R$ {totals.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-            <p className="text-xs text-gray-500">{totals.countPaid} despesas pagas</p>
-          </div>
+      {/* Resumo do mês: todos os números vêm somados do back */}
+      <KpiStrip
+        cols={4}
+        loading={loading && expenses.length === 0}
+        items={[
+          { label: 'Total do mês', value: brl(totals.grandTotal), sub: `${totals.countPaid + totals.countPending} despesas, sem canceladas`, hero: true },
+          { label: 'Pago', value: brl(totals.totalPaid), sub: `${totals.countPaid} paga${totals.countPaid !== 1 ? 's' : ''}`, onClick: () => setFilters({ ...filters, status: 'paid' }) },
+          { label: 'A pagar', value: brl(totals.totalPending), sub: `${totals.countPending} em aberto (pendentes e agendadas)`, onClick: () => setFilters({ ...filters, status: 'open' }) },
+          { label: 'Vencidas', value: brl(totals.overdueTotal), sub: `${statusCounts.overdue} com data já passada`, danger: statusCounts.overdue > 0, onClick: () => setFilters({ ...filters, status: 'overdue' }) },
+        ]}
+      />
+
+      {/* Chips: status e origem, com contagem do back */}
+      <div className="mt-4 mb-4 space-y-2">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Status">
+          {([
+            { key: '', label: 'Todas', count: statusCounts.todas },
+            { key: 'open', label: 'A pagar', count: statusCounts.open },
+            { key: 'overdue', label: 'Vencidas', count: statusCounts.overdue, warn: statusCounts.overdue > 0 },
+            { key: 'paid', label: 'Pagas', count: statusCounts.paid },
+            { key: 'canceled', label: 'Canceladas', count: statusCounts.canceled },
+          ]).map(c => (
+            <FinChip key={c.key || 'todas'} on={filters.status === c.key} warn={c.warn} label={c.label} count={c.count}
+              onClick={() => setFilters({ ...filters, status: c.key })} />
+          ))}
         </div>
-
-        {/* Total Pendente */}
-        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-          <div style={{ height: 3, backgroundColor: '#9CA3AF' }} />
-          <div className="p-4 bg-white">
-            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Total Pendente</p>
-            <p className="text-2xl font-black text-gray-700 mb-1">
-              R$ {totals.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-            <p className="text-xs text-gray-500">{totals.countPending} despesas pendentes</p>
-          </div>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Origem">
+          <FinChip on={filters.origin === ''} label="Todas as origens" onClick={() => setFilters({ ...filters, origin: '' })} />
+          {(['fixed', 'commission', 'manual'] as ExpenseOrigin[]).map((o) => (
+            <FinChip key={o} on={filters.origin === o} count={byOrigin[o].count}
+              label={o === 'fixed' ? 'Fixas' : o === 'commission' ? 'Comissões' : 'Avulsas'}
+              onClick={() => setFilters({ ...filters, origin: filters.origin === o ? '' : o })} />
+          ))}
+          <select
+            value={filters.category}
+            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+            aria-label="Categoria"
+            className="min-h-8 rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          >
+            <option value="">Todas as categorias</option>
+            <option value="payroll">Folha</option>
+            <option value="commission">Comissão</option>
+            <option value="benefit">Benefício</option>
+            <option value="operational">Operacional</option>
+            <option value="equipment">Equipamento</option>
+            <option value="marketing">Marketing</option>
+            <option value="other">Outro</option>
+          </select>
+          <span className="ml-auto text-xs text-gray-500 tabular-nums">
+            {pagination?.total ?? visibleExpenses.length} despesa{(pagination?.total ?? visibleExpenses.length) !== 1 ? 's' : ''}
+          </span>
         </div>
-
-        {/* Total Geral */}
-        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-          <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
-          <div className="p-4 bg-white">
-            <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Total Geral</p>
-            <p className="text-2xl font-black text-violet-700 mb-1">
-              R$ {(totals.totalPaid + totals.totalPending).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-            <p className="text-xs text-gray-500">{totals.countPaid + totals.countPending} despesas no total</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Quebra por origem: Fixas / Comissões / Avulsas (pago + pendente, não canceladas) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-        {(['fixed', 'commission', 'manual'] as ExpenseOrigin[]).map((o) => {
-          const cfg = EXPENSE_ORIGIN_CONFIG[o];
-          const t = byOrigin[o];
-          const active = filters.origin === o;
-          return (
-            <button
-              key={o}
-              type="button"
-              onClick={() => setFilters({ ...filters, origin: active ? '' : o })}
-              aria-pressed={active}
-              title={active ? 'Limpar filtro de origem' : `Filtrar por ${cfg.label.toLowerCase()}`}
-              className={`text-left rounded-2xl border px-4 py-3 transition-shadow hover:shadow-md ${active ? 'ring-2' : ''}`}
-              style={{ borderColor: `${cfg.color}30`, backgroundColor: cfg.bgColor, ['--tw-ring-color' as any]: cfg.color }}
-            >
-              <p className="text-3xs font-black uppercase tracking-widest mb-1" style={{ color: cfg.color }}>
-                {cfg.label === 'Fixa' ? 'Fixas' : cfg.label === 'Comissão' ? 'Comissões' : 'Avulsas'}
-              </p>
-              <p className="text-xl font-black text-gray-800">
-                R$ {t.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-xs text-gray-500">{t.count} despesa{t.count !== 1 ? 's' : ''}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filtros e Ações */}
-      <div className="border border-gray-200 rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Mês</label>
-            <select
-              value={filters.month}
-              onChange={(e) => {
-                const newMonth = Number(e.target.value);
-                setFilters({ ...filters, month: newMonth });
-                onMonthChange?.(newMonth);
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-            >
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ano</label>
-            <select
-              value={filters.year}
-              onChange={(e) => {
-                const newYear = Number(e.target.value);
-                setFilters({ ...filters, year: newYear });
-                onYearChange?.(newYear);
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-            >
-              {[2024, 2025, 2026].map((yr) => (
-                <option key={yr} value={yr}>{yr}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-            >
-              <option value="">Todas</option>
-              <option value="payroll">Folha</option>
-              <option value="commission">Comissão</option>
-              <option value="benefit">Benefício</option>
-              <option value="operational">Operacional</option>
-              <option value="equipment">Equipamento</option>
-              <option value="marketing">Marketing</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Origem</label>
-            <select
-              value={filters.origin}
-              onChange={(e) => setFilters({ ...filters, origin: e.target.value as '' | ExpenseOrigin })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-            >
-              <option value="">Todas</option>
-              <option value="fixed">Fixa</option>
-              <option value="commission">Comissão</option>
-              <option value="manual">Avulsa</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-            >
-              <option value="">Todos</option>
-              <option value="paid">Pago</option>
-              <option value="pending">Pendente</option>
-              <option value="scheduled">Agendado</option>
-            </select>
-          </div>
-          <div className="flex justify-end">
-            <div className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 rounded-full text-xs text-gray-600">
-              <Filter size={14} />
-              <span>{visibleExpenses.length} despesas encontradas</span>
-            </div>
-          </div>
-        </div>
+        <p className="text-xs text-gray-500">
+          Por origem: Fixas {brl(byOrigin.fixed.total)} · Comissões {brl(byOrigin.commission.total)} · Avulsas {brl(byOrigin.manual.total)}
+        </p>
       </div>
 
       {/* Tabela de Despesas */}
@@ -784,8 +693,17 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                   <td colSpan={9} className="text-center py-12">
                     <div className="flex flex-col items-center">
                       <DollarSign className="w-12 h-12 text-gray-300 mb-2" />
-                      <p className="text-gray-500">Nenhuma despesa encontrada</p>
-                      <p className="text-xs text-gray-400">Tente ajustar os filtros ou crie uma nova despesa</p>
+                      {listError ? (
+                        <>
+                          <p className="text-gray-700 font-medium">Não foi possível carregar as despesas</p>
+                          <button type="button" onClick={() => fetchExpenses(listParams)} className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Tentar de novo</button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-gray-500">Nenhuma despesa neste filtro</p>
+                          <p className="text-xs text-gray-400">Troque o chip de status ou de origem, ou lance uma nova despesa</p>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -799,9 +717,8 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                   const notes = parseExpenseNotes(expense.notes);
                   
                   return (
-                    <>
+                    <Fragment key={expense._id}>
                       <tr
-                        key={expense._id}
                         className={`transition-colors ${expense.status === 'canceled' ? 'bg-rose-50' : isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
                       >
                         <td className="px-2 py-2">
@@ -868,7 +785,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                           )}
                         </td>
                         <td className="px-3 py-2">
-                          {expense.paymentMethod === 'transferencia_bancaria' ? 'Transferência' : expense.paymentMethod}
+                          {PAYMENT_METHOD_LABEL[expense.paymentMethod] ?? expense.paymentMethod ?? '—'}
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: statusConfig.bgColor, color: statusConfig.color, borderColor: `${statusConfig.color}40` }}>
@@ -1067,13 +984,39 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })
               )}
             </tbody>
           </table>
         </div>
+        {(pagination?.pages ?? 0) > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-3 py-2 text-xs text-gray-600">
+            <span>
+              {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="rounded-md border border-gray-300 px-2.5 py-1 font-medium disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="px-2">Página {pagination.page} de {pagination.pages}</span>
+              <button
+                type="button"
+                disabled={page >= pagination.pages || loading}
+                onClick={() => setPage(p => p + 1)}
+                className="rounded-md border border-gray-300 px-2.5 py-1 font-medium disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -1099,7 +1042,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               }
             }
           }
-          fetchExpenses(filters);
+          fetchExpenses(listParams);
         }}
       />
 
@@ -1183,9 +1126,9 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               <button
                 onClick={async () => {
                   try {
-                    await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters), true);
+                    await generateCommissions(filters.month, filters.year, () => fetchExpenses(listParams), true);
                   } catch {
-                    fetchExpenses(filters);
+                    fetchExpenses(listParams);
                   } finally {
                     setRegenerateConfirmOpen(false);
                     refreshCommissionsGenerated();

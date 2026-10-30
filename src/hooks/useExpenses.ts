@@ -1,6 +1,6 @@
 // src/hooks/useExpenses.ts
 import { useState, useCallback } from 'react';
-import { expenseService, Expense, ExpenseFilters, ExpenseOriginTotals } from '../services/expenseService';
+import { expenseService, Expense, ExpenseFilters, ExpenseOriginTotals, ExpenseStatusCounts } from '../services/expenseService';
 import { toast } from 'react-toastify';
 import { invalidateCache } from '../utils/cacheManager';
 
@@ -11,7 +11,10 @@ export const useExpenses = () => {
   const [loading, setLoading] = useState(false);
   const [generatingCommissions, setGeneratingCommissions] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 0 });
-  const [totals, setTotals] = useState({ totalPaid: 0, totalPending: 0, countPaid: 0, countPending: 0 });
+  const [totals, setTotals] = useState({ totalPaid: 0, totalPending: 0, countPaid: 0, countPending: 0, grandTotal: 0, overdueTotal: 0 });
+  // Contagem dos chips de status, calculada no back (ignora o próprio filtro de status).
+  const [statusCounts, setStatusCounts] = useState<ExpenseStatusCounts>({ todas: 0, open: 0, overdue: 0, paid: 0, canceled: 0 });
+  const [error, setError] = useState(false);
   const [byOrigin, setByOrigin] = useState<ExpenseOriginTotals>({
     fixed: { total: 0, count: 0 },
     commission: { total: 0, count: 0 },
@@ -20,13 +23,16 @@ export const useExpenses = () => {
 
   const fetchExpenses = useCallback(async (filters?: ExpenseFilters) => {
     setLoading(true);
+    setError(false);
     try {
       const response = await expenseService.getAll(filters);
       setExpenses(response.data);
       setPagination(response.pagination);
-      setTotals(response.totals);
+      setTotals({ grandTotal: 0, overdueTotal: 0, ...response.totals });
       if (response.byOrigin) setByOrigin(response.byOrigin);
+      if (response.statusCounts) setStatusCounts(response.statusCounts);
     } catch (error: any) {
+      setError(true);
       notifyApiError(error, 'Erro ao carregar despesas');
     } finally {
       setLoading(false);
@@ -144,6 +150,8 @@ export const useExpenses = () => {
 
   return {
     expenses,
+    statusCounts,
+    error,
     loading,
     generatingCommissions,
     pagination,

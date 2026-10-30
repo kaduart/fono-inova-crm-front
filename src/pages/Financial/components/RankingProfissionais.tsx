@@ -17,6 +17,8 @@ const formatCurrency = (value: number) => {
 };
 
 interface RankingProfissionaisProps {
+  month?: number;
+  year?: number;
   data?: ProfessionalRankingItem[];
   loading?: boolean;
   onRowClick?: (doctorId: string) => void;
@@ -77,11 +79,17 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
   title = 'Ranking de Profissionais',
   subtitle = 'Produção, recebimento, comissão e saldo por profissional',
   onAdvanceRegistered,
+  month,
+  year,
 }) => {
+  // Segue o mês escolhido no topo (antes era sempre o mês corrente do relógio).
   const now = new Date();
+  const y = year || now.getFullYear();
+  const m = month || now.getMonth() + 1;
+  const pad = (n: number) => String(n).padStart(2, '0');
   const dateRange = {
-    from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`,
-    to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+    from: `${y}-${pad(m)}-01`,
+    to: `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`
   };
   const { data: doctors = [], isLoading: loadingDoctors } = useDoctorsAnalytics(dateRange, undefined, !data);
   const [advanceModal, setAdvanceModal] = useState<{ doctorId: string; doctorName: string } | null>(null);

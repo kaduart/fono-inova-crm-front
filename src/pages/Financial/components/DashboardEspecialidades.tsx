@@ -36,14 +36,15 @@ const formatDateShort = (iso: string) => {
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
-export const DashboardEspecialidades: React.FC = () => {
-    const [dateRange] = useState(() => {
-        const now = new Date();
+export const DashboardEspecialidades: React.FC<{ month?: number; year?: number }> = ({ month, year }) => {
+    // Segue o mês escolhido no topo; sem props, o mês corrente (antes era sempre o corrente).
+    const dateRange = useMemo(() => {
+        const ref = month && year ? new Date(year, month - 1, 1, 12) : new Date();
         return {
-            from: format(startOfMonth(now), 'yyyy-MM-dd'),
-            to: format(endOfMonth(now), 'yyyy-MM-dd')
+            from: format(startOfMonth(ref), 'yyyy-MM-dd'),
+            to: format(endOfMonth(ref), 'yyyy-MM-dd')
         };
-    });
+    }, [month, year]);
 
     const { data: specialties = [], isLoading: loadingSpecialties } = useSpecialtiesAnalytics(dateRange);
     const [detailSpecialty, setDetailSpecialty] = useState<string | null>(null);

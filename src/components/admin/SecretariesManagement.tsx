@@ -1,10 +1,12 @@
-import { Mail, Plus, Search, UserRound, Users, X } from 'lucide-react';
+import { AlertTriangle, Mail, Plus, RotateCw, Search, UserRound, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
 import { adminService } from '../../services/adminService';
 import AddAdminContent from './AddAdminContent';
 
 type Secretary = { _id: string; fullName: string; email: string; role: 'secretary' };
+
+const initialsOf = (name?: string) =>
+  (name || 'S').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'S';
 
 type Props = {
   addNewAdmin: (data: { fullName: string; email: string; password: string; role?: string }) => Promise<void>;
@@ -15,14 +17,16 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadSecretaries = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await adminService.fetchSecretaries();
       setSecretaries(response.data?.data || []);
     } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Não foi possível carregar as secretárias.');
+      setLoadError(error?.response?.data?.error || 'Verifique a conexão e tente de novo.');
     } finally {
       setLoading(false);
     }
@@ -37,57 +41,106 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
   }, [search, secretaries]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Users size={21} /></div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900">Secretárias</h1>
-              <p className="text-sm text-slate-500">Gerencie os acessos da equipe administrativa.</p>
-            </div>
+    <div className="w-full p-4 text-left sm:p-6">
+      <div className="mb-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <Users size={20} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold leading-tight text-gray-900 dark:text-gray-50">Secretárias</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Acessos da equipe administrativa.</p>
           </div>
-          <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700">
-            <Plus size={17} /> Nova secretária
-          </button>
         </div>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-700 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+        >
+          <Plus size={16} aria-hidden />
+          Nova secretária
+        </button>
+      </div>
 
-        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar por nome ou e-mail" className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" />
-          </div>
-          <span className="text-xs font-semibold text-slate-500">{secretaries.length} {secretaries.length === 1 ? 'pessoa cadastrada' : 'pessoas cadastradas'}</span>
-        </div>
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="relative w-full sm:max-w-sm">
+          <span className="sr-only">Buscar secretária</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden />
+          <input
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="Nome ou e-mail"
+            className="min-h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </label>
+        {!loading && !loadError && (
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {search.trim() ? `${filtered.length} de ${secretaries.length}` : secretaries.length} {secretaries.length === 1 ? 'pessoa cadastrada' : 'pessoas cadastradas'}
+          </span>
+        )}
+      </div>
 
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-busy={loading}>
         {loading ? (
-          <div className="px-5 py-14 text-center text-sm text-slate-500">Carregando equipe...</div>
+          <ul aria-label="Carregando equipe">
+            {[0, 1, 2].map(i => (
+              <li key={i} className="flex items-center gap-3 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-800">
+                <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-gray-100 dark:bg-gray-800" />
+                <span className="flex-1 space-y-2">
+                  <span className="block h-3 w-40 animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
+                  <span className="block h-3 w-56 animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : loadError ? (
+          <div className="px-4 py-12 text-center" role="alert">
+            <AlertTriangle className="mx-auto h-8 w-8 text-amber-600 dark:text-amber-400" aria-hidden />
+            <p className="mt-3 font-semibold text-gray-900 dark:text-gray-100">Não foi possível carregar as secretárias</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => void loadSecretaries()}
+              className="mt-4 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-300 px-3.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800"
+            >
+              <RotateCw size={15} aria-hidden /> Tentar de novo
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="px-5 py-14 text-center">
-            <UserRound className="mx-auto h-10 w-10 text-slate-300" />
-            <p className="mt-3 font-bold text-slate-700">Nenhuma secretária encontrada</p>
-            <p className="mt-1 text-sm text-slate-500">Cadastre uma nova pessoa ou ajuste a busca.</p>
+          <div className="px-4 py-12 text-center">
+            <UserRound className="mx-auto h-9 w-9 text-gray-400" aria-hidden />
+            <p className="mt-3 font-semibold text-gray-900 dark:text-gray-100">
+              {search.trim() ? 'Ninguém com esse nome ou e-mail' : 'Nenhuma secretária cadastrada'}
+            </p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {search.trim() ? 'Confira a grafia ou limpe a busca.' : 'Use "Nova secretária" para dar acesso a alguém da equipe.'}
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 border-t border-slate-100">
+          <ul>
             {filtered.map(secretary => (
-              <article key={secretary._id} className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-50/70">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-extrabold text-emerald-700">{secretary.fullName?.charAt(0).toUpperCase() || 'S'}</div>
+              <li key={secretary._id} className="flex items-center gap-3 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-800">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                  {initialsOf(secretary.fullName)}
+                </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-slate-900">{secretary.fullName}</p>
-                  <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-slate-500"><Mail size={13} /> {secretary.email}</p>
+                  <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{secretary.fullName}</p>
+                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                    <Mail size={13} className="shrink-0" aria-hidden />
+                    <span className="truncate">{secretary.email}</span>
+                  </p>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-2xs font-bold text-emerald-700">Secretária</span>
-              </article>
+                <span className="hidden shrink-0 rounded-full border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-500/40 dark:text-emerald-300 sm:inline">Secretária</span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
 
       {modalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onMouseDown={() => setModalOpen(false)}>
           <div className="relative w-full max-w-xl" onMouseDown={event => event.stopPropagation()}>
-            <button type="button" onClick={() => setModalOpen(false)} className="absolute right-4 top-4 z-10 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Fechar"><X size={18} /></button>
+            <button type="button" onClick={() => setModalOpen(false)} className="absolute right-4 top-4 z-10 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-100" aria-label="Fechar"><X size={18} /></button>
             <AddAdminContent addNewAdmin={addNewAdmin} role="secretary" modal onCancel={() => setModalOpen(false)} onCreated={() => { setModalOpen(false); void loadSecretaries(); }} />
           </div>
         </div>

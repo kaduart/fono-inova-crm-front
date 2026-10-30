@@ -47,7 +47,8 @@ import {
     FileClock,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Chip as FinChip, KpiStrip, brl } from '../components/finUi';
 import { toast } from 'react-toastify';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
@@ -68,6 +69,8 @@ import {
     InsuranceSessionPhase,
     encerrarGuia,
     CompetenceBreakdown,
+    getInsuranceSummary,
+    InsuranceSummary,
     InsurancePaymentIntegrityConflict
 } from '../../../services/paymentService';
 import { extractErrorMessage } from '../../../utils/errorUtils';
@@ -231,7 +234,7 @@ interface InsuranceTabProps {
 // e todo reload da página voltava pra "A Faturar", perdendo onde o usuário estava
 // (achado 2026-08-04). Usa id estável (não o índice) pra não quebrar se a ordem das abas mudar.
 const CONVENIO_SUBTAB_PARAM = 'convenioSubTab';
-const SUB_TAB_IDS = ['a-faturar', 'aguardando', 'faturados', 'recebidos', 'historico', 'autorizacoes', 'envios', 'cadastrados', 'notas-fiscais'];
+const SUB_TAB_IDS = ['a-faturar', 'aguardando', 'faturados', 'recebidos', 'historico', 'autorizacoes', 'envios', 'cadastrados', 'notas-fiscais', 'rascunhos'];
 
 const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -289,9 +292,13 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     const [guidesByPhase, setGuidesByPhase] = useState<Record<InsuranceSessionPhase, PendingGuide[]>>({
         pendingBilling: [], documentationSent: [], billed: [], received: []
     });
-    const [totalsByPhase, setTotalsByPhase] = useState<Record<InsuranceSessionPhase, number>>({
-        pendingBilling: 0, documentationSent: 0, billed: 0, received: 0
-    });
+    // Totais por fase como o back manda (valor, sessões e guias). A tela só exibe.
+    type PhaseStat = { amount: number; sessions: number; guides: number };
+    const [phaseStats, setPhaseStats] = useState<Record<InsuranceSessionPhase, PhaseStat> | null>(null);
+    // Números que dependem do mês (recebido pela data do depósito, NFs abertas, fila de ação).
+    const [insSummary, setInsSummary] = useState<InsuranceSummary | null>(null);
+    const [insSummaryError, setInsSummaryError] = useState(false);
+    const navigate = useNavigate();
 
     // União deduplicada dos buckets. É o que resolve `selectedGuides` (Set de ids)
     // → objetos de guia no wizard de faturamento. Precisa ser derivado: como
@@ -524,28 +531,30 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     // pending-billing ser chamado 2x (loadAllCounts sempre busca; loadReceivables busca
     // de novo se subTab===0). loadAllCounts já popula pendingGuides/orphanSessions —
     // loadReceivables só precisa rodar por conta própria para as abas Faturados/Recebidos.
-    useEffect(() => {
-        // Notas Fiscais possui read model e ciclo de loading próprios. Carregar
-        // aqui as quatro fases de guia desmontava o componente filho e repetia
-        // `insurance-batches/receivables` até quatro vezes.
-        if (subTab === 8) return;
-        loadAllCounts(selectedMonthYear);
-        if (subTab > 3) {
-            loadReceivables(selectedMonthYear);
+    // As listas de guias são acumuladas (não dependem do mês): carregam uma vez e
+    // não a cada troca de sub-aba. O resumo do topo segue o mês escolhido.
+    const loadSummary = useCallback(async (monthKey: string) => {
+        setInsSummaryError(false);
+        try {
+            const res = await getInsuranceSummary(monthKey);
+            setInsSummary(res.data.data);
+        } catch (error) {
+            console.error('Erro ao carregar resumo de convênios:', error);
+            setInsSummaryError(true);
         }
-    }, [selectedMonthYear, subTab]);
+    }, []);
+
+    useEffect(() => { loadAllCounts(selectedMonthYear); }, []);
+    useEffect(() => { void loadSummary(selectedMonthYear); }, [selectedMonthYear, loadSummary]);
 
     useEffect(() => {
         const handleRefresh = () => {
-            if (subTab === 8) return;
             loadAllCounts(selectedMonthYear);
-            if (subTab > 3) {
-                loadReceivables(selectedMonthYear);
-            }
+            void loadSummary(selectedMonthYear);
         };
         window.addEventListener('cash:refresh', handleRefresh);
         return () => window.removeEventListener('cash:refresh', handleRefresh);
-    }, [selectedMonthYear, subTab]);
+    }, [selectedMonthYear, loadSummary]);
 
     // Carrega counts de todas as abas (A Faturar, Faturados, Recebidos) antecipadamente
     const loadAllCounts = async (month?: string) => {
@@ -557,11 +566,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             // não recorta período — o filtro de competência é opcional e, quando
             // vem, o backend aplica o eixo de data próprio de cada fase.
             const phases: InsuranceSessionPhase[] = ['pendingBilling', 'documentationSent', 'billed', 'received'];
-            const [guideResponse, allResponse] = await Promise.all([
-                getInsuranceGuidesView({ phases, detail: 'summary' }),
-                // FinancialDashboardTab ainda depende deste endpoint — mantido.
-                getInsuranceReceivables({ month })
-            ]);
+            const guideResponse = await getInsuranceGuidesView({ phases, detail: 'summary' });
 
             // Compatibilidade durante rollout/restart: um backend ainda no contrato
             // anterior ignora `phases` e não devolve `buckets`. Nesse caso usamos as
@@ -585,18 +590,22 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                 billed: (buckets.billed.data || []).map(g => adaptGuideViewToPendingGuide(g, 'billed')),
                 received: (buckets.received.data || []).map(g => adaptGuideViewToPendingGuide(g, 'received'))
             });
-            setTotalsByPhase({
-                pendingBilling: byPhase.pendingBilling.totals.financialSummary.pendingAmount,
-                documentationSent: byPhase.documentationSent.totals.financialSummary.documentationSentAmount,
-                billed: byPhase.billed.totals.financialSummary.billedAmount,
-                received: byPhase.received.totals.financialSummary.receivedAmount
+            const stat = (b: any, amountKey: string, phase: InsuranceSessionPhase): PhaseStat => ({
+                amount: Number(b?.totals?.financialSummary?.[amountKey]) || 0,
+                sessions: Number(b?.totals?.sessions?.[phase]) || 0,
+                guides: Number(b?.pagination?.total ?? (b?.data || []).length) || 0,
+            });
+            setPhaseStats({
+                pendingBilling: stat(byPhase.pendingBilling, 'pendingAmount', 'pendingBilling'),
+                documentationSent: stat(byPhase.documentationSent, 'documentationSentAmount', 'documentationSent'),
+                billed: stat(byPhase.billed, 'billedAmount', 'billed'),
+                received: stat(byPhase.received, 'receivedAmount', 'received'),
             });
             setOrphanSessions(guideResponse.data.orphanSessions || []);
             setOrphanSessionsCount(guideResponse.data.orphanSessionsCount || 0);
             setCompetenceBreakdown(buckets.pendingBilling.competenceBreakdown || null);
             setPaymentIntegrityConflictCount(guideResponse.data.paymentIntegrityConflictCount || 0);
             setPaymentIntegrityConflicts(guideResponse.data.paymentIntegrityConflicts || []);
-            setAllReceivables(allResponse.data.data || []);
         } catch (error) {
             console.error('Erro ao carregar counts de convênios:', error);
             // Falha da leitura precisa ser visível: sem o toast, ela fica
@@ -679,7 +688,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     const loadDraftCount = async () => {
         try {
             const res = await listBillingSubmissions({ status: 'draft', limit: 100 });
-            setDraftSubmissionCount((res.data.data || []).length);
+            setDraftSubmissionCount(res.data.pagination?.total ?? (res.data.data || []).length);
         } catch {
             // Silencioso de propósito: é um badge auxiliar. Um toast de erro aqui
             // apareceria em toda visita à tela de convênios sem o usuário poder agir.
@@ -688,67 +697,10 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
 
     useEffect(() => { void loadDraftCount(); }, []);
 
+    // Todas as abas de guia são buckets de fase carregados juntos: recarregar uma é
+    // recarregar todas, e o resumo do mês junto (uma baixa muda "Recebido no mês").
     const loadReceivables = async (month?: string) => {
-        if (subTab === 8) return;
-        // Todas as abas de guia (A Faturar, Aguardando, Faturados, Recebidos) são
-        // buckets de fase carregados juntos — recarregar uma é recarregar todas.
-        if (subTab === 0 || subTab === 1 || subTab === 2 || subTab === 3) {
-            await loadAllCounts(month);
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // Garante allReceivables para contagens/cards caso ainda não tenha carregado
-            let allData = allReceivables;
-            if (allData.length === 0) {
-                const allResponse = await getInsuranceReceivables({ month });
-                allData = allResponse.data.data || [];
-                setAllReceivables(allData);
-            }
-
-            // Buscar dados filtrados pela aba ativa para a lista
-            const statusFilter = subTab === 2 ? 'billed' : 'received';
-            const response = await getInsuranceReceivables({ month, status: statusFilter });
-            const data = response.data.data || [];
-
-            // 🆕 CORREÇÃO: Não filtrar novamente - backend já retorna dados corretos
-            // Apenas garante estrutura válida
-            const validData = (data || []).map((group: any) => ({
-                ...group,
-                patients: (group.patients || []).map((p: any) => ({
-                    ...p,
-                    payments: p.payments || []
-                })).filter((p: any) => (p.payments || []).length > 0)
-            })).filter((group: any) => (group.patients || []).length > 0);
-
-            setReceivables(validData);
-
-            const totalPending = validData.reduce((acc: number, g: any) =>
-                acc + (g.patients || []).reduce((pAcc: number, p: any) =>
-                    pAcc + (p.payments || []).filter((pay: any) => pay.status !== 'received').length, 0
-                ), 0
-            );
-
-            const apiSummary = response.data.summary || {};
-            setSummary({
-                totalProviders: validData.length,
-                grandTotal: validData.reduce((acc: number, g: any) => acc + (g.totalPending || 0), 0),
-                pendingCount: totalPending,
-                prevMonthTotal: apiSummary.prevMonthTotal ?? null,
-                change: apiSummary.change ?? null,
-                changePercent: apiSummary.changePercent ?? null
-            });
-
-            const expanded: Record<string, boolean> = {};
-            validData.forEach((g: any) => { expanded[g._id] = true; });
-            setExpandedGroups(expanded);
-        } catch (error) {
-            console.error('Erro ao carregar recebíveis:', error);
-            toast.error('Erro ao carregar dados de convênios');
-        } finally {
-            setLoading(false);
-        }
+        await Promise.all([loadAllCounts(month), loadSummary(month || selectedMonthYear)]);
     };
 
 
@@ -1238,24 +1190,24 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             {/* Header */}
             <div className="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-50 border border-blue-100">
-                        <Building2 className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50 border border-emerald-100">
+                        <Building2 className="w-5 h-5 text-emerald-700" />
                     </div>
                     <div className="min-w-0">
                         <h2 className="text-xl font-bold leading-tight tracking-tight text-slate-900">Gestão de Convênios</h2>
-                        <p className="text-xs leading-5 text-slate-500 sm:text-sm">Controle de faturamento e recebimentos · {getMonthLabel()}</p>
+                        <p className="text-xs leading-5 text-slate-500 sm:text-sm">Guias do lançamento ao recebimento</p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:ml-auto">
-                    {subTab !== 4 && subTab !== 5 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
-                        <div className="relative sm:mr-1">
-                            <Calendar size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    {subTab !== 4 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
+                        <div className="relative flex items-center gap-2 sm:mr-1">
+                            <span className="text-xs text-slate-500">{subTab === 5 ? 'Autorizações de' : 'Recebido no mês de'}</span>
                             <input
                                 type="month"
                                 aria-label="Mês de referência"
                                 value={selectedMonthYear}
                                 onChange={(e) => handlePeriodChange(e.target.value)}
-                                className="h-9 w-full rounded-lg border border-gray-300 bg-white pl-8 pr-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-[150px]"
+                                className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-[150px]"
                             />
                         </div>
                     )}
@@ -1263,277 +1215,124 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                     <button
                         type="button"
                         onClick={() => setConvenioManagerOpen(true)}
-                        className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-none"
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-none"
                     >
                         <Building2 size={14} />
-                        Gerenciar Convênios
+                        Gerenciar convênios
                     </button>
                     <button
                         type="button"
-                        onClick={() => setIsNewModalOpen(true)}
+                        // O lançamento manual chamava uma rota antiga bloqueada (410) e criava
+                        // pagamento sem sessão nem guia. Atendimento de convênio nasce na agenda.
+                        onClick={() => navigate('/admin/calendar')}
+                        title="Atendimento de convênio é lançado na agenda (guia → sessão)"
                         className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:flex-none"
                     >
                         <Plus size={14} />
-                        Novo Atendimento
+                        Lançar atendimento
                     </button>
                     </div>
                 </div>
             </div>
 
-            {/* Filtro de Mês — oculto no Histórico, Autorizações, Envios, Convênios Cadastrados,
-                Notas Fiscais e Rascunhos (não são escopados por mês). Um rascunho de junho trava
-                sessões independentemente do mês selecionado, então filtrá-lo por mês esconderia
-                justamente o que está bloqueando o faturamento. */}
-            {/* Cards de Resumo — accordion default fechado */}
+            {/* Números do topo: sempre visíveis, nunca escondidos quando zero, todos somados no back */}
             {(() => {
-                const ms = getMonthSummary();
-                const prodTotal = ms.totalAFaturar + ms.totalFaturado + ms.totalRecebido;
+                const ps = phaseStats;
+                const sm = insSummary;
+                const aq = sm?.actionQueue;
+                const prev = competenceBreakdown?.previous;
+                const n = (v?: number | null) => (v ?? 0).toLocaleString('pt-BR');
+                const change = sm?.receivedInMonth.changePercent;
                 return (
-                    <div className="mb-3">
-                        {/* Header clicável */}
-                        <button
-                            type="button"
-                            onClick={() => setCardsOpen(o => !o)}
-                            aria-expanded={cardsOpen}
-                            aria-controls="insurance-summary-cards"
-                            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                        >
-                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3">
-                                <span className="shrink-0 text-sm font-bold uppercase tracking-wide text-emerald-800">Painel de Convênios</span>
-                                {!cardsOpen && (
-                                    <span className="flex min-w-0 flex-1 flex-wrap items-center divide-x divide-emerald-200">
-                                        <span className="pr-3" title="Inclui o backlog total de A Faturar (não filtra por período) + Faturado/Recebido do período selecionado">
-                                            <span className="block text-xs font-medium text-emerald-700">Produção</span>
-                                            <strong className="block text-base tabular-nums text-purple-700">{prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-                                        </span>
-                                        <span className="px-3" title="Backlog total pendente de faturamento — não muda com o Período selecionado">
-                                            <span className="block text-xs font-medium text-emerald-700">A faturar (total)</span>
-                                            <strong className="block text-base tabular-nums text-amber-700">{ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-                                        </span>
-                                        {ms.totalWaiting > 0 && (
-                                            <span className="px-3" title="Backlog total aguardando faturamento — não muda com o Período selecionado">
-                                                <span className="block text-xs font-medium text-emerald-700">Aguardando (total)</span>
-                                                <strong className="block text-base tabular-nums text-blue-700">{ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-                                            </span>
-                                        )}
-                                        {ms.totalRecebido > 0 && (
-                                            <span className="px-3">
-                                                <span className="block text-xs font-medium text-emerald-700">Recebido</span>
-                                                <strong className="block text-base tabular-nums text-emerald-700">{ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-                                            </span>
-                                        )}
-                                        {ms.closedCount > 0 && (
-                                            <span className="px-3">
-                                                <span className="block text-xs font-medium text-emerald-700">{ms.closedCount === 1 ? 'Guia finalizada' : 'Guias finalizadas'}</span>
-                                                <strong className="block text-base tabular-nums text-slate-800">{ms.closedCount}</strong>
-                                            </span>
-                                        )}
-                                        {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
-                                            <span className="pl-3" title={`Sessões pendentes de faturamento anteriores a ${competenceBreakdown.referenceMonth}, já incluídas no total a faturar.`}>
-                                                <span className="block text-xs font-medium text-emerald-700">Em atraso · antes de {competenceBreakdown.referenceMonth}</span>
-                                                <strong className="block text-base tabular-nums text-rose-700">{competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-                                            </span>
-                                        )}
-                                    </span>
-                                )}
-                            </span>
-                            <ChevronDown size={20} className={`text-emerald-700 shrink-0 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        <Collapse in={cardsOpen}>
-                            <div id="insurance-summary-cards" className="grid grid-cols-1 min-[520px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch gap-3 p-3">
-                                {/* Produção Total */}
-                                <div className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] h-full">
-                                    <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
-                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-purple-700">Produção</span>
-                                            {summary.changePercent !== null && (
-                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${(summary.change ?? 0) >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                                    {(summary.change ?? 0) >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                                                    {(summary.change ?? 0) >= 0 ? '+' : ''}{summary.changePercent}%
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
-                                            {prodTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                        </div>
-                                        <p className="text-sm text-gray-500">{ms.pendingCount + ms.receivedCount} sessões realizadas</p>
-                                        <p className="text-xs text-gray-400 mt-1">valor gerado · não é caixa ainda</p>
-                                        {summary.prevMonthTotal !== null && (
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                Mês anterior: <span className="font-semibold text-gray-600">{summary.prevMonthTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* A Faturar */}
-                                <button
-                                    type="button"
-                                    onClick={() => openDetailsModal(
-                                        'A Faturar',
-                                        '#F59E0B',
-                                        pendingStateGuides
-                                            .map(g => {
-                                                const start = fmtDateShort(g.firstSessionDate);
-                                                const end = fmtDateShort(g.lastSessionDate);
-                                                const period = start && end ? (start === end ? start : `${start} a ${end}`) : null;
-                                                const value = (g.sessions || []).reduce((s: number, session: any) => s + (Number(session.value) || 0), 0) || Number(g.pendingValue || 0);
-                                                return {
-                                                    id: g.guideId,
-                                                    label: g.patient?.fullName || 'Paciente',
-                                                    sublabel: `guia ${g.number}${period ? ` · ${period}` : ''} · ${g.pendingSessions} sessão${g.pendingSessions !== 1 ? 'ões' : ''}`,
-                                                    value,
-                                                    highlight: overdueValueByGuideId.has(g.guideId),
-                                                    highlightLabel: 'atrasado',
-                                                };
-                                            })
-                                            // Agrupa por paciente (mesmo nome fica adjacente) em vez de intercalar
-                                            // por valor puro — muito mais fácil de escanear com várias guias.
-                                            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value),
-                                        [
-                                            { key: 'all', label: 'Todos', predicate: () => true },
-                                            { key: 'overdue', label: 'Atrasado', predicate: (r) => !!r.highlight },
-                                            { key: 'current', label: 'Mês atual', predicate: (r) => !r.highlight },
-                                        ]
-                                    )}
-                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-                                >
-                                    <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
-                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">A Faturar</span>
-                                        </div>
-                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
-                                            {ms.totalAFaturar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                        </div>
-                                        <p className="text-sm text-gray-500">{ms.pendingCount} sessões · {pendingStateGuides.length} guia{pendingStateGuides.length !== 1 ? 's' : ''}</p>
-                                        <p className="text-xs text-gray-400 mt-1">não enviado ao convênio</p>
-                                        <p className="text-xs text-gray-400">total acumulado — não filtra pelo Período acima</p>
-                                        {competenceBreakdown && competenceBreakdown.previous.value > 0 && (
-                                            <p className="text-xs text-red-600 font-medium mt-2 rounded-lg bg-rose-50 px-2 py-1.5">
-                                                {competenceBreakdown.current.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} de {competenceBreakdown.referenceMonth} · {competenceBreakdown.previous.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} atrasado
-                                            </p>
-                                        )}
-                                        <p className="text-2xs text-amber-700 font-semibold mt-auto pt-2">Ver guias →</p>
-                                    </div>
-                                </button>
-
-                                {/* Aguardando Faturamento */}
-                                <button
-                                    type="button"
-                                    onClick={() => openDetailsModal(
-                                        'Aguardando Faturamento',
-                                        '#1D4ED8',
-                                        waitingBillingGuides
-                                            .map(g => ({
-                                                id: g.guideId,
-                                                label: g.patient?.fullName || 'Paciente',
-                                                sublabel: `guia ${g.number} · ${g.pendingSessions} sessão${g.pendingSessions !== 1 ? 'ões' : ''}`,
-                                                value: (g.sessions || []).reduce((s: number, session: any) => s + (Number(session.value) || 0), 0) || Number(g.pendingValue || 0),
-                                            }))
-                                            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR') || b.value - a.value)
-                                    )}
-                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                                >
-                                    <div style={{ height: 3, backgroundColor: '#1D4ED8' }} />
-                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">Aguardando Faturamento</span>
-                                        </div>
-                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
-                                            {ms.totalWaiting.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                        </div>
-                                        <p className="text-sm text-gray-500">{ms.waitingCount} sessões · {waitingBillingGuides.length} guia{waitingBillingGuides.length !== 1 ? 's' : ''}</p>
-                                        <p className="text-xs text-gray-400 mt-1">documentação já enviada</p>
-                                        <p className="text-2xs text-blue-600 font-semibold mt-auto pt-2">Ver guias →</p>
-                                    </div>
-                                </button>
-
-                                {/* Faturado */}
-                                <button
-                                    type="button"
-                                    onClick={() => openDetailsModal('Faturado', '#3B82F6', billedPaymentsDetailed)}
-                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-blue-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                                >
-                                    <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
-                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">Faturado</span>
-                                        </div>
-                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
-                                            {ms.totalFaturado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                        </div>
-                                        <p className="text-sm text-gray-500">{ms.billedCount} sessões enviadas</p>
-                                        <p className="text-xs text-gray-400 mt-1">aguardando repasse</p>
-                                        <p className="text-2xs text-blue-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
-                                    </div>
-                                </button>
-
-                                {/* Recebido */}
-                                <button
-                                    type="button"
-                                    onClick={() => openDetailsModal('Recebido', '#10B981', receivedPaymentsDetailed)}
-                                    className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                                >
-                                    <div style={{ height: 3, backgroundColor: '#10B981' }} />
-                                    <div className="p-3.5 bg-white h-full flex flex-col min-h-[168px]">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Recebido</span>
-                                        </div>
-                                        <div className="my-2 text-2xl font-bold leading-none tracking-tight tabular-nums text-slate-900">
-                                            {ms.totalRecebido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                        </div>
-                                        <p className="text-sm text-gray-500">{ms.receivedCount} sessões pagas</p>
-                                        <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Entrou no caixa</p>
-                                        <p className="text-2xs text-emerald-600 font-semibold mt-auto pt-2">Ver pagamentos →</p>
-                                    </div>
-                                </button>
+                    <div className="mb-3 space-y-3">
+                        <KpiStrip
+                            loading={!ps && loadingGuides}
+                            items={[
+                                {
+                                    label: 'A faturar', value: ps ? brl(ps.pendingBilling.amount) : '—',
+                                    sub: ps ? `${n(ps.pendingBilling.sessions)} sessões · ${n(ps.pendingBilling.guides)} guias${prev?.value ? ` · ${brl(prev.value)} de meses anteriores` : ''}` : undefined,
+                                    onClick: () => setSubTab(0),
+                                },
+                                {
+                                    label: 'Documentação enviada', value: ps ? brl(ps.documentationSent.amount) : '—',
+                                    sub: ps ? `aguardando NF · ${n(ps.documentationSent.sessions)} sessões` : undefined,
+                                    onClick: () => setSubTab(1),
+                                },
+                                {
+                                    label: 'Faturado a receber', value: ps ? brl(ps.billed.amount) : '—',
+                                    sub: sm ? `${n(sm.openInvoices.count)} NFs abertas${sm.openInvoices.oldestDays != null ? ` · mais antiga há ${sm.openInvoices.oldestDays} dias` : ''}` : undefined,
+                                    onClick: () => setSubTab(8),
+                                },
+                                {
+                                    label: 'Recebido no mês', hero: true,
+                                    value: sm ? brl(sm.receivedInMonth.net) : (insSummaryError ? '—' : '…'),
+                                    sub: sm
+                                        ? `${n(sm.receivedInMonth.sessions)} sessões · ${change == null ? 'sem base no mês anterior' : `${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toLocaleString('pt-BR')}% vs mês anterior`} · pela data do depósito`
+                                        : insSummaryError ? 'não foi possível carregar' : undefined,
+                                    onClick: () => setSubTab(3),
+                                },
+                            ]}
+                        />
+                        {insSummaryError && (
+                            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                                O resumo do mês não carregou.
+                                <button type="button" onClick={() => loadSummary(selectedMonthYear)} className="font-semibold underline">Tentar de novo</button>
                             </div>
-                        </Collapse>
+                        )}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="mr-1 text-xs font-semibold text-gray-500">Precisa de ação</span>
+                            <FinChip on={false} warn={(aq?.orphanSessions ?? orphanSessionsCount) > 0} label="Sessões sem guia"
+                                count={aq ? `${n(aq.orphanSessions)}${aq.orphanSessionsValue ? ` · ${brl(aq.orphanSessionsValue)}` : ''}` : n(orphanSessionsCount)}
+                                onClick={() => { setSubTab(0); void loadOrphanSessions().catch(() => undefined); }} />
+                            <FinChip on={false} warn={paymentIntegrityConflictCount > 0} label="Conflito de pagamento" count={n(paymentIntegrityConflictCount)}
+                                onClick={() => { setSubTab(0); setShowPaymentIntegrityConflicts(true); }} />
+                            <FinChip on={false} warn={(aq?.draftSubmissions ?? draftSubmissionCount) > 0} label="Rascunhos travando sessões"
+                                count={n(aq?.draftSubmissions ?? draftSubmissionCount)} onClick={() => setSubTab(9)} />
+                            <FinChip on={false} warn={(aq?.guidesExpiringIn7Days ?? 0) > 0} label="Guias vencendo em 7 dias"
+                                count={aq ? n(aq.guidesExpiringIn7Days) : '—'} onClick={() => setSubTab(5)} />
+                            <FinChip on={false} warn={(prev?.sessions ?? 0) > 0} label="A faturar de meses anteriores"
+                                count={n(prev?.sessions)} onClick={() => setSubTab(0)} />
+                        </div>
                     </div>
                 );
             })()}
 
-            {/* Sub-tabs */}
+            {/* Navegação: 3 grupos. As fases viram chips com contagem (guias) numa lista só. */}
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <div className="overflow-x-auto overscroll-x-contain border-b border-slate-100 p-2 pb-2.5">
-                    <div role="tablist" aria-label="Etapas de convênios" className="flex min-w-max gap-1 rounded-xl bg-slate-100/80 p-1">
-                        {[
-                            { value: 0, label: 'A Faturar', count: pendingStateGuides.length,        icon: <Clock size={15} />, amber: true },
-                            { value: 1, label: 'Aguardando Faturamento', count: waitingBillingGuides.length, icon: <Mail size={15} />, amber: true },
-                            // Contagem por bucket de fase. A contagem anterior lia
-                            // `allReceivables`, que nunca traz 'received' (RECEIVABLE_STATUSES
-                            // só tem pending_billing/billed) — por isso o badge vivia zerado.
-                            { value: 2, label: 'Faturados', count: guidesByPhase.billed.length, icon: <Send size={15} />, amber: false },
-                            { value: 8, label: 'Notas Fiscais', count: invoiceReceivableCount, icon: <FileText size={15} />, amber: false },
-                            { value: 3, label: 'Recebidos', count: guidesByPhase.received.length, icon: <CheckCircle size={15} />, amber: false },
-                            { value: 4, label: 'Histórico', count: 0,                           icon: <History size={15} />, amber: false },
-                            { value: 5, label: 'Autorizações', count: 0,                       icon: <Shield size={15} />, amber: false },
-                            { value: 6, label: 'Envios', count: 0,                             icon: <Mail size={15} />, amber: false },
-                            // Âmbar: cada rascunho aqui é sessão reservada que ninguém consegue faturar.
-                            { value: 9, label: 'Rascunhos', count: draftSubmissionCount,        icon: <FileClock size={15} />, amber: true },
-                            { value: 7, label: 'Convênios Cadastrados', count: 0,               icon: <Building2 size={15} />, amber: false },
-                        ].map(tab => (
-                            <button key={tab.value} type="button" role="tab" aria-selected={subTab === tab.value} onClick={() => setSubTab(tab.value)}
-                                className={`flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                                    subTab === tab.value
-                                        ? 'bg-white text-gray-900 shadow-sm font-semibold'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                }`}>
-                                {tab.icon}
-                                <span>{tab.label}</span>
-                                {tab.count > 0 && (
-                                    <span className={`min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full text-3xs font-bold ${
-                                        tab.amber
-                                            ? (subTab === tab.value ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700')
-                                            : (subTab === tab.value ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500')
-                                    }`}>{tab.count}</span>
-                                )}
+                <div className="border-b border-slate-100 px-3 pt-2 pb-3 space-y-3">
+                    <div role="tablist" aria-label="Convênios" className="flex flex-wrap gap-1 border-b border-slate-100">
+                        {([
+                            { id: 'fat', label: 'Faturamento', go: 0, active: subTab <= 3 },
+                            { id: 'nf', label: 'Notas e recebimentos', go: 8, active: subTab === 8, count: insSummary?.openInvoices.count },
+                            { id: 'mais', label: 'Mais', go: 4, active: subTab >= 4 && subTab !== 8 },
+                        ] as const).map(g => (
+                            <button key={g.id} type="button" role="tab" aria-selected={g.active}
+                                onClick={() => { if (!g.active) setSubTab(g.go); }}
+                                className={`-mb-px inline-flex min-h-10 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${g.active ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                                {g.label}
+                                {'count' in g && g.count != null && <span className="tabular-nums text-xs opacity-70">{g.count}</span>}
                             </button>
                         ))}
                     </div>
+                    {subTab <= 3 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="mr-1 text-xs font-semibold text-gray-500">Fase</span>
+                            <FinChip on={subTab === 0} onClick={() => setSubTab(0)} label="A faturar" count={phaseStats?.pendingBilling.guides ?? pendingStateGuides.length} />
+                            <FinChip on={subTab === 1} onClick={() => setSubTab(1)} label="Doc. enviada" count={phaseStats?.documentationSent.guides ?? waitingBillingGuides.length} />
+                            <FinChip on={subTab === 2} onClick={() => setSubTab(2)} label="Faturadas" count={phaseStats?.billed.guides ?? guidesByPhase.billed.length} />
+                            <FinChip on={subTab === 3} onClick={() => setSubTab(3)} label="Recebidas" count={phaseStats?.received.guides ?? guidesByPhase.received.length} />
+                            <span className="ml-1 text-xs text-gray-500">contagem em guias · listas acumuladas, sem filtro de mês</span>
+                        </div>
+                    )}
+                    {subTab >= 4 && subTab !== 8 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <FinChip on={subTab === 4} onClick={() => setSubTab(4)} label="Histórico" />
+                            <FinChip on={subTab === 5} onClick={() => setSubTab(5)} label="Autorizações" />
+                            <FinChip on={subTab === 6} onClick={() => setSubTab(6)} label="Envios" />
+                            <FinChip on={subTab === 9} onClick={() => setSubTab(9)} label="Rascunhos" count={insSummary?.actionQueue.draftSubmissions ?? draftSubmissionCount} warn={(insSummary?.actionQueue.draftSubmissions ?? draftSubmissionCount) > 0 && subTab !== 9} />
+                            <FinChip on={subTab === 7} onClick={() => setSubTab(7)} label="Convênios cadastrados" />
+                        </div>
+                    )}
                 </div>
 
                 {subTab === 0 && paymentIntegrityConflictCount > 0 && (
@@ -1648,9 +1447,9 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                             size="small"
                                             startIcon={<CheckCircle size={16} />}
                                             onClick={() => handleOpenReceberLoteModal()}
-                                            sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2 }}
+                                            sx={{ bgcolor: '#047857', '&:hover': { bgcolor: '#065F46' }, borderRadius: 2 }}
                                         >
-                                            Receber Selecionados
+                                            Receber selecionados
                                         </Button>
                                     )}
                                 </Box>
@@ -1756,145 +1555,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             convenios={convenios}
                             loadingConvenios={loadingConvenios}
                         />
-                    ) : loading ? (
-                        Array.from({ length: 4 }).map((_, i) => (
-                            <Box key={i} sx={{ mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: '#F9FAFB' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F615' }} />
-                                        <Box>
-                                            <Skeleton variant="text" width={150} height={20} />
-                                            <Skeleton variant="text" width={100} height={16} />
-                                        </Box>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#F59E0B15' }} />
-                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#3B82F615' }} />
-                                    </Box>
-                                </Box>
-                            </Box>
-                        ))
-                    ) : receivables.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500">
-                            <Building2 className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                            <Typography variant="h6" color="text.secondary" gutterBottom>
-                                Nenhum atendimento de convênio
-                            </Typography>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {/* 🆕 UX: Ordena convênios por valor total (maior primeiro) */}
-                            {[...receivables]
-                                .sort((a, b) => (b.totalPending || 0) - (a.totalPending || 0))
-                                .map((group) => {
-                                // 🆕 CORREÇÃO: Não filtrar novamente - backend já filtrou por status
-                                const patientsToShow = (group.patients || [])
-                                    .slice()
-                                    .sort((a: any, b: any) => (b.total || 0) - (a.total || 0));
-                                if (patientsToShow.length === 0) return null;
-                                const groupTotal = group.totalPending || 0;
-                                const isExpanded = expandedGroups[group._id] !== false;
-
-                                const tabAccent = subTab === 3 ? '#3B82F6' : '#10B981';
-                                // Para aba Recebidos: extrai datas de entrada no caixa
-                                const allPaidDates = subTab === 4
-                                    ? patientsToShow.flatMap((p: any) =>
-                                        (p.payments || []).filter((pay: any) => pay.paidAt).map((pay: any) => pay.paidAt as string)
-                                      ).sort()
-                                    : [];
-                                const formatDateBR = (d: string) => { const dt = new Date(d); return `${String(dt.getUTCDate()).padStart(2,'0')}/${String(dt.getUTCMonth()+1).padStart(2,'0')}/${dt.getUTCFullYear()}`; };
-                                const cashDateLabel = allPaidDates.length > 0
-                                    ? allPaidDates[0] === allPaidDates[allPaidDates.length - 1]
-                                        ? `caixa ${formatDateBR(allPaidDates[0])}`
-                                        : `caixa ${formatDateBR(allPaidDates[0])} – ${formatDateBR(allPaidDates[allPaidDates.length - 1])}`
-                                    : null;
-                                return (
-                                    <Card key={group._id} elevation={0} sx={{
-                                        width: '100%', borderRadius: 3,
-                                        border: '1.5px solid #E2E8F0', overflow: 'hidden',
-                                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-                                        transition: 'box-shadow 0.15s',
-                                        '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }
-                                    }}>
-                                        <Box sx={{ height: 3, bgcolor: tabAccent }} />
-                                        <Box
-                                            onClick={() => toggleGroup(group._id)}
-                                            sx={{
-                                                px: 2.5, py: 2,
-                                                bgcolor: isExpanded ? '#FAFAFA' : 'white',
-                                                borderBottom: isExpanded ? '1px solid #F1F5F9' : 'none',
-                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                cursor: 'pointer',
-                                                '&:hover': { bgcolor: '#F8FAFC' },
-                                            }}
-                                        >
-                                            <Box>
-                                                <Typography className="text-base" fontWeight="700" lineHeight={1.5} color="#0F172A" sx={{ mb: 0.25 }}>
-                                                    {formatProviderName(group._id)}
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                                                    <Typography fontSize="0.76rem" color="#94A3B8">
-                                                        {patientsToShow.reduce((sum, p) => sum + (p.payments?.length || 0), 0)} atendimentos · {patientsToShow.length} paciente{patientsToShow.length !== 1 ? 's' : ''}
-                                                    </Typography>
-                                                    {cashDateLabel && (
-                                                        <Box sx={{
-                                                            display: 'inline-flex', alignItems: 'center', gap: 0.5,
-                                                            px: 0.75, py: 0.2,
-                                                            bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 1
-                                                        }}>
-                                                            <Typography fontSize="0.75rem" lineHeight={1.5} fontWeight={600} color="#15803D">
-                                                                ✓ {cashDateLabel}
-                                                            </Typography>
-                                                        </Box>
-                                                    )}
-                                                </Box>
-                                            </Box>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <Box sx={{ px: 1.75, py: 0.6, bgcolor: tabAccent, borderRadius: 2 }}>
-                                                    <Typography fontWeight="800" fontSize="0.85rem" color="white">
-                                                        {groupTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ color: '#CBD5E1', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                                                    <ChevronDown size={18} />
-                                                </Box>
-                                            </Box>
-                                        </Box>
-
-                                        <Collapse in={isExpanded}>
-                                            <div className="divide-y divide-slate-50">
-                                                {patientsToShow.map((patient) => (
-                                                    <PatientAccordionSection
-                                                        key={patient.patientId}
-                                                        patient={patient}
-                                                        provider={group._id}
-                                                        onOpen360={handleOpen360}
-                                                        onMarkAsBilled={handleMarkAsBilled}
-                                                        onReceive={(payment) => {
-                                                            setSelectedPayment(payment);
-                                                            setReceiveData({
-                                                                receivedAmount: payment.grossAmount,
-                                                                receivedDate: new Date().toISOString().split('T')[0],
-                                                                notes: ''
-                                                            });
-                                                            setReceiveModalOpen(true);
-                                                        }}
-                                                        getStatusChip={getStatusChip}
-                                                        selectedPayments={selectedPayments}
-                                                        onTogglePayment={togglePaymentSelection}
-                                                        onSelectAllFromPatient={selectAllFromPatient}
-                                                        onDeselectAllFromPatient={deselectAllFromPatient}
-                                                        subTab={subTab}
-                                                        onCloseGuide={handleCloseGuideFromReceivables}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </Collapse>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    )}
+                    ) : null}
                 </Box>
             </div>
 
@@ -2055,99 +1716,6 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                     submitLabel="Confirmar recebimento"
                     submittingLabel="Registrando..."
                 />
-            </Dialog>
-
-            {/* Modal: Novo Atendimento */}
-            <Dialog open={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ bgcolor: '#3B82F6', width: 32, height: 32 }}>
-                            <Building2 className="w-4 h-4 text-white" />
-                        </Avatar>
-                        <Typography variant="h6">Novo Atendimento de Convênio</Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-                        <TextField
-                            fullWidth
-                            type="date"
-                            label="Data do Atendimento *"
-                            value={formData.paymentDate}
-                            onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-                            InputLabelProps={{ shrink: true }}
-                            required
-                        />
-                        <FormControl fullWidth>
-                            <InputLabel>Paciente *</InputLabel>
-                            <Select
-                                value={formData.patientId}
-                                label="Paciente *"
-                                onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
-                            >
-                                {patients.map((p) => (
-                                    <MenuItem key={p._id} value={p._id}>{p.fullName}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <FormControl fullWidth>
-                            <InputLabel>Profissional *</InputLabel>
-                            <Select
-                                value={formData.doctorId}
-                                label="Profissional *"
-                                onChange={(e) => setFormData({ ...formData, doctorId: e.target.value })}
-                            >
-                                {doctors.map((d) => (
-                                    <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <FormControl fullWidth>
-                            <InputLabel>Convênio *</InputLabel>
-                            <Select
-                                value={formData.insuranceProvider}
-                                label="Convênio *"
-                                disabled={loadingConvenios}
-                                onChange={(e) => {
-                                    const selectedCode = e.target.value;
-                                    const provider = convenios.find(c => c.code === selectedCode);
-                                    setFormData({
-                                        ...formData,
-                                        insuranceProvider: selectedCode,
-                                        grossAmount: provider?.sessionValue || formData.grossAmount
-                                    });
-                                }}
-                            >
-                                <MenuItem value="">{loadingConvenios ? 'Carregando...' : 'Selecione'}</MenuItem>
-                                {convenios.map((p) => (
-                                    <MenuItem key={p._id} value={p.code}>{p.name}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <Box>
-                            <Typography variant="body2" gutterBottom>Valor da Tabela *</Typography>
-                            <InputCurrency
-                                name=""
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                value={formData.grossAmount}
-                                onChange={(e) => setFormData({ ...formData, grossAmount: Number(e.target.value) })}
-                            />
-                        </Box>
-                        <TextField
-                            fullWidth
-                            label="Código da Guia/Autorização"
-                            value={formData.authorizationCode}
-                            onChange={(e) => setFormData({ ...formData, authorizationCode: e.target.value })}
-                            placeholder="Opcional"
-                        />
-                    </Box>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setIsNewModalOpen(false)} variant="outlined">Cancelar</Button>
-                    <Button variant="contained" onClick={handleCreateInsurance} disabled={loading} startIcon={<Check size={16} />} sx={{ bgcolor: '#3B82F6' }}>
-                        Registrar
-                    </Button>
-                </DialogActions>
             </Dialog>
 
             {/* Modal: Recebimento */}

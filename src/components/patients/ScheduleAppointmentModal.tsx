@@ -187,6 +187,12 @@ const ScheduleAppointmentModal = ({
             setInsuranceProvider(initialData.insuranceProvider || '');
             setInsuranceValue(initialData.insuranceValue || initialData.sessionValue || 0);
             setAuthorizationCode(initialData.authorizationCode || '');
+            // Pré-preenchido sem paciente (encaixe na Agenda): não herdar o paciente da última abertura
+            if (!initialData.patientId) {
+                setPatientSearch('');
+                setSearchedPatients([]);
+                setSelectedPatient(null);
+            }
         } else {
             setFormData(defaultForm);
             setServiceType('individual_session');
@@ -211,7 +217,7 @@ const ScheduleAppointmentModal = ({
 
         const found = patients?.find((p) => p._id === initialData.patientId);
         if (found) {
-            setPatientSearch(found.fullName);
+            setPatientSearch(found.fullName || '');
             setSelectedPatient(found);
             return;
         }
@@ -219,8 +225,8 @@ const ScheduleAppointmentModal = ({
         // Não estava no array local → busca pelo ID direto na API
         patientService.getById(initialData.patientId)
             .then(patient => {
-                if (patient) {
-                    setPatientSearch(patient.fullName);
+                if (patient?._id) {
+                    setPatientSearch(patient.fullName || '');
                     setSelectedPatient(patient);
                 }
             })
@@ -500,7 +506,7 @@ const ScheduleAppointmentModal = ({
                         )}
 
                         {/* Dropdown dinâmico — só mostra quando NÃO estiver no modo novo paciente */}
-                        {!isNewPatient && patientSearch.trim().length >= 2 && (
+                        {!isNewPatient && patientSearch.trim().length >= 2 && !(selectedPatient && (selectedPatient as any).fullName === patientSearch) && (
                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-md overflow-hidden">
                                 {isSearching ? (
                                     <div className="px-3 py-2 text-sm text-gray-500">Buscando...</div>

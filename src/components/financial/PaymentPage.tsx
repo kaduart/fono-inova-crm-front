@@ -55,8 +55,6 @@ function mapAppointmentToRecord(appt: any): FinancialRecord {
     const realPaymentId = appt.payment?._id?.toString?.() || appt.payment?.toString?.() || null;
     const resolvedAmount = appt.payment?.amount || appt.paymentAmount || appt.sessionValue || appt.valor || 0;
 
-    // 🐛 LOG DE MAPEAMENTO FINANCEIRO
-    console.log(`💰 [mapAppointmentToRecord] ${appt.id || appt._id}: sessionValue=${appt.sessionValue}, paymentAmount=${appt.paymentAmount}, payment?.amount=${appt.payment?.amount}, valor=${appt.valor} → amount=${resolvedAmount}`);
 
     return {
         _id: realPaymentId || appt.id || appt._id,
@@ -99,7 +97,8 @@ function mapAppointmentToRecord(appt: any): FinancialRecord {
 
 function computeDateRange(period: string, customStart: string, customEnd: string): { start: string; end: string } | null {
     const now = new Date();
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    // Horário de Brasília: toISOString (UTC) virava o dia seguinte depois das 21h.
+    const fmt = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
     if (period === 'day') {
         return { start: fmt(now), end: fmt(now) };
@@ -508,9 +507,13 @@ interface PaymentPageProps {
     enabled?: boolean;
     month?: number;
     year?: number;
+    /** Período vindo da aba Pagamentos (YYYY-MM-DD). Quando presente, manda no lugar do seletor interno. */
+    range?: { start: string; end: string };
+    /** Filtra a lista pelo nome do paciente (vindo do "Registrar" da lista de pagamentos). */
+    patientFilter?: string;
 }
 
-const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true, month, year }: PaymentPageProps) => {
+const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: onCancelPaymentProp, registerAppointmentAndPayemntFuture, enabled = true, month, year, range: rangeProp, patientFilter }: PaymentPageProps) => {
     // 🚀 SOURCE OF TRUTH: Context API (padrão do projeto)
     const {
         payments: allPaymentsRaw = [],
@@ -550,6 +553,8 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
     const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'last_week' | 'last_month' | 'custom' | string>('day');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
+    const rangeKey = rangeProp ? `${rangeProp.start}_${rangeProp.end}` : '';
+    const currentRange = () => rangeProp ?? computeDateRange(selectedPeriod, customStartDate, customEndDate);
     const patientSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [patientSearchActive, setPatientSearchActive] = useState(false);
 
@@ -577,30 +582,15 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
 
     // 🚀 NOVO: Sincroniza appointments do contexto para FinancialRecords
     useEffect(() => {
-        console.log('[PaymentPage] ============================================');
-        console.log('[PaymentPage] AppointmentsContext recebidos:', appointments?.length || 0, 'registros');
-        if (appointments?.length) {
-            appointments.forEach((a: any) => {
-                console.log(`   📋 ${a.id || a._id}: sessionValue=${a.sessionValue}, paymentAmount=${a.paymentAmount}, payment?.amount=${a.payment?.amount}, status=${a.operationalStatus}`);
-            });
-        }
         const mapped: FinancialRecord[] = (appointments || [])
             .map(mapAppointmentToRecord)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        console.log('[PaymentPage] AppointmentsContext mapeados:', mapped.length, 'registros');
-        if (mapped?.length) {
-            mapped.forEach((m: any) => {
-                console.log(`   💰 ${m._id}: amount=${m.amount}, status=${m.status}, __realPaymentId=${m.__realPaymentId}`);
-            });
-        }
-        console.log('[PaymentPage] ============================================');
         setAppointmentRecords(mapped);
         setAllPayments(mapped);
     }, [appointments, setAllPayments]);
 
     // 🚀 NOVO: Busca appointments no contexto de acordo com o período
     const syncAppointments = useCallback(async (params: { startDate?: string; endDate?: string; patientName?: string } = {}) => {
-        console.log('[PaymentPage] Sincronizando appointments via contexto:', params);
         await fetchAppointments({
             startDate: params.startDate,
             endDate: params.endDate,
@@ -617,7 +607,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                 syncAppointments({ patientName: text });
             } else {
                 setPatientSearchActive(false);
-                const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                const range = currentRange();
                 if (range) syncAppointments({ startDate: range.start, endDate: range.end });
             }
         }, 400);
@@ -626,11 +616,11 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
     // 🆕 Busca analytics de lifecycle (novos / retornos 45+) quando o período muda
     // Usa mode='date' para alinhar com a visão operacional da tabela financeira
     useEffect(() => {
-        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+        const range = currentRange();
         if (range) {
             fetchAnalytics({ startDate: range.start, endDate: range.end, mode: 'date' });
         }
-    }, [selectedPeriod, customStartDate, customEndDate, fetchAnalytics]);
+    }, [selectedPeriod, customStartDate, customEndDate, rangeKey, fetchAnalytics]);
 
     // 🔹 Carregar role do usuário
     useEffect(() => {
@@ -668,31 +658,29 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
     useEffect(() => {
         if (!enabled) return;
 
-        const today = new Date().toISOString().split('T')[0];
-        syncAppointments({ startDate: today, endDate: today });
-        fetchPaymentTotals({ period: 'day' });
+        const r = currentRange();
+        if (r) syncAppointments({ startDate: r.start, endDate: r.end });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [enabled]);
+    }, [enabled, rangeKey]);
 
     // 🔹 FILTRO DE PERÍODO NO FRONTEND: Filtra os pagamentos já carregados
     // Quando busca de paciente está ativa, os dados já vêm filtrados do backend — não filtra por período
     useEffect(() => {
         if (patientSearchActive) return;
-        if (allPayments.length === 0) return;
 
-        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
-        if (!range) {
-            setFilteredPayments(allPayments);
-            return;
-        }
-
+        const range = currentRange();
+        const byName = (patientFilter || '').trim().toLowerCase();
+        // Período vazio limpa a lista (antes a lista anterior ficava congelada na tela).
         const filtered = allPayments.filter(payment => {
             const paymentDate = payment.date;
-            return paymentDate >= range.start && paymentDate <= range.end;
+            if (range && (paymentDate < range.start || paymentDate > range.end)) return false;
+            if (byName && !(payment.patient?.name || '').toLowerCase().includes(byName)) return false;
+            return true;
         });
 
         setFilteredPayments(filtered);
-    }, [allPayments, selectedPeriod, customStartDate, customEndDate, patientSearchActive]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allPayments, selectedPeriod, customStartDate, customEndDate, rangeKey, patientFilter, patientSearchActive]);
 
     const handleEditAppointment = (appointmentId: string) => {
         // Busca no AppointmentsContext primeiro (dado mais completo)
@@ -764,7 +752,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
             setPaymentToEdit(undefined);
 
             // 🔄 RECARREGA LISTA para refletir mudanças no backend
-            const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+            const range = currentRange();
             if (range) {
                 await syncAppointments({ startDate: range.start, endDate: range.end });
             }
@@ -832,7 +820,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
         }));
 
         // 🔄 RECARREGA LISTA para mostrar novo pagamento
-        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+        const range = currentRange();
         if (range) {
             await syncAppointments({ startDate: range.start, endDate: range.end });
         }
@@ -864,7 +852,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
         if (onCancelPaymentProp) {
             await onCancelPaymentProp(paymentId);
             // 🔄 RECARREGA LISTA após cancelar pagamento
-            const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+            const range = currentRange();
             if (range) {
                 await syncAppointments({ startDate: range.start, endDate: range.end });
             }
@@ -876,8 +864,8 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
         <div className="space-y-4 p-3 sm:p-4">
             {/* Área de filtros e lista */}
             <div className="space-y-4">
-                {/* Cabeçalho com título e exportação */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Cabeçalho com título e exportação (a aba Pagamentos nova já tem o seu) */}
+                {!rangeProp && <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">Pagamentos</h2>
                         <p className="text-xs text-gray-400 mt-0.5">{filteredPayments.length} de {allPayments.length} registros</p>
@@ -904,7 +892,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                             PDF
                         </button>
                     </div>
-                </div>
+                </div>}
 
                 {/* Filtro de paciente na URL (opcional) */}
                 {patientParam && (
@@ -954,7 +942,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Tipo</th>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor</th>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Método</th>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Cobrança</th>
                                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
                                     </tr>
                                 </thead>
@@ -1129,7 +1117,6 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                     onPaymentSuccess={async (data) => {
                         const targetId = paymentToEdit.__realPaymentId || paymentToEdit._id || (paymentToEdit as any).id;
                         const resolvedDate = data.date || data.paymentDate;
-                        console.log('[PaymentPage] onPaymentSuccess:', { date: data.date, paymentDate: data.paymentDate, resolvedDate, doctorId: data.doctorId, targetId });
                         await updatePayment(targetId, {
                             amount: data.amount,
                             paymentMethod: data.paymentMethod,
@@ -1142,7 +1129,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                         });
                         setIsEditModalOpen(false);
                         setPaymentToEdit(undefined);
-                        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                        const range = currentRange();
                         if (range) await syncAppointments({ startDate: range.start, endDate: range.end });
                         fetchPaymentTotals({ period: selectedPeriod === 'custom' ? 'day' : selectedPeriod });
                         toast.success('Pagamento atualizado!');
@@ -1157,7 +1144,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                     onClose={() => {
                         setIsAppointmentModalOpen(false);
                         // 🔄 RECARREGA LISTA quando fechar o modal (após edição)
-                        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                        const range = currentRange();
                         if (range) {
                             syncAppointments({ startDate: range.start, endDate: range.end });
                         }
@@ -1181,7 +1168,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                         toast.success('Agendamento cancelado');
                         setIsAppointmentModalOpen(false);
                         // 🔄 RECARREGA LISTA após cancelar
-                        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                        const range = currentRange();
                         if (range) {
                             await syncAppointments({ startDate: range.start, endDate: range.end });
                         }
@@ -1208,7 +1195,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                         setIsAppointmentModalOpen(false);
                         window.dispatchEvent(new CustomEvent('cash:refresh', { detail: { appointmentId: id, timestamp: Date.now() } }));
                         // 🔄 RECARREGA LISTA após completar
-                        const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                        const range = currentRange();
                         if (range) {
                             await syncAppointments({ startDate: range.start, endDate: range.end });
                         }
@@ -1219,7 +1206,7 @@ const PaymentPage = ({ doctors, onMarkAsPaid, onMarkAsDebit, onCancelPayment: on
                             await appointmentService.update(id, data);
                             toast.success('Agendamento atualizado');
                             setIsAppointmentModalOpen(false);
-                            const range = computeDateRange(selectedPeriod, customStartDate, customEndDate);
+                            const range = currentRange();
                             if (range) {
                                 await syncAppointments({ startDate: range.start, endDate: range.end });
                             }
