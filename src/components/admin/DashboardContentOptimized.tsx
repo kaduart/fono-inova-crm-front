@@ -3,7 +3,7 @@ import {
     Clock, CreditCard, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
 } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { Skeleton as MuiSkeleton, Dialog, DialogContent } from '@mui/material';
+import { Dialog, DialogContent } from '@mui/material';
 import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import API from '../../services/api';
 import { appointmentService } from '../../services/appointmentService';
@@ -18,7 +18,7 @@ import {
     UpcomingAppointment
 } from '../../services/dashboardService';
 
-import BirthdayCard from '../patients/BirthdayCard';
+import BirthdayList from './BirthdayList';
 import { LeadsWaitingStrip, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
 
@@ -50,19 +50,8 @@ interface DashboardContentOptimizedProps {
 // --- Skeletons ---
 
 const BirthdayCardSkeleton = memo(() => (
-    <div className="flex flex-wrap gap-4 p-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex-1 min-w-[260px] max-w-[calc(33.333%-11px)] border border-gray-100 rounded-2xl p-4 space-y-3 dark:border-gray-800">
-                <div className="flex items-center gap-3">
-                    <MuiSkeleton variant="circular" width={56} height={56} sx={{ bgcolor: '#CBD5E020', flexShrink: 0 }} />
-                    <div className="flex-1 space-y-1.5">
-                        <MuiSkeleton variant="text" width="70%" height={22} />
-                        <MuiSkeleton variant="text" width="45%" height={18} />
-                    </div>
-                </div>
-                <MuiSkeleton variant="rounded" width="100%" height={44} sx={{ borderRadius: 12 }} />
-            </div>
-        ))}
+    <div className="space-y-2" aria-busy="true">
+        {[0, 1, 2].map(i => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}
     </div>
 ));
 BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
@@ -702,7 +691,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 2. Aniversariantes */}
             <Section
                 id="dash-aniversariantes"
-                title="Aniversariantes do mês"
+                title="Aniversariantes"
                 meta={aniversariantesFetched.current ? `${aniversariantes.length} no mês${aniversariantesMeta.todayTotal ? ` · ${aniversariantesMeta.todayTotal} hoje` : ''}` : undefined}
                 isOpen={birthdaySectionOpen}
                 onToggle={() => setBirthdaySectionOpen(v => !v)}
@@ -714,7 +703,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     </span>
                 ) : undefined}
             >
-                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayCard patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
+                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayList patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
             </Section>
 
             {/* 3. Lista de pacientes */}
@@ -732,6 +721,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                     onPaymentAdvancedSuccess={(patient) => { setShowAdvancedPayment?.(true); setSelectedPatient?.(patient); }}
                     onRegisterPayment={(patient) => { setPaymentContext?.({ mode: 'create', patient }); setPaymentModalOpen?.(true); }}
                     onDeletePatient={onDeletePatient}
+                    totalCount={stats?.totalPatients}
+                    noNextCount={commercial.reactivation?.length || 0}
+                    onOpenNoNext={() => setQueueOpen('reactivation')}
                 />
             </Section>
 
