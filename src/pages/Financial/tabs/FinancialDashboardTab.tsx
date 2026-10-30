@@ -203,7 +203,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   const fetchManualReviewCount = useCallback(async () => {
     setLoadingManualReview(true);
     try {
-      const res = await api.get('/api/v2/financial/dashboard/audits/convenio-payments-review-count');
+      const res = await api.get('/v2/financial/dashboard/audits/convenio-payments-review-count');
       setManualReviewCount(res.data?.data?.revisaoManual ?? null);
     } catch (err) {
       console.error('Erro ao buscar contador de revisão manual:', err);
@@ -406,8 +406,11 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   // Lazy: só busca convênios quando o tab que os usa estiver ativo
   useEffect(() => {
     const key = `${month}-${year}`;
-    // Tab 0 (Decisão Executiva) tem seção de recebíveis
-    if (activeTab === 0 && insuranceLoaded.current !== key) {
+    // Visão Geral e Decisão Executiva usam recebíveis/pendências de convênio. Antes só
+    // carregava no índice 0 e abrir Decisão direto mostrava R$ 0 e "nenhum pendente".
+    const tabId = getDashboardTabs()[activeTab]?.id;
+    const needsInsurance = tabId === 'visao-geral' || tabId === 'decisao';
+    if (needsInsurance && insuranceLoaded.current !== key) {
       insuranceLoaded.current = key;
       fetchPendingInsurance();
       fetchInsuranceHistorical();
@@ -1105,7 +1108,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
   const renderDespesas = () => {
     const comissoes = expenses.breakdown?.comissoes || 0;
-    const outrasDespesas = expenses.breakdown?.expenses || expenses.total;
+    const outrasDespesas = expenses.breakdown?.expenses ?? expenses.total;
     return (
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

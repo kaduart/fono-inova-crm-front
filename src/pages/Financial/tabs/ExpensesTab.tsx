@@ -1,6 +1,6 @@
 // src/pages/Financial/tabs/ExpensesTab.tsx
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAvatarColor } from '../../../constants/avatarColors';
 import { getInitials } from '../../../constants/specialtyColors';
 import {
@@ -132,7 +132,7 @@ interface ExpensesTabProps {
 }
 
 const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabProps) => {
-  const { expenses, loading, generatingCommissions, totals, byOrigin, fetchExpenses, cancelExpense, deleteExpense, markAsPaid, generateCommissions } = useExpenses();
+  const { expenses, loading, generatingCommissions, totals, byOrigin, pagination, fetchExpenses, cancelExpense, deleteExpense, markAsPaid, generateCommissions } = useExpenses();
   // Sub-abas: "Do mês" (lista) e "Fixas" (CRUD dos modelos)
   const [view, setView] = useState<'month' | 'fixed'>('month');
   // Lixeira: confirma explicitamente — "Excluir" (avulsa pendente) ou "Cancelar" (demais)
@@ -212,9 +212,20 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     setFilters(prev => ({ ...prev, month, year }));
   }, [month, year]);
 
+  // Paginação no servidor (50 por página). Antes a lista parava nas 50 primeiras sem aviso.
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [filters]);
+  const listParams = useMemo(() => ({
+    ...filters,
+    page,
+    limit: 50,
+    // Sem status escolhido, o back já tira as canceladas (antes ocupavam vaga na página).
+    excludeCanceled: filters.status === '',
+  }), [filters, page]);
+
   useEffect(() => {
-    fetchExpenses(filters);
-  }, [filters, fetchExpenses]);
+    fetchExpenses(listParams);
+  }, [listParams, fetchExpenses]);
 
   // Já existe comissão (não cancelada) no mês? Define qual botão aparece: "Gerar" (nenhuma
   // ainda) ou "Regenerar" (já gerada). Consulta própria, independente dos filtros da lista —
@@ -276,7 +287,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       } else {
         toast.info('Nenhuma despesa nova — as fixas deste mês já existem');
       }
-      await Promise.all([fetchExpenses(filters), refreshPendingFixed()]);
+      await Promise.all([fetchExpenses(listParams), refreshPendingFixed()]);
     } catch (error: any) {
       notifyApiError(error, 'Erro ao gerar despesas fixas');
     } finally {
@@ -288,7 +299,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
     setPayingId(id);
     try {
       await markAsPaid(id);
-      await fetchExpenses(filters);
+      await fetchExpenses(listParams);
     } catch {
       /* toast já exibido no hook */
     } finally {
@@ -303,7 +314,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
       if (rowAction.kind === 'delete') await deleteExpense(rowAction.expense._id);
       else await cancelExpense(rowAction.expense._id);
       setRowAction(null);
-      await fetchExpenses(filters);
+      await fetchExpenses(listParams);
       if (rowAction.expense.category === 'commission') refreshCommissionsGenerated();
       // Cancelar uma fixa gerada NÃO recria no "Gerar" (o doc permanece), mas o aviso é recalculado
       refreshPendingFixed();
@@ -562,9 +573,9 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
             <button
               onClick={async () => {
                 try {
-                  await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters));
+                  await generateCommissions(filters.month, filters.year, () => fetchExpenses(listParams));
                 } catch {
-                  fetchExpenses(filters);
+                  fetchExpenses(listParams);
                 } finally {
                   refreshCommissionsGenerated();
                 }
@@ -705,7 +716,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
             >
-              {[2024, 2025, 2026].map((yr) => (
+              {Array.from({ length: new Date().getFullYear() - 2024 + 2 }, (_, i) => 2024 + i).map((yr) => (
                 <option key={yr} value={yr}>{yr}</option>
               ))}
             </select>
@@ -750,12 +761,13 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               <option value="paid">Pago</option>
               <option value="pending">Pendente</option>
               <option value="scheduled">Agendado</option>
+              <option value="canceled">Cancelado</option>
             </select>
           </div>
           <div className="flex justify-end">
             <div className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 rounded-full text-xs text-gray-600">
               <Filter size={14} />
-              <span>{visibleExpenses.length} despesas encontradas</span>
+              <span>{pagination?.total ?? visibleExpenses.length} despesas encontradas</span>
             </div>
           </div>
         </div>
@@ -1074,6 +1086,32 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
             </tbody>
           </table>
         </div>
+        {(pagination?.pages ?? 0) > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-3 py-2 text-xs text-gray-600">
+            <span>
+              {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="rounded-md border border-gray-300 px-2.5 py-1 font-medium disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="px-2">Página {pagination.page} de {pagination.pages}</span>
+              <button
+                type="button"
+                disabled={page >= pagination.pages || loading}
+                onClick={() => setPage(p => p + 1)}
+                className="rounded-md border border-gray-300 px-2.5 py-1 font-medium disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -1099,7 +1137,7 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               }
             }
           }
-          fetchExpenses(filters);
+          fetchExpenses(listParams);
         }}
       />
 
@@ -1183,9 +1221,9 @@ const ExpensesTab = ({ month, year, onMonthChange, onYearChange }: ExpensesTabPr
               <button
                 onClick={async () => {
                   try {
-                    await generateCommissions(filters.month, filters.year, () => fetchExpenses(filters), true);
+                    await generateCommissions(filters.month, filters.year, () => fetchExpenses(listParams), true);
                   } catch {
-                    fetchExpenses(filters);
+                    fetchExpenses(listParams);
                   } finally {
                     setRegenerateConfirmOpen(false);
                     refreshCommissionsGenerated();

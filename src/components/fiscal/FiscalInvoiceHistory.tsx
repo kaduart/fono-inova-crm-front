@@ -108,7 +108,7 @@ export function FiscalInvoiceHistory() {
     if (!cancelModal.invoice) return;
     setCancelling(true);
     try {
-      const response = await fiscalService.cancelInvoice(cancelModal.invoice._id);
+      const response = await fiscalService.cancelInvoice(cancelModal.invoice._id, cancelReason.trim());
       if (response.success) {
         toast.success('NFSe cancelada com sucesso');
         setCancelModal({ open: false, invoice: null });
@@ -256,13 +256,19 @@ export function FiscalInvoiceHistory() {
             rows={3}
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
+            helperText={`Obrigatório, mínimo de 15 caracteres (${cancelReason.trim().length}/15)`}
+            error={cancelReason.length > 0 && cancelReason.trim().length < 15}
           />
+          <Typography variant="body2" color="warning.main" sx={{ mt: 1.5 }}>
+            O cancelamento fica registrado no ERP. O envio do cancelamento para a prefeitura ainda não foi testado,
+            então confirme também no portal da NFS-e.
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCancelModal({ open: false, invoice: null })} color="inherit">
             Voltar
           </Button>
-          <Button onClick={handleCancel} variant="contained" color="error" disabled={cancelling}>
+          <Button onClick={handleCancel} variant="contained" color="error" disabled={cancelling || cancelReason.trim().length < 15}>
             {cancelling ? <CircularProgress size={18} /> : 'Confirmar cancelamento'}
           </Button>
         </DialogActions>

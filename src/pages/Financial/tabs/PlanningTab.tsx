@@ -163,6 +163,12 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     return months;
   }, [month, year]);
 
+  const monthPeriod = (y: number, m: number) => {
+    const mm = String(m).padStart(2, '0');
+    const lastDay = new Date(y, m, 0).getDate();
+    return { start: `${y}-${mm}-01`, end: `${y}-${mm}-${String(lastDay).padStart(2, '0')}` };
+  };
+
   const getPlanningMonthYear = (planning: any) => {
     const startStr = planning.period.start;
     if (typeof startStr === 'string' && startStr.includes('-')) {
@@ -229,6 +235,14 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     return { revenueGoal, committedRevenue, recurringRevenue, newRevenue, gap, averageTicket, commercialTicket, ticketForPatients, patientsNeeded, weeksRemaining, weeklyTarget, coveragePct, recurringPct, newPct };
   }, [monthlyOfMonth, projection, selectedMonthData]);
 
+  // Recarrega só o mês aberto (metas + projeção). Antes recarregava todo o histórico sem projeção
+  // e o painel ficava zerado até trocar de mês.
+  const reloadSelectedMonth = () => {
+    const { year, month } = selectedMonthData;
+    fetchPlannings({ month, year });
+    fetchDashboard(month, year);
+  };
+
   const handleViewDetails = async (planning: any) => {
     setSelectedPlanning(planning);
     setOpenDetailsModal(true);
@@ -238,8 +252,8 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     setEditingPlanning(planning);
     setFormData({
       type: planning.type,
-      month: new Date(planning.period.start).getMonth() + 1,
-      year: new Date(planning.period.start).getFullYear(),
+      // period.start vem como 'YYYY-MM-DD'; new Date() leria em UTC e abriria o mês anterior.
+      ...getPlanningMonthYear(planning),
       targets: {
         expectedRevenue: planning.targets?.expectedRevenue || 0,
         totalSessions: planning.targets?.totalSessions || 0,
@@ -256,15 +270,9 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const handleSaveEdit = async () => {
     if (!editingPlanning) return;
     
-    const startDate = new Date(formData.year, formData.month - 1, 1);
-    const endDate = new Date(formData.year, formData.month, 0);
-
     const updateData = {
       type: formData.type,
-      period: {
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0]
-      },
+      period: monthPeriod(formData.year, formData.month),
       targets: formData.targets,
       bySpecialty: formData.bySpecialty,
       notes: formData.notes
@@ -273,7 +281,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     await updatePlanning(editingPlanning._id, updateData);
     setOpenEditModal(false);
     setEditingPlanning(null);
-    fetchPlannings({});
+    reloadSelectedMonth();
   };
 
   const handleDeleteClick = (planning: any) => {
@@ -286,7 +294,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     await deletePlanning(deletingPlanning._id);
     setOpenDeleteModal(false);
     setDeletingPlanning(null);
-    fetchPlannings({});
+    reloadSelectedMonth();
   };
 
   useEffect(() => {
@@ -301,8 +309,8 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const handleOpenModal = () => {
     setFormData({
       type: 'monthly',
-      month: new Date().getMonth() + 1,
-      year: new Date().getFullYear(),
+      month: selectedMonthData.month,
+      year: selectedMonthData.year,
       targets: {
         expectedRevenue: 0,
         totalSessions: 0,
@@ -355,7 +363,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       await createPlanning(formData);
     }
     setOpenModal(false);
-    fetchPlannings({});
+    reloadSelectedMonth();
   };
 
   const formatCurrency = (value: number) =>

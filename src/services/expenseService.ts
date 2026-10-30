@@ -75,6 +75,7 @@ export interface ExpenseFilters {
     endDate?: string;
     page?: number;
     limit?: number;
+    excludeCanceled?: boolean;
 }
 
 export const expenseService = {

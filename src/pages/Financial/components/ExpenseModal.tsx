@@ -29,7 +29,7 @@ const defaultForm: FormState = {
     category: 'operational',
     subcategory: '',
     amount: '',
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
     paymentMethod: 'pix',
     status: 'pending',
     notes: '',
@@ -49,7 +49,7 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                 category: expense.category,
                 subcategory: expense.subcategory || '',
                 amount: expense.amount.toString(),
-                date: expense.date || new Date().toISOString().slice(0, 10),
+                date: expense.date || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
                 paymentMethod: expense.paymentMethod,
                 status: expense.status,
                 notes: expense.notes || '',
@@ -133,7 +133,8 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                     <Field label="Categoria">
                         <select value={form.category} onChange={(e) => handleChange('category', e.target.value)} className={inputClass(accent)}>
                             <option value="payroll">Folha</option>
-                            <option value="commission">Comissão</option>
+                            {/* Comissão nasce do fechamento; lançar à mão escondia o "Gerar comissões" do mês. */}
+                            {isEditing && form.category === 'commission' && <option value="commission">Comissão</option>}
                             <option value="benefit">Benefício</option>
                             <option value="operational">Operacional</option>
                             <option value="equipment">Equipamento</option>

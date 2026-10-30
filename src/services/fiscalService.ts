@@ -140,8 +140,8 @@ export const fiscalService = {
     return data;
   },
 
-  async cancelInvoice(id: string): Promise<any> {
-    const { data } = await API.post(`/v2/fiscal/nfse/${id}/cancel`);
+  async cancelInvoice(id: string, reason: string): Promise<any> {
+    const { data } = await API.post(`/v2/fiscal/nfse/${id}/cancel`, { reason });
     return data;
   },
 

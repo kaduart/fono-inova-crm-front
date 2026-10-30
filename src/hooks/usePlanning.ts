@@ -87,14 +87,15 @@ export const usePlanning = () => {
     const createPlanning = useCallback(async (data: Partial<Planning>) => {
         try {
             // Calcular datas automaticamente baseado no tipo
-            const startDate = new Date(data.year!, data.month! - 1, 1);
-            const endDate = new Date(data.year!, data.month!, 0);
+            // Monta 'YYYY-MM-DD' direto, sem passar por toISOString (que converte para UTC).
+            const mm = String(data.month!).padStart(2, '0');
+            const lastDay = new Date(data.year!, data.month!, 0).getDate();
 
             const planningData = {
                 ...data,
                 period: {
-                    start: startDate.toISOString().split('T')[0],
-                    end: endDate.toISOString().split('T')[0]
+                    start: `${data.year}-${mm}-01`,
+                    end: `${data.year}-${mm}-${String(lastDay).padStart(2, '0')}`
                 },
                 actual: {
                     completedSessions: 0,
