@@ -8,6 +8,10 @@ import { IDoctor } from '../../utils/types/types';
 import { getSpecialtyLabel } from '../../constants/specialties';
 import { Chip } from './agenda/AgendaParts';
 import { FitSlotPanel, FitSlot } from '../commercial/CommercialParts';
+import { openWhatsApp as openWa, reactivationMessage } from '../commercial/commercialCopy';
+import { commercialService } from '../../services/commercialService';
+import { patientService } from '../../services/patientService';
+import { toast } from 'react-toastify';
 
 const STABILITY: Record<Stability, { label: string; dot: string }> = {
   estavel: { label: 'Fixo', dot: '#1baf7a' },
@@ -145,7 +149,25 @@ function nextDateFor(weekday: number, time: string, now = new Date()): string {
   return d.toLocaleDateString('en-CA');
 }
 
-function SlotPanel({ slot, onClose, onFit, fitHint }: { slot: RetentionSlot; onClose: () => void; onFit?: () => void; fitHint?: string }) {
+// Vaga crítica: chama o último paciente do horário no WhatsApp com a mensagem de reativação
+// e registra o contato (some da fila de reativação do Dashboard por alguns dias).
+async function reactivateLastPatient(slot: RetentionSlot, specialty?: string | null) {
+  if (!slot.lastPatientId) return;
+  try {
+    const p: any = await patientService.getById(slot.lastPatientId);
+    const phone = p?.phone || p?.responsible?.phone || '';
+    const name = p?.fullName || slot.lastPatientName;
+    if (!openWa(phone, reactivationMessage({ name, specialty }))) {
+      toast.error(`${(name || 'Paciente').split(' ')[0]} está sem telefone cadastrado`);
+      return;
+    }
+    commercialService.registerContact({ targetType: 'patient', targetId: slot.lastPatientId, kind: 'reactivation' }).catch(() => { /* só histórico */ });
+  } catch {
+    toast.error('Não foi possível abrir o contato do paciente');
+  }
+}
+
+function SlotPanel({ slot, onClose, onFit, fitHint, specialty }: { slot: RetentionSlot; onClose: () => void; onFit?: () => void; fitHint?: string; specialty?: string | null }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -158,7 +180,6 @@ function SlotPanel({ slot, onClose, onFit, fitHint }: { slot: RetentionSlot; onC
   const risco = slot.isVacant ? null : computeRiscoEvasao(slot);
   const valorEmRisco = risco && risco !== 'baixo' && slot.avgSessionValue > 0 ? slot.avgSessionValue * 4 : null;
   const nextLabel = slot.nextSessionAt ? new Date(slot.nextSessionAt).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '') : null;
-  const soon = 'Em breve';
 
   return (
     <div className="fixed inset-0 z-[1400] flex justify-end bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -217,7 +238,11 @@ function SlotPanel({ slot, onClose, onFit, fitHint }: { slot: RetentionSlot; onC
             )}
             {slot.isVacant && slot.vacantType === 'critico' && (
               <>
-                <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Reativar · em breve</button>
+                <button type="button" onClick={() => reactivateLastPatient(slot, specialty)} disabled={!slot.lastPatientId}
+                  title={slot.lastPatientId ? `Chamar ${slot.lastPatientName || 'o último paciente'} no WhatsApp para voltar` : 'Sem paciente anterior neste horário'}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">
+                  <MessageCircle size={15} aria-hidden /> Reativar
+                </button>
                 <button type="button" onClick={onFit} disabled={!onFit} title={onFit ? 'Ver leads e pacientes da especialidade para este horário' : fitHint}
                   className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Encaixar</button>
               </>
@@ -442,7 +467,7 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
       )}
 
       {openSlot && !fitSlot && (
-        <SlotPanel slot={openSlot} onClose={() => setOpenSlot(null)}
+        <SlotPanel slot={openSlot} onClose={() => setOpenSlot(null)} specialty={selectedDoctor?.specialty}
           onFit={selectedDoctor?.specialty ? () => setFitSlot({
             date: nextDateFor(openSlot.weekday, openSlot.time), time: openSlot.time,
             doctorId: String(selectedDoctor._id), doctorName: selectedDoctor.fullName || 'Profissional', specialty: selectedDoctor.specialty,
