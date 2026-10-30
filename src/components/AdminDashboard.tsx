@@ -114,7 +114,7 @@ const ConvenioInteressePage = lazyWithRetry(() => import('../pages/Secretaria/Co
 const EnhancedCalendar = lazyWithRetry(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazyWithRetry(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazyWithRetry(() => import('./Dashboard/MarketingDashboard'));
-const RevenueTab = lazyWithRetry(() => import('./Dashboard/RevenueTab'));
+const RevenueTab = lazyWithRetry(() => import('./Dashboard/RoiTab'));
 const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 
 // Componentes de abas específicas - só carregam quando a aba é aberta

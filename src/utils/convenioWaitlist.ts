@@ -132,3 +132,27 @@ export const buildWaitlistCsv = (entries: WaitlistEntry[]): string => {
 };
 
 export const csvFileName = (now: Date = new Date()): string => `interesse-convenios-${format(now, 'yyyy-MM-dd')}.csv`;
+
+/**
+ * Oferta do particular enquanto o convênio não sai. Valor antes do preço,
+ * horário genérico e 1 💚 no final (regras comerciais da clínica).
+ */
+export const buildPrivateOfferMessage = (entry: Pick<WaitlistEntry, 'name' | 'convenioLabel' | 'especialidade'>): string => {
+  const esp = entry.especialidade ? ` de ${entry.especialidade.toLowerCase()}` : '';
+  return `Oi, ${firstName(entry.name)}! Aqui é da Clínica Fono Inova. O credenciamento com o ${entry.convenioLabel} ainda está em andamento e não queremos que vocês fiquem esperando. ` +
+    `Começar cedo faz diferença no desenvolvimento, então dá para iniciar o atendimento${esp} no particular e passar para o plano quando ele sair. ` +
+    `No pacote de 1x por semana cada sessão sai por R$ 180 (cerca de R$ 720 por mês). Tenho horário quinta de manhã ou amanhã à tarde. Quer que eu reserve? 💚`;
+};
+
+export const buildPrivateOfferUrl = (entry: Pick<WaitlistEntry, 'name' | 'phone' | 'convenioLabel' | 'especialidade'>): string => {
+  const digits = onlyDigits(entry.phone);
+  const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
+  return `https://wa.me/${withCountry}?text=${encodeURIComponent(buildPrivateOfferMessage(entry))}`;
+};
+
+/** Dias desde o cadastro (para destacar quem está esfriando na lista). */
+export const daysOnList = (iso: string | null | undefined): number | null => {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? null : Math.floor((Date.now() - t) / 86_400_000);
+};

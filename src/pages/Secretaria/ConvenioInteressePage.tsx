@@ -48,9 +48,11 @@ import convenioWaitlistApi, {
   type WaitlistListParams,
   type WaitlistStatus,
 } from '../../services/convenioWaitlistService';
+import { brl, KpiStrip } from '../Financial/components/finUi';
 import {
   buildWaitlistCsv,
   buildWhatsAppUrl,
+  buildPrivateOfferUrl,
   CONVENIO_OPTIONS,
   csvFileName,
   ESPECIALIDADE_OPTIONS,
@@ -356,6 +358,23 @@ const ConvenioInteressePage = () => {
           Contatado
         </Button>
       )}
+      {(entry.status === 'aguardando' || entry.status === 'contatado') && (
+        <Tooltip title="Oferecer o particular enquanto o convênio não sai (mensagem com valor antes do preço)">
+          <Button
+            size="small"
+            variant="outlined"
+            color="success"
+            component="a"
+            href={buildPrivateOfferUrl(entry)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => { if (entry.status === 'aguardando') changeStatus(entry, 'contatado'); }}
+            sx={{ mr: 0.5, whiteSpace: 'nowrap' }}
+          >
+            Oferecer particular
+          </Button>
+        </Tooltip>
+      )}
       <Tooltip title="Abrir WhatsApp com mensagem pronta">
         <IconButton
           size="small"
@@ -433,7 +452,7 @@ const ConvenioInteressePage = () => {
               key={option.value}
               title={option.label}
               value={item ? item.aguardando : '—'}
-              subtitle={item ? `aguardando · ${item.contatado} contatados · ${item.agendado} agendados` : 'carregando…'}
+              subtitle={item ? `aguardando · ${item.contatado} contatados · ${item.agendado} agendados${summary?.insights?.porConvenio[option.value]?.avgDays ? ` · média ${summary.insights.porConvenio[option.value]!.avgDays} dias` : ''}` : 'carregando…'}
               selected={convenio === option.value}
               onClick={() => {
                 setConvenio((current) => (current === option.value ? '' : option.value));
@@ -448,6 +467,22 @@ const ConvenioInteressePage = () => {
           subtitle={summary ? `${summary.total} cadastros no total` : 'carregando…'}
         />
       </Box>
+
+      {summary?.insights && (
+        <Box mb={3}>
+          <KpiStrip items={[
+            { label: 'Na lista', value: summary.insights.active, sub: 'aguardando ou já contatados' },
+            { label: 'Esperando 30+ dias', value: summary.insights.aged30, danger: summary.insights.aged30 > 0, sub: `média de ${summary.insights.avgDays} dias na lista` },
+            { label: 'Agendaram', value: summary.insights.scheduledMonth, hero: true, sub: 'neste mês' },
+            { label: 'Potencial por mês', value: brl(summary.insights.potentialMonthly), sub: 'se todos fechassem o pacote 1x/semana' },
+          ]} />
+          {summary.insights.aged30 > 0 && (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              {summary.insights.aged30} {summary.insights.aged30 === 1 ? 'família espera' : 'famílias esperam'} há mais de 30 dias e {summary.insights.aged30 === 1 ? 'pode desistir' : 'podem desistir'}. Use "Oferecer particular" para não perder o atendimento.
+            </Alert>
+          )}
+        </Box>
+      )}
 
       <Box display="flex" gap={1} mb={2} flexWrap="wrap" alignItems="center">
         <TextField

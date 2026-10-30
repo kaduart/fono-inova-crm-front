@@ -60,9 +60,13 @@ export interface WaitlistListResponse {
 
 export type WaitlistConvenioSummary = { label: string; total: number } & Record<WaitlistStatus, number>;
 
+export interface WaitlistInsight { active: number; aged30: number; scheduledMonth: number; avgDays: number }
+
 export interface WaitlistSummary {
   total: number;
   porConvenio: Record<WaitlistConvenio, WaitlistConvenioSummary>;
+  /** Calculado no back (docs/SALES_MARKETING.md). Pode faltar em back antigo. */
+  insights?: WaitlistInsight & { potentialMonthly: number; porConvenio: Partial<Record<WaitlistConvenio, WaitlistInsight>> };
 }
 
 const cleanParams = (params: WaitlistListParams) =>
