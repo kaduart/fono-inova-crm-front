@@ -24,6 +24,8 @@ import {
     prettifyCode, saveFilter, savePref, statusGroupOf, typeGroupOf, ymdOf,
 } from './agenda/agendaModel';
 import API from '../../services/api';
+import { useRetention } from '../../hooks/useRetention';
+import { TabErrorBoundary } from '../error/TabErrorBoundary';
 import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
 import type { CancelExtras } from './CancelRequesterPicker';
 import {
@@ -477,6 +479,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const preUpcoming = (appointments || []).filter(a => statusGroupOf(a) === 'pre' && ymdOf(a) >= todayStr).length;
         return { total: month.length, status, statusTotal, type, typeTotal, doctorOptions, doctorTotal, preUpcoming };
     }, [isAdminMode, currentViewDate, appointments, agendaFilter, doctors]);
+
+    // Contador da aba Acompanhamento (pacientes que pedem atenção no mês)
+    const { data: retentionAll } = useRetention('', isAdminMode ? currentViewDate : '');
+    const attentionCount = retentionAll ? retentionAll.patients.filter(p => p.needsAttention).length : 0;
 
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
@@ -2153,6 +2159,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             }`}
                         >
                             {tab === 'agenda' ? 'Agenda' : tab === 'carteira' ? 'Acompanhamento' : tab === 'semanal' ? 'Recorrência' : 'Cancelamentos'}
+                            {isAdminMode && (tab as string) === 'carteira' && attentionCount > 0 && (
+                                <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 text-xs font-bold tabular-nums text-amber-800" title="Pacientes que pedem atenção">{attentionCount}</span>
+                            )}
                         </button>
                     ))}
             </Box>
@@ -2172,23 +2181,30 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             )}
 
             {featureFlags.showCarteiraView && calendarView === 'carteira' && (
-                <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
-                    <CarteiraView
-                        doctors={doctors}
-                        currentMonth={currentViewDate || new Date().toISOString().slice(0, 7)}
-                    />
+                <Paper elevation={1} className={isAdminMode ? 'border border-gray-200 bg-white' : undefined} sx={{ borderRadius: 3, border: isAdminMode ? undefined : '1px solid', borderColor: isAdminMode ? undefined : 'grey.200', bgcolor: isAdminMode ? undefined : 'white', minHeight: 500 }}>
+                    {/* Falha numa aba fica dentro dela, sem derrubar a Agenda */}
+                    <TabErrorBoundary tabName="Acompanhamento">
+                        <CarteiraView
+                            doctors={doctors}
+                            currentMonth={currentViewDate || new Date().toISOString().slice(0, 7)}
+                        />
+                    </TabErrorBoundary>
                 </Paper>
             )}
 
             {calendarView === 'cancelamentos' && (
                 <React.Suspense fallback={<div className="py-10 text-center text-sm text-gray-500">Carregando…</div>}>
-                    <CancellationsReport />
+                    <TabErrorBoundary tabName="Cancelamentos">
+                        <CancellationsReport />
+                    </TabErrorBoundary>
                 </React.Suspense>
             )}
 
             {featureFlags.showRecorrenciaView && calendarView === 'semanal' && (
-                <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
-                    <CarteiraWeeklyView doctors={doctors} />
+                <Paper elevation={1} className={isAdminMode ? 'border border-gray-200 bg-white' : undefined} sx={{ borderRadius: 3, border: isAdminMode ? undefined : '1px solid', borderColor: isAdminMode ? undefined : 'grey.200', bgcolor: isAdminMode ? undefined : 'white', minHeight: 500 }}>
+                    <TabErrorBoundary tabName="Recorrência">
+                        <CarteiraWeeklyView doctors={doctors} />
+                    </TabErrorBoundary>
                 </Paper>
             )}
 

@@ -1,50 +1,23 @@
-import {
-  Alert,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Skeleton,
-  Tooltip,
-} from '@mui/material';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  MessageCircle,
-  RefreshCcw,
-  RotateCcw,
-  ShieldAlert,
-  UserPlus,
-  Users,
-} from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+// Aba Recorrência da Agenda — grade terapêutica (mock aprovado em 30/10).
+// Cada horário vira uma célula de duas linhas; tudo o que o cartão grande mostrava fica no
+// painel que abre ao clicar. Avisos do topo numa faixa só; filtros em chips com contagem.
+import { AlertTriangle, CheckCircle2, MessageCircle, RefreshCw, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRetentionSlots, RetentionSlot, Stability } from '../../hooks/useRetentionSlots';
 import { IDoctor } from '../../utils/types/types';
-
-// ── Cores de estabilidade (tons suaves) ─────────────────────────────────────
-const STABILITY_CFG: Record<Stability, {
-  label: string;
-  color: string;
-  bg: string;
-  border: string;
-  leftBar: string;
-  badgeBg: string;
-}> = {
-  estavel:  { label: 'Fixo',            color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', leftBar: '#86efac', badgeBg: '#dcfce7' },
-  atencao:  { label: 'Oscilando',       color: '#b45309', bg: '#fffbeb', border: '#fde68a', leftBar: '#fcd34d', badgeBg: '#fef3c7' },
-  risco:    { label: 'Sem continuidade', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', leftBar: '#fca5a5', badgeBg: '#fee2e2' },
-  novo:     { label: 'Recente',         color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', leftBar: '#93c5fd', badgeBg: '#dbeafe' },
-  livre:    { label: 'Disponível',      color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb', leftBar: '#d1d5db', badgeBg: '#f3f4f6' },
-};
-
-const WEEKDAY_LABELS: Record<number, string> = {
-  2: 'Segunda', 3: 'Terça', 4: 'Quarta', 5: 'Quinta', 6: 'Sexta',
-};
-const WEEKDAY_ORDER = [2, 3, 4, 5, 6];
-
 import { getSpecialtyLabel } from '../../constants/specialties';
+import { Chip } from './agenda/AgendaParts';
 
-const GRID_COLS = '44px repeat(5, 1fr)';
+const STABILITY: Record<Stability, { label: string; dot: string }> = {
+  estavel: { label: 'Fixo', dot: '#1baf7a' },
+  atencao: { label: 'Oscilando', dot: '#eda100' },
+  risco: { label: 'Sem continuidade', dot: '#e5484d' },
+  novo: { label: 'Recente', dot: '#2a78d6' },
+  livre: { label: 'Disponível', dot: '#94a3b8' },
+};
+
+const WEEKDAY_LABELS: Record<number, string> = { 2: 'Segunda', 3: 'Terça', 4: 'Quarta', 5: 'Quinta', 6: 'Sexta' };
+const WEEKDAY_ORDER = [2, 3, 4, 5, 6];
 const TOTAL_DAILY_SLOTS = 16;
 
 function getWeekDate(mongoWeekday: number): Date {
@@ -53,14 +26,9 @@ function getWeekDate(mongoWeekday: number): Date {
   const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
   const monday = new Date(today);
   monday.setDate(today.getDate() + mondayOffset);
-  const targetJsDay = mongoWeekday - 1;
   const result = new Date(monday);
-  result.setDate(monday.getDate() + (targetJsDay - 1));
+  result.setDate(monday.getDate() + (mongoWeekday - 2));
   return result;
-}
-
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 }
 
 const TODAY_MONGO_WEEKDAY = (() => {
@@ -72,48 +40,23 @@ function openWhatsApp(phone: string, name: string) {
   const digits = phone.replace(/\D/g, '');
   if (!digits) return;
   const number = digits.startsWith('55') && digits.length >= 12 ? digits : `55${digits}`;
-  const msg = encodeURIComponent(
-    `Olá, ${name.split(' ')[0]}! Gostaríamos de agendar sua próxima sessão na Fono Inova.`
-  );
+  const msg = encodeURIComponent(`Olá, ${name.split(' ')[0]}! Gostaríamos de agendar sua próxima sessão na Fono Inova.`);
   window.open(`https://wa.me/${number}?text=${msg}`, '_blank', 'noopener');
 }
 
-// ── Tooltip de estabilidade ─────────────────────────────────────────────────
-function StabilityTooltip({ slot, children }: { slot: RetentionSlot; children: React.ReactNode }) {
-  return (
-    <Tooltip
-      title={
-        <div className="max-w-[260px]">
-          <p className="font-bold text-xs mb-1">{STABILITY_CFG[slot.stability].label} — Score {slot.stabilityScore}</p>
-          <p className="text-2xs leading-relaxed opacity-90">{slot.stabilityReason}</p>
-        </div>
-      }
-      arrow
-      placement="top"
-    >
-      {children}
-    </Tooltip>
-  );
-}
+const brl = (v: number) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
 
-// ── Lógica operacional ──────────────────────────────────────────────────────
+// ── Lógica operacional (mesma de antes) ─────────────────────────────────────
 function computeProximaAcao(slot: RetentionSlot) {
   const dias = slot.daysSinceLastSession;
-  if (slot.recentMissed >= 2 && !slot.nextSessionAt)
-    return { icon: '🚨', text: 'Reagendar urgente', sublabel: `${slot.recentMissed} faltas + sem próx. sessão`, level: 'critico' as const };
-  if (!slot.nextSessionAt && dias !== null && dias > 14)
-    return { icon: '🚨', text: 'Perdeu ritmo terapêutico', sublabel: `${dias} dias sem atendimento`, level: 'critico' as const };
-  if (!slot.nextSessionAt)
-    return { icon: '🚨', text: 'Agendar próxima sessão', sublabel: null, level: 'alto' as const };
-  if (slot.recentMissed >= 2)
-    return { icon: '⚠', text: 'Follow-up de faltas', sublabel: `${slot.recentMissed} faltas recentes`, level: 'medio' as const };
-  if (slot.packageRemaining > 0 && slot.packageRemaining <= 2)
-    return { icon: '📦', text: 'Oferecer renovação de pacote', sublabel: `${slot.packageRemaining} sess. restante${slot.packageRemaining > 1 ? 's' : ''}`, level: 'medio' as const };
-  if (slot.recentMissed >= 1)
-    return { icon: '⚠', text: 'Atenção — 1 falta recente', sublabel: null, level: 'baixo' as const };
-  if (slot.stability === 'atencao')
-    return { icon: '📉', text: 'Validar continuidade', sublabel: null, level: 'baixo' as const };
-  return { icon: '✓', text: 'Grade saudável', sublabel: null, level: 'ok' as const };
+  if (slot.recentMissed >= 2 && !slot.nextSessionAt) return { text: 'Reagendar urgente', sub: `${slot.recentMissed} faltas e sem próxima sessão`, level: 'critico' as const };
+  if (!slot.nextSessionAt && dias !== null && dias > 14) return { text: 'Perdeu ritmo terapêutico', sub: `${dias} dias sem atendimento`, level: 'critico' as const };
+  if (!slot.nextSessionAt) return { text: 'Agendar próxima sessão', sub: null, level: 'alto' as const };
+  if (slot.recentMissed >= 2) return { text: 'Follow-up de faltas', sub: `${slot.recentMissed} faltas recentes`, level: 'medio' as const };
+  if (slot.packageRemaining > 0 && slot.packageRemaining <= 2) return { text: 'Oferecer renovação de pacote', sub: `${slot.packageRemaining} ${slot.packageRemaining === 1 ? 'sessão restante' : 'sessões restantes'}`, level: 'medio' as const };
+  if (slot.recentMissed >= 1) return { text: 'Atenção: 1 falta recente', sub: null, level: 'baixo' as const };
+  if (slot.stability === 'atencao') return { text: 'Validar continuidade', sub: null, level: 'baixo' as const };
+  return { text: 'Grade saudável', sub: null, level: 'ok' as const };
 }
 
 function computeRiscoEvasao(slot: RetentionSlot): 'alto' | 'medio' | 'baixo' | null {
@@ -130,705 +73,355 @@ function computeRiscoEvasao(slot: RetentionSlot): 'alto' | 'medio' | 'baixo' | n
   return null;
 }
 
-const ACAO_CFG = {
-  critico: { bg: '#fff1f2', border: '#fecdd3', text: '#be123c' },
-  alto:    { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c' },
-  medio:   { bg: '#fffbeb', border: '#fde68a', text: '#92400e' },
-  baixo:   { bg: '#fefce8', border: '#fef08a', text: '#854d0e' },
-  ok:      { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d' },
+const ACAO_TONE = {
+  critico: 'border-red-200 bg-red-50 text-red-800',
+  alto: 'border-orange-200 bg-orange-50 text-orange-800',
+  medio: 'border-amber-200 bg-amber-50 text-amber-800',
+  baixo: 'border-amber-200 bg-amber-50 text-amber-800',
+  ok: 'border-emerald-200 bg-emerald-50 text-emerald-800',
 } as const;
 
-// ── Card ativo ──────────────────────────────────────────────────────────────
-function ActiveCell({ slot }: { slot: RetentionSlot }) {
-  const cfg = STABILITY_CFG[slot.stability];
-  const pct = Math.round(slot.attendanceRate * 100);
-  const barColor = pct >= 75 ? '#16a34a' : pct >= 50 ? '#d97706' : '#ef4444';
-  const displayName = slot.currentPatientName
-    ? slot.currentPatientName.split(' ').slice(0, 2).join(' ')
-    : '—';
-  const lastLabel = slot.daysSinceLastSession !== null
-    ? slot.daysSinceLastSession === 0 ? 'última: hoje' : `última: há ${slot.daysSinceLastSession}d`
-    : null;
-  const nextLabel = slot.nextSessionAt ? (() => {
-    const diff = Math.ceil((new Date(slot.nextSessionAt).getTime() - Date.now()) / 86400000);
-    if (diff <= 0) return 'próx. hoje';
-    if (diff === 1) return 'próx. amanhã';
-    if (diff <= 7) return `próx. em ${diff}d`;
-    return `próx. ${new Date(slot.nextSessionAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
-  })() : null;
+const packageEnding = (s: RetentionSlot) => !s.isVacant && s.packageRemaining > 0 && s.packageRemaining <= 3;
 
-  const acao = computeProximaAcao(slot);
-  const riscoEvasao = computeRiscoEvasao(slot);
-  const acaoCfg = ACAO_CFG[acao.level];
-
-  const scoreColor = slot.stabilityScore >= 90 ? '#16a34a'
-    : slot.stabilityScore >= 70 ? '#d97706'
-    : slot.stabilityScore >= 50 ? '#ea580c'
-    : '#dc2626';
-  const scoreBg = slot.stabilityScore >= 90 ? '#f0fdf4'
-    : slot.stabilityScore >= 70 ? '#fffbeb'
-    : slot.stabilityScore >= 50 ? '#fff7ed'
-    : '#fef2f2';
-
-  const valorEmRisco = riscoEvasao && riscoEvasao !== 'baixo' && slot.avgSessionValue > 0
-    ? slot.avgSessionValue * 4
-    : null;
-
+// ── Célula compacta ─────────────────────────────────────────────────────────
+function SlotCell({ slot, onOpen }: { slot: RetentionSlot; onOpen: () => void }) {
+  if (slot.isVacant) {
+    const critico = slot.vacantType === 'critico';
+    const temp = slot.vacantType === 'temporario';
+    return (
+      <button type="button" onClick={onOpen}
+        className={`block h-full w-full rounded-lg border border-dashed px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+          critico ? 'border-red-300 hover:bg-red-50' : temp ? 'border-amber-300 hover:bg-amber-50' : 'border-gray-300 hover:bg-gray-50'
+        }`}>
+        <span className={`block truncate text-[13px] font-semibold ${critico ? 'text-red-700' : temp ? 'text-amber-700' : 'text-gray-500'}`}>
+          {critico ? 'Vaga crítica' : temp ? 'Ausente esta semana' : 'Livre'}
+        </span>
+        <span className="block truncate text-[11px] text-gray-500">
+          {slot.daysSinceVacant !== null ? `vago há ${slot.daysSinceVacant} d` : slot.lastPatientName ? `antes: ${slot.lastPatientName.split(' ')[0]}` : 'para encaixe'}
+        </span>
+      </button>
+    );
+  }
+  const cfg = STABILITY[slot.stability] || STABILITY.novo;
+  const pct = Math.round((Number(slot.attendanceRate) || 0) * 100);
+  const name = slot.currentPatientName ? slot.currentPatientName.split(' ').slice(0, 2).join(' ') : '—';
   return (
-    <StabilityTooltip slot={slot}>
-      <div
-        className="h-full rounded-lg overflow-hidden transition-all hover:shadow-md hover:-translate-y-px cursor-default"
-        style={{
-          borderLeft: `4px solid ${cfg.leftBar}`,
-          border: `1px solid ${cfg.border}`,
-          borderLeftWidth: 4,
-          backgroundColor: cfg.bg,
-        }}
-      >
-        <div className="px-3 py-3 flex flex-col gap-2 h-full">
-
-          {/* LINHA 1 — Nome + badge + WA + Score */}
-          <div className="flex items-center justify-between gap-1 min-w-0">
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <span className="text-sm font-bold text-gray-800 truncate leading-tight">
-                {displayName}
-              </span>
-              {slot.currentPatientPhone && (
-                <button
-                  onClick={() => openWhatsApp(slot.currentPatientPhone, slot.currentPatientName || '')}
-                  className="p-1 rounded-full hover:bg-green-100 transition-colors flex-shrink-0"
-                  title="Enviar WhatsApp"
-                >
-                  <MessageCircle size={13} className="text-green-500" />
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span
-                className="text-2xs font-bold px-1.5 py-0.5 rounded-full leading-none"
-                style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}
-              >
-                {cfg.label}
-              </span>
-              <span
-                className="text-[13px] font-extrabold tabular-nums px-1.5 py-0.5 rounded-lg leading-none"
-                style={{ color: scoreColor, backgroundColor: scoreBg }}
-                title={`Score de estabilidade: ${slot.stabilityScore}/100`}
-              >
-                {slot.stabilityScore}
-              </span>
-            </div>
-          </div>
-
-          {/* LINHA 2 — Próxima ação */}
-          <div
-            className="px-2 py-1.5 rounded-lg flex items-start gap-1.5"
-            style={{ backgroundColor: acaoCfg.bg, border: `1px solid ${acaoCfg.border}` }}
-          >
-            <span className="text-sm leading-none flex-shrink-0 mt-px">{acao.icon}</span>
-            <div className="min-w-0">
-              <span className="text-2xs font-bold leading-tight block" style={{ color: acaoCfg.text }}>
-                {acao.text}
-              </span>
-              {acao.sublabel && (
-                <span className="text-3xs leading-none block mt-0.5" style={{ color: acaoCfg.text, opacity: 0.75 }}>
-                  {acao.sublabel}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* LINHA 3 — Presença */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide">presença</span>
-            <div className="flex items-center gap-1.5">
-              {slot.slotTotalSessions > slot.recurrenceCount + 2 && (
-                <span className="text-3xs text-gray-400 tabular-nums">{slot.slotTotalSessions} total</span>
-              )}
-              <span className="text-xs text-gray-500 tabular-nums">{slot.recurrenceCount} atend.</span>
-            </div>
-          </div>
-
-          {/* Barra + % */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex-1 relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 9999 }} />
-            </div>
-            <span className="text-2xs font-extrabold tabular-nums w-7 text-right leading-none" style={{ color: barColor }}>
-              {pct}%
-            </span>
-          </div>
-
-          {/* Continuidade + valor mensal */}
-          <div className="flex items-center justify-between text-xs text-gray-600">
-            {slot.continuityMonths > 0 && (
-              <span>
-                <span className="font-semibold text-gray-700">Acompanham.:</span> {slot.continuityMonths} {slot.continuityMonths === 1 ? 'mês' : 'meses'}
-              </span>
-            )}
-            {slot.avgSessionValue > 0 && (
-              <span className="font-semibold text-emerald-600">
-                R$ {(slot.avgSessionValue * 4).toLocaleString('pt-BR')}/mês
-              </span>
-            )}
-          </div>
-
-          {/* Footer — badges + última + valor em risco */}
-          <div className="flex flex-col gap-1 mt-auto">
-            <div className="flex items-center gap-1 flex-wrap">
-              {slot.packageRemaining > 0 && (
-                <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded-full leading-none ${slot.packageRemaining <= 2 ? 'text-orange-700 bg-orange-100' : 'text-gray-600 bg-gray-100'}`}>
-                  📦 {slot.packageRemaining} sess.
-                </span>
-              )}
-              {!slot.nextSessionAt ? (
-                <span className="text-2xs font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full leading-none">
-                  sem próx.
-                </span>
-              ) : nextLabel && (
-                <span className="text-2xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full leading-none">
-                  ✓ {nextLabel}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center justify-between gap-1">
-              {lastLabel && (
-                <span className="text-2xs text-gray-500 tabular-nums">{lastLabel}</span>
-              )}
-              {valorEmRisco && (
-                <span className="text-2xs font-bold text-rose-600 ml-auto">
-                  ⚠ R${valorEmRisco.toLocaleString('pt-BR')} risco
-                </span>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </StabilityTooltip>
+    <button type="button" onClick={onOpen}
+      className="block h-full w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+      title={`${slot.currentPatientName || ''} · ${cfg.label} · presença ${pct}%`}>
+      <span className="block truncate text-[13px] font-semibold text-gray-900">{name}</span>
+      <span className="flex items-center gap-1.5 text-[11px] text-gray-600">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.dot }} aria-hidden />
+        <span className="tabular-nums">{pct}%</span>
+        {packageEnding(slot) && <span className="ml-auto shrink-0 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800">pacote {slot.packageRemaining}</span>}
+        {!slot.nextSessionAt && !packageEnding(slot) && <span className="ml-auto shrink-0 rounded bg-orange-100 px-1 text-[10px] font-semibold text-orange-800">sem próx.</span>}
+      </span>
+    </button>
   );
 }
 
-// ── Card vazio ──────────────────────────────────────────────────────────────
-function VacantCell({ slot }: { slot: RetentionSlot }) {
-  const cfg = STABILITY_CFG[slot.stability];
-  const firstName = slot.lastPatientName?.split(' ')[0] ?? null;
-  const dsv = slot.daysSinceVacant;
-  const monthlyLoss = slot.avgSessionValue * 4;
-
-  const isTemp = slot.vacantType === 'temporario';
-  const isCritico = slot.vacantType === 'critico';
-  const isLivre = slot.vacantType === 'livre';
-
+// ── Painel de detalhes ──────────────────────────────────────────────────────
+function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <StabilityTooltip slot={slot}>
-      <div
-        className="h-full rounded-lg overflow-hidden transition-all hover:shadow-md"
-        style={{
-          borderLeft: `4px solid ${cfg.leftBar}`,
-          border: `1px solid ${cfg.border}`,
-          borderLeftWidth: 4,
-          backgroundColor: cfg.bg,
-          ...(isCritico ? { borderStyle: 'solid', borderLeftStyle: 'solid' } : {}),
-        }}
-      >
-        <div className="px-3 py-3 flex flex-col gap-2 h-full">
-          {/* Header: classificação + score */}
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full leading-none" style={{ color: cfg.color, backgroundColor: cfg.badgeBg }}>
-              {cfg.label}
-            </span>
-            <span className="text-3xs font-extrabold tabular-nums" style={{ color: cfg.color }}>
-              {slot.stabilityScore}
-            </span>
-          </div>
-
-          {/* Título principal */}
-          {isCritico && (
-            <div className="flex items-start gap-1">
-              <ShieldAlert size={12} className="text-red-400 mt-0.5 flex-shrink-0" />
-              <span className="text-2xs font-bold text-red-700 leading-tight">
-                Horário em perda
-              </span>
-            </div>
-          )}
-          {isTemp && (
-            <span className="text-2xs font-medium text-amber-700">
-              Paciente ausente esta semana
-            </span>
-          )}
-          {isLivre && (
-            <span className="text-2xs font-medium text-gray-500">
-              Horário livre para encaixe
-            </span>
-          )}
-
-          {/* Histórico */}
-          <div className="text-3xs text-gray-500 space-y-0.5">
-            {firstName && <p>↳ Último paciente: <span className="font-medium text-gray-700">{firstName}</span></p>}
-            {slot.slotTotalSessions > 0 && <p>Ocupado {slot.slotTotalSessions}x nas últimas semanas</p>}
-            {dsv !== null && <p>Vago há <span className="font-medium">{dsv} dias</span></p>}
-          </div>
-
-          {/* Impacto financeiro */}
-          {isCritico && monthlyLoss > 0 && (
-            <div className="text-2xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded">
-              💸 Perda potencial: R$ {monthlyLoss.toLocaleString('pt-BR')}/mês
-            </div>
-          )}
-
-          {/* Ações */}
-          <div className="mt-auto flex flex-wrap gap-1">
-            {isCritico && (
-              <>
-                <button className="text-3xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
-                  Reativar
-                </button>
-                <button className="text-3xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
-                  Encaixe
-                </button>
-              </>
-            )}
-            {isLivre && (
-              <button className="text-3xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
-                Oferecer horário
-              </button>
-            )}
-            {isTemp && (
-              <span className="text-3xs text-gray-400 italic">Próxima sessão confirmada</span>
-            )}
-          </div>
-        </div>
-      </div>
-    </StabilityTooltip>
-  );
-}
-
-// ── Painel de ação operacional ───────────────────────────────────────────────
-interface PainelItem {
-  filter: string;
-  icon: string;
-  label: string;
-  count: number;
-  activeColor: string;
-}
-
-function PainelResumo({ allSlots, viewFilter, setViewFilter }: {
-  allSlots: RetentionSlot[];
-  viewFilter: string;
-  setViewFilter: (v: string) => void;
-}) {
-  const active = allSlots.filter(s => !s.isVacant);
-  const items: PainelItem[] = [
-    { filter: 'sem_proxima_sessao', icon: '🚨', label: 'Sem próxima sessão', count: active.filter(s => !s.nextSessionAt).length, activeColor: '#fef2f2' },
-    { filter: 'faltosos',          icon: '⚠',  label: 'Faltas recentes',     count: active.filter(s => s.recentMissed >= 1).length, activeColor: '#fff7ed' },
-    { filter: 'pacote_acabando',   icon: '📦', label: 'Pacote acabando',      count: active.filter(s => s.packageRemaining > 0 && s.packageRemaining <= 3).length, activeColor: '#fffbeb' },
-    { filter: 'risco_alto',        icon: '🔥', label: 'Risco alto de evasão', count: active.filter(s => computeRiscoEvasao(s) === 'alto').length, activeColor: '#fef2f2' },
-  ].filter(i => i.count > 0);
-
-  if (items.length === 0) return null;
-
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
-      {items.map(item => {
-        const isActive = viewFilter === item.filter;
-        return (
-          <button
-            key={item.filter}
-            onClick={() => setViewFilter(isActive ? 'todos' : item.filter)}
-            className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:shadow-sm"
-            style={{
-              backgroundColor: isActive ? item.activeColor : '#ffffff',
-              borderColor: isActive ? '#fca5a5' : '#e5e7eb',
-              boxShadow: isActive ? '0 0 0 1px #fca5a5' : undefined,
-            }}
-          >
-            <span className="text-xl leading-none">{item.icon}</span>
-            <div>
-              <div className="text-xl font-bold text-gray-800 leading-tight">{item.count}</div>
-              <div className="text-2xs text-gray-500 leading-tight">{item.label}</div>
-            </div>
-          </button>
-        );
-      })}
+    <div className="flex items-baseline justify-between gap-3 border-b border-gray-100 py-2 text-sm last:border-0">
+      <span className="text-gray-500">{label}</span>
+      <span className="text-right font-medium text-gray-900">{children}</span>
     </div>
   );
 }
+
+function SlotPanel({ slot, onClose }: { slot: RetentionSlot; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const cfg = STABILITY[slot.stability] || STABILITY.novo;
+  const when = `${WEEKDAY_LABELS[slot.weekday] || ''} · ${slot.time}`;
+  const pct = Math.round((Number(slot.attendanceRate) || 0) * 100);
+  const acao = slot.isVacant ? null : computeProximaAcao(slot);
+  const risco = slot.isVacant ? null : computeRiscoEvasao(slot);
+  const valorEmRisco = risco && risco !== 'baixo' && slot.avgSessionValue > 0 ? slot.avgSessionValue * 4 : null;
+  const nextLabel = slot.nextSessionAt ? new Date(slot.nextSessionAt).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '') : null;
+  const soon = 'Em breve';
+
+  return (
+    <div className="fixed inset-0 z-[1400] flex justify-end bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <aside role="dialog" aria-modal="true" aria-label={`Horário ${when}`}
+        className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white text-left shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{when}</p>
+            <h3 className="mt-0.5 text-lg font-bold text-gray-900">
+              {slot.isVacant ? (slot.vacantType === 'critico' ? 'Vaga crítica' : slot.vacantType === 'temporario' ? 'Paciente ausente esta semana' : 'Horário livre') : slot.currentPatientName}
+            </h3>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+              <span className="h-2 w-2 rounded-full" style={{ background: cfg.dot }} aria-hidden />
+              {cfg.label} · estabilidade {slot.stabilityScore}/100
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 hover:bg-gray-100"><X size={18} /></button>
+        </div>
+
+        <div className="flex flex-col gap-3 p-4">
+          {slot.stabilityReason && <p className="text-sm text-gray-600">{slot.stabilityReason}</p>}
+
+          {acao && (
+            <div className={`rounded-lg border px-3 py-2 ${ACAO_TONE[acao.level]}`}>
+              <p className="text-sm font-semibold">{acao.text}</p>
+              {acao.sub && <p className="text-xs opacity-90">{acao.sub}</p>}
+            </div>
+          )}
+
+          {!slot.isVacant ? (
+            <div>
+              <Detail label="Presença">{pct}% · {slot.recurrenceCount} atend.{slot.slotTotalSessions > slot.recurrenceCount + 2 && ` (${slot.slotTotalSessions} no total)`}</Detail>
+              <Detail label="Faltas recentes">{slot.recentMissed || '—'}</Detail>
+              {slot.continuityMonths > 0 && <Detail label="Acompanhamento">{slot.continuityMonths} {slot.continuityMonths === 1 ? 'mês' : 'meses'}</Detail>}
+              {slot.avgSessionValue > 0 && <Detail label="Valor/mês">{brl(slot.avgSessionValue * 4)}</Detail>}
+              <Detail label="Pacote">{slot.packageRemaining > 0 ? `${slot.packageRemaining} ${slot.packageRemaining === 1 ? 'sessão restante' : 'sessões restantes'}` : '—'}</Detail>
+              <Detail label="Próxima">{nextLabel || <span className="text-orange-700">sem próxima sessão</span>}</Detail>
+              <Detail label="Última">{slot.daysSinceLastSession === null ? '—' : slot.daysSinceLastSession === 0 ? 'hoje' : `há ${slot.daysSinceLastSession} dias`}</Detail>
+              {valorEmRisco && <Detail label="Em risco"><span className="text-red-600">{brl(valorEmRisco)}/mês</span></Detail>}
+            </div>
+          ) : (
+            <div>
+              {slot.lastPatientName && <Detail label="Último paciente">{slot.lastPatientName}</Detail>}
+              {slot.slotTotalSessions > 0 && <Detail label="Ocupado">{slot.slotTotalSessions}x nas últimas semanas</Detail>}
+              {slot.daysSinceVacant !== null && <Detail label="Vago há">{slot.daysSinceVacant} dias</Detail>}
+              {slot.vacantType === 'critico' && slot.avgSessionValue > 0 && <Detail label="Perda potencial"><span className="text-red-600">{brl(slot.avgSessionValue * 4)}/mês</span></Detail>}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {!slot.isVacant && slot.currentPatientPhone && (
+              <button type="button" onClick={() => openWhatsApp(slot.currentPatientPhone, slot.currentPatientName || '')}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                <MessageCircle size={15} aria-hidden /> WhatsApp
+              </button>
+            )}
+            {slot.isVacant && slot.vacantType === 'critico' && (
+              <>
+                <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Reativar · em breve</button>
+                <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Encaixe · em breve</button>
+              </>
+            )}
+            {slot.isVacant && slot.vacantType === 'livre' && (
+              <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Oferecer horário · em breve</button>
+            )}
+            {slot.isVacant && slot.vacantType === 'temporario' && <p className="text-sm text-gray-500">Próxima sessão confirmada.</p>}
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+// ── Principal ───────────────────────────────────────────────────────────────
+type StatusFilter = 'todos' | Stability | 'vagos' | 'vagos_criticos';
+type ShowFilter = 'todos' | 'sem_proxima_sessao' | 'faltosos' | 'pacote_acabando' | 'risco_alto' | 'sem_continuidade';
 
 interface CarteiraWeeklyViewProps {
   doctors: IDoctor[];
 }
 
-export default function CarteiraWeeklyView({ doctors }: CarteiraWeeklyViewProps) {
+export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWeeklyViewProps) {
+  const doctors = doctorsProp || [];
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [days, setDays] = useState<number>(30);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('todos');
-  const [viewFilter, setViewFilter] = useState<string>('todos');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
+  const [showFilter, setShowFilter] = useState<ShowFilter>('todos');
+  const [openSlot, setOpenSlot] = useState<RetentionSlot | null>(null);
 
-  const { data, loading, error } = useRetentionSlots(selectedDoctorId, days);
+  const { data, loading, error, reload } = useRetentionSlots(selectedDoctorId, days);
 
-  // Filtro por especialidade (client-side)
-  const filteredDoctors = useMemo(() => {
-    if (!selectedSpecialty) return doctors;
-    return doctors.filter(d => d.specialty === selectedSpecialty);
-  }, [doctors, selectedSpecialty]);
+  const filteredDoctors = useMemo(() => (selectedSpecialty ? doctors.filter(d => d.specialty === selectedSpecialty) : doctors), [doctors, selectedSpecialty]);
+  const specialties = useMemo(() => [...new Set(doctors.map(d => d.specialty).filter(Boolean))] as string[], [doctors]);
 
-  const allTimes = useMemo(() => {
-    if (!data) return [];
-    const times = new Set<string>();
-    for (const wd of WEEKDAY_ORDER) {
-      for (const slot of data.weekdays[String(wd)] || []) {
-        times.add(slot.time);
-      }
-    }
-    return [...times].sort();
-  }, [data]);
+  const allSlots = useMemo(() => (data ? Object.values(data.weekdays).flat() : []), [data]);
+  const active = allSlots.filter(s => !s.isVacant);
 
-  const slotAt = (weekday: number, time: string): RetentionSlot | null => {
-    if (!data) return null;
-    return (data.weekdays[String(weekday)] || []).find(s => s.time === time) ?? null;
-  };
+  const allTimes = useMemo(() => [...new Set(allSlots.map(s => s.time))].sort(), [allSlots]);
 
-  // Aplicar filtros de visualização
-  const filteredSlotAt = (weekday: number, time: string): RetentionSlot | null => {
-    const slot = slotAt(weekday, time);
+  const matchStatus = (s: RetentionSlot, f: StatusFilter) =>
+    f === 'todos' ? true
+      : f === 'vagos' ? s.isVacant
+        : f === 'vagos_criticos' ? s.vacantType === 'critico'
+          : !s.isVacant && s.stability === f;
+  const matchShow = (s: RetentionSlot, f: ShowFilter) =>
+    f === 'todos' ? true
+      : s.isVacant ? false
+        : f === 'sem_proxima_sessao' ? !s.nextSessionAt
+          : f === 'faltosos' ? s.recentMissed >= 1
+            : f === 'pacote_acabando' ? packageEnding(s)
+              : f === 'risco_alto' ? computeRiscoEvasao(s) === 'alto'
+                : s.continuityMonths < 2;
+
+  const statusCount = (f: StatusFilter) => allSlots.filter(s => matchStatus(s, f) && matchShow(s, showFilter)).length;
+  const showCount = (f: ShowFilter) => allSlots.filter(s => matchShow(s, f) && matchStatus(s, statusFilter)).length;
+
+  const slotAt = (weekday: number, time: string) => {
+    const slot = (data?.weekdays[String(weekday)] || []).find(s => s.time === time) ?? null;
     if (!slot) return null;
-
-    // Filtro por status de estabilidade
-    if (statusFilter !== 'todos') {
-      if (statusFilter === 'vagos_criticos' && slot.vacantType !== 'critico') return null;
-      if (statusFilter !== 'vagos_criticos' && slot.stability !== statusFilter) return null;
-    }
-
-    // Filtro por visualização rápida
-    if (viewFilter !== 'todos') {
-      if (viewFilter === 'vagos' && !slot.isVacant) return null;
-      if (viewFilter === 'sem_proxima_sessao' && (slot.isVacant || slot.nextSessionAt)) return null;
-      if (viewFilter === 'sem_continuidade' && (slot.isVacant || slot.continuityMonths >= 2)) return null;
-      if (viewFilter === 'grade_risco' && slot.stability !== 'risco' && slot.stability !== 'atencao') return null;
-      if (viewFilter === 'faltosos' && (slot.isVacant || slot.recentMissed < 1)) return null;
-      if (viewFilter === 'pacote_acabando' && (slot.isVacant || slot.packageRemaining <= 0 || slot.packageRemaining > 3)) return null;
-      if (viewFilter === 'risco_alto' && (slot.isVacant || computeRiscoEvasao(slot) !== 'alto')) return null;
-    }
-
-    return slot;
+    return matchStatus(slot, statusFilter) && matchShow(slot, showFilter) ? slot : null;
   };
 
-  const allSlots = data ? Object.values(data.weekdays).flat() : [];
   const summary = data?.summary;
-
-  // Especialidades únicas dos doctors
-  const specialties = useMemo(() => {
-    const set = new Set<string>();
-    doctors.forEach(d => { if (d.specialty) set.add(d.specialty); });
-    return [...set];
-  }, [doctors]);
+  const stableRate = summary && typeof summary.stabilityRate === 'number' ? `${summary.stabilityRate}%` : '—';
 
   return (
-    <div className="p-3">
-      {/* Cabeçalho executivo */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <RefreshCcw size={18} color="#00C087" />
-          <span className="text-lg font-bold text-gray-800">Grade Terapêutica — Estabilidade</span>
-          {summary && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-600 border border-indigo-100">
-              {summary.stabilityRate}% estável
-            </span>
-          )}
+    <div className="p-4 text-left sm:p-5">
+      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Recorrência · grade terapêutica</h2>
+          <p className="text-sm text-gray-500">Horários fixos da semana e quem está em risco de sair</p>
         </div>
-
-        {summary && summary.atRiskSlots > 0 && (
-          <div className="p-3 rounded-xl border border-red-200 bg-red-50/60 flex items-start gap-2">
-            <AlertTriangle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-red-800">
-                ⚠️ Grade terapêutica em atenção
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-red-700 mt-1">
-                <span>{summary.atRiskSlots} horários em risco</span>
-                <span>{summary.criticalSlots} vagas críticas</span>
-                {summary.potentialLossMonthly > 0 && (
-                  <span className="font-semibold">
-                    Potencial mensal em risco: R$ {summary.potentialLossMonthly.toLocaleString('pt-BR')}
-                  </span>
-                )}
-                <span>{summary.stableSlots} estáveis</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {summary && summary.atRiskSlots === 0 && (
-          <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-2">
-            <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-emerald-800">
-                ✅ Grade terapêutica estável
-              </p>
-              <p className="text-xs text-emerald-700 mt-0.5">
-                {summary.stableSlots} horários firmes · {summary.newSlots} novos
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Painel operacional — pacientes para contato */}
-      <PainelResumo allSlots={allSlots} viewFilter={viewFilter} setViewFilter={setViewFilter} />
-
-      {/* Controles / Filtros */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Período */}
-          <div className="flex gap-1">
+          <div className="inline-flex rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Período">
             {[30, 60, 90].map(d => (
-              <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                  days === d
-                    ? 'bg-[#00C087] text-white'
-                    : 'bg-white text-gray-500 border border-gray-200 hover:border-[#00C087] hover:text-[#00C087]'
-                }`}
-              >
-                {d}d
+              <button key={d} type="button" aria-pressed={days === d} onClick={() => setDays(d)}
+                className={`rounded-md px-2.5 py-1 text-[13px] font-medium ${days === d ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                {d} dias
               </button>
             ))}
           </div>
-
-          {/* Profissional */}
-          <FormControl size="small" sx={{ minWidth: 170 }}>
-            <InputLabel>Profissional</InputLabel>
-            <Select
-              value={selectedDoctorId}
-              label="Profissional"
-              onChange={e => setSelectedDoctorId(e.target.value)}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {filteredDoctors.map(doc => (
-                <MenuItem key={doc._id} value={doc._id}>{doc.fullName}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* Terapia / Especialidade */}
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Terapia</InputLabel>
-            <Select
-              value={selectedSpecialty}
-              label="Terapia"
-              onChange={e => setSelectedSpecialty(e.target.value)}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {specialties.map(sp => (
-                <MenuItem key={sp} value={sp}>{getSpecialtyLabel(sp)}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Status */}
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Status"
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="todos">Todos</MenuItem>
-              <MenuItem value="estavel">🟢 Estáveis</MenuItem>
-              <MenuItem value="atencao">🟡 Atenção</MenuItem>
-              <MenuItem value="risco">🔴 Risco</MenuItem>
-              <MenuItem value="novo">🔵 Novos</MenuItem>
-              <MenuItem value="vagos_criticos">⚠️ Vagos críticos</MenuItem>
-            </Select>
-          </FormControl>
-
-          {/* Mostrar apenas */}
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Mostrar apenas</InputLabel>
-            <Select
-              value={viewFilter}
-              label="Mostrar apenas"
-              onChange={e => setViewFilter(e.target.value)}
-            >
-              <MenuItem value="todos">Todos</MenuItem>
-              <MenuItem value="sem_proxima_sessao">🚨 Sem próxima sessão</MenuItem>
-              <MenuItem value="faltosos">⚠ Faltas recentes</MenuItem>
-              <MenuItem value="pacote_acabando">📦 Pacote acabando</MenuItem>
-              <MenuItem value="risco_alto">🔥 Risco alto de evasão</MenuItem>
-              <MenuItem value="grade_risco">📉 Grade em risco</MenuItem>
-              <MenuItem value="vagos">Horários vagos</MenuItem>
-              <MenuItem value="sem_continuidade">Sem continuidade</MenuItem>
-            </Select>
-          </FormControl>
+          <select value={selectedDoctorId} onChange={e => setSelectedDoctorId(e.target.value)} aria-label="Profissional"
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="">Todos os profissionais</option>
+            {filteredDoctors.map(doc => <option key={doc._id} value={doc._id}>{doc.fullName}</option>)}
+          </select>
+          <select value={selectedSpecialty} onChange={e => setSelectedSpecialty(e.target.value)} aria-label="Terapia"
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="">Todas as terapias</option>
+            {specialties.map(sp => <option key={sp} value={sp}>{getSpecialtyLabel(sp)}</option>)}
+          </select>
         </div>
       </div>
 
-      {/* Loading */}
       {loading && (
-        <div style={{ overflow: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 8, minWidth: 640 }}>
-            <div />
-            {WEEKDAY_ORDER.map(d => <Skeleton key={d} variant="text" width="80%" height={28} />)}
-            {Array.from({ length: 8 }).flatMap((_, row) => [
-              <Skeleton key={`t${row}`} variant="text" width={36} height={20} style={{ justifySelf: 'end' }} />,
-              ...WEEKDAY_ORDER.map(d => (
-                <Skeleton key={`${d}_${row}`} variant="rounded" height={80} />
-              )),
-            ])}
-          </div>
+        <div className="flex flex-col gap-2" aria-busy="true">
+          <div className="h-11 animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-9 w-3/4 animate-pulse rounded-full bg-gray-100" />
+          <div className="grid grid-cols-5 gap-2">{Array.from({ length: 20 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-50" />)}</div>
         </div>
       )}
 
-      {/* Erro */}
       {error && !loading && (
-        <Alert severity="error">Erro ao carregar grade: {error}</Alert>
-      )}
-
-      {/* Estado vazio */}
-      {!loading && !error && !data && (
-        <div className="text-center py-8 text-gray-500">
-          <RotateCcw size={40} strokeWidth={1} />
-          <p className="mt-2">Selecione um profissional para ver a grade semanal</p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 px-4 py-10 text-center">
+          <p className="text-sm font-semibold text-gray-900">Não foi possível carregar a grade</p>
+          <p className="max-w-md text-xs text-gray-500">{error}</p>
+          <button type="button" onClick={reload} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <RefreshCw size={14} aria-hidden /> Tentar de novo
+          </button>
         </div>
       )}
 
-      {/* Grade principal */}
-      {!loading && !error && data && (
-        <div
-          className="border border-gray-200 rounded-xl shadow-sm"
-          style={{ overflow: 'auto', maxHeight: 'calc(100vh - 160px)' }}
-        >
-          <div style={{ minWidth: 640 }}>
-            {/* Cabeçalho dos dias — sticky */}
-            <div
-              className="px-4 py-3 border-b-2 border-gray-200 bg-white rounded-t-xl"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: GRID_COLS,
-                gap: 8,
-                position: 'sticky',
-                top: 0,
-                zIndex: 20,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              }}
-            >
-              <div />
-              {WEEKDAY_ORDER.map((wd) => {
-                const occ = data.occupancyByDay[String(wd)] || { active: 0, vacant: 0, total: 0, rate: 0 };
-                const filled = occ.total;
-                const rate = Math.min(100, Math.round((filled / TOTAL_DAILY_SLOTS) * 100));
-                const isToday = wd === TODAY_MONGO_WEEKDAY;
-                const isGood = rate >= 80;
-                const isMid = rate >= 60 && rate < 80;
-                const barColor = isGood ? '#16a34a' : isMid ? '#d97706' : '#ef4444';
-                const cardBg = isToday ? '#eff6ff' : isGood ? '#f0fdf4' : isMid ? '#fffbeb' : '#f9fafb';
-                const cardBorder = isToday ? '#93c5fd' : isGood ? '#bbf7d0' : isMid ? '#fde68a' : '#e5e7eb';
-                const rateColor = isGood ? '#15803d' : isMid ? '#b45309' : '#dc2626';
-                const weekDate = getWeekDate(wd);
-                const dateLabel = formatShortDate(weekDate);
-                return (
-                  <div
-                    key={wd}
-                    className="rounded-xl px-3 py-2.5 flex flex-col gap-2"
-                    style={{
-                      backgroundColor: cardBg,
-                      border: `1.5px solid ${cardBorder}`,
-                      boxShadow: isToday ? '0 0 0 3px #bfdbfe44' : undefined,
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-1 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[14px] font-extrabold text-gray-700 uppercase tracking-wide leading-none">
-                          {WEEKDAY_LABELS[wd].slice(0, 3)}
-                        </span>
-                        <span className="text-[15px] text-gray-400 font-medium">{dateLabel}</span>
-                        {isToday && (
-                          <span className="text-[14px] font-bold bg-blue-500 text-white px-1 py-0.5 rounded leading-none">
-                            hoje
-                          </span>
-                        )}
-                      </div>
-                      {occ.vacant > 0 && (
-                        <Tooltip title={`${occ.vacant} horário${occ.vacant > 1 ? 's' : ''} sem próximo agendamento`}>
-                          <span className="text-[15px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full cursor-default leading-none flex-shrink-0">
-                            {occ.vacant} livre{occ.vacant > 1 ? 's' : ''}
-                          </span>
-                        </Tooltip>
-                      )}
-                    </div>
+      {!loading && !error && data && summary && (
+        <>
+          {summary.atRiskSlots > 0 ? (
+            <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-900">
+              <AlertTriangle size={16} className="shrink-0 text-red-500" aria-hidden />
+              <strong>Grade em atenção:</strong>
+              <span>{summary.atRiskSlots} {summary.atRiskSlots === 1 ? 'horário em risco' : 'horários em risco'}</span>
+              <span aria-hidden>·</span><span>{summary.criticalSlots} {summary.criticalSlots === 1 ? 'vaga crítica' : 'vagas críticas'}</span>
+              {summary.potentialLossMonthly > 0 && <><span aria-hidden>·</span><strong>{brl(summary.potentialLossMonthly)}/mês em risco</strong></>}
+              <span aria-hidden>·</span><span>{summary.stableSlots} estáveis ({stableRate})</span>
+            </p>
+          ) : (
+            <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-600" aria-hidden />
+              <strong>Grade estável:</strong>
+              <span>{summary.stableSlots} {summary.stableSlots === 1 ? 'horário firme' : 'horários firmes'} ({stableRate})</span>
+              <span aria-hidden>·</span><span>{summary.newSlots} {summary.newSlots === 1 ? 'novo' : 'novos'}</span>
+            </p>
+          )}
 
-                    <div className="flex items-end justify-between gap-1">
-                      <div className="flex flex-col leading-none">
-                        <span className="text-[14px] text-gray-400 font-medium mb-0.5">horários preenchidos</span>
-                        <span className="text-2xl font-extrabold tabular-nums leading-none" style={{ color: rateColor }}>
-                          {rate}%
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-end leading-none">
-                        <span className="text-[15px] text-gray-400 font-medium mb-0.5">horários</span>
-                        <span className="text-sm font-bold text-gray-700 tabular-nums">
-                          {filled}<span className="text-gray-400 font-normal">/{TOTAL_DAILY_SLOTS}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div style={{ width: `${rate}%`, backgroundColor: barColor }} className="h-full rounded-full transition-all" />
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="mb-3 flex flex-col gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
+              <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1">
+                <Chip active={statusFilter === 'todos'} count={statusCount('todos')} onClick={() => setStatusFilter('todos')}>Todos</Chip>
+                {(['estavel', 'atencao', 'risco', 'novo'] as Stability[]).map(st => (
+                  <Chip key={st} active={statusFilter === st} count={statusCount(st)} dot={STABILITY[st].dot}
+                    onClick={() => setStatusFilter(statusFilter === st ? 'todos' : st)}>
+                    {st === 'estavel' ? 'Estáveis' : st === 'atencao' ? 'Atenção' : st === 'risco' ? 'Em risco' : 'Novos'}
+                  </Chip>
+                ))}
+                <Chip active={statusFilter === 'vagos'} count={statusCount('vagos')} dot="#94a3b8" onClick={() => setStatusFilter(statusFilter === 'vagos' ? 'todos' : 'vagos')}>Livres</Chip>
+                <Chip active={statusFilter === 'vagos_criticos'} count={statusCount('vagos_criticos')} dot="#e5484d" onClick={() => setStatusFilter(statusFilter === 'vagos_criticos' ? 'todos' : 'vagos_criticos')}>Vagas críticas</Chip>
+              </div>
             </div>
-
-            {/* Linhas por horário */}
-            <div className="flex flex-col divide-y divide-gray-100 pb-6">
-              {allTimes.map((time, idx) => (
-                <div
-                  key={time}
-                  className="px-4 py-2"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: GRID_COLS,
-                    gap: 10,
-                    minHeight: 140,
-                  }}
-                >
-                  <div className="flex items-center justify-end pr-2">
-                    <span className="text-xs font-mono font-semibold text-gray-400">{time}</span>
-                  </div>
-                  {WEEKDAY_ORDER.map((wd, colIdx) => {
-                    const slot = filteredSlotAt(wd, time);
-                    const notLast = colIdx < WEEKDAY_ORDER.length - 1;
-                    return (
-                      <div
-                        key={wd}
-                        style={{
-                          minHeight: 130,
-                          borderRight: notLast ? '2px dashed #cbd5e1' : undefined,
-                          paddingRight: notLast ? 8 : undefined,
-                          backgroundColor: colIdx % 2 === 0 ? '#ffffff' : '#F8FAFC',
-                          borderRadius: 6,
-                        }}
-                      >
-                        {slot ? (
-                          slot.isVacant
-                            ? <VacantCell slot={slot} />
-                            : <ActiveCell slot={slot} />
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">Mostrar</span>
+              <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1">
+                <Chip active={showFilter === 'todos'} onClick={() => setShowFilter('todos')}>Tudo</Chip>
+                {([
+                  ['sem_proxima_sessao', 'Sem próxima sessão'],
+                  ['faltosos', 'Faltas recentes'],
+                  ['pacote_acabando', 'Pacote acabando'],
+                  ['risco_alto', 'Risco alto de evasão'],
+                  ['sem_continuidade', 'Sem continuidade'],
+                ] as [ShowFilter, string][]).map(([f, label]) => (
+                  <Chip key={f} active={showFilter === f} count={showCount(f)} onClick={() => setShowFilter(showFilter === f ? 'todos' : f)}>{label}</Chip>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+
+          {allTimes.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">Nenhum horário recorrente neste período.</p>
+          ) : (
+            <div className="overflow-auto rounded-xl border border-gray-200" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+              <table className="w-full min-w-[760px] table-fixed border-collapse">
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    <th scope="col" className="w-14 border-b border-gray-200 bg-white px-2 py-2" />
+                    {WEEKDAY_ORDER.map(wd => {
+                      const occ = data.occupancyByDay[String(wd)] || { active: 0, vacant: 0, total: 0, rate: 0 };
+                      const rate = Math.min(100, Math.round((occ.total / TOTAL_DAILY_SLOTS) * 100));
+                      const isToday = wd === TODAY_MONGO_WEEKDAY;
+                      const color = rate >= 80 ? '#1baf7a' : rate >= 60 ? '#eda100' : '#e5484d';
+                      return (
+                        <th key={wd} scope="col" className={`border-b border-l border-gray-200 px-2 py-2 text-left align-bottom ${isToday ? 'bg-emerald-50' : 'bg-white'}`}>
+                          <span className="block text-sm font-semibold text-gray-900">
+                            {WEEKDAY_LABELS[wd].slice(0, 3)} <span className="font-normal text-gray-500">{getWeekDate(wd).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                            {isToday && <span className="ml-1 text-xs font-semibold text-emerald-700">hoje</span>}
+                          </span>
+                          <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                            {occ.total}/{TOTAL_DAILY_SLOTS} preenchidos{occ.vacant > 0 && ` · ${occ.vacant} ${occ.vacant === 1 ? 'livre' : 'livres'}`}
+                          </span>
+                          <span className="mt-1 block h-1 overflow-hidden rounded-full bg-gray-100">
+                            <span className="block h-full rounded-full" style={{ width: `${rate}%`, background: color }} />
+                          </span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {allTimes.map(time => (
+                    <tr key={time}>
+                      <th scope="row" className="border-b border-gray-100 px-2 py-1 text-right align-top text-xs font-semibold tabular-nums text-gray-500">{time}</th>
+                      {WEEKDAY_ORDER.map(wd => {
+                        const slot = slotAt(wd, time);
+                        return (
+                          <td key={wd} className="h-14 border-b border-l border-gray-100 p-1 align-top">
+                            {slot && <SlotCell slot={slot} onOpen={() => setOpenSlot(slot)} />}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-gray-500">Clique num horário para ver presença, acompanhamento, valor, pacote, próxima e última sessão.</p>
+        </>
       )}
+
+      {openSlot && <SlotPanel slot={openSlot} onClose={() => setOpenSlot(null)} />}
     </div>
   );
 }

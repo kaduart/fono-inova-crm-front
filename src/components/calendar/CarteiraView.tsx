@@ -1,139 +1,19 @@
-import {
-  Alert,
-  Box,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Skeleton,
-  Typography,
-} from '@mui/material';
-import { AlertTriangle, Calendar, Ghost, MessageCircle, Sparkles, TrendingUp, UserCheck, Users } from 'lucide-react';
+// Aba Acompanhamento da Agenda (mock aprovado em 30/10): aviso de "sem próxima sessão" no topo,
+// números como chips que filtram, retenção em destaque e pacientes em tabela. Sem emojis.
+import { AlertTriangle, MessageCircle, RefreshCw } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useRetention, RetentionLifecycle, RetentionPatient } from '../../hooks/useRetention';
 import { useDoctorsContext } from '../../contexts/DoctorsContext';
 import { IDoctor } from '../../utils/types/types';
+import { Chip } from './agenda/AgendaParts';
 
-// ─── Configuração visual de cada lifecycle ────────────────────────────────────
-
-const LIFECYCLE_CONFIG: Record<RetentionLifecycle, {
-  label: string;
-  color: string;
-  bg: string;
-  border: string;
-  dot: string;
-  emoji: string;
-}> = {
-  em_risco: {
-    label: 'Em risco',
-    color: '#dc2626',
-    bg: '#fef2f2',
-    border: '#fca5a5',
-    dot: 'bg-red-500',
-    emoji: '🔴',
-  },
-  perdido: {
-    label: 'Perdido',
-    color: '#6b7280',
-    bg: '#f9fafb',
-    border: '#d1d5db',
-    dot: 'bg-gray-400',
-    emoji: '👻',
-  },
-  oscilando: {
-    label: 'Oscilando',
-    color: '#d97706',
-    bg: '#fffbeb',
-    border: '#fcd34d',
-    dot: 'bg-yellow-500',
-    emoji: '🟡',
-  },
-  novo: {
-    label: 'Novo',
-    color: '#2563eb',
-    bg: '#eff6ff',
-    border: '#93c5fd',
-    dot: 'bg-blue-400',
-    emoji: '🆕',
-  },
-  engajado: {
-    label: 'Engajado',
-    color: '#16a34a',
-    bg: '#f0fdf4',
-    border: '#86efac',
-    dot: 'bg-green-500',
-    emoji: '🟢',
-  },
+const LIFECYCLE: Record<RetentionLifecycle, { label: string; plural: string; dot: string }> = {
+  engajado: { label: 'Engajado', plural: 'Engajados', dot: '#1baf7a' },
+  oscilando: { label: 'Oscilando', plural: 'Oscilando', dot: '#eda100' },
+  em_risco: { label: 'Em risco', plural: 'Em risco', dot: '#e5484d' },
+  perdido: { label: 'Perdido', plural: 'Perdidos', dot: '#94a3b8' },
+  novo: { label: 'Novo', plural: 'Novos', dot: '#2a78d6' },
 };
-
-// ─── Sub-componente: card de resumo do profissional ───────────────────────────
-
-interface SummaryCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  color: string;
-  bg: string;
-  active?: boolean;
-  onClick?: () => void;
-}
-
-function SummaryCard({ icon, label, value, color, bg, active, onClick }: SummaryCardProps) {
-  return (
-    <Box
-      onClick={onClick}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 0.5,
-        px: 2,
-        py: 1.5,
-        borderRadius: 2,
-        border: active ? `2px solid ${color}` : '2px solid transparent',
-        bgcolor: active ? bg : 'grey.50',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.15s ease',
-        minWidth: 70,
-        '&:hover': onClick ? { bgcolor: bg, borderColor: color } : {},
-      }}
-    >
-      <Box sx={{ color, display: 'flex' }}>{icon}</Box>
-      <Typography variant="h6" fontWeight="bold" sx={{ color, lineHeight: 1 }}>
-        {value}
-      </Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', lineHeight: 1.2 }}>
-        {label}
-      </Typography>
-    </Box>
-  );
-}
-
-// ─── Sub-componente: barra de presença ───────────────────────────────────────
-
-function AttendanceBar({ rate, sessions }: { rate: number; sessions: number }) {
-  const pct = Math.round(rate * 100);
-  const filled = Math.min(10, Math.round(rate * 10));
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex gap-px">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div
-            key={i}
-            className={`w-2.5 h-2 rounded-sm ${i < filled ? 'bg-green-500' : 'bg-gray-200'}`}
-          />
-        ))}
-      </div>
-      <span className="text-xs text-gray-500">
-        {pct}% · {sessions} sessão{sessions !== 1 ? 'ões' : ''}
-      </span>
-    </div>
-  );
-}
-
-// ─── Helper: formata número para link WhatsApp ────────────────────────────────
 
 function formatWhatsApp(phone: string): string {
   const digits = phone.replace(/\D/g, '');
@@ -150,90 +30,59 @@ function openWhatsApp(phone: string, name: string) {
   window.open(`https://wa.me/${number}?text=${msg}`, '_blank', 'noopener');
 }
 
-// ─── Sub-componente: card do paciente ────────────────────────────────────────
+const fmtDay = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '') : '';
 
-function PatientCard({ patient }: { patient: RetentionPatient }) {
-  const cfg = LIFECYCLE_CONFIG[patient.lifecycle];
-
-  const nextLabel = patient.nextSessionAt
-    ? new Date(patient.nextSessionAt).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
-    : null;
-
-  const lastLabel = patient.daysSinceLastSession !== null
-    ? patient.daysSinceLastSession === 0
-      ? 'hoje'
-      : `${patient.daysSinceLastSession}d atrás`
-    : null;
-
+function AttendanceBar({ rate }: { rate: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round((Number(rate) || 0) * 100)));
+  const color = pct >= 80 ? '#1baf7a' : pct >= 60 ? '#eda100' : '#e5484d';
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'stretch',
-        border: `1px solid ${cfg.border}`,
-        borderLeft: `4px solid ${cfg.color}`,
-        borderRadius: 2,
-        bgcolor: cfg.bg,
-        overflow: 'hidden',
-        transition: 'box-shadow 0.15s',
-        '&:hover': { boxShadow: 2 },
-      }}
-    >
-      {/* Coluna principal */}
-      <Box sx={{ flex: 1, p: 1.5 }}>
-        <div className="flex items-center justify-between mb-1">
-          <Typography variant="body2" fontWeight="bold" color="text.primary" noWrap sx={{ maxWidth: 200 }}>
-            {patient.patientName}
-          </Typography>
-          <span
-            className="text-2xs font-semibold px-2 py-0.5 rounded-full"
-            style={{ color: cfg.color, backgroundColor: `${cfg.color}18` }}
-          >
-            {cfg.emoji} {cfg.label}
-          </span>
-        </div>
-
-        <AttendanceBar rate={patient.attendanceRate} sessions={patient.sessionsMonth} />
-
-        {/* Linha de detalhes */}
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-          {patient.absencesMonth > 0 && (
-            <span className="text-xs text-red-600 font-medium">
-              ⚠️ {patient.absencesMonth} falta{patient.absencesMonth > 1 ? 's' : ''}
-            </span>
-          )}
-          {lastLabel && (
-            <span className="text-xs text-gray-500">🕐 {lastLabel}</span>
-          )}
-          {patient.packageRemaining > 0 && (
-            <span className={`text-xs font-medium ${patient.packageRemaining <= 1 ? 'text-orange-600' : 'text-gray-600'}`}>
-              📦 {patient.packageRemaining} restante{patient.packageRemaining !== 1 ? 's' : ''}
-            </span>
-          )}
-          {nextLabel && (
-            <span className="text-xs text-blue-600">📅 próx: {nextLabel}</span>
-          )}
-          {!nextLabel && patient.lifecycle !== 'novo' && (
-            <span className="text-xs text-orange-500 font-medium">⚡ sem próxima sessão</span>
-          )}
-        </div>
-      </Box>
-
-      {/* Botão WhatsApp */}
-      {patient.phone && (
-        <button
-          onClick={() => openWhatsApp(patient.phone, patient.patientName)}
-          title={`WhatsApp: ${patient.patientName}`}
-          className="flex-shrink-0 flex items-center justify-center w-10 bg-green-50 hover:bg-green-100 border-l border-green-200 transition-colors rounded-r-lg"
-        >
-          <MessageCircle size={18} className="text-green-600" />
-        </button>
-      )}
-    </Box>
+    <div className="flex items-center gap-2" title={`Presença ${pct}%`}>
+      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="w-9 text-xs tabular-nums text-gray-700">{pct}%</span>
+    </div>
   );
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+function PatientRow({ p }: { p: RetentionPatient }) {
+  const cfg = LIFECYCLE[p.lifecycle] || LIFECYCLE.novo;
+  const orphan = !p.nextSessionAt && p.lifecycle !== 'novo' && p.totalSessions > 0;
+  const last = p.daysSinceLastSession === null ? '—' : p.daysSinceLastSession === 0 ? 'hoje' : `há ${p.daysSinceLastSession} d`;
+  return (
+    <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+      <td className="py-2 pl-3 pr-2">
+        <span className="block text-sm font-semibold text-gray-900">{p.patientName}</span>
+        <span className="text-xs text-gray-500">{p.sessionsMonth} {p.sessionsMonth === 1 ? 'sessão' : 'sessões'} no mês</span>
+      </td>
+      <td className="px-2 py-2">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-gray-700">
+          <span className="h-2 w-2 rounded-full" style={{ background: cfg.dot }} aria-hidden />{cfg.label}
+        </span>
+      </td>
+      <td className="px-2 py-2"><AttendanceBar rate={p.attendanceRate} /></td>
+      <td className={`px-2 py-2 text-sm tabular-nums ${p.absencesMonth > 0 ? 'font-semibold text-red-600' : 'text-gray-500'}`}>{p.absencesMonth || '—'}</td>
+      <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-700">{last}</td>
+      <td className="whitespace-nowrap px-2 py-2 text-sm">
+        {p.nextSessionAt
+          ? <span className="text-gray-700">{fmtDay(p.nextSessionAt)}</span>
+          : orphan ? <span className="font-semibold text-amber-700">sem próxima</span> : <span className="text-gray-500">—</span>}
+      </td>
+      <td className={`whitespace-nowrap px-2 py-2 text-sm tabular-nums ${p.packageRemaining > 0 && p.packageRemaining <= 1 ? 'font-semibold text-amber-700' : 'text-gray-700'}`}>
+        {p.packageRemaining > 0 ? `${p.packageRemaining} ${p.packageRemaining === 1 ? 'restante' : 'restantes'}` : '—'}
+      </td>
+      <td className="py-2 pl-2 pr-3 text-right">
+        {p.phone ? (
+          <button type="button" onClick={() => openWhatsApp(p.phone, p.patientName)} title={`WhatsApp: ${p.patientName}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+            <MessageCircle size={14} aria-hidden /> WhatsApp
+          </button>
+        ) : <span className="text-xs text-gray-500">sem telefone</span>}
+      </td>
+    </tr>
+  );
+}
 
 interface CarteiraViewProps {
   doctors?: IDoctor[];
@@ -244,235 +93,126 @@ type LifecycleFilter = 'todos' | RetentionLifecycle | 'orphan';
 
 export default function CarteiraView({ doctors: doctorsProp, currentMonth: currentMonthProp }: CarteiraViewProps) {
   const { doctors: doctorsCtx } = useDoctorsContext();
-  const doctors = doctorsProp ?? (doctorsCtx as unknown as IDoctor[]);
+  const doctors = doctorsProp ?? (doctorsCtx as unknown as IDoctor[]) ?? [];
   const currentMonth = currentMonthProp ?? new Date().toISOString().slice(0, 7);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('todos');
 
-  const { data, loading, error } = useRetention(selectedDoctorId, currentMonth);
+  const { data, loading, error, reload } = useRetention(selectedDoctorId, currentMonth);
+  const patients = data?.patients ?? [];
 
-  const orphanPatients = useMemo(() =>
-    (data?.patients ?? []).filter(p => !p.nextSessionAt && p.lifecycle !== 'novo' && p.totalSessions > 0),
-    [data?.patients]
+  const orphanPatients = useMemo(
+    () => patients.filter(p => !p.nextSessionAt && p.lifecycle !== 'novo' && p.totalSessions > 0),
+    [patients]
   );
 
   const filteredPatients = useMemo(() => {
-    if (!data?.patients) return [];
-    if (lifecycleFilter === 'orphan') return orphanPatients;
-    if (lifecycleFilter === 'todos') return data.patients;
-    return data.patients.filter(p => p.lifecycle === lifecycleFilter);
-  }, [data?.patients, lifecycleFilter, orphanPatients]);
-
-  const attentionCount = data?.patients.filter(p => p.needsAttention).length ?? 0;
+    const list = lifecycleFilter === 'orphan' ? orphanPatients
+      : lifecycleFilter === 'todos' ? patients
+        : patients.filter(p => p.lifecycle === lifecycleFilter);
+    // Quem pede atenção primeiro, depois por nome
+    return [...list].sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention) || a.patientName.localeCompare(b.patientName));
+  }, [patients, lifecycleFilter, orphanPatients]);
 
   const monthLabel = currentMonth
     ? new Date(`${currentMonth}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : '';
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* ── Controles ─────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <Users size={20} color="#00C087" />
-          <Typography variant="h6" fontWeight="bold" color="text.primary">
-            Acompanhamento de Pacientes
-          </Typography>
-          {monthLabel && (
-            <Typography variant="body2" color="text.secondary">
-              · {monthLabel}
-            </Typography>
-          )}
-          {attentionCount > 0 && (
-            <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
-              {attentionCount} requer atenção
-            </span>
-          )}
+    <div className="p-4 text-left sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Acompanhamento de pacientes</h2>
+          <p className="text-sm text-gray-500">{monthLabel}{data && ` · ${data.summary.patients} pacientes`}</p>
         </div>
-
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Profissional</InputLabel>
-          <Select
-            value={selectedDoctorId}
-            label="Profissional"
-            onChange={e => {
-              setSelectedDoctorId(e.target.value);
-              setLifecycleFilter('todos');
-            }}
-          >
-            <MenuItem value="">Todos os profissionais</MenuItem>
-            {doctors.map(doc => (
-              <MenuItem key={doc._id} value={doc._id}>
-                {doc.fullName}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          Profissional
+          <select value={selectedDoctorId}
+            onChange={e => { setSelectedDoctorId(e.target.value); setLifecycleFilter('todos'); }}
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="">Todos os profissionais</option>
+            {doctors.map(doc => <option key={doc._id} value={doc._id}>{doc.fullName}</option>)}
+          </select>
+        </label>
       </div>
 
-      {/* ── Loading ───────────────────────────────────────────── */}
       {loading && (
-        <Box>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} variant="rounded" height={72} />
-            ))}
-          </div>
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} variant="rounded" height={72} />
-            ))}
-          </div>
-        </Box>
+        <div className="flex flex-col gap-2" aria-busy="true">
+          <div className="h-12 animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-9 w-2/3 animate-pulse rounded-full bg-gray-100" />
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-11 animate-pulse rounded-lg bg-gray-50" />)}
+        </div>
       )}
 
-      {/* ── Erro ─────────────────────────────────────────────── */}
       {error && !loading && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Erro ao carregar dados de retenção: {error}
-        </Alert>
-      )}
-
-      {/* ── Estado vazio ─────────────────────────────────────── */}
-      {!loading && !error && !data && (
-        <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Users size={48} strokeWidth={1} />
-          <Typography variant="body1" sx={{ mt: 2 }}>
-            Selecione um profissional para ver a carteira de pacientes
-          </Typography>
-        </Box>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 px-4 py-10 text-center">
+          <p className="text-sm font-semibold text-gray-900">Não foi possível carregar o acompanhamento</p>
+          <p className="max-w-md text-xs text-gray-500">{error}</p>
+          <button type="button" onClick={reload}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <RefreshCw size={14} aria-hidden /> Tentar de novo
+          </button>
+        </div>
       )}
 
       {!loading && !error && data && (
         <>
-          {/* ── Cards de resumo ─────────────────────────────── */}
-          <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2, p: 2, mb: 3 }}>
-            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-              <SummaryCard
-                icon={<Users size={18} />}
-                label="Pacientes"
-                value={data.summary.patients}
-                color="#475569"
-                bg="#f8fafc"
-              />
-              <SummaryCard
-                icon={<UserCheck size={18} />}
-                label="Engajados"
-                value={data.summary.engajado}
-                color="#16a34a"
-                bg="#f0fdf4"
-                active={lifecycleFilter === 'engajado'}
-                onClick={() => setLifecycleFilter(lifecycleFilter === 'engajado' ? 'todos' : 'engajado')}
-              />
-              <SummaryCard
-                icon={<AlertTriangle size={18} />}
-                label="Oscilando"
-                value={data.summary.oscilando}
-                color="#d97706"
-                bg="#fffbeb"
-                active={lifecycleFilter === 'oscilando'}
-                onClick={() => setLifecycleFilter(lifecycleFilter === 'oscilando' ? 'todos' : 'oscilando')}
-              />
-              <SummaryCard
-                icon={<AlertTriangle size={18} />}
-                label="Em risco"
-                value={data.summary.em_risco}
-                color="#dc2626"
-                bg="#fef2f2"
-                active={lifecycleFilter === 'em_risco'}
-                onClick={() => setLifecycleFilter(lifecycleFilter === 'em_risco' ? 'todos' : 'em_risco')}
-              />
-              <SummaryCard
-                icon={<Ghost size={18} />}
-                label="Perdidos"
-                value={data.summary.perdido}
-                color="#6b7280"
-                bg="#f9fafb"
-                active={lifecycleFilter === 'perdido'}
-                onClick={() => setLifecycleFilter(lifecycleFilter === 'perdido' ? 'todos' : 'perdido')}
-              />
-              <SummaryCard
-                icon={<Sparkles size={18} />}
-                label="Novos"
-                value={data.summary.novo}
-                color="#2563eb"
-                bg="#eff6ff"
-                active={lifecycleFilter === 'novo'}
-                onClick={() => setLifecycleFilter(lifecycleFilter === 'novo' ? 'todos' : 'novo')}
-              />
-              <SummaryCard
-                icon={<TrendingUp size={18} />}
-                label="Retenção"
-                value={`${data.summary.retentionRate}%`}
-                color="#00C087"
-                bg="#f0fdf4"
-              />
-              {orphanPatients.length > 0 && (
-                <SummaryCard
-                  icon={<AlertTriangle size={18} />}
-                  label="Sem agenda"
-                  value={orphanPatients.length}
-                  color="#ea580c"
-                  bg="#fff7ed"
-                  active={lifecycleFilter === 'orphan'}
-                  onClick={() => setLifecycleFilter(lifecycleFilter === 'orphan' ? 'todos' : 'orphan')}
-                />
-              )}
-            </div>
-          </Paper>
-
-          {/* ── Banner pacientes órfãos ──────────────────────── */}
           {orphanPatients.length > 0 && lifecycleFilter !== 'orphan' && (
-            <Box
-              onClick={() => setLifecycleFilter('orphan')}
-              sx={{
-                mb: 2,
-                p: 1.5,
-                borderRadius: 2,
-                border: '1px solid #fed7aa',
-                bgcolor: '#fff7ed',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 1,
-                '&:hover': { bgcolor: '#ffedd5' },
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={16} className="text-orange-500 flex-shrink-0" />
-                <div>
-                  <span className="text-sm font-bold text-orange-800">
-                    ⚡ {orphanPatients.length} paciente{orphanPatients.length > 1 ? 's' : ''} sem próxima sessão
-                  </span>
-                  <p className="text-xs text-orange-600 mt-0.5">
-                    Têm histórico mas nenhuma consulta agendada · clique para ver
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-1 rounded-lg flex-shrink-0">
-                Ver todos
-              </span>
-            </Box>
+            <div className="mb-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex items-start gap-2 text-sm text-amber-900">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+                <span><strong>{orphanPatients.length} {orphanPatients.length === 1 ? 'paciente sem próxima sessão' : 'pacientes sem próxima sessão'}</strong> {orphanPatients.length === 1 ? 'tem' : 'têm'} histórico, mas nada agendado.</span>
+              </p>
+              <button type="button" onClick={() => setLifecycleFilter('orphan')}
+                className="self-start rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 sm:self-auto">
+                Ver {orphanPatients.length === 1 ? 'o paciente' : `os ${orphanPatients.length}`}
+              </button>
+            </div>
           )}
 
-          {/* ── Lista de pacientes ───────────────────────────── */}
-          {filteredPatients.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-              <Calendar size={36} strokeWidth={1} />
-              <Typography variant="body2" sx={{ mt: 1.5 }}>
-                Nenhum paciente nesta categoria no período
-              </Typography>
-            </Box>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {filteredPatients.map(patient => (
-                <PatientCard key={patient.patientId} patient={patient} />
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="-my-1 flex gap-1.5 overflow-x-auto py-1">
+              <Chip active={lifecycleFilter === 'todos'} count={data.summary.patients} onClick={() => setLifecycleFilter('todos')}>Todos</Chip>
+              {(['engajado', 'oscilando', 'em_risco', 'perdido', 'novo'] as RetentionLifecycle[]).map(l => (
+                <Chip key={l} active={lifecycleFilter === l} count={data.summary[l]} dot={LIFECYCLE[l].dot}
+                  onClick={() => setLifecycleFilter(lifecycleFilter === l ? 'todos' : l)}>{LIFECYCLE[l].plural}</Chip>
               ))}
+              {orphanPatients.length > 0 && (
+                <Chip active={lifecycleFilter === 'orphan'} count={orphanPatients.length} dot="#eda100"
+                  onClick={() => setLifecycleFilter(lifecycleFilter === 'orphan' ? 'todos' : 'orphan')}>Sem próxima sessão</Chip>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              <span className="text-2xl font-bold tabular-nums text-gray-900">{data.summary.retentionRate}%</span>
+              <span className="ml-1.5 text-xs text-gray-500">retenção do mês</span>
+            </div>
+          </div>
+
+          {filteredPatients.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">Nenhum paciente nesta categoria no período.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="w-full min-w-[820px] text-left">
+                <thead>
+                  <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th scope="col" className="py-2 pl-3 pr-2">Paciente</th>
+                    <th scope="col" className="px-2 py-2">Situação</th>
+                    <th scope="col" className="px-2 py-2">Presença</th>
+                    <th scope="col" className="px-2 py-2">Faltas</th>
+                    <th scope="col" className="px-2 py-2">Última</th>
+                    <th scope="col" className="px-2 py-2">Próxima</th>
+                    <th scope="col" className="px-2 py-2">Pacote</th>
+                    <th scope="col" className="py-2 pl-2 pr-3 text-right"><span className="sr-only">Contato</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPatients.map(p => <PatientRow key={p.patientId} p={p} />)}
+                </tbody>
+              </table>
             </div>
           )}
         </>
       )}
-    </Box>
+    </div>
   );
 }

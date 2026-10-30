@@ -296,6 +296,13 @@ export default function CancellationsReport() {
                     {/* linha de apoio */}
                     <p className="text-sm text-gray-600">
                         <strong className="text-gray-900">{total}</strong> cancelamento{total === 1 ? '' : 's'} no período
+                        {summary.totalAppointments > 0 && (
+                            <>
+                                {' '}· <span className="rounded-md bg-red-50 px-1.5 py-0.5 font-semibold text-red-700" title={`${total} de ${summary.totalAppointments} sessões agendadas no período`}>
+                                    {Number(summary.cancelRate || 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% das sessões
+                                </span>
+                            </>
+                        )}
                         {comparison && (
                             <>
                                 {' '}· <span className={`font-medium ${diffTone(comparison.total.diff)}`}>{diffText(comparison.total.diff)}</span>
@@ -444,7 +451,7 @@ export default function CancellationsReport() {
                                                         <td data-label="Cancelamentos" className="text-left font-semibold tabular-nums text-gray-900 before:block before:text-xs before:font-normal before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{r.count}</td>
                                                         {tab === 'professional' && <td data-label="Taxa" className="text-left before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:before:hidden sm:px-2 sm:text-right tabular-nums">{r.rate}%</td>}
                                                         <td data-label="Com menos de 24h" className={`text-left before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:before:hidden sm:px-2 sm:text-right tabular-nums ${r.late > 0 ? 'font-medium text-orange-700' : 'text-gray-500'}`}>{r.late}</td>
-                                                        {tab === 'patient' && <td data-label="Último cancelamento" className="text-left tabular-nums text-gray-700 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{fmtDate(r.last)}</td>}
+                                                        {tab === 'patient' && <td data-label="Último cancelamento" className="text-left tabular-nums text-gray-700 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{r.last ? fmtDate(r.last) : <span className="text-gray-500">sem data</span>}</td>}
                                                         <td className="col-span-2 text-right sm:px-2">
                                                             <button
                                                                 type="button"
