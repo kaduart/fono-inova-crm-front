@@ -335,6 +335,7 @@ export default function AdminDashboard() {
 
     const {
         stats,
+        charts: dashboardCharts,
         upcomingAppointments: upcomingAppts,
         loading: dashboardLoading,
         refresh: refreshDashboard
@@ -1103,6 +1104,8 @@ export default function AdminDashboard() {
     // 🎯 Props memoizadas para evitar re-renders desnecessários
     const dashboardProps = useMemo(() => ({
         stats,
+        charts: dashboardCharts,
+        onNavigate: setActiveTab,
         doctors: safeDoctorsOverview,
         upcomingAppointments: upcomingAppts,
         patients,
@@ -1117,7 +1120,7 @@ export default function AdminDashboard() {
         setPaymentContext,
         setPaymentModalOpen,
         onDeletePatient: handleDeletePatient,
-    }), [stats, safeDoctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard,
+    }), [stats, dashboardCharts, setActiveTab, safeDoctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard,
         handleAddProfessional, handleAddPatient, handleDeletePatient]);
 
     const manageDoctorsProps = useMemo(() => ({

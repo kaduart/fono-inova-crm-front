@@ -328,7 +328,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                         <DollarSign className="w-3 h-3" /> Saldo
                                     </span>
                                 </div>
-                                <div className="w-36 shrink-0 text-center">
+                                <div className="hidden w-36 shrink-0 text-center sm:block">
                                     <span className="text-2xs font-semibold text-gray-400 uppercase tracking-wider">Ações</span>
                                 </div>
                                 <div className="w-6 shrink-0" />
@@ -346,7 +346,7 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                     return (
                                         <div key={patient.id}>
                                             <div
-                                                className={`flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-200 transition-all shadow-sm cursor-pointer ${rowAccent}`}
+                                                className={`flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-nowrap px-3 py-3 rounded-lg border border-gray-200 transition-all shadow-sm cursor-pointer ${rowAccent}`}
                                                 onClick={() => toggleRow(patient.id)}
                                             >
                                                 {/* Paciente */}
@@ -503,9 +503,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
                                                     })()}
                                                 </div>
 
-                                                {/* Ações */}
-                                                <div className="w-36 shrink-0">
-                                                    <div className="flex gap-0.5 items-center justify-center">
+                                                {/* Ações (no celular descem para uma linha própria, para o nome caber) */}
+                                                <div className="order-last w-full shrink-0 border-t border-gray-100 pt-1 sm:order-none sm:w-36 sm:border-0 sm:pt-0">
+                                                    <div className="flex gap-0.5 items-center justify-end sm:justify-center">
                                                         <Link
                                                             to={`/patient-dashboard/${patient.patientId || patient.id}`}
                                                             title="Ver detalhes"

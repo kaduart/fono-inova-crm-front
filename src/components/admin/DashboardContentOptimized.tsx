@@ -1,6 +1,6 @@
 import {
-    Activity, BarChart3, Cake, ChevronDown, ChevronRight, ChevronUp,
-    Clock, DollarSign, Eye, RefreshCw, Stethoscope, UserPlus, Users, X
+    AlertCircle, BarChart3, Cake, CalendarClock, ChevronDown, ChevronRight,
+    Clock, CreditCard, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
 } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton as MuiSkeleton, Dialog, DialogContent } from '@mui/material';
@@ -8,8 +8,11 @@ import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import API from '../../services/api';
 import { appointmentService } from '../../services/appointmentService';
 import { getStatusConfig } from '../../utils/appointmentStatus';
+import { getSpecialtyLabel } from '../../constants/specialties';
+import { useOperationalCounts } from '../../hooks/useOperationalCounts';
 import { Pagination } from '../common/Pagination';
 import {
+    DashboardCharts,
     DashboardStats,
     DoctorOverview,
     UpcomingAppointment
@@ -18,9 +21,13 @@ import {
 import BirthdayCard from '../patients/BirthdayCard';
 import PatientTable from '../patients/PatientTable';
 
+// Ordem aprovada pelo Kadu em 29/10 (mock "Dashboard do admin"):
+// 1. Precisa de você hoje · 2. Aniversariantes · 3. Lista de pacientes (única aberta)
+// 4. o resto recolhido: números, gráficos, agenda de hoje por profissional, próximas sessões, leads/especialidades.
+
 interface DashboardContentOptimizedProps {
     stats: DashboardStats | null;
-    charts: import('../../services/dashboardService').DashboardCharts | null;
+    charts: DashboardCharts | null;
     doctors: DoctorOverview[];
     upcomingAppointments: UpcomingAppointment[];
     patients: any[];
@@ -35,201 +42,141 @@ interface DashboardContentOptimizedProps {
     setPaymentContext?: (context: any) => void;
     setPaymentModalOpen?: (isOpen: boolean) => void;
     onDeletePatient?: (patient: any) => void;
+    /** Abre outra aba do admin (atalhos do "Precisa de você"). */
+    onNavigate?: (tab: string) => void;
 }
 
 // --- Skeletons ---
 
-const MetricCardSkeleton = memo(() => (
-    <div className="rounded-2xl p-5 bg-white border border-gray-100 shadow-sm space-y-3 animate-pulse">
-        <div className="w-11 h-11 rounded-xl bg-gray-100" />
-        <div className="h-8 w-20 bg-gray-100 rounded-lg" />
-        <div className="h-3 w-24 bg-gray-100 rounded" />
-        <div className="h-3 w-16 bg-gray-50 rounded" />
-    </div>
-));
-MetricCardSkeleton.displayName = 'MetricCardSkeleton';
-
 const BirthdayCardSkeleton = memo(() => (
     <div className="flex flex-wrap gap-4 p-4">
         {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex-1 min-w-[260px] max-w-[calc(33.333%-11px)] border border-gray-100 rounded-2xl p-4 space-y-3">
+            <div key={i} className="flex-1 min-w-[260px] max-w-[calc(33.333%-11px)] border border-gray-100 rounded-2xl p-4 space-y-3 dark:border-gray-800">
                 <div className="flex items-center gap-3">
                     <MuiSkeleton variant="circular" width={56} height={56} sx={{ bgcolor: '#CBD5E020', flexShrink: 0 }} />
                     <div className="flex-1 space-y-1.5">
                         <MuiSkeleton variant="text" width="70%" height={22} />
-                        <div className="flex items-center gap-2">
-                            <MuiSkeleton variant="text" width="45%" height={18} />
-                            <MuiSkeleton variant="rounded" width={52} height={20} sx={{ borderRadius: 99 }} />
-                        </div>
+                        <MuiSkeleton variant="text" width="45%" height={18} />
                     </div>
                 </div>
                 <MuiSkeleton variant="rounded" width="100%" height={44} sx={{ borderRadius: 12 }} />
-                <div className="flex justify-end gap-2">
-                    <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
-                    <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
-                    <MuiSkeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10 }} />
-                </div>
             </div>
         ))}
     </div>
 ));
 BirthdayCardSkeleton.displayName = 'BirthdayCardSkeleton';
 
-// --- Sessões Hoje: avatar helpers ---
-
-const AVATAR_PALETTE = [
-    'bg-emerald-100 text-emerald-700',
-    'bg-blue-100 text-blue-700',
-    'bg-violet-100 text-violet-700',
-    'bg-amber-100 text-amber-700',
-    'bg-pink-100 text-pink-700',
-    'bg-teal-100 text-teal-700',
-    'bg-orange-100 text-orange-700',
-    'bg-indigo-100 text-indigo-700',
-];
+// --- helpers ---
 
 const getInitials = (name: string) =>
-    name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+    (name || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 
-const avatarClassFor = (name: string) => {
-    const hash = Array.from(name).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-    return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+const formatCurrencyShort = (value: number) =>
+    value >= 1000 ? `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil` : formatCurrency(value);
+
+// Data do agendamento é gravada como o dia (meio-dia ou meia-noite UTC): lê o dia em UTC.
+const apptDay = (date: string | Date | undefined) => (date ? new Date(date).toISOString().slice(0, 10) : '');
+const localDay = (d = new Date()) => d.toLocaleDateString('sv-SE');
+const dayLabel = (ymd: string) => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
 };
 
-// --- MetricCard ---
+type TodayBucket = 'done' | 'missed' | 'canceled' | 'pre' | 'todo';
+const bucketOf = (status?: string): TodayBucket => {
+    if (status === 'completed') return 'done';
+    if (status === 'missed' || status === 'no_show') return 'missed';
+    if (status === 'canceled') return 'canceled';
+    if (status === 'pre_agendado') return 'pre';
+    return 'todo';
+};
 
-interface MetricCardProps {
-    title: string;
-    value: number;
-    format?: (value: number) => string;
-    subtitle: string;
-    icon: React.ReactNode;
-    colorClass: string;
-    iconBgClass: string;
-    onAction?: () => void;
-    actionIcon?: React.ReactNode;
-    onClick?: () => void;
-    /** Detalhe opcional abaixo do subtítulo (ex.: recorrência por janela). */
-    children?: React.ReactNode;
+const minutesUntil = (time?: string) => {
+    if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return null;
+    const [h, m] = time.split(':').map(Number);
+    const now = new Date();
+    return h * 60 + m - (now.getHours() * 60 + now.getMinutes());
+};
+const relTime = (mins: number | null) => {
+    if (mins === null) return '';
+    if (mins < -5) return 'já passou';
+    if (mins <= 5) return 'agora';
+    if (mins < 60) return `em ${mins} min`;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return m ? `em ${h}h${String(m).padStart(2, '0')}` : `em ${h}h`;
+};
+
+const ORIGIN_LABEL: Record<string, string> = {
+    instagram: 'Instagram', google: 'Google', site: 'Site', whatsapp: 'WhatsApp', indicacao: 'Indicação',
+    facebook: 'Facebook', meta: 'Meta Ads', gmb: 'Google Meu Negócio', unknown: 'Não informado', outro: 'Outro', outros: 'Outros',
+};
+const originLabel = (o?: string) => (o ? ORIGIN_LABEL[o.toLowerCase()] || o.charAt(0).toUpperCase() + o.slice(1) : 'Não informado');
+
+interface TodayAppt {
+    _id?: string; patientName: string; time: string; operationalStatus: string; specialty?: string;
+    professional?: string; doctor?: { _id?: string; fullName?: string };
 }
 
-// Números que chegam: quando `value` muda (refresh, nova carga de stats), o
-// card conta do valor antigo pro novo em vez de trocar seco — sinaliza que é
-// telemetria viva, não um número estático. Na primeira montagem from===to,
-// então não conta a partir de zero — só anima mudança real de valor.
-const MetricCard = memo<MetricCardProps>(({
-    title, value, format, subtitle, icon, colorClass, iconBgClass, onAction, actionIcon, onClick, children
-}) => {
-    const [display, setDisplay] = useState(value);
-    const prevValue = useRef(value);
+// --- StatTile: número em tinta normal, rótulo e detalhe ---
 
-    useEffect(() => {
-        const from = prevValue.current;
-        const to = value;
-        prevValue.current = value;
-        if (from === to) return;
-
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduceMotion) {
-            setDisplay(to);
-            return;
-        }
-
-        let raf: number;
-        const duration = 600;
-        const start = performance.now();
-        const tick = (now: number) => {
-            const progress = Math.min(1, (now - start) / duration);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setDisplay(Math.round(from + (to - from) * eased));
-            if (progress < 1) raf = requestAnimationFrame(tick);
-        };
-        raf = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(raf);
-    }, [value]);
-
+const StatTile = memo<{
+    label: string; value: React.ReactNode; detail?: React.ReactNode; onClick?: () => void; action?: React.ReactNode;
+}>(({ label, value, detail, onClick, action }) => {
+    const Tag: any = onClick ? 'button' : 'div';
     return (
-        <div
+        <Tag
+            type={onClick ? 'button' : undefined}
             onClick={onClick}
-            role={onClick ? 'button' : undefined}
-            tabIndex={onClick ? 0 : undefined}
-            onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
-            className={`relative rounded-2xl p-5 bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group ${onClick ? 'cursor-pointer hover:border-emerald-200' : ''}`}
+            className={`group relative flex min-w-0 flex-col items-start rounded-xl border border-gray-200 bg-white p-4 text-left dark:border-gray-700 dark:bg-gray-900 ${onClick ? 'transition-colors hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:border-emerald-700' : ''}`}
         >
-            <div className="flex items-start justify-between mb-4">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBgClass} shrink-0`}>
-                    <span className={colorClass}>{icon}</span>
-                </div>
-                {onClick && (
-                    // Indicador fixo: todo card que abre detalhes mostra isto, sem precisar passar o mouse
-                    <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-[11px] font-semibold ${iconBgClass} ${colorClass} transition-transform group-hover:translate-x-0.5`}>
-                        Detalhes <ChevronRight size={13} />
-                    </span>
-                )}
-                {onAction && actionIcon && (
-                    <button
-                        type="button"
-                        onClick={onAction}
-                        aria-label={`Abrir ação de ${title}`}
-                        className={`rounded-lg p-2 transition-all hover:bg-gray-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${colorClass} opacity-0 group-hover:opacity-100`}
-                    >
-                        {actionIcon}
-                    </button>
-                )}
-            </div>
-            <div className={`mb-1 text-3xl font-bold leading-none tracking-tight tabular-nums ${colorClass}`}>
-                {format ? format(display) : display}
-            </div>
-            <p className="text-sm font-semibold leading-5 text-gray-700">{title}</p>
-            <p className="mt-0.5 text-xs leading-4 text-gray-500">{subtitle}</p>
-            {children}
-        </div>
+            <span className="flex w-full items-center justify-between gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+                {label}
+                {onClick && <ChevronRight size={15} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" aria-hidden />}
+                {action}
+            </span>
+            <span className="mt-1.5 text-2xl font-bold leading-none tabular-nums text-gray-900 dark:text-gray-50">{value}</span>
+            {detail && <span className="mt-1.5 text-xs leading-4 text-gray-600 dark:text-gray-400">{detail}</span>}
+        </Tag>
     );
 });
-MetricCard.displayName = 'MetricCard';
+StatTile.displayName = 'StatTile';
 
-// Card de recorrência — só exibe o que o backend calculou. O seletor apenas escolhe qual
-// janela (já calculada) mostrar; nenhum número é derivado aqui.
+// Recorrência — só exibe o que o backend calculou; o seletor escolhe a janela já calculada.
 type RecurringStats = NonNullable<DashboardStats['recurring']>;
 const RECURRING_ROWS = [
-    { min: 3, key: 'min3', pct: 'pct3', bar: 'bg-indigo-200' },
-    { min: 4, key: 'min4', pct: 'pct4', bar: 'bg-indigo-500' },
-    { min: 5, key: 'min5', pct: 'pct5', bar: 'bg-indigo-800' },
+    { min: 3, key: 'min3', pct: 'pct3' },
+    { min: 4, key: 'min4', pct: 'pct4' },
+    { min: 5, key: 'min5', pct: 'pct5' },
 ] as const;
 
-const RecurringPatientsCard = memo<{ recurring: RecurringStats }>(({ recurring }) => {
+const RecurringPatientsTile = memo<{ recurring: RecurringStats }>(({ recurring }) => {
+    const [open, setOpen] = useState(false);
     const [days, setDays] = useState(recurring.windowDays);
     const w = recurring.windows.find((x) => x.days === days) ?? recurring.windows[0];
-
-    const [open, setOpen] = useState(false);
-    // O card segue o tamanho dos demais: só o número principal (janela padrão do backend).
     const headline = recurring.windows.find((x) => x.days === recurring.windowDays) ?? recurring.windows[0];
+    if (!headline) return null;
 
     return (
         <>
-            <MetricCard
-                title="Pacientes Recorrentes"
+            <StatTile
+                label="Recorrentes"
                 value={headline.min4}
-                subtitle={`${recurring.minVisits}+ atendimentos em ${headline.days} dias`}
-                icon={<Users size={20} />}
-                colorClass="text-indigo-600"
-                iconBgClass="bg-indigo-100"
+                detail={`${recurring.minVisits}+ atendimentos em ${headline.days} dias · ${headline.pct4}%`}
                 onClick={() => setOpen(true)}
             />
-
-            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '20px' } }}>
-                <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                        <Users size={22} />
-                    </div>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                     <div>
-                        <h2 className="text-lg font-bold leading-tight text-gray-900">Pacientes Recorrentes</h2>
-                        <p className="text-sm text-gray-500">Atendimentos realizados por paciente</p>
+                        <h2 className="text-base font-bold text-gray-900 dark:text-gray-50">Pacientes recorrentes</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Atendimentos realizados por paciente</p>
                     </div>
+                    <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={18} /></button>
                 </div>
-
-                <div className="px-6 py-5">
-                    <div className="inline-flex rounded-full bg-gray-100 p-0.5" role="tablist" aria-label="Janela de recorrência">
+                <div className="px-5 py-4">
+                    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Janela de recorrência">
                         {recurring.windows.map((x) => (
                             <button
                                 key={x.days}
@@ -237,98 +184,231 @@ const RecurringPatientsCard = memo<{ recurring: RecurringStats }>(({ recurring }
                                 role="tab"
                                 aria-selected={x.days === w.days}
                                 onClick={() => setDays(x.days)}
-                                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                                    x.days === w.days ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                                className={`min-h-8 rounded-full border px-3 text-sm font-medium ${x.days === w.days
+                                    ? 'border-emerald-600 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'}`}
                             >
                                 {x.days} dias
                             </button>
                         ))}
                     </div>
-
-                    <div className="mt-5 space-y-4">
+                    <div className="mt-4 space-y-3.5">
                         {RECURRING_ROWS.map((r) => (
                             <div key={r.min}>
-                                <div className="mb-1.5 flex items-baseline justify-between text-sm">
-                                    <span className={r.min === 4 ? 'font-semibold text-indigo-600' : 'text-gray-600'}>{r.min}+ atendimentos</span>
-                                    <span className="tabular-nums text-gray-700">
-                                        <strong className={`text-base ${r.min === 4 ? 'text-indigo-600' : ''}`}>{w[r.key]}</strong>
-                                        <span className="ml-1.5 text-xs text-gray-400">{w[r.pct]}%</span>
-                                    </span>
+                                <div className="mb-1 flex items-baseline justify-between text-sm">
+                                    <span className={r.min === 4 ? 'font-semibold text-gray-900 dark:text-gray-50' : 'text-gray-700 dark:text-gray-300'}>{r.min}+ atendimentos</span>
+                                    <span className="tabular-nums text-gray-700 dark:text-gray-300"><strong className="text-base text-gray-900 dark:text-gray-50">{w[r.key]}</strong> <span className="text-xs text-gray-500">{w[r.pct]}%</span></span>
                                 </div>
-                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                                    <div className={`h-full rounded-full ${r.bar} transition-all duration-500`} style={{ width: `${w[r.pct]}%` }} />
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                    <div className="h-full rounded-full bg-[#2a78d6] dark:bg-[#3987e5]" style={{ width: `${w[r.pct]}%` }} />
                                 </div>
                             </div>
                         ))}
                     </div>
-
-                    <p className="mt-5 border-t border-gray-100 pt-3 text-xs text-gray-400">
-                        de <strong className="text-gray-600">{w.attended}</strong> pacientes atendidos nos últimos {w.days} dias
+                    <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-600 dark:border-gray-800 dark:text-gray-400">
+                        de <strong className="text-gray-900 dark:text-gray-100">{w.attended}</strong> pacientes atendidos nos últimos {w.days} dias
                     </p>
                 </div>
             </Dialog>
         </>
     );
 });
-RecurringPatientsCard.displayName = 'RecurringPatientsCard';
+RecurringPatientsTile.displayName = 'RecurringPatientsTile';
 
-// --- AccordionSection ---
+// --- Section (accordion) ---
 
-interface AccordionSectionProps {
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+interface SectionProps {
+    id?: string;
     title: string;
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
-    iconNode: React.ReactNode;
-    iconBg: string;
-    iconColor: string;
-    badge?: React.ReactNode;
-    /** Aviso centralizado no cabeçalho, visível só com a seção fechada (some ao abrir). */
-    centerNote?: React.ReactNode;
+    icon: React.ReactNode;
+    meta?: React.ReactNode;
+    /** Aviso visível com a seção fechada. */
+    note?: React.ReactNode;
 }
 
-const AccordionSection = memo<AccordionSectionProps>(({
-    title, isOpen, onToggle, children, iconNode, iconBg, iconColor, badge, centerNote
-}) => (
-    <div className="mb-4 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-white">
+const Section = memo<SectionProps>(({ id, title, isOpen, onToggle, children, icon, meta, note }) => (
+    <section id={id} className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <button
             type="button"
-            className="flex justify-between items-center w-full px-5 py-4 text-left hover:bg-gray-50/70 transition-colors"
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-gray-800/60"
             onClick={onToggle}
             aria-expanded={isOpen}
         >
-            <span className="flex items-center gap-3 flex-wrap">
-                <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconBg} shrink-0`}>
-                    <span className={iconColor}>{iconNode}</span>
-                </span>
-                <span className="text-base font-semibold leading-6 text-gray-800">{title}</span>
-                {badge}
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" aria-hidden>{icon}</span>
+            <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-gray-900 dark:text-gray-50">{title}</span>
+                {meta && <span className="block text-xs text-gray-600 dark:text-gray-400">{meta}</span>}
             </span>
-            {!isOpen && centerNote && (
-                <span className="hidden sm:flex flex-1 justify-center px-3">{centerNote}</span>
-            )}
-            <ChevronDown
-                size={18}
-                className={`text-gray-400 transition-transform duration-300 shrink-0 ml-3 ${isOpen ? 'rotate-180' : ''}`}
-            />
+            {!isOpen && note}
+            <ChevronDown size={18} className={`shrink-0 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
         </button>
-        {isOpen && (
-            <div className="border-t border-gray-100 p-5">
-                {children}
-            </div>
-        )}
-    </div>
+        {isOpen && <div className="border-t border-gray-100 p-4 dark:border-gray-800">{children}</div>}
+    </section>
 ));
-AccordionSection.displayName = 'AccordionSection';
+Section.displayName = 'Section';
 
-// --- SectionDivider ---
+// --- Precisa de você ---
 
-const SectionLabel = ({ label }: { label: string }) => (
-    <div className="flex items-center gap-3 mb-3">
-        <span className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
-        <div className="flex-1 h-px bg-gray-100" />
-    </div>
+interface NeedItem { key: string; count: number; title: string; detail: string; cta: string; onClick: () => void; tone: 'warn' | 'bad' | 'info' | 'pink' }
+
+const TONE: Record<NeedItem['tone'], string> = {
+    warn: 'text-amber-700 dark:text-amber-400',
+    bad: 'text-red-700 dark:text-red-400',
+    info: 'text-blue-700 dark:text-blue-400',
+    pink: 'text-pink-700 dark:text-pink-400',
+};
+
+const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading }) => {
+    const visible = items.filter(i => i.count > 0);
+    return (
+        <section aria-labelledby="precisa-de-voce" className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-3 flex items-center gap-2">
+                <AlertCircle size={18} className="text-amber-600 dark:text-amber-400" aria-hidden />
+                <h2 id="precisa-de-voce" className="text-base font-bold text-gray-900 dark:text-gray-50">Precisa de você hoje</h2>
+            </div>
+            {loading && visible.length === 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {[0, 1, 2, 3].map(i => <div key={i} className="h-[92px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}
+                </div>
+            ) : visible.length === 0 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads e aniversários estão em dia.</p>
+            ) : (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {visible.map(item => (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={item.onClick}
+                            className="group flex min-w-0 flex-col items-start rounded-lg border border-gray-200 p-3.5 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-500/5"
+                        >
+                            <span className="flex items-baseline gap-2">
+                                <span className={`text-2xl font-bold tabular-nums ${TONE[item.tone]}`}>{item.count}</span>
+                                <span className="font-semibold text-gray-900 dark:text-gray-50">{item.title}</span>
+                            </span>
+                            <span className="mt-0.5 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">{item.detail}</span>
+                            <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                                {item.cta} <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+});
+NeedsYou.displayName = 'NeedsYou';
+
+// --- Gráfico de barras (uma série, uma cor; rótulo só no último valor) ---
+
+const DayBars = memo<{ title: string; rows: Array<{ date: string; value: number }>; fmt: (v: number) => string; unit: string }>(({ title, rows, fmt, unit }) => {
+    const [hover, setHover] = useState<number | null>(null);
+    const W = 520, H = 180, L = 52, B = 24, T = 14, R = 8;
+    const iw = W - L - R, ih = H - T - B;
+    const rawMax = Math.max(1, ...rows.map(r => r.value));
+    const step = Math.pow(10, Math.floor(Math.log10(rawMax)));
+    const max = Math.ceil((rawMax * 1.15) / step) * step;
+    const bw = rows.length ? iw / rows.length : iw;
+    const total = rows.reduce((s, r) => s + r.value, 0);
+
+    return (
+        <figure className="min-w-0 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <figcaption className="mb-1 flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-gray-900 dark:text-gray-50">{title}</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400">{rows.length} dias úteis · total {fmt(total)}</span>
+            </figcaption>
+            {rows.length === 0 ? (
+                <p className="py-10 text-center text-sm text-gray-600 dark:text-gray-400">Sem dados nos últimos 14 dias.</p>
+            ) : (
+                <div className="relative">
+                    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${title}: ${rows.map(r => `${dayLabel(r.date)} ${fmt(r.value)}`).join(', ')}`}>
+                        {[0, 0.5, 1].map(f => {
+                            const y = T + ih - f * ih;
+                            return (
+                                <g key={f}>
+                                    <line x1={L} x2={W - R} y1={y} y2={y} className="stroke-gray-200 dark:stroke-gray-700" strokeWidth={1} strokeDasharray={f === 0 ? undefined : '3 3'} />
+                                    <text x={L - 6} y={y + 4} textAnchor="end" className="fill-gray-500 text-[10px] dark:fill-gray-400">{fmt(Math.round(max * f))}</text>
+                                </g>
+                            );
+                        })}
+                        {rows.map((r, i) => {
+                            const h = (r.value / max) * ih;
+                            const x = L + i * bw + bw * 0.18, w = bw * 0.64, y = T + ih - h;
+                            const last = i === rows.length - 1;
+                            return (
+                                <g key={r.date} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+                                    <rect x={L + i * bw} y={T} width={bw} height={ih} fill="transparent" />
+                                    <path
+                                        d={h > 0 ? `M${x},${T + ih} V${y + Math.min(4, h)} Q${x},${y} ${x + Math.min(4, w / 2)},${y} H${x + w - Math.min(4, w / 2)} Q${x + w},${y} ${x + w},${y + Math.min(4, h)} V${T + ih} Z` : ''}
+                                        className={hover === i ? 'fill-[#1f5fae] dark:fill-[#6aa6f0]' : 'fill-[#2a78d6] dark:fill-[#3987e5]'}
+                                    />
+                                    {(i % 2 === 0 || last) && (
+                                        <text x={L + i * bw + bw / 2} y={H - 6} textAnchor="middle" className="fill-gray-500 text-[10px] dark:fill-gray-400">{dayLabel(r.date).slice(0, 5)}</text>
+                                    )}
+                                    {last && h > 0 && (
+                                        <text x={x + w / 2} y={y - 4} textAnchor="middle" className="fill-gray-900 text-[11px] font-semibold dark:fill-gray-100">{fmt(r.value)}</text>
+                                    )}
+                                </g>
+                            );
+                        })}
+                    </svg>
+                    {hover !== null && rows[hover] && (
+                        <div
+                            className="pointer-events-none absolute -top-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs shadow-md dark:border-gray-700 dark:bg-gray-800"
+                            style={{ left: `${((L + hover * bw + bw / 2) / W) * 100}%`, transform: 'translateX(-50%)' }}
+                        >
+                            <span className="text-gray-600 dark:text-gray-400">{dayLabel(rows[hover].date)}</span>{' '}
+                            <strong className="tabular-nums text-gray-900 dark:text-gray-50">{fmt(rows[hover].value)}</strong>{' '}
+                            <span className="text-gray-600 dark:text-gray-400">{unit}</span>
+                        </div>
+                    )}
+                </div>
+            )}
+        </figure>
+    );
+});
+DayBars.displayName = 'DayBars';
+
+const HBars = memo<{ title: string; rows: Array<{ label: string; value: number }>; empty: string }>(({ title, rows, empty }) => {
+    const max = Math.max(1, ...rows.map(r => r.value));
+    return (
+        <div className="min-w-0 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">{title}</h3>
+            {rows.length === 0 ? (
+                <p className="py-6 text-center text-sm text-gray-600 dark:text-gray-400">{empty}</p>
+            ) : (
+                <ul className="space-y-2">
+                    {rows.map(r => (
+                        <li key={r.label} className="grid grid-cols-[minmax(0,9rem)_1fr_2.5rem] items-center gap-2 text-sm">
+                            <span className="truncate text-gray-700 dark:text-gray-300" title={r.label}>{r.label}</span>
+                            <span className="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                <span className="block h-full rounded-full bg-[#2a78d6] dark:bg-[#3987e5]" style={{ width: `${(r.value / max) * 100}%` }} />
+                            </span>
+                            <span className="text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{r.value}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+});
+HBars.displayName = 'HBars';
+
+const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors ${active
+            ? 'border-emerald-600 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-500/15 dark:text-emerald-300'
+            : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+    >
+        {children}
+    </button>
 );
 
 // --- Main Component ---
@@ -350,65 +430,98 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     setPaymentContext,
     setPaymentModalOpen,
     onDeletePatient,
+    onNavigate,
 }) => {
-    // 🐛 FIX (2026-09-22): dateOfBirth é gravado como meia-noite UTC representando o dia
-    // pretendido (sem semântica de horário) — getDate()/getMonth() locais em Brasília
-    // (UTC-3) voltam pro dia anterior. Mesmo fix em BirthdayCard.tsx e back/routes/patient.js
-    // (aniversariantes): antes deste fix, este contador (usa a lista completa de `patients`)
-    // podia acusar "1 aniversário hoje" pra alguém cujo card, logo abaixo, mostrava
-    // errado (dia anterior, sem o badge "HOJE") — os dois liam a mesma data com regras
-    // diferentes de fuso e raramente batiam.
-    // (2026-10-14) A contagem do aviso vem PRONTA do backend (/patients/aniversariantes → meta):
-    // `patients` aqui é paginado e não serve pra contar. O front só exibe o que o backend calcula.
+    // Só a lista de pacientes abre por padrão (decisão do Kadu, 29/10).
     const [birthdaySectionOpen, setBirthdaySectionOpen] = useState(false);
     const [patientsTableOpen, setPatientsTableOpen] = useState(true);
-    const [metricsSectionOpen, setMetricsSectionOpen] = useState(true);
-    const [overviewSectionOpen, setOverviewSectionOpen] = useState(true);
+    const [numbersOpen, setNumbersOpen] = useState(false);
+    const [chartsOpen, setChartsOpen] = useState(false);
+    const [todayByDoctorOpen, setTodayByDoctorOpen] = useState(false);
+    const [upcomingOpen, setUpcomingOpen] = useState(false);
+    const [mixOpen, setMixOpen] = useState(false);
     const [showAllDoctors, setShowAllDoctors] = useState(false);
+    const [upcomingFilter, setUpcomingFilter] = useState<'all' | 'today' | 'tomorrow' | 'unconfirmed'>('all');
 
-    // Modal "Sessões Hoje" — aberto a partir do card de métrica, busca TODOS os
-    // agendamentos de hoje (o upcomingAppointments do dashboard vem limitado a
-    // 10 e cobre os próximos 7 dias, não representa o dia inteiro sozinho).
-    const [todaySessionsModalOpen, setTodaySessionsModalOpen] = useState(false);
-    const [todaySessionsLoading, setTodaySessionsLoading] = useState(false);
-    const [todaySessions, setTodaySessions] = useState<Array<{
-        _id?: string; patientName: string; time: string; operationalStatus: string; specialty?: string;
-    }>>([]);
-    const [todaySessionsPage, setTodaySessionsPage] = useState(1);
-    const TODAY_SESSIONS_PAGE_SIZE = 8;
+    // --- Sessões de hoje (lista completa): usada no modal, na quebra "realizadas/faltas/a fazer"
+    // e na agenda por profissional. Busca uma vez, sob demanda.
+    const [todaySessions, setTodaySessions] = useState<TodayAppt[]>([]);
+    const [todayLoading, setTodayLoading] = useState(false);
+    const [todayLoaded, setTodayLoaded] = useState(false);
+    const todayFetching = useRef(false);
 
-    const openTodaySessionsModal = useCallback(async () => {
-        setTodaySessionsModalOpen(true);
-        setTodaySessionsPage(1);
-        setTodaySessionsLoading(true);
+    const loadTodaySessions = useCallback(async (force = false) => {
+        if (todayFetching.current || (todayLoaded && !force)) return;
+        todayFetching.current = true;
+        setTodayLoading(true);
         try {
-            const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+            const todayStr = localDay();
             const res = await appointmentService.list({ startDate: todayStr, endDate: todayStr });
-            const data = (res as any)?.data;
-            setTodaySessions(Array.isArray(data) ? data : []);
+            const d: any = (res as any)?.data;
+            // A rota devolve um array; versões antigas embrulhavam em { data: { appointments } }.
+            const list = Array.isArray(d) ? d : Array.isArray(d?.data?.appointments) ? d.data.appointments : Array.isArray(d?.appointments) ? d.appointments : Array.isArray(d?.data) ? d.data : [];
+            setTodaySessions(list.filter((a: any) => apptDay(a.date) === todayStr || !a.date));
+            setTodayLoaded(true);
         } catch {
             setTodaySessions([]);
         } finally {
-            setTodaySessionsLoading(false);
+            todayFetching.current = false;
+            setTodayLoading(false);
         }
-    }, []);
+    }, [todayLoaded]);
 
-    const todaySessionsTotalPages = Math.max(1, Math.ceil(todaySessions.length / TODAY_SESSIONS_PAGE_SIZE));
+    useEffect(() => {
+        if (numbersOpen || todayByDoctorOpen) loadTodaySessions();
+    }, [numbersOpen, todayByDoctorOpen, loadTodaySessions]);
+
+    const todaySummary = useMemo(() => {
+        const s = { done: 0, missed: 0, canceled: 0, pre: 0, todo: 0 };
+        todaySessions.forEach(a => { s[bucketOf(a.operationalStatus)]++; });
+        return s;
+    }, [todaySessions]);
+
+    const [todaySessionsModalOpen, setTodaySessionsModalOpen] = useState(false);
+    const [todaySessionsPage, setTodaySessionsPage] = useState(1);
+    const TODAY_SESSIONS_PAGE_SIZE = 8;
+    const openTodaySessionsModal = useCallback(() => {
+        setTodaySessionsModalOpen(true);
+        setTodaySessionsPage(1);
+        loadTodaySessions(true);
+    }, [loadTodaySessions]);
+    const sortedToday = useMemo(() => [...todaySessions].sort((a, b) => (a.time || '').localeCompare(b.time || '')), [todaySessions]);
+    const todaySessionsTotalPages = Math.max(1, Math.ceil(sortedToday.length / TODAY_SESSIONS_PAGE_SIZE));
     const paginatedTodaySessions = useMemo(
-        () => todaySessions.slice((todaySessionsPage - 1) * TODAY_SESSIONS_PAGE_SIZE, todaySessionsPage * TODAY_SESSIONS_PAGE_SIZE),
-        [todaySessions, todaySessionsPage]
+        () => sortedToday.slice((todaySessionsPage - 1) * TODAY_SESSIONS_PAGE_SIZE, todaySessionsPage * TODAY_SESSIONS_PAGE_SIZE),
+        [sortedToday, todaySessionsPage]
     );
 
+    const todayByDoctor = useMemo(() => {
+        const map = new Map<string, { name: string; total: number; done: number; missed: number; next: string | null }>();
+        sortedToday.forEach(a => {
+            const b = bucketOf(a.operationalStatus);
+            if (b === 'canceled') return;
+            const name = a.doctor?.fullName || a.professional || 'Profissional não informado';
+            const key = a.doctor?._id || name;
+            const row = map.get(key) || { name, total: 0, done: 0, missed: 0, next: null };
+            row.total++;
+            if (b === 'done') row.done++;
+            if (b === 'missed') row.missed++;
+            const mins = minutesUntil(a.time);
+            if ((b === 'todo' || b === 'pre') && mins !== null && mins >= -5 && !row.next) row.next = a.time;
+            map.set(key, row);
+        });
+        return [...map.values()].sort((x, y) => y.total - x.total);
+    }, [sortedToday]);
+
+    // --- Aniversariantes (contagem pronta do backend em meta) ---
     const [aniversariantes, setAniversariantes] = useState<Array<{
         _id: string; fullName: string; dateOfBirth: string; phone?: string; email?: string;
         daysUntil: number; birthdayMessageSent?: boolean;
     }>>([]);
-    // Calculado no backend: todayPending = aniversariantes de hoje que AINDA faltam receber o parabéns.
     const [aniversariantesMeta, setAniversariantesMeta] = useState<{ todayTotal: number; todayPending: number }>({ todayTotal: 0, todayPending: 0 });
     const [aniversariantesLoading, setAniversariantesLoading] = useState(false);
     const aniversariantesFetched = useRef(false);
 
-    // silent: recarrega sem trocar o card pelo skeleton (usado depois de cada envio).
     const loadAniversariantes = useCallback(async (silent = false) => {
         if (!silent) setAniversariantesLoading(true);
         try {
@@ -431,520 +544,396 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         await loadAniversariantes();
     }, [loadAniversariantes]);
 
-    useEffect(() => {
-        if (birthdaySectionOpen) fetchAniversariantes();
-    }, [birthdaySectionOpen, fetchAniversariantes]);
-
-    // Busca adiada para depois do primeiro paint: o aviso "temos aniversariantes hoje" precisa
-    // da lista mesmo com o accordion fechado, mas não pode competir com o carregamento inicial.
-    // Se o usuário abrir o accordion antes, o ref de fetchAniversariantes evita buscar de novo.
-    useEffect(() => {
-        const t = setTimeout(fetchAniversariantes, 1500);
-        return () => clearTimeout(t);
-    }, [fetchAniversariantes]);
-
-    // Depois de cada envio manual, pergunta de novo ao backend (fonte única da contagem).
+    useEffect(() => { if (birthdaySectionOpen) fetchAniversariantes(); }, [birthdaySectionOpen, fetchAniversariantes]);
+    // O "Precisa de você" precisa da contagem mesmo com a seção fechada; adiado para não competir com a carga inicial.
+    useEffect(() => { const t = setTimeout(fetchAniversariantes, 1500); return () => clearTimeout(t); }, [fetchAniversariantes]);
     const handleBirthdayMessageSent = useCallback(() => { loadAniversariantes(true); }, [loadAniversariantes]);
-
-    // Editou/criou paciente (a lista `patients` muda): recarrega os aniversariantes, senão o aviso e o
-    // card ficam com a lista velha até dar F5. Só depois da 1ª carga, com debounce.
     useEffect(() => {
         if (!aniversariantesFetched.current) return;
         const t = setTimeout(() => { loadAniversariantes(true); }, 1000);
         return () => clearTimeout(t);
     }, [patients, loadAniversariantes]);
 
-    // "Atualizar" também recarrega os aniversariantes.
+    // --- Pré-agendamentos e leads para o "Precisa de você" ---
+    const [preStats, setPreStats] = useState<{ total: number; semContato: number; urgentes: number } | null>(null);
+    const loadPreStats = useCallback(async () => {
+        try {
+            const res = await API.get('/v2/pre-appointments/stats/dashboard');
+            const d = res.data?.data ?? res.data;
+            setPreStats({ total: d?.total || 0, semContato: d?.semContato || 0, urgentes: d?.urgentes || 0 });
+        } catch {
+            setPreStats({ total: 0, semContato: 0, urgentes: 0 });
+        }
+    }, []);
+    useEffect(() => { loadPreStats(); }, [loadPreStats]);
+    const opCounts = useOperationalCounts();
+
     const handleRefreshAll = useCallback(() => {
         onRefresh();
+        loadPreStats();
         if (aniversariantesFetched.current) loadAniversariantes(true);
-    }, [onRefresh, loadAniversariantes]);
+        if (todayLoaded) loadTodaySessions(true);
+    }, [onRefresh, loadPreStats, loadAniversariantes, todayLoaded, loadTodaySessions]);
 
-    const todayBirthdayCount = aniversariantesMeta.todayPending;
+    const openBirthdays = useCallback(() => {
+        setBirthdaySectionOpen(true);
+        requestAnimationFrame(() => document.getElementById('dash-aniversariantes')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }, []);
 
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    const birthdayToday = useMemo(() => aniversariantes.filter(a => a.daysUntil === 0 && !a.birthdayMessageSent), [aniversariantes]);
+
+    const needItems: NeedItem[] = [
+        {
+            key: 'pre', count: preStats?.total || 0, tone: 'warn', title: 'Pré-agendamentos',
+            detail: preStats ? [preStats.semContato ? `${preStats.semContato} sem contato` : '', preStats.urgentes ? `${preStats.urgentes} urgentes` : ''].filter(Boolean).join(' · ') || 'a confirmar' : '',
+            cta: 'Abrir pré-agendamentos', onClick: () => onNavigate?.('Pré-Agendamentos'),
+        },
+        {
+            key: 'pay', count: stats?.pendingPayments || 0, tone: 'bad', title: 'Pagamentos em aberto',
+            detail: 'pendentes ou parciais', cta: 'Abrir financeiro', onClick: () => onNavigate?.('Financeiro'),
+        },
+        {
+            key: 'leads', count: opCounts.total || 0, tone: 'info', title: 'Leads para retornar',
+            detail: [opCounts.overdue ? `${opCounts.overdue} atrasados` : '', opCounts.today ? `${opCounts.today} para hoje` : ''].filter(Boolean).join(' · '),
+            cta: 'Abrir leads', onClick: () => onNavigate?.('Leads'),
+        },
+        {
+            key: 'bday', count: aniversariantesMeta.todayPending || 0, tone: 'pink',
+            title: aniversariantesMeta.todayPending === 1 ? 'Aniversariante sem parabéns' : 'Aniversariantes sem parabéns',
+            detail: birthdayToday.map(b => b.fullName).join(', ') || 'hoje', cta: 'Enviar parabéns', onClick: openBirthdays,
+        },
+    ];
 
     const safeDoctors = doctors || [];
-    const safeAppointments = upcomingAppointments || [];
     const safePatients = useMemo(() => mapPatientListResponseDTO(patients || []), [patients]);
+    const displayedDoctors = useMemo(() => (showAllDoctors ? safeDoctors : safeDoctors.slice(0, 6)), [safeDoctors, showAllDoctors]);
 
-    const displayedDoctors = useMemo(
-        () => (showAllDoctors ? safeDoctors : safeDoctors.slice(0, 3)),
-        [safeDoctors, showAllDoctors]
-    );
-    const displayedAppointments = useMemo(() => safeAppointments.slice(0, 5), [safeAppointments]);
+    const todayStr = localDay();
+    const tomorrowStr = localDay(new Date(Date.now() + 86400000));
+    const upcoming = useMemo(() => {
+        const list = [...(upcomingAppointments || [])].sort((a, b) => (apptDay(a.date) + (a.time || '')).localeCompare(apptDay(b.date) + (b.time || '')));
+        return {
+            all: list,
+            today: list.filter(a => apptDay(a.date) === todayStr),
+            tomorrow: list.filter(a => apptDay(a.date) === tomorrowStr),
+            unconfirmed: list.filter(a => ['scheduled', 'pending', 'pre_agendado'].includes(a.status)),
+        };
+    }, [upcomingAppointments, todayStr, tomorrowStr]);
+    const upcomingShown = upcoming[upcomingFilter];
+
+    const weekdayOnly = useCallback(<T extends { date: string }>(rows: T[]) => rows.filter(r => {
+        const [y, m, d] = r.date.split('-').map(Number);
+        const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+        return wd !== 0 && wd !== 6;
+    }), []);
+    const sessionsRows = useMemo(() => weekdayOnly((charts?.appointmentsChart || []).map(r => ({ date: r.date, value: r.count }))), [charts, weekdayOnly]);
+    const cashRows = useMemo(() => weekdayOnly((charts?.revenueChart || []).map(r => ({ date: r.date, value: r.value }))), [charts, weekdayOnly]);
+    const originRows = useMemo(() => (charts?.leadsByOrigin || []).map(r => ({ label: originLabel(r._id), value: r.count })).sort((a, b) => b.value - a.value).slice(0, 6), [charts]);
+    const specialtyRows = useMemo(() => (charts?.patientsBySpecialty || []).map(r => ({ label: getSpecialtyLabel(r._id || undefined), value: r.count })).sort((a, b) => b.value - a.value).slice(0, 6), [charts]);
 
     const formattedLastUpdated = useMemo(() => {
         if (!stats?.calculatedAt) return '';
         return new Date(stats.calculatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }, [stats?.calculatedAt]);
 
-    if (loading) {
+    if (loading && !stats) {
         return (
-            <div className="p-5 space-y-4 animate-pulse">
-                <div className="flex justify-between items-center mb-2">
-                    <div className="h-4 w-48 bg-gray-100 rounded" />
-                    <div className="h-9 w-28 bg-gray-100 rounded-xl" />
-                </div>
-                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-3 px-5 py-4 bg-white">
-                        <div className="w-9 h-9 rounded-xl bg-blue-100" />
-                        <div className="h-4 w-40 bg-gray-100 rounded" />
-                    </div>
-                    <div className="p-5 space-y-2 border-t border-gray-100">
-                        <div className="h-9 bg-gray-50 rounded-xl mb-3" />
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-gray-50">
-                                <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0" />
-                                <div className="flex-1 space-y-1.5">
-                                    <div className="h-3 bg-gray-100 rounded w-2/3" />
-                                    <div className="h-2.5 bg-gray-50 rounded w-1/3" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-3 px-5 py-4 bg-white">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-100" />
-                        <div className="h-4 w-44 bg-gray-100 rounded" />
-                    </div>
-                    <div className="p-5 grid grid-cols-2 lg:grid-cols-4 gap-3 border-t border-gray-100">
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <MetricCardSkeleton key={i} />
-                        ))}
-                    </div>
-                </div>
+            <div className="space-y-4 p-4 sm:p-5" aria-busy="true">
+                <div className="h-[150px] animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
+                {[0, 1, 2].map(i => <div key={i} className="h-14 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />)}
+                <div className="h-[420px] animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
             </div>
         );
     }
 
     return (
-        <div className="p-5">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-5 px-1">
+        <div className="space-y-3 p-4 text-left sm:p-5">
+            {/* Topo */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Última atualização</p>
-                    <p className="text-sm font-semibold text-gray-600">
-                        {formattedLastUpdated ? `às ${formattedLastUpdated}` : '—'}
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-50">Dashboard</h1>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        {formattedLastUpdated ? ` · atualizado às ${formattedLastUpdated}` : ''}
                     </p>
                 </div>
                 <button
+                    type="button"
                     onClick={handleRefreshAll}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium transition-colors disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
                 >
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    <RefreshCw size={15} className={loading ? 'animate-spin' : ''} aria-hidden />
                     Atualizar
                 </button>
             </div>
 
-            {/* Aniversariantes */}
-            <AccordionSection
-                title="Aniversariantes do Mês"
+            {/* 1. Precisa de você */}
+            <NeedsYou items={needItems} loading={!preStats} />
+
+            {/* 2. Aniversariantes */}
+            <Section
+                id="dash-aniversariantes"
+                title="Aniversariantes do mês"
+                meta={aniversariantesFetched.current ? `${aniversariantes.length} no mês${aniversariantesMeta.todayTotal ? ` · ${aniversariantesMeta.todayTotal} hoje` : ''}` : undefined}
                 isOpen={birthdaySectionOpen}
                 onToggle={() => setBirthdaySectionOpen(v => !v)}
-                iconNode={<Cake size={18} />}
-                iconBg="bg-pink-100"
-                iconColor="text-pink-600"
-                centerNote={todayBirthdayCount > 0 ? (
-                    <span role="status" className="relative inline-flex">
-                        {/* halo pulsando atrás da pílula */}
-                        <span aria-hidden className="absolute inset-0 rounded-full bg-amber-400/60 animate-ping" />
-                        <span className="relative flex items-center gap-2 text-sm font-extrabold text-white bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-5 py-2 rounded-full shadow-lg ring-2 ring-white/70">
-                            <span aria-hidden className="inline-block animate-bounce text-base">🎂</span>
-                            {todayBirthdayCount === 1
-                                ? 'Temos 1 aniversariante hoje!'
-                                : `Temos ${todayBirthdayCount} aniversariantes hoje!`}
-                            <span aria-hidden className="inline-block animate-pulse">🎉</span>
-                        </span>
+                icon={<Cake size={17} />}
+                note={aniversariantesMeta.todayPending > 0 ? (
+                    <span role="status" className="hidden items-center gap-1.5 rounded-full bg-pink-50 px-3 py-1 text-sm font-semibold text-pink-700 sm:inline-flex dark:bg-pink-500/15 dark:text-pink-300">
+                        <Cake size={14} aria-hidden />
+                        {aniversariantesMeta.todayPending === 1 ? '1 aniversariante hoje' : `${aniversariantesMeta.todayPending} aniversariantes hoje`}
                     </span>
                 ) : undefined}
             >
                 {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayCard patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
-            </AccordionSection>
+            </Section>
 
-            {/* Lista de Pacientes */}
-            <AccordionSection
-                title="Lista de Pacientes"
+            {/* 3. Lista de pacientes */}
+            <Section
+                title="Lista de pacientes"
+                meta={stats?.totalPatients ? `${stats.totalPatients.toLocaleString('pt-BR')} cadastrados` : undefined}
                 isOpen={patientsTableOpen}
                 onToggle={() => setPatientsTableOpen(v => !v)}
-                iconNode={<Users size={18} />}
-                iconBg="bg-blue-100"
-                iconColor="text-blue-600"
+                icon={<Users size={17} />}
             >
                 <PatientTable
                     patients={safePatients}
                     isRefreshing={loading}
-                    onEditPatient={(patient) => {
-                        setPatientToEdit(patient);
-                        setIsModalOpen(true);
-                    }}
-                    onPaymentAdvancedSuccess={(patient) => {
-                        setShowAdvancedPayment?.(true);
-                        setSelectedPatient?.(patient);
-                    }}
-                    onRegisterPayment={(patient) => {
-                        setPaymentContext?.({ mode: 'create', patient });
-                        setPaymentModalOpen?.(true);
-                    }}
+                    onEditPatient={(patient) => { setPatientToEdit(patient); setIsModalOpen(true); }}
+                    onPaymentAdvancedSuccess={(patient) => { setShowAdvancedPayment?.(true); setSelectedPatient?.(patient); }}
+                    onRegisterPayment={(patient) => { setPaymentContext?.({ mode: 'create', patient }); setPaymentModalOpen?.(true); }}
                     onDeletePatient={onDeletePatient}
                 />
-            </AccordionSection>
+            </Section>
 
-            {/* Métricas */}
-            <AccordionSection
-                title="Métricas da Clínica"
-                isOpen={metricsSectionOpen}
-                onToggle={() => setMetricsSectionOpen(v => !v)}
-                iconNode={<BarChart3 size={18} />}
-                iconBg="bg-emerald-100"
-                iconColor="text-emerald-600"
+            {/* 4. Números */}
+            <Section
+                title="Números da clínica"
+                meta={stats ? `${stats.todayAppointments} sessões hoje · ${formatCurrency(stats.monthRevenue)} no mês` : undefined}
+                isOpen={numbersOpen}
+                onToggle={() => setNumbersOpen(v => !v)}
+                icon={<BarChart3 size={17} />}
             >
-                {loading && !stats ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {Array.from({ length: 8 }).map((_, i) => <MetricCardSkeleton key={i} />)}
+                {stats ? (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                        <StatTile
+                            label="Sessões hoje"
+                            value={stats.todayAppointments}
+                            detail={todayLoading && !todayLoaded ? 'carregando…' : `${plural(todaySummary.done,'realizada','realizadas')} · ${plural(todaySummary.missed,'falta','faltas')} · ${todaySummary.todo} a fazer`}
+                            onClick={openTodaySessionsModal}
+                        />
+                        <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem canceladas e pré-agendadas" />
+                        <StatTile label="Caixa hoje" value={formatCurrency(stats.todayRevenue)} detail="recebido hoje" />
+                        <StatTile label="Receita do mês" value={formatCurrency(stats.monthRevenue)} detail="pagamentos confirmados" />
+                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Financeiro') : undefined} />
+                        <StatTile label="Leads do mês" value={stats.monthLeads} detail="novos interessados" onClick={onNavigate ? () => onNavigate('Leads') : undefined} />
+                        <StatTile
+                            label="Pacientes"
+                            value={stats.totalPatients.toLocaleString('pt-BR')}
+                            detail={`cadastrados · ${stats.totalDoctors} profissionais`}
+                            action={
+                                <span className="flex gap-1">
+                                    <button type="button" onClick={handleAddPatient} title="Novo paciente" aria-label="Novo paciente" className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-emerald-700 dark:hover:bg-gray-800"><UserPlus size={15} /></button>
+                                    <button type="button" onClick={handleAddProfessional} title="Novo profissional" aria-label="Novo profissional" className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-emerald-700 dark:hover:bg-gray-800"><Stethoscope size={15} /></button>
+                                </span>
+                            }
+                        />
+                        {stats.recurring && <RecurringPatientsTile recurring={stats.recurring} />}
                     </div>
-                ) : stats ? (
-                    <div className="space-y-5">
-                        <div>
-                            <SectionLabel label="Operação" />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                                <MetricCard
-                                    title="Sessões Hoje"
-                                    value={stats.todayAppointments}
-                                    subtitle="Agendamentos confirmados"
-                                    icon={<Activity size={20} />}
-                                    colorClass="text-emerald-600"
-                                    iconBgClass="bg-emerald-100"
-                                    onClick={openTodaySessionsModal}
-                                />
-                                <MetricCard
-                                    title="Sessões Semana"
-                                    value={stats.weekAppointments}
-                                    subtitle="Total na semana"
-                                    icon={<Activity size={20} />}
-                                    colorClass="text-teal-600"
-                                    iconBgClass="bg-teal-100"
-                                />
-                                <MetricCard
-                                    title="Total Profissionais"
-                                    value={stats.totalDoctors}
-                                    subtitle="Equipe ativa"
-                                    icon={<Stethoscope size={20} />}
-                                    colorClass="text-pink-600"
-                                    iconBgClass="bg-pink-100"
-                                    onAction={handleAddProfessional}
-                                    actionIcon={<UserPlus size={16} />}
-                                />
-                                <MetricCard
-                                    title="Total Pacientes"
-                                    value={stats.totalPatients}
-                                    subtitle="Cadastrados"
-                                    icon={<Users size={20} />}
-                                    colorClass="text-amber-600"
-                                    iconBgClass="bg-amber-100"
-                                    onAction={handleAddPatient}
-                                    actionIcon={<UserPlus size={16} />}
-                                />
-                                {stats.recurring && <RecurringPatientsCard recurring={stats.recurring} />}
-                            </div>
-                        </div>
+                ) : (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Sem números para mostrar agora.</p>
+                )}
+            </Section>
 
-                        <div>
-                            <SectionLabel label="Financeiro" />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                                <MetricCard
-                                    title="Caixa Hoje"
-                                    value={stats.todayRevenue}
-                                    format={formatCurrency}
-                                    subtitle="Recebido hoje"
-                                    icon={<DollarSign size={20} />}
-                                    colorClass="text-emerald-600"
-                                    iconBgClass="bg-emerald-100"
-                                />
-                                <MetricCard
-                                    title="Receita Mês"
-                                    value={stats.monthRevenue}
-                                    format={formatCurrency}
-                                    subtitle="Pagamentos confirmados"
-                                    icon={<DollarSign size={20} />}
-                                    colorClass="text-blue-600"
-                                    iconBgClass="bg-blue-100"
-                                />
-                                <MetricCard
-                                    title="Pendente"
-                                    value={stats.pendingPayments}
-                                    subtitle="Pagamentos em aberto"
-                                    icon={<Clock size={20} />}
-                                    colorClass="text-orange-600"
-                                    iconBgClass="bg-orange-100"
-                                />
-                                <MetricCard
-                                    title="Leads Mês"
-                                    value={stats.monthLeads}
-                                    subtitle="Novos interessados"
-                                    icon={<UserPlus size={20} />}
-                                    colorClass="text-violet-600"
-                                    iconBgClass="bg-violet-100"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                ) : null}
-            </AccordionSection>
-
-            {/* Visão Geral */}
-            <AccordionSection
-                title="Visão Geral"
-                isOpen={overviewSectionOpen}
-                onToggle={() => setOverviewSectionOpen(v => !v)}
-                iconNode={<Eye size={18} />}
-                iconBg="bg-violet-100"
-                iconColor="text-violet-600"
+            {/* 5. Gráficos */}
+            <Section
+                title="Sessões e caixa por dia"
+                meta="últimos 14 dias, sem fim de semana"
+                isOpen={chartsOpen}
+                onToggle={() => setChartsOpen(v => !v)}
+                icon={<LineChart size={17} />}
             >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Profissionais */}
-                    <div className="rounded-2xl border border-gray-100 overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100">
-                            <h3 className="text-sm font-bold leading-5 text-gray-800">Visão Geral dos Profissionais</h3>
-                        </div>
-                        <div className="p-3">
-                            {loading ? (
-                                <div className="space-y-2">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                                            <div className="w-10 h-10 rounded-xl bg-gray-100 shrink-0" />
-                                            <div className="flex-1 space-y-1.5">
-                                                <div className="h-3 bg-gray-100 rounded w-2/3" />
-                                                <div className="h-2.5 bg-gray-50 rounded w-1/2" />
-                                            </div>
-                                            <div className="h-6 w-16 bg-gray-100 rounded-full" />
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : displayedDoctors.length > 0 ? (
-                                <div className="space-y-1">
-                                    {displayedDoctors.map((doctor, index) => (
-                                        <div
-                                            key={doctor._id || index}
-                                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors"
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-                                                    <Stethoscope size={18} className="text-blue-600" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-semibold text-gray-800 text-sm truncate">{doctor.name}</p>
-                                                    <p className="text-xs text-gray-400 truncate">{doctor.specialty}</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full shrink-0 ml-2">
-                                                {doctor.patients} pac.
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-2">
-                                        <Stethoscope size={22} className="text-gray-300" />
-                                    </div>
-                                    <p className="text-sm text-gray-400">Nenhum profissional encontrado</p>
-                                </div>
-                            )}
-                        </div>
-                        {doctors && doctors.length > 3 && (
-                            <div className="px-5 py-3 border-t border-gray-100">
-                                <button
-                                    onClick={() => setShowAllDoctors(v => !v)}
-                                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                                >
-                                    {showAllDoctors ? 'Mostrar menos' : `Ver todos (${doctors.length})`}
-                                </button>
+                <div className="grid gap-3 lg:grid-cols-2">
+                    <DayBars title="Sessões por dia" rows={sessionsRows} fmt={v => String(v)} unit="sessões" />
+                    <DayBars title="Caixa por dia" rows={cashRows} fmt={formatCurrencyShort} unit="recebidos" />
+                </div>
+            </Section>
+
+            {/* 6. Agenda de hoje por profissional */}
+            <Section
+                title="Agenda de hoje por profissional"
+                meta={`${safeDoctors.length} profissionais`}
+                isOpen={todayByDoctorOpen}
+                onToggle={() => setTodayByDoctorOpen(v => !v)}
+                icon={<CalendarClock size={17} />}
+            >
+                {todayLoading && !todayLoaded ? (
+                    <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}</div>
+                ) : (
+                    <div className="space-y-4">
+                        {todayByDoctor.length === 0 ? (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão hoje.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[520px] text-sm">
+                                    <thead>
+                                        <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-600 dark:border-gray-700 dark:text-gray-400">
+                                            <th className="py-2 pr-3 font-semibold">Profissional</th>
+                                            <th className="px-3 py-2 text-right font-semibold">Hoje</th>
+                                            <th className="px-3 py-2 text-right font-semibold">Realizadas</th>
+                                            <th className="px-3 py-2 text-right font-semibold">Faltas</th>
+                                            <th className="py-2 pl-3 text-right font-semibold">Próxima</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {todayByDoctor.map(r => (
+                                            <tr key={r.name} className="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                                                <td className="py-2.5 pr-3 font-medium text-gray-900 dark:text-gray-100">{r.name}</td>
+                                                <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{r.total}</td>
+                                                <td className="px-3 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{r.done}</td>
+                                                <td className={`px-3 py-2.5 text-right tabular-nums ${r.missed ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'}`}>{r.missed || '—'}</td>
+                                                <td className="py-2.5 pl-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{r.next || '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
-                    </div>
-
-                    {/* Próximas Consultas */}
-                    <div className="rounded-2xl border border-gray-100 overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100">
-                            <h3 className="text-sm font-bold leading-5 text-gray-800">Próximas Consultas</h3>
-                        </div>
-                        <div className="p-3">
-                            {loading ? (
-                                <div className="space-y-2">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="flex justify-between p-3 animate-pulse">
-                                            <div className="space-y-1.5">
-                                                <div className="h-3 bg-gray-100 rounded w-32" />
-                                                <div className="h-2.5 bg-gray-50 rounded w-48" />
-                                            </div>
-                                            <div className="space-y-1.5 text-right">
-                                                <div className="h-3 bg-gray-100 rounded w-20" />
-                                                <div className="h-2.5 bg-gray-50 rounded w-12" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : displayedAppointments.length > 0 ? (
-                                <ul className="space-y-1">
-                                    {displayedAppointments.map((appointment, index) => (
-                                        <li
-                                            key={appointment._id || index}
-                                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors"
-                                        >
-                                            <div className="min-w-0 flex-1 mr-3">
-                                                <p className="font-semibold text-gray-800 text-sm truncate">
-                                                    {appointment.patientName || appointment.patient}
-                                                </p>
-                                                <p className="text-xs text-gray-400 truncate">
-                                                    {appointment.professionalName || appointment.doctor}
-                                                    {appointment.specialty ? ` · ${appointment.specialty}` : ''}
-                                                </p>
-                                            </div>
-                                            <div className="text-right shrink-0">
-                                                <p className="text-sm font-semibold text-gray-700">
-                                                    {new Date(appointment.date).toLocaleDateString('pt-BR')}
-                                                </p>
-                                                <p className="text-xs text-gray-400">{appointment.time}</p>
-                                            </div>
+                        {/* Total de pacientes por profissional (era a "Visão geral dos profissionais"). */}
+                        {safeDoctors.length > 0 && (
+                            <div>
+                                <h3 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-50">Pacientes por profissional</h3>
+                                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                    {displayedDoctors.map((doctor, index) => (
+                                        <li key={doctor._id || index} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{getInitials(doctor.name)}</span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate text-sm font-medium text-gray-900 dark:text-gray-100">{doctor.name}</span>
+                                                <span className="block truncate text-xs text-gray-600 dark:text-gray-400">{getSpecialtyLabel(doctor.specialty)}</span>
+                                            </span>
+                                            <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300"><b className="text-gray-900 dark:text-gray-100">{doctor.patients}</b> pac.</span>
                                         </li>
                                     ))}
                                 </ul>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-2">
-                                        <Clock size={22} className="text-gray-300" />
-                                    </div>
-                                    <p className="text-sm text-gray-400">Nenhuma consulta agendada</p>
-                                </div>
-                            )}
-                        </div>
+                                {safeDoctors.length > 6 && (
+                                    <button type="button" onClick={() => setShowAllDoctors(v => !v)} className="mt-2 text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-400">
+                                        {showAllDoctors ? 'Mostrar menos' : `Ver todos (${safeDoctors.length})`}
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
+                )}
+            </Section>
+
+            {/* 7. Próximas sessões */}
+            <Section
+                title="Próximas sessões"
+                meta={`${upcoming.all.length} nos próximos dias · ${upcoming.unconfirmed.length} não confirmadas`}
+                isOpen={upcomingOpen}
+                onToggle={() => setUpcomingOpen(v => !v)}
+                icon={<Clock size={17} />}
+            >
+                <div className="mb-3 flex flex-wrap gap-2">
+                    <Chip active={upcomingFilter === 'all'} onClick={() => setUpcomingFilter('all')}>Todas <b className="tabular-nums">{upcoming.all.length}</b></Chip>
+                    <Chip active={upcomingFilter === 'today'} onClick={() => setUpcomingFilter('today')}>Hoje <b className="tabular-nums">{upcoming.today.length}</b></Chip>
+                    <Chip active={upcomingFilter === 'tomorrow'} onClick={() => setUpcomingFilter('tomorrow')}>Amanhã <b className="tabular-nums">{upcoming.tomorrow.length}</b></Chip>
+                    <Chip active={upcomingFilter === 'unconfirmed'} onClick={() => setUpcomingFilter('unconfirmed')}>Não confirmadas <b className="tabular-nums">{upcoming.unconfirmed.length}</b></Chip>
                 </div>
-            </AccordionSection>
+                {upcomingShown.length === 0 ? (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão neste filtro.</p>
+                ) : (
+                    <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {upcomingShown.map((a, index) => {
+                            const cfg = getStatusConfig(a.status as any);
+                            const day = apptDay(a.date);
+                            const when = day === todayStr ? relTime(minutesUntil(a.time)) : day === tomorrowStr ? 'amanhã' : dayLabel(day);
+                            return (
+                                <li key={a._id || index} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 py-2.5">
+                                    <span>
+                                        <span className="block font-bold tabular-nums text-gray-900 dark:text-gray-50">{a.time}</span>
+                                        <span className="block text-xs text-gray-600 dark:text-gray-400">{when}</span>
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className="block truncate font-medium text-gray-900 dark:text-gray-100">{a.patientName}</span>
+                                        <span className="block truncate text-xs text-gray-600 dark:text-gray-400">
+                                            {a.professionalName}{a.specialty ? ` · ${getSpecialtyLabel(a.specialty)}` : ''}
+                                        </span>
+                                    </span>
+                                    <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.bgColor} ${cfg.color}`}>{cfg.label}</span>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </Section>
 
-            {/* Controles */}
-            <div className="flex gap-3 justify-center pt-2 pb-1">
-                <button
-                    onClick={() => {
-                        setBirthdaySectionOpen(true);
-                        setPatientsTableOpen(true);
-                        setMetricsSectionOpen(true);
-                        setOverviewSectionOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                    <ChevronUp size={14} />
-                    Expandir Todos
-                </button>
-                <button
-                    onClick={() => {
-                        setBirthdaySectionOpen(false);
-                        setPatientsTableOpen(false);
-                        setMetricsSectionOpen(false);
-                        setOverviewSectionOpen(false);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                    <ChevronDown size={14} />
-                    Recolher Todos
-                </button>
-            </div>
+            {/* 8. Leads e especialidades */}
+            <Section
+                title="Leads por origem e pacientes por especialidade"
+                meta="leads do mês · pacientes atendidos em 30 dias"
+                isOpen={mixOpen}
+                onToggle={() => setMixOpen(v => !v)}
+                icon={<PieChart size={17} />}
+            >
+                <div className="grid gap-3 lg:grid-cols-2">
+                    <HBars title="Leads do mês por origem" rows={originRows} empty="Nenhum lead no mês." />
+                    <HBars title="Pacientes por especialidade" rows={specialtyRows} empty="Sem atendimentos nos últimos 30 dias." />
+                </div>
+            </Section>
 
-            {/* Modal: Sessões Hoje (todas, paginadas) */}
+            {/* Modal: Sessões de hoje (todas, paginadas) */}
             <Dialog
                 open={todaySessionsModalOpen}
                 onClose={() => setTodaySessionsModalOpen(false)}
                 maxWidth="sm"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: '24px', overflow: 'hidden', boxShadow: '0 24px 60px -12px rgba(16,24,40,0.25)' } }}
+                PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
             >
-                <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-amber-50 to-white px-6 py-5">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-                            <Clock size={20} />
-                        </div>
-                        <div>
-                            <h2 className="text-base font-bold leading-5 text-gray-900">Sessões de Hoje</h2>
-                            <p className="text-xs text-gray-500">
-                                {todaySessionsLoading ? 'Carregando...' : `${todaySessions.length} ${todaySessions.length === 1 ? 'agendamento' : 'agendamentos'}`}
-                            </p>
-                        </div>
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                    <div>
+                        <h2 className="text-base font-bold text-gray-900 dark:text-gray-50">Sessões de hoje</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {todayLoading ? 'Carregando…' : `${sortedToday.length} no total · ${plural(todaySummary.done,'realizada','realizadas')} · ${plural(todaySummary.missed,'falta','faltas')} · ${plural(todaySummary.canceled,'cancelada','canceladas')} · ${todaySummary.todo + todaySummary.pre} a fazer`}
+                        </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => setTodaySessionsModalOpen(false)}
-                        className="rounded-full p-2 text-gray-400 transition-colors hover:bg-white hover:text-gray-600"
-                        aria-label="Fechar"
-                    >
-                        <X size={18} />
-                    </button>
+                    <button type="button" onClick={() => setTodaySessionsModalOpen(false)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Fechar"><X size={18} /></button>
                 </div>
-
                 <DialogContent className="!px-3 !py-2">
-                    {todaySessionsLoading ? (
+                    {todayLoading ? (
                         <div className="space-y-1 py-2">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="flex items-center gap-3 rounded-xl p-3 animate-pulse">
-                                    <div className="h-10 w-10 shrink-0 rounded-full bg-gray-100" />
-                                    <div className="flex-1 space-y-1.5">
-                                        <div className="h-3 w-32 rounded bg-gray-100" />
-                                        <div className="h-2.5 w-48 rounded bg-gray-50" />
-                                    </div>
-                                    <div className="h-5 w-20 rounded-full bg-gray-100" />
-                                </div>
-                            ))}
+                            {[1, 2, 3, 4].map(i => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}
                         </div>
-                    ) : todaySessions.length > 0 ? (
+                    ) : sortedToday.length > 0 ? (
                         <>
                             <ul className="py-1">
                                 {paginatedTodaySessions.map((session, index) => {
-                                    const cfg = getStatusConfig(session.operationalStatus);
+                                    const cfg = getStatusConfig(session.operationalStatus as any);
                                     return (
-                                        <li
-                                            key={session._id || index}
-                                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-gray-50"
-                                        >
-                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarClassFor(session.patientName)}`}>
-                                                {getInitials(session.patientName)}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-semibold text-gray-800">{session.patientName}</p>
-                                                <p className="flex items-center gap-1 truncate text-xs text-gray-500">
-                                                    <Clock size={11} className="shrink-0 text-gray-300" />
-                                                    {session.time}
-                                                    {session.specialty && (
-                                                        <span className="truncate text-gray-400">· {session.specialty}</span>
-                                                    )}
-                                                </p>
-                                            </div>
-                                            <span className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${cfg.bgColor} ${cfg.color}`}>
-                                                <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                                                {cfg.label}
+                                        <li key={session._id || index} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                                            <span className="font-bold tabular-nums text-gray-900 dark:text-gray-50">{session.time}</span>
+                                            <span className="min-w-0">
+                                                <span className="block truncate font-medium text-gray-900 dark:text-gray-100">{session.patientName}</span>
+                                                <span className="block truncate text-xs text-gray-600 dark:text-gray-400">
+                                                    {session.doctor?.fullName || session.professional || ''}{session.specialty ? ` · ${getSpecialtyLabel(session.specialty)}` : ''}
+                                                </span>
                                             </span>
+                                            <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.bgColor} ${cfg.color}`}>{cfg.label}</span>
                                         </li>
                                     );
                                 })}
                             </ul>
-
                             <Pagination
                                 page={todaySessionsPage}
                                 totalPages={todaySessionsTotalPages}
                                 onPageChange={setTodaySessionsPage}
-                                accentClassName="bg-amber-500"
-                                className="border-t border-gray-100 px-2 pb-1 pt-4"
+                                accentClassName="bg-emerald-600"
+                                className="border-t border-gray-100 px-2 pb-1 pt-4 dark:border-gray-800"
                             />
                         </>
                     ) : (
-                        <div className="flex flex-col items-center gap-2 py-10 text-center">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
-                                <Clock size={22} className="text-gray-300" />
-                            </div>
-                            <p className="text-sm text-gray-400">Nenhuma sessão hoje.</p>
-                        </div>
+                        <p className="py-10 text-center text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão hoje.</p>
                     )}
                 </DialogContent>
             </Dialog>
