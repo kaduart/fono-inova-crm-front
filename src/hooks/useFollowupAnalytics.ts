@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { followupService } from '../services/followupService';
 
-export const useFollowupAnalytics = () => {
+/** enabled=false adia as 4 chamadas até a aba de métricas abrir (antes rodavam a cada visita em Leads). */
+export const useFollowupAnalytics = (enabled = true) => {
     const [state, setState] = useState({
         data: null as any,
-        loading: true,
+        loading: enabled,
         error: null as string | null
     });
 
@@ -53,8 +54,8 @@ export const useFollowupAnalytics = () => {
     }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (enabled) fetchData();
+    }, [enabled, fetchData]);
 
     return {
         data: state.data,

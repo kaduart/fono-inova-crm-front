@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Tabs, Tab } from '@mui/material';
 import { notifyApiError } from '../../utils/notifyApiError';
+import { WhatsAppDiagnostic } from '../../pages/Settings/WhatsAppDiagnostic';
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -1213,6 +1214,7 @@ export default function SystemUnifiedDashboard() {
                 <Tab label="Métricas Detalhadas" icon={<Zap size={15} />} iconPosition="start" />
                 <Tab label="Filas BullMQ" icon={<Layers size={15} />} iconPosition="start" />
                 <Tab label="Operações" icon={<Trash2 size={15} />} iconPosition="start" />
+                <Tab label="Diagnóstico WhatsApp" icon={<RefreshCw size={15} />} iconPosition="start" />
             </Tabs>
 
             {innerTab === 0 && (
@@ -1275,6 +1277,9 @@ export default function SystemUnifiedDashboard() {
             {innerTab === 2 && (
                 <QueuesTab raw={raw} queueHistory={queueHistory} />
             )}
+
+            {/* Veio de Vendas & Marketing > Leads (é coisa de sistema, não de vendas) */}
+            {innerTab === 4 && <WhatsAppDiagnostic />}
 
             {innerTab === 3 && (
                 <Box>

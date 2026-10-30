@@ -3,6 +3,7 @@ import CommercialQuickReplies from './CommercialQuickReplies';
 import { Calendar, ChevronRight, MessageCircle, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
 import Skeleton from '../../ui/Skeleton';
+import { leadNextStep, waLink } from '../../commercial/commercialCopy';
 
 export interface NewFollowupPayload {
   name: string;
@@ -543,6 +544,8 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                     ? editingNote[lead._id]
                     : op.nextActionNote;
                   const urgency = classifyLead(lead);
+                  const overdueDays = op.nextActionAt ? Math.floor((Date.now() - op.nextActionAt.getTime()) / 86_400_000) : 0;
+                  const next = leadNextStep({ name: lead.name, reason: op.followupReason, pipeline: op.pipeline, overdueDays });
 
                   return (
                     <tr
@@ -606,6 +609,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                             <option key={v} value={v}>{l}</option>
                           ))}
                         </select>
+                        <div className="mt-1.5 max-w-[220px] text-xs text-emerald-800" title="Próximo passo sugerido">→ {next.text}</div>
                       </td>
 
                       {/* OBSERVAÇÕES — inline edit */}
@@ -627,11 +631,11 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                         <div className="flex items-center justify-center gap-2">
                           {phone && (
                             <a
-                              href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+                              href={waLink(phone, next.message) || `https://wa.me/${phone.replace(/\D/g, '')}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="w-8 h-8 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center transition-colors"
-                              title="WhatsApp"
+                              title="WhatsApp com a mensagem do próximo passo"
                             >
                               <MessageCircle size={14} />
                             </a>

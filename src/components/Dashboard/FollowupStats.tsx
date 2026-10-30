@@ -99,7 +99,7 @@ const FollowupStats: React.FC<FollowupStatsProps> = ({
   // 🎨 Configuração dos cards com validação
   const cards = [
     {
-      label: "Enviados",
+      label: "Follow-ups enviados",
       value: normalizedData.sent.toLocaleString('pt-BR'),
       icon: MessageCircle,
       color: "bg-green-500",
@@ -109,7 +109,7 @@ const FollowupStats: React.FC<FollowupStatsProps> = ({
       description: "Mensagens entregues com sucesso"
     },
     {
-      label: "Agendados",
+      label: "Follow-ups agendados",
       value: normalizedData.scheduled.toLocaleString('pt-BR'),
       icon: Clock,
       color: "bg-yellow-500",
@@ -149,7 +149,7 @@ const FollowupStats: React.FC<FollowupStatsProps> = ({
       description: "Leads que responderam"
     },
     {
-      label: "Conversão",
+      label: "Taxa de resposta",
       value: `${normalizedData.conversionRate}%`,
       icon: TrendingUp,
       color: "bg-indigo-500",
