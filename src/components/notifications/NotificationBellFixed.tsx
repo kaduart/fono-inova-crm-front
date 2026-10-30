@@ -214,28 +214,23 @@ export const NotificationBellFixed: React.FC = () => {
 
       {/* Botão */}
       <button
+        type="button"
         onClick={handleClick}
-        style={{
-          position: 'relative',
-          padding: '8px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          borderRadius: '8px',
-          color: 'white',
-        }}
+        aria-label="Notificações"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-[11px] border border-white/15 bg-white/[0.08] text-white transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
-        <Bell size={22} />
+        <Bell size={18} />
         
         {/* Badge - só mostra se tem NOVOS */}
         {displayCount > 0 && (
           <span style={{
             position: 'absolute',
-            top: '-2px',
-            right: '-2px',
-            background: '#ef4444',
+            top: '-6px',
+            right: '-8px',
+            background: '#f43f5e',
+            boxShadow: '0 0 0 2px #0d8a6c',
             color: 'white',
-            borderRadius: '50%',
+            borderRadius: '999px',
             padding: '2px 6px',
             fontSize: '11px',
             fontWeight: 'bold',

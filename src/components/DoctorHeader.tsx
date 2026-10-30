@@ -1,4 +1,5 @@
 // src/pages/doctor/components/DoctorHeader.tsx
+import HeaderNavButton, { HeaderBrand, HEADER_ICON_BUTTON_CLASS, HEADER_SHELL_CLASS } from './ui/HeaderNavButton';
 import ThemeToggle from './common/ThemeToggle';
 import {
     BarChart2,
@@ -25,6 +26,11 @@ interface DoctorHeaderProps {
     onTabChange: (tab: string) => void;
     onLogout?: () => void;
 }
+
+const SPECIALTY_LABEL: Record<string, string> = {
+    fonoaudiologia: 'Fonoaudióloga', psicologia: 'Psicóloga', psicopedagogia: 'Psicopedagoga',
+    terapia_ocupacional: 'Terapeuta ocupacional', fisioterapia: 'Fisioterapeuta', musicoterapia: 'Musicoterapeuta',
+};
 
 const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     doctorInfo,
@@ -66,27 +72,6 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
         setOpenMenu(openMenu === menuName ? '' : menuName);
     };
 
-    // Componente NavButton interno
-    const NavButton = ({
-        active,
-        onClick,
-        icon,
-        children,
-        hasChevron = false
-    }: any) => (
-        <button
-            onClick={onClick}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${active
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-white hover:bg-emerald-600 hover:text-white"
-                }`}
-        >
-            {icon}
-            <span>{children}</span>
-            {hasChevron && <ChevronDown size={16} />}
-        </button>
-    );
-
     // Componente NavDropdownItem interno
     const NavDropdownItem = ({
         active,
@@ -107,100 +92,89 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     );
 
     return (
-        <header className="shadow-lg border-b text-white" style={{ backgroundColor: 'rgb(4 120 87)', borderColor: 'rgba(255,255,255,0.2)' }}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16 items-center">
+        <header className={HEADER_SHELL_CLASS}>
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
+                <div className="flex h-16 items-center justify-between gap-4">
                     {/* Logo e nome da clínica */}
                     <div className="flex items-center gap-3 cursor-pointer">
                         <NavLink
                             to="/doctor"
-                            className="flex items-center gap-3"
+                            className="flex items-center rounded-xl pr-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 xl:border-r xl:border-white/15"
                             onClick={() => handleTabChange("overview")}
+                            aria-label="Fono Inova, ir para o Dashboard"
                         >
-                            <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-md">
-                                <img className="w-12 h-12" src="images/logo-padrao-3d-encurtada.png" alt="" />
-
-                            </div>
-
-                            <div className="flex flex-col">
-                                <span className="text-xl font-bold text-white">
-                                    Fono Inova
-                                </span>
-                                <span className="hidden sm:block text-xs text-white font-medium">
-                                    Portal do Terapeuta
-                                </span>
-                            </div>
+                            <HeaderBrand subtitle="Área do Terapeuta" />
                         </NavLink>
                     </div>
 
                     {/* Navegação Principal */}
-                    <nav className="hidden lg:flex items-center space-x-1">
-                        <NavButton
+                    <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Menu principal">
+                        <HeaderNavButton
                             active={activeTab === "overview"}
                             onClick={() => handleTabChange("overview")}
-                            icon={<Home size={16} className="text-blue-500" />}
+                            icon={<Home />}
                         >
                             Dashboard
-                        </NavButton>
+                        </HeaderNavButton>
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "patients"}
                             onClick={() => handleTabChange("patients")}
-                            icon={<Users size={16} className="text-purple-500" />}
+                            icon={<Users />}
                         >
                             Pacientes
-                        </NavButton>
+                        </HeaderNavButton>
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "therapy"}
                             onClick={() => handleTabChange("therapy")}
-                            icon={<Stethoscope size={16} className="text-green-500" />}
+                            icon={<Stethoscope />}
                         >
                             Evolução
-                        </NavButton>
+                        </HeaderNavButton>
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "appointments"}
                             onClick={() => handleTabChange("appointments")}
-                            icon={<Calendar size={16} className="text-amber-500" />}
+                            icon={<Calendar />}
                         >
                             Agenda
-                        </NavButton>
+                        </HeaderNavButton>
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "insights"}
                             onClick={() => handleTabChange("insights")}
-                            icon={<BarChart2 size={16} className="text-cyan-400" />}
+                            icon={<BarChart2 />}
                         >
                             Insights
-                        </NavButton>
+                        </HeaderNavButton>
 
                         {isPrivate && (
-                            <NavButton
+                            <HeaderNavButton
                                 active={activeTab === "financial"}
                                 onClick={() => handleTabChange("financial")}
-                                icon={<DollarSign size={16} className="text-amber-500" />}
+                                icon={<DollarSign />}
                             >
                                 Financeiro
-                            </NavButton>
+                            </HeaderNavButton>
                         )}
 
-                        <NavButton
+                        <HeaderNavButton
                             active={activeTab === "messages"}
                             onClick={() => handleTabChange("messages")}
-                            icon={<MessageCircle size={16} className="text-emerald-500" />}
+                            icon={<MessageCircle />}
                         >
                             Mensagens
-                        </NavButton>
+                        </HeaderNavButton>
                     </nav>
 
                     {/* Tema + Perfil + Hamburguer */}
-                    <div className="flex items-center gap-2">
-                        <ThemeToggle />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                        <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
                         {/* Hamburguer - só no mobile */}
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="lg:hidden p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                            className={`${HEADER_ICON_BUTTON_CLASS} lg:hidden`}
                             aria-label="Menu" aria-expanded={isMobileMenuOpen}
                         >
                             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -212,21 +186,21 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             aria-label="Menu do perfil"
                             aria-haspopup="menu"
                             aria-expanded={isProfileDropdownOpen}
-                            className="flex items-center space-x-3 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 group shadow-md"
+                            className="ml-1 flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/[0.08] py-1 pl-1.5 pr-1.5 text-white transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:pl-3"
                         >
-                          {/*   <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-sm font-medium">
-                                    Dr(a). {doctorInfo?.fullName?.split(' ')[0] || "Médico"}
+                          <div className="hidden sm:flex flex-col items-end">
+                                <span className="text-[13.5px] font-semibold leading-tight">
+                                    {doctorInfo?.fullName?.split(' ')[0] || "Terapeuta"}
                                 </span>
-                                <span className="text-xs text-white">
-                                    {doctorInfo?.specialty || "Médico"}
+                                <span className="text-[11px] leading-tight text-white/70">
+                                    {SPECIALTY_LABEL[doctorInfo?.specialty] || doctorInfo?.specialty || "Terapeuta"}
                                 </span>
                             </div>
-                            <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center border border-white/30">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-gradient-to-br from-amber-200 to-amber-400 text-amber-950">
                                 <span className="text-sm font-bold">
-                                    {doctorInfo?.fullName?.charAt(0) || "D"}
+                                    {doctorInfo?.fullName?.charAt(0) || "T"}
                                 </span>
-                            </div> */}
+                            </div>
                             <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
