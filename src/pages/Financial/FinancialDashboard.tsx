@@ -3,14 +3,13 @@
 import { Suspense, lazy, useEffect, startTransition } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Box, Skeleton } from '@mui/material';
-import { LayoutDashboard, DollarSign, Receipt, CreditCard, BarChart3, User, Calendar, FileText, Settings } from 'lucide-react';
+import { LayoutDashboard, DollarSign, Receipt, CreditCard, BarChart3, User, Calendar, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
 import { PeriodKey, rangeFor, todaySP } from './components/finUi';
 import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
-import { FiscalConfiguration } from '../../components/fiscal/FiscalConfiguration';
 
 // 🔧 Helper para lazy loading com retry em caso de falha de chunk
 const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) => {
@@ -358,7 +357,6 @@ const allTabs = [
     { id: 'dashboard', label: 'Indicadores', icon: <BarChart3 size={18} /> },
     { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
     { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
-    { id: 'configuracao-fiscal', label: 'Config. Fiscal', icon: <Settings size={18} /> },
 ];
 
 // Título/subtítulo do card de topo, por aba — mesmo padrão usado nas demais
@@ -406,11 +404,6 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
         title: 'Planejamento Anual',
         subtitle: 'Metas e projeção financeira para o ano.'
     },
-    'configuracao-fiscal': {
-        icon: <Settings {...HEADER_ICON_PROPS} />,
-        title: 'Configuração Fiscal',
-        subtitle: 'Parâmetros fiscais e tributários para emissão de notas.'
-    }
 };
 const DEFAULT_HEADER_META = {
     icon: <DollarSign {...HEADER_ICON_PROPS} />,
@@ -430,8 +423,10 @@ const FinancialDashboard = ({
     const [searchParams, setSearchParams] = useSearchParams();
 
     const resolveTabFromSearchParams = () => {
-        const tabId = searchParams.get(TAB_PARAM_KEY);
-        if (!tabId) return 0;
+        const raw = searchParams.get(TAB_PARAM_KEY);
+        if (!raw) return 0;
+        // Config. fiscal virou a engrenagem dentro de NFSe; links antigos abrem NFSe.
+        const tabId = raw === 'configuracao-fiscal' ? 'nfse' : raw;
         const index = allTabs.findIndex((tab) => tab.id === tabId);
         return index >= 0 ? index : 0;
     };
@@ -647,7 +642,7 @@ const FinancialDashboard = ({
                     </Suspense>
                 );
             case 'nfse':
-                return <FiscalInvoiceHistory />;
+                return <FiscalInvoiceHistory month={selectedMonth} year={selectedYear} />;
             case 'dashboard':
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
@@ -671,8 +666,6 @@ const FinancialDashboard = ({
                         <PlanningTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
-            case 'configuracao-fiscal':
-                return <FiscalConfiguration />;
             default:
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
