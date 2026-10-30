@@ -1145,3 +1145,14 @@ export const getPaymentsLedger = async (params: LedgerParams): Promise<LedgerRes
     const { data } = await API.get('/v2/payments/ledger', { params });
     return data;
 };
+
+// ── Convênios: números do mês (somados no back) ─────────────────────────────
+export interface InsuranceSummary {
+    month: string;
+    receivedInMonth: { sessions: number; gross: number; net: number; previousNet: number; previousMonth: string; changePercent: number | null };
+    openInvoices: { count: number; pendingAmount: number; oldestDays: number | null };
+    actionQueue: { orphanSessions: number; orphanSessionsValue: number; draftSubmissions: number; guidesExpiringIn7Days: number };
+}
+
+export const getInsuranceSummary = (month: string) =>
+    API.get<{ success: boolean; data: InsuranceSummary }>('/v2/insurance/summary', { params: { month } });

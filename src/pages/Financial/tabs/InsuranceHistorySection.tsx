@@ -937,7 +937,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
         const rows = status ? base.filter(r => r.status === status) : base;
         return rows
             .map(r => ({
-                id: `${r.monthKey}-${r.provider}-${r.patientName}-${r.specialty}`,
+                id: `${r.monthKey}-${r.provider}-${r.patientName}-${r.specialty}-${r.status}`,
                 label: r.patientName,
                 sublabel: `${r.provider} · ${getSpecialtyLabel(r.specialty)} · ${fmtMonthShort(r.monthKey)}`,
                 value: r.value,
@@ -1104,9 +1104,13 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                     {/* MÉTRICAS — accordion, mesmo padrão do "Resumo do Dia" em Caixa & Fluxo */}
                     {level < 3 && (() => {
                         const production = level === 1 ? globalTotals.producao : providerTotals.value;
-                        const billed = level === 1 ? globalTotals.faturado : patientSummary.filter(p => p.status === 'billed').reduce((s, p) => s + p.value, 0);
-                        const received = level === 1 ? globalTotals.recebido : patientSummary.filter(p => p.status === 'received').reduce((s, p) => s + p.value, 0);
-                        const pending = level === 1 ? globalTotals.pendente : patientSummary.filter(p => p.status === 'pending_batch').reduce((s, p) => s + p.value, 0);
+                        // Nível 2: soma pelas linhas (uma por status, vindas do back), não pelo
+                        // status dominante do paciente, que jogava o valor inteiro numa coluna só.
+                        const provRows = level === 1 ? [] : advFiltered.filter(r => r.provider === selectedProvider);
+                        const sumBy = (st: string) => provRows.filter(r => r.status === st).reduce((s, r) => s + r.value, 0);
+                        const billed = level === 1 ? globalTotals.faturado : sumBy('billed');
+                        const received = level === 1 ? globalTotals.recebido : sumBy('received');
+                        const pending = level === 1 ? globalTotals.pendente : sumBy('pending_batch');
                         return (
                             <Box sx={{ mb: 3 }}>
                                 <button
