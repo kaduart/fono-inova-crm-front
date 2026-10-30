@@ -507,7 +507,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     // --- Aniversariantes (contagem pronta do backend em meta) ---
     const [aniversariantes, setAniversariantes] = useState<Array<{
         _id: string; fullName: string; dateOfBirth: string; phone?: string; email?: string;
-        daysUntil: number; birthdayMessageSent?: boolean;
+        daysUntil?: number; birthdayMessageSent?: boolean;
     }>>([]);
     const [aniversariantesMeta, setAniversariantesMeta] = useState<{ todayTotal: number; todayPending: number }>({ todayTotal: 0, todayPending: 0 });
     const [aniversariantesLoading, setAniversariantesLoading] = useState(false);
@@ -574,7 +574,14 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         requestAnimationFrame(() => document.getElementById('dash-aniversariantes')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }, []);
 
-    const birthdayToday = useMemo(() => aniversariantes.filter(a => a.daysUntil === 0 && !a.birthdayMessageSent), [aniversariantes]);
+    // O back não manda daysUntil: hoje = mesmo dia/mês (UTC) do nascimento
+    const birthdayToday = useMemo(() => {
+        const now = new Date();
+        return aniversariantes.filter(a => {
+            const d = new Date(a.dateOfBirth);
+            return !a.birthdayMessageSent && d.getUTCDate() === now.getDate() && d.getUTCMonth() === now.getMonth();
+        });
+    }, [aniversariantes]);
 
     const needItems: NeedItem[] = [
         {

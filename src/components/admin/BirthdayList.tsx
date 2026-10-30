@@ -11,7 +11,7 @@ export interface BirthdayRow {
     fullName: string;
     dateOfBirth: string;
     phone?: string;
-    daysUntil: number;
+    daysUntil?: number;
     birthdayMessageSent?: boolean;
 }
 
@@ -51,7 +51,23 @@ const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.Rea
     </button>
 );
 
-const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> = ({ patients, onSent }) => {
+// O back (/patients/aniversariantes) não manda daysUntil: calcula aqui pelo dia UTC do
+// nascimento contra o dia de hoje (mesmo critério do BirthdayCard). Negativo = já passou no mês.
+type Row = BirthdayRow & { daysUntil: number };
+const withDaysUntil = (list: BirthdayRow[]): Row[] => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    return list
+        .filter(p => p.dateOfBirth && !Number.isNaN(new Date(p.dateOfBirth).getTime()))
+        .map(p => {
+            const { day, month } = utcParts(p.dateOfBirth);
+            const bday = new Date(now.getFullYear(), month, day).getTime();
+            return { ...p, daysUntil: typeof p.daysUntil === 'number' ? p.daysUntil : Math.round((bday - today) / 86_400_000) };
+        });
+};
+
+const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> = ({ patients: raw, onSent }) => {
+    const patients = useMemo(() => withDaysUntil(raw || []), [raw]);
     const counts = useMemo(() => ({
         hoje: patients.filter(p => p.daysUntil === 0).length,
         semana: patients.filter(p => p.daysUntil >= 0 && p.daysUntil <= 7).length,
@@ -66,7 +82,7 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
             : period === 'semana' ? patients.filter(p => p.daysUntil >= 0 && p.daysUntil <= 7)
             : patients;
         // Hoje sem parabéns primeiro, depois os próximos, os que já passaram por último
-        const rank = (p: BirthdayRow) => (p.daysUntil < 0 ? 1000 - p.daysUntil : p.daysUntil);
+        const rank = (p: Row) => (p.daysUntil < 0 ? 1000 - p.daysUntil : p.daysUntil);
         return [...list].sort((a, b) => {
             const sa = Number(!!a.birthdayMessageSent || sent.has(a._id));
             const sb = Number(!!b.birthdayMessageSent || sent.has(b._id));
@@ -75,7 +91,7 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
         });
     }, [patients, period, sent]);
 
-    const send = async (p: BirthdayRow) => {
+    const send = async (p: Row) => {
         const first = p.fullName.split(' ')[0];
         if (!p.phone) { toast.error('Paciente sem telefone cadastrado'); return; }
         if (sending) return;
