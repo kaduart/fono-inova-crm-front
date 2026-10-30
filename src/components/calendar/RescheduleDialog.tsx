@@ -35,7 +35,7 @@ interface SlotInfo {
     label?: string;
 }
 
-const normalizeSlots = (raw: unknown): SlotInfo[] => {
+export const normalizeSlots = (raw: unknown): SlotInfo[] => {
     const list = Array.isArray(raw)
         ? raw
         : Array.isArray((raw as any)?.slots)

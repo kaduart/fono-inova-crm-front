@@ -18,6 +18,11 @@ import AppointmentDetailModal from './appointmentDetailModal';
 import RescheduleDialog, { RescheduleTarget } from './RescheduleDialog';
 import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
+import { AgendaFilterBar, AgendaHeader, DayAgendaModal, DayByProfessional, DayPreviewList, DoctorOption, MonthCell } from './agenda/AgendaParts';
+import {
+    AgendaFilter, StatusGroup, TypeGroup, doctorIdOf, doctorNameOf, loadFilter, loadPref, matchesFilter, monthTitle,
+    prettifyCode, saveFilter, savePref, statusGroupOf, typeGroupOf, ymdOf,
+} from './agenda/agendaModel';
 import API from '../../services/api';
 import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
 import type { CancelExtras } from './CancelRequesterPicker';
@@ -386,22 +391,37 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [cancellationTarget, setCancellationTarget] = useState<SelectedEvent | null>(null);
     const theme = useTheme();
 
-    // 🆕 Convênios para resolução de nomes no calendário
-    const { convenios } = useConvenios({ includeInactive: false });
+    // 🆕 Convênios para resolução de nomes no calendário (inclui inativos: sessão antiga
+    // de convênio desativado aparecia com o código, ex. "unimed-anapolis")
+    const { convenios } = useConvenios({ includeInactive: true });
+    const convenioName = useCallback((code?: string) =>
+        (code ? convenios.find(p => p.code === code)?.name || prettifyCode(code) : ''), [convenios]);
+
+    // Agenda do admin/secretária (mock aprovado 30/10): filtros por profissional, status e tipo,
+    // lembrados entre visitas. O terapeuta (modo doctor) continua com a agenda que já aprovou.
+    // O DoctorCalendarTab passa `mode="doctor"` (não calendarMode), então o modo vem também das flags:
+    // só a visão da clínica tem Acompanhamento.
+    const isAdminMode = calendarMode === 'admin' && featureFlags.showCarteiraView;
+    const [agendaFilter, setAgendaFilterState] = useState<AgendaFilter>(() => (isAdminMode ? loadFilter() : { doctor: 'all', status: 'all', type: 'all' }));
+    const setAgendaFilter = useCallback((f: AgendaFilter) => { setAgendaFilterState(f); saveFilter(f); }, []);
+    const visibleAppointments = useMemo(
+        () => (isAdminMode ? (appointments || []).filter(a => matchesFilter(a, agendaFilter)) : (appointments || [])),
+        [appointments, agendaFilter, isAdminMode]
+    );
 
     // 🆕 DTO: Mapeia appointments para contrato estável
-    const appointmentDTOs = useMemo(() => mapAppointmentListResponseDTO(appointments || []), [appointments]);
+    const appointmentDTOs = useMemo(() => mapAppointmentListResponseDTO(visibleAppointments), [visibleAppointments]);
 
     // 🆕 Helper: filtra appointments por data (YYYY-MM-DD)
     const getAppointmentsByDay = useCallback((dateStr: string) => {
-        return appointments.filter(appt => {
+        return visibleAppointments.filter(appt => {
             if (!appt.date) return false;
             const apptDateStr = typeof appt.date === 'string'
                 ? (appt.date.includes('T') ? appt.date.split('T')[0] : appt.date)
                 : new Date(appt.date).toISOString().split('T')[0];
             return apptDateStr === dateStr;
         });
-    }, [appointments]);
+    }, [visibleAppointments]);
 
     // 🆕 Progresso do pacote vem da API (package.sessionsDone / package.totalSessions)
     // Não calculamos no frontend — a API é fonte de verdade
@@ -413,6 +433,50 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // do mês seguinte na semana que vira o mês (ex.: 28/09–02/10 sem 01 e 02/10).
     const [visibleRange, setVisibleRange] = useState<{ start: string; end: string } | null>(null);
     const [calendarView, setCalendarView] = useState<'agenda' | 'carteira' | 'semanal' | 'cancelamentos'>('agenda');
+    // View do FullCalendar e o dia em foco (para o "Dia por profissional")
+    const [fcView, setFcView] = useState<string>('dayGridMonth');
+    const [fcDate, setFcDate] = useState<string>(() => toYmd(new Date()));
+    const [dayLayout, setDayLayoutState] = useState<'pro' | 'single'>(() => (loadPref('agenda.dayLayout', 'pro') === 'single' ? 'single' : 'pro'));
+    const setDayLayout = (v: 'pro' | 'single') => { setDayLayoutState(v); savePref('agenda.dayLayout', v); };
+
+    // Contagens do mês em tela para os chips (cada grupo conta com os outros dois filtros aplicados)
+    const agendaCounts = useMemo(() => {
+        if (!isAdminMode || !currentViewDate) return null;
+        const month = (appointments || []).filter(a => ymdOf(a).startsWith(currentViewDate));
+        const status = { todo: 0, done: 0, missed: 0, canceled: 0, pre: 0 } as Record<StatusGroup, number>;
+        const type = { particular: 0, convenio: 0, pacote: 0, liminar: 0 } as Record<TypeGroup, number>;
+        const docs = new Map<string, { fullName: string; count: number }>();
+        let statusTotal = 0, typeTotal = 0, doctorTotal = 0;
+        month.forEach(a => {
+            if (matchesFilter(a, agendaFilter, 'status')) { status[statusGroupOf(a)]++; statusTotal++; }
+            if (matchesFilter(a, agendaFilter, 'type')) { type[typeGroupOf(a)]++; typeTotal++; }
+            if (matchesFilter(a, agendaFilter, 'doctor')) {
+                doctorTotal++;
+                const id = doctorIdOf(a);
+                if (id) {
+                    const cur = docs.get(id) || { fullName: doctorNameOf(a), count: 0 };
+                    cur.count++;
+                    docs.set(id, cur);
+                }
+            }
+        });
+        // Garante o chip do profissional filtrado mesmo sem sessão no mês
+        if (agendaFilter.doctor !== 'all' && !docs.has(agendaFilter.doctor)) {
+            const d = (doctors || []).find((x: any) => String(x._id || x.id) === agendaFilter.doctor) as any;
+            docs.set(agendaFilter.doctor, { fullName: d?.fullName || d?.name || 'Profissional', count: 0 });
+        }
+        const firstNames = [...docs.values()].map(d => d.fullName.split(' ')[0]);
+        const doctorOptions: DoctorOption[] = [...docs.entries()]
+            .map(([id, d]) => {
+                const parts = d.fullName.split(' ');
+                const dup = firstNames.filter(n => n === parts[0]).length > 1;
+                return { id, fullName: d.fullName, count: d.count, label: dup && parts[1] ? `${parts[0]} ${parts[1]}` : parts[0] };
+            })
+            .sort((x, y) => y.count - x.count || x.label.localeCompare(y.label));
+        const todayStr = toYmd(new Date());
+        const preUpcoming = (appointments || []).filter(a => statusGroupOf(a) === 'pre' && ymdOf(a) >= todayStr).length;
+        return { total: month.length, status, statusTotal, type, typeTotal, doctorOptions, doctorTotal, preUpcoming };
+    }, [isAdminMode, currentViewDate, appointments, agendaFilter, doctors]);
 
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
@@ -984,6 +1048,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // Atualiza apenas para informação visual (header)
         setCurrentViewDate(viewDate);
         setVisibleRange({ start: toYmd(start), end: toYmd(end) });
+        setFcView(dateInfo.view?.type || 'dayGridMonth');
+        setFcDate(toYmd(ref));
 
         // Notifica o pai
         if (onMonthChange) {
@@ -1124,7 +1190,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const insuranceProvider = appointment.insuranceProvider;
         const isConvenio = billingType === 'convenio' || (!!insuranceProvider && insuranceProvider !== '');
         const insuranceProviderName = isConvenio
-            ? convenios.find(p => p.code === insuranceProvider)?.name || insuranceProvider
+            ? convenioName(insuranceProvider) || insuranceProvider
             : '';
 
         const appointmentPaymentStatus = getRealPaymentStatus(appointment);
@@ -1620,7 +1686,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // ✅ Mostra convênio se tiver insuranceProvider ou billingType === 'convenio'
         const isConvenio = billingType === 'convenio' || (!!insuranceProvider && insuranceProvider !== '');
         const insuranceProviderName = isConvenio
-            ? convenios.find(p => p.code === insuranceProvider)?.name || insuranceProvider
+            ? convenioName(insuranceProvider) || insuranceProvider
             : '';
 
         // Semana e Dia: bloco fino (horário, paciente, status). O card grande tinha 170px e ficava
@@ -1643,10 +1709,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     title={`${range} · ${patientName} · ${statusLabel} · ${typeTone.label}`}
                 >
                     <div className="flex min-w-0 items-baseline gap-1.5">
-                        <span className="shrink-0 text-xs font-bold tabular-nums text-slate-900">{range}</span>
-                        <span className={`truncate text-xs font-semibold text-slate-900 ${dimmed ? 'line-through' : ''}`}>{patientName}</span>
+                        {/* Cores fixas: o fundo é pastel nos dois temas (o dark.css clarearia text-slate-*) */}
+                        <span className="shrink-0 text-xs font-bold tabular-nums text-[#0f172a]">{range}</span>
+                        <span className={`truncate text-xs font-semibold text-[#0f172a] ${dimmed ? 'line-through' : ''}`}>{patientName}</span>
                     </div>
-                    <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-700">
+                    <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-[#334155]">
                         <span className="truncate">{statusLabel}</span>
                         <span aria-hidden>·</span>
                         <span className="truncate font-medium" style={{ color: typeTone.ink }}>{typeTone.label}</span>
@@ -1882,7 +1949,47 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 </div>
             </Tooltip>
         );
-    }, [getPaymentStatusConfig, getOperationalStatusConfig, appointments, permissions.canSeeFinancial]);
+    }, [getPaymentStatusConfig, getOperationalStatusConfig, appointments, permissions.canSeeFinancial, convenioName]);
+
+    const showDayByPro = isAdminMode && fcView === 'timeGridDay' && dayLayout === 'pro';
+
+    // Legenda compacta do admin (mesmo conteúdo dos três quadros antigos)
+    const agendaLegend = (
+        <div className="grid gap-4 text-[13px] text-gray-700 sm:grid-cols-3">
+            <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Status (borda do card na semana)</p>
+                <ul className="flex flex-col gap-1">
+                    {Object.entries(getOperationalStatusVisualConfigMap()).filter(([st]) => st !== 'absent').map(([st, cfg]) => (
+                        <li key={st} className="flex items-center gap-2"><span className="h-3.5 w-1 rounded" style={{ background: cfg.color }} />{cfg.label}</li>
+                    ))}
+                </ul>
+            </div>
+            <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo (cor do card)</p>
+                <ul className="flex flex-col gap-1">
+                    {[['Particular', '#86efac'], ['Convênio', '#93c5fd'], ['Pacote', '#d8b4fe'], ['Liminar', '#fdba74']].map(([label, c]) => (
+                        <li key={label} className="flex items-center gap-2"><span className="h-3.5 w-6 rounded" style={{ background: c }} />{label}</li>
+                    ))}
+                </ul>
+                <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Barra do mês</p>
+                <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                    {[['Realizadas', '#1baf7a'], ['A fazer', '#cbd5e1'], ['Faltas', '#eda100'], ['Canceladas', '#e5484d']].map(([label, c]) => (
+                        <li key={label} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{label}</li>
+                    ))}
+                </ul>
+            </div>
+            {permissions.canSeeFinancial && (
+                <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Pagamento (etiqueta do card)</p>
+                    <ul className="flex flex-col gap-1">
+                        {Object.entries(getPaymentStatusConfigMap()).map(([st, cfg]) => (
+                            <li key={st} className="flex items-center gap-2"><span className="h-3.5 w-3.5 rounded border-2" style={{ background: cfg.bgColor, borderColor: cfg.color }} />{cfg.label}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
 
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
         setAppointmentData(appointment);
@@ -1953,14 +2060,39 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     '.fc-dayGridMonth-view .fc-daygrid-day-number > div': {
                         flex: '1 1 auto',
                     },
+                    ...(isAdminMode ? {
+                        '.fc .fc-today-button': { background: 'transparent !important', color: '#047857 !important', border: '1px solid #10b981 !important', fontWeight: 600, opacity: '1 !important', textTransform: 'none' },
+                        '.fc .fc-today-button:disabled': { color: '#64748b !important', borderColor: '#cbd5e1 !important' },
+                        '.fc-dayGridMonth-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.07) !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
+                        '.fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: '#fffbeb !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
+                        // Tema escuro (mesma paleta do dark.css)
+                        'html.dark .fc': { '--fc-border-color': '#26312d', '--fc-page-bg-color': '#161d1b', '--fc-neutral-bg-color': '#1b2421', '--fc-today-bg-color': 'rgba(16,185,129,0.08)' },
+                        'html.dark .fc .fc-toolbar-title': { color: '#eef3f1' },
+                        'html.dark .fc .fc-toolbar': { borderColor: '#26312d' },
+                        'html.dark .fc .fc-scrollgrid-section-header th': { backgroundColor: '#1b2421' },
+                        'html.dark .fc .fc-button': { background: '#1b2421', borderColor: '#33413c', color: '#cfd8d4' },
+                        'html.dark .fc .fc-button-primary:not(:disabled).fc-button-active': { background: '#047857', borderColor: '#047857', color: '#fff' },
+                        'html.dark .fc .fc-today-button': { color: '#6ee7b7 !important' },
+                        'html.dark .fc .fc-timegrid-slot-label-cushion': { color: '#a9b5b0' },
+                        'html.dark .fc-timeGridWeek-view .fc-day-today, html.dark .fc-timeGridDay-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.06) !important' },
+                        'html.dark .fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: 'rgba(245,158,11,0.1) !important' },
+                    } : {}),
                     // 🎯 Esconde eventos na visualização mensal (popup group-hover já cobre)
                     '.fc-dayGridMonth-view .fc-daygrid-event': {
                         display: 'none !important',
                     },
                 }}
             />
-        <Box sx={{ backgroundColor: 'grey.50', minHeight: '100vh' }}>
-            {calendarView !== 'cancelamentos' && <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
+        <Box sx={{ backgroundColor: isAdminMode ? undefined : 'grey.50', minHeight: '100vh' }}>
+            {isAdminMode ? (
+                <AgendaHeader
+                    monthLabel={monthTitle(currentViewDate)}
+                    total={agendaCounts?.total ?? null}
+                    preCount={agendaCounts?.preUpcoming ?? 0}
+                    onOpenPre={onOpenPreAppointments}
+                    onCreate={permissions.canCreate ? () => handleOpenSchedule(null, 'create') : undefined}
+                />
+            ) : calendarView !== 'cancelamentos' && <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
                         <Calendar size={22} className="text-emerald-600" />
@@ -2025,6 +2157,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     ))}
             </Box>
 
+            {isAdminMode && calendarView === 'agenda' && agendaCounts && (
+                <AgendaFilterBar
+                    filter={agendaFilter}
+                    onChange={setAgendaFilter}
+                    doctorOptions={agendaCounts.doctorOptions}
+                    doctorTotal={agendaCounts.doctorTotal}
+                    statusCounts={agendaCounts.status}
+                    statusTotal={agendaCounts.statusTotal}
+                    typeCounts={agendaCounts.type}
+                    typeTotal={agendaCounts.typeTotal}
+                    legend={agendaLegend}
+                />
+            )}
+
             {featureFlags.showCarteiraView && calendarView === 'carteira' && (
                 <Paper elevation={1} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'grey.200', bgcolor: 'white', minHeight: 500 }}>
                     <CarteiraView
@@ -2048,18 +2194,34 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
             <Paper
                 elevation={1}
+                // admin: cor pelas classes do tema (o dark.css escurece .bg-white e .border-gray-200)
+                className={isAdminMode ? 'border border-gray-200 bg-white' : undefined}
                 sx={{
                     borderRadius: 3,
                     overflow: 'visible',
-                    border: `1px solid ${theme.palette.grey[200]}`,
-                    background: 'white',
+                    border: isAdminMode ? undefined : `1px solid ${theme.palette.grey[200]}`,
+                    background: isAdminMode ? undefined : 'white',
                     position: 'relative',
                     display: calendarView === 'agenda' ? undefined : 'none',
+                    ...(showDayByPro ? { '& .fc-view-harness': { display: 'none' } } : {}),
                 }}
             >
+                {isAdminMode && fcView === 'timeGridDay' && (
+                    <div className="flex items-center justify-end gap-2 px-3 pt-3">
+                        <span className="text-xs font-medium text-gray-500">Dia:</span>
+                        <div className="inline-flex rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Como mostrar o dia">
+                            {([['single', 'Uma coluna'], ['pro', 'Por profissional']] as const).map(([v, label]) => (
+                                <button key={v} type="button" aria-pressed={dayLayout === v} onClick={() => setDayLayout(v)}
+                                    className={`rounded-md px-2.5 py-1 text-[13px] font-medium ${dayLayout === v ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 {/* Skeleton de loading — overlay sobre o FullCalendar (não desmonta o calendário) */}
                 {loading && (
-                    <Box sx={{ position: 'absolute', inset: 0, zIndex: 10, borderRadius: 3, bgcolor: 'white', p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
+                    <Box className={isAdminMode ? 'bg-white' : undefined} sx={{ position: 'absolute', inset: 0, zIndex: 10, borderRadius: 3, bgcolor: isAdminMode ? undefined : 'white', p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
                         {/* Toolbar do FC: prev/next/today | título do mês | month/week/day */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 1 }}>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -2172,6 +2334,29 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         // O card de resumo e o número em círculo são do mês; na semana/dia o FC usa a
                         // mesma célula no topo da coluna e o card aparecia no meio da grade de horários.
                         if (arg.view.type !== 'dayGridMonth') return null;
+                        if (isAdminMode) {
+                            const ymd = toYmd(arg.date);
+                            const holidayName = isHoliday(ymd) ? getHolidayName(ymd) : undefined;
+                            const dayAppts = holidayName ? [] : getAppointmentsByDay(ymd);
+                            return (
+                                <div className={`h-full w-full ${dayAppts.length ? 'cursor-pointer' : ''}`}
+                                    onMouseEnter={(e) => {
+                                        clearHoverTimeout();
+                                        setHoveredDay(ymd);
+                                        if (dayAppts.length > 0) setActivePopup({ dateStr: ymd, dayAppts, rect: e.currentTarget.getBoundingClientRect() });
+                                    }}
+                                    onMouseLeave={scheduleHide}
+                                    onClick={() => {
+                                        if (dayAppts.length === 0) return;
+                                        clearHoverTimeout();
+                                        setActivePopup(null);
+                                        setDayModalData({ dateStr: ymd, dayAppts });
+                                        setDayModalOpen(true);
+                                    }}>
+                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} />
+                                </div>
+                            );
+                        }
                         const dateStr = arg.date.toISOString().split('T')[0];
                         const isHolidayDate = isHoliday(dateStr);
                         const holidayName = isHolidayDate ? getHolidayName(dateStr) : '';
@@ -2306,10 +2491,22 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </span>
                     )}
                 />
+                {showDayByPro && (
+                    <DayByProfessional
+                        dateStr={fcDate}
+                        appts={getAppointmentsByDay(fcDate)}
+                        doctors={doctors as any}
+                        doctorFilter={agendaFilter.doctor}
+                        fetchSlots={onFetchAvailableSlots}
+                        onOpen={(a) => openAppointmentDetail(a)}
+                        onSlot={permissions.canCreate ? () => handleOpenSchedule(null, 'create') : undefined}
+                    />
+                )}
             </Paper>
 
             {featureFlags.showLegendas && calendarView === 'agenda' && (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>
+                // No admin a legenda fica atrás do botão "Legenda" dos filtros; o <style> abaixo continua valendo
+                <Box sx={{ display: isAdminMode ? 'none' : 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>
                     <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
                         <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
                             📅 Status do Agendamento
@@ -2503,21 +2700,24 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
             {activePopup && createPortal(
                 <div
-                    className="fixed z-[99999] w-[460px] max-h-[600px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 hidden md:block"
+                    className={`fixed z-[99999] max-h-[600px] overflow-auto bg-white rounded-xl shadow-2xl border border-gray-200 p-3 space-y-3 hidden md:block ${isAdminMode ? 'w-[620px]' : 'w-[460px]'}`}
                     style={{
                         top: activePopup.rect.bottom + 6,
                         left: Math.min(
                             activePopup.rect.left,
-                            window.innerWidth - 480
+                            window.innerWidth - (isAdminMode ? 640 : 480)
                         ),
                     }}
                     onMouseEnter={clearHoverTimeout}
                     onMouseLeave={scheduleHide}
                 >
                     <div className="text-xs font-bold text-gray-700 px-1 py-1 border-b border-gray-100">
-                        📅 {new Date(activePopup.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        {!isAdminMode && '📅 '}{new Date(activePopup.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </div>
-                    {[...activePopup.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
+                    {isAdminMode ? (
+                        <DayPreviewList appts={activePopup.dayAppts} convenioName={convenioName} showMoney={permissions.canSeeFinancial}
+                            onOpen={(appt) => { clearHoverTimeout(); setHoveredDay(null); setActivePopup(null); openAppointmentDetail(appt); }} />
+                    ) : [...activePopup.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
                         <AppointmentEventCard
                             key={appt._id || appt.id}
                             appointment={appt}
@@ -2551,7 +2751,23 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             )}
 
             {/* 🆕 MODAL DE DIA — Mobile + Click desktop (acessível sem hover) */}
-            {dayModalOpen && dayModalData && createPortal(
+            {isAdminMode && dayModalOpen && dayModalData && createPortal(
+                <DayAgendaModal
+                    dateStr={dayModalData.dateStr}
+                    appts={getAppointmentsByDay(dayModalData.dateStr)}
+                    onClose={() => setDayModalOpen(false)}
+                    convenioName={convenioName}
+                    showMoney={permissions.canSeeFinancial}
+                    actions={{
+                        onOpen: (a) => { setDayModalOpen(false); openAppointmentDetail(a); },
+                        onReschedule: canReschedule ? (a) => { setDayModalOpen(false); openReschedule(a); } : undefined,
+                        onCancel: permissions.canCancel ? (a) => { setDayModalOpen(false); openAppointmentDetail(a, 'cancel'); } : undefined,
+                        onFinalize: permissions.canComplete ? (a) => { setDayModalOpen(false); openAppointmentDetail(a, 'confirm'); } : undefined,
+                    }}
+                />,
+                document.body
+            )}
+            {!isAdminMode && dayModalOpen && dayModalData && createPortal(
                 <div
                     className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
                     onClick={(e) => {
