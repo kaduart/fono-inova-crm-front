@@ -26,6 +26,7 @@ import {
 import API from '../../services/api';
 import { useRetention } from '../../hooks/useRetention';
 import { TabErrorBoundary } from '../error/TabErrorBoundary';
+import { FitSlot, FitSlotPanel } from '../commercial/CommercialParts';
 import { getHolidays, holidaysToMap, isHoliday as isHolidayUtil, Holiday } from '../../services/calendarService';
 import type { CancelExtras } from './CancelRequesterPicker';
 import {
@@ -387,6 +388,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const calendarRef = useRef<FullCalendar | null>(null);
     const [openSchedule, setOpenSchedule] = useState(false);
     const [appointmentData, setAppointmentData] = useState<IAppointment | null>(null);
+    // Encaixe inteligente: horário livre clicado no "dia por profissional"
+    const [fitSlot, setFitSlot] = useState<FitSlot | null>(null);
+    const [scheduleSeed, setScheduleSeed] = useState<any>(null);
     const [mode, setMode] = useState<'create' | 'edit'>('create');
     const [isAppointmentDetailModalOpen, setIsAppointmentDetailModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
@@ -1997,7 +2001,22 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         </div>
     );
 
+    // Abre o agendamento já com profissional, dia e hora (e paciente, quando vem do encaixe)
+    const openScheduleAt = (seed: { doctorId: string; date: string; time: string; specialty?: string; patientId?: string }) => {
+        const doc: any = (doctors as any[])?.find(d => String(d._id || d.id) === seed.doctorId);
+        const specialty = seed.specialty || doc?.specialty || 'fonoaudiologia';
+        setScheduleSeed({
+            doctorId: seed.doctorId, patientId: seed.patientId || '', date: seed.date, time: seed.time,
+            sessionType: specialty, specialty, notes: '', paymentAmount: 0, paymentMethod: 'dinheiro',
+            status: 'agendado', serviceType: 'individual_session', billingType: 'particular', insuranceProvider: '', authorizationCode: '',
+        });
+        setAppointmentData(null);
+        setMode('create');
+        setOpenSchedule(true);
+    };
+
     const handleOpenSchedule = (appointment: IAppointment | null = null, modeType: 'create' | 'edit' = 'create') => {
+        setScheduleSeed(null);
         setAppointmentData(appointment);
         setMode(modeType);
         setOpenSchedule(true);
@@ -2515,7 +2534,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         doctorFilter={agendaFilter.doctor}
                         fetchSlots={onFetchAvailableSlots}
                         onOpen={(a) => openAppointmentDetail(a)}
-                        onSlot={permissions.canCreate ? () => handleOpenSchedule(null, 'create') : undefined}
+                        onSlot={permissions.canCreate ? (s) => {
+                            if (s.specialty) setFitSlot({ date: fcDate, time: s.time, doctorId: s.doctorId, doctorName: s.doctorName, specialty: s.specialty });
+                            else openScheduleAt({ doctorId: s.doctorId, date: fcDate, time: s.time });
+                        } : undefined}
                     />
                 )}
             </Paper>
@@ -2671,13 +2693,25 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
             <ScheduleAppointmentModal
                 isOpen={openSchedule}
-                initialData={null}
+                initialData={scheduleSeed}
                 doctors={doctors}
                 patients={patients}
-                onClose={() => setOpenSchedule(false)}
+                onClose={() => { setOpenSchedule(false); setScheduleSeed(null); }}
                 onSave={onNewAppointment}
                 closeModalSignal={closeModalSignal}
             />
+
+            {fitSlot && (
+                <FitSlotPanel
+                    slot={fitSlot}
+                    onClose={() => setFitSlot(null)}
+                    onSchedule={permissions.canCreate ? (patientId) => {
+                        const s = fitSlot;
+                        setFitSlot(null);
+                        openScheduleAt({ doctorId: s.doctorId, date: s.date, time: s.time, specialty: s.specialty, patientId });
+                    } : undefined}
+                />
+            )}
 
             <RescheduleDialog
                 target={rescheduleTarget}

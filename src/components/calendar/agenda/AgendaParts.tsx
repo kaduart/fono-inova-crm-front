@@ -379,7 +379,7 @@ export const DayByProfessional: React.FC<{
     doctorFilter: string;
     fetchSlots: (p: { doctorId: string; date: string }) => Promise<string[]>;
     onOpen: (a: any) => void;
-    onSlot?: (doctorId: string, time: string) => void;
+    onSlot?: (slot: { doctorId: string; doctorName: string; specialty: string; time: string }) => void;
 }> = ({ dateStr, appts, doctors, doctorFilter, fetchSlots, onOpen, onSlot }) => {
     const [slots, setSlots] = useState<Record<string, string[]>>({});
     const [loadingSlots, setLoadingSlots] = useState(false);
@@ -485,9 +485,10 @@ export const DayByProfessional: React.FC<{
                                                     );
                                                 })}
                                                 {free && (
-                                                    <button type="button" onClick={() => onSlot?.(c.id, t)} disabled={!onSlot}
-                                                        className="block w-full rounded-md border border-dashed border-gray-300 px-2 py-1.5 text-left text-xs text-gray-500 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-default">
-                                                        Livre
+                                                    <button type="button" onClick={() => onSlot?.({ doctorId: c.id, doctorName: c.name, specialty: c.specialty, time: t })} disabled={!onSlot || isPastDay}
+                                                        title={onSlot && !isPastDay ? 'Ver quem pode ocupar este horário' : undefined}
+                                                        className="group block w-full rounded-md border border-dashed border-gray-300 px-2 py-1.5 text-left text-xs text-gray-500 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-default disabled:hover:border-gray-300 disabled:hover:text-gray-500">
+                                                        Livre{onSlot && !isPastDay && <span className="hidden group-hover:inline"> · encaixar</span>}
                                                     </button>
                                                 )}
                                             </td>

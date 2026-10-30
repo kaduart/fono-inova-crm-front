@@ -7,6 +7,7 @@ import { useRetentionSlots, RetentionSlot, Stability } from '../../hooks/useRete
 import { IDoctor } from '../../utils/types/types';
 import { getSpecialtyLabel } from '../../constants/specialties';
 import { Chip } from './agenda/AgendaParts';
+import { FitSlotPanel, FitSlot } from '../commercial/CommercialParts';
 
 const STABILITY: Record<Stability, { label: string; dot: string }> = {
   estavel: { label: 'Fixo', dot: '#1baf7a' },
@@ -130,7 +131,21 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
-function SlotPanel({ slot, onClose }: { slot: RetentionSlot; onClose: () => void }) {
+// Próximo dia da semana do horário (weekday no padrão do Mongo: 1 = domingo, 2 = segunda)
+function nextDateFor(weekday: number, time: string, now = new Date()): string {
+  const target = weekday - 1;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let i = 0; i < 8; i++) {
+    const c = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
+    if (c.getDay() !== target) continue;
+    const [h, m] = time.split(':').map(Number);
+    if (i === 0 && (h * 60 + (m || 0)) <= now.getHours() * 60 + now.getMinutes()) continue;
+    return c.toLocaleDateString('en-CA');
+  }
+  return d.toLocaleDateString('en-CA');
+}
+
+function SlotPanel({ slot, onClose, onFit, fitHint }: { slot: RetentionSlot; onClose: () => void; onFit?: () => void; fitHint?: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -203,12 +218,15 @@ function SlotPanel({ slot, onClose }: { slot: RetentionSlot; onClose: () => void
             {slot.isVacant && slot.vacantType === 'critico' && (
               <>
                 <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Reativar · em breve</button>
-                <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Encaixe · em breve</button>
+                <button type="button" onClick={onFit} disabled={!onFit} title={onFit ? 'Ver leads e pacientes da especialidade para este horário' : fitHint}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Encaixar</button>
               </>
             )}
             {slot.isVacant && slot.vacantType === 'livre' && (
-              <button type="button" disabled title={soon} className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500">Oferecer horário · em breve</button>
+              <button type="button" onClick={onFit} disabled={!onFit} title={onFit ? 'Ver leads e pacientes da especialidade para este horário' : fitHint}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Oferecer horário</button>
             )}
+            {slot.isVacant && slot.vacantType !== 'temporario' && !onFit && fitHint && <p className="w-full text-xs text-gray-500">{fitHint}</p>}
             {slot.isVacant && slot.vacantType === 'temporario' && <p className="text-sm text-gray-500">Próxima sessão confirmada.</p>}
           </div>
         </div>
@@ -228,11 +246,13 @@ interface CarteiraWeeklyViewProps {
 export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWeeklyViewProps) {
   const doctors = doctorsProp || [];
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [fitSlot, setFitSlot] = useState<FitSlot | null>(null);
   const [days, setDays] = useState<number>(30);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
   const [showFilter, setShowFilter] = useState<ShowFilter>('todos');
   const [openSlot, setOpenSlot] = useState<RetentionSlot | null>(null);
+  const selectedDoctor = useMemo(() => doctors.find(d => String(d._id) === selectedDoctorId) || null, [doctors, selectedDoctorId]);
 
   const { data, loading, error, reload } = useRetentionSlots(selectedDoctorId, days);
 
@@ -421,7 +441,15 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
         </>
       )}
 
-      {openSlot && <SlotPanel slot={openSlot} onClose={() => setOpenSlot(null)} />}
+      {openSlot && !fitSlot && (
+        <SlotPanel slot={openSlot} onClose={() => setOpenSlot(null)}
+          onFit={selectedDoctor?.specialty ? () => setFitSlot({
+            date: nextDateFor(openSlot.weekday, openSlot.time), time: openSlot.time,
+            doctorId: String(selectedDoctor._id), doctorName: selectedDoctor.fullName || 'Profissional', specialty: selectedDoctor.specialty,
+          }) : undefined}
+          fitHint="Escolha o profissional no filtro para ver quem pode ocupar o horário." />
+      )}
+      {fitSlot && <FitSlotPanel slot={fitSlot} onClose={() => { setFitSlot(null); setOpenSlot(null); }} />}
     </div>
   );
 }

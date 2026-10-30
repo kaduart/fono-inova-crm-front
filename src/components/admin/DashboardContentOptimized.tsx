@@ -19,6 +19,7 @@ import {
 } from '../../services/dashboardService';
 
 import BirthdayCard from '../patients/BirthdayCard';
+import { LeadsWaitingStrip, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
 
 // Ordem aprovada pelo Kadu em 29/10 (mock "Dashboard do admin"):
@@ -265,6 +266,7 @@ const TONE: Record<NeedItem['tone'], string> = {
 
 const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading }) => {
     const visible = items.filter(i => i.count > 0);
+    const cols = visible.length > 4 ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4';
     return (
         <section aria-labelledby="precisa-de-voce" className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
             <div className="mb-3 flex items-center gap-2">
@@ -276,9 +278,9 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
                     {[0, 1, 2, 3].map(i => <div key={i} className="h-[92px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}
                 </div>
             ) : visible.length === 0 ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads e aniversários estão em dia.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, pacotes, retornos e aniversários estão em dia.</p>
             ) : (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className={`grid gap-3 ${cols}`}>
                     {visible.map(item => (
                         <button
                             key={item.key}
@@ -567,13 +569,16 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }, []);
     useEffect(() => { loadPreStats(); }, [loadPreStats]);
     const opCounts = useOperationalCounts();
+    const commercial = useCommercialQueues();
+    const [queueOpen, setQueueOpen] = useState<'renewal' | 'reactivation' | null>(null);
 
     const handleRefreshAll = useCallback(() => {
         onRefresh();
         loadPreStats();
+        commercial.reload();
         if (aniversariantesFetched.current) loadAniversariantes(true);
         if (todayLoaded) loadTodaySessions(true);
-    }, [onRefresh, loadPreStats, loadAniversariantes, todayLoaded, loadTodaySessions]);
+    }, [onRefresh, loadPreStats, commercial.reload, loadAniversariantes, todayLoaded, loadTodaySessions]);
 
     const openBirthdays = useCallback(() => {
         setBirthdaySectionOpen(true);
@@ -596,6 +601,24 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             key: 'leads', count: opCounts.total || 0, tone: 'info', title: 'Leads para retornar',
             detail: [opCounts.overdue ? `${opCounts.overdue} atrasados` : '', opCounts.today ? `${opCounts.today} para hoje` : ''].filter(Boolean).join(' · '),
             cta: 'Abrir leads', onClick: () => onNavigate?.('Leads'),
+        },
+        {
+            key: 'renewal', count: commercial.packageEnding?.length || 0, tone: 'warn', title: 'Pacote acabando',
+            detail: (() => {
+                const list = commercial.packageEnding || [];
+                const last = list.filter(i => i.remaining <= 1).length;
+                return last ? `${last} na última sessão ou sem sessões · renovar` : '2 sessões restantes · renovar';
+            })(),
+            cta: 'Ver e renovar', onClick: () => setQueueOpen('renewal'),
+        },
+        {
+            key: 'reactivation', count: commercial.reactivation?.length || 0, tone: 'bad', title: 'Sem próxima sessão',
+            detail: (() => {
+                const list = commercial.reactivation || [];
+                const recent = list.filter(i => (i.daysSince ?? 0) <= 21).length;
+                return recent ? `${recent} sem vir há até 3 semanas · chamar de volta` : 'chamar de volta';
+            })(),
+            cta: 'Ver e reativar', onClick: () => setQueueOpen('reactivation'),
         },
         {
             key: 'bday', count: aniversariantesMeta.todayPending || 0, tone: 'pink',
@@ -668,8 +691,13 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 </button>
             </div>
 
+            {/* 0. Lead novo esperando resposta (aprovado em 30/10) */}
+            <LeadsWaitingStrip items={commercial.leadsWaiting} onOpenLeads={onNavigate ? () => onNavigate('Leads') : undefined} onChanged={commercial.reloadLeads} />
+
             {/* 1. Precisa de você */}
             <NeedsYou items={needItems} loading={!preStats} />
+            {queueOpen === 'renewal' && <PackageEndingPanel items={commercial.packageEnding || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
+            {queueOpen === 'reactivation' && <ReactivationPanel items={commercial.reactivation || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
 
             {/* 2. Aniversariantes */}
             <Section
