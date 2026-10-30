@@ -44,6 +44,15 @@ export interface ExpenseOriginTotals {
     manual: { total: number; count: number };
 }
 
+/** Chips de status da aba Despesas: 'open' = pendente + agendada; 'overdue' = em aberto com data passada. */
+export interface ExpenseStatusCounts {
+    todas: number;
+    open: number;
+    overdue: number;
+    paid: number;
+    canceled: number;
+}
+
 /** Subcategorias aceitas pelo backend (enum de Expense/FixedExpense). */
 export const EXPENSE_SUBCATEGORIES: Array<{ value: string; label: string }> = [
     { value: 'salary', label: 'Salário' },

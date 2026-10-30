@@ -12,7 +12,6 @@ import {
   Timeline,
   EventSeat,
   AccessTime,
-  Assessment,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -48,12 +47,13 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { format, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { usePlanning } from '../../../hooks/usePlanning';
 import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
 import { planningService } from '../../../services/planningService';
+import AnnualGoals from './AnnualGoals';
 import { toast } from 'react-toastify';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -74,13 +74,6 @@ interface PlanningFormData {
     revenue: number;
   }>;
   notes: string;
-}
-
-interface MonthData {
-  month: number;
-  year: number;
-  label: string;
-  fullLabel: string;
 }
 
 // Configuração de status
@@ -148,21 +141,6 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const [deletingPlanning, setDeletingPlanning] = useState<any>(null);
 
   // Gerar meses para navegação (mês selecionado + 2 anteriores)
-  const last3Months: MonthData[] = useMemo(() => {
-    const months: MonthData[] = [];
-    const base = new Date(year, month - 1, 1);
-    for (let i = 0; i < 3; i++) {
-      const d = subMonths(base, i);
-      months.push({
-        month: d.getMonth() + 1,
-        year: d.getFullYear(),
-        label: format(d, 'MMM', { locale: ptBR }).toUpperCase(),
-        fullLabel: format(d, 'MMMM/yyyy', { locale: ptBR }).toUpperCase()
-      });
-    }
-    return months;
-  }, [month, year]);
-
   const monthPeriod = (y: number, m: number) => {
     const mm = String(m).padStart(2, '0');
     const lastDay = new Date(y, m, 0).getDate();
@@ -237,15 +215,26 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
   // Recarrega só o mês aberto (metas + projeção). Antes recarregava todo o histórico sem projeção
   // e o painel ficava zerado até trocar de mês.
+  // Recarrega a visão de 12 meses depois de criar, editar ou excluir meta.
+  const [annualReload, setAnnualReload] = useState(0);
   const reloadSelectedMonth = () => {
+    setAnnualReload(n => n + 1);
     const { year, month } = selectedMonthData;
     fetchPlannings({ month, year });
     fetchDashboard(month, year);
   };
 
+  // O modal lê /planning/:id/details (pagamentos, pacientes e pacotes do período).
+  // Antes mostrava o painel do mês inteiro e ficava sem pacientes e pacotes.
   const handleViewDetails = async (planning: any) => {
     setSelectedPlanning(planning);
     setOpenDetailsModal(true);
+    try {
+      const res = await planningService.getDetails(planning._id);
+      if (res?.data) setSelectedPlanning((cur: any) => (cur?._id === planning._id ? { ...cur, ...res.data, actual: { ...cur.actual, ...res.data.actual } } : cur));
+    } catch {
+      toast.error('Não foi possível carregar os detalhes do período');
+    }
   };
 
   const handleEdit = (planning: any) => {
@@ -385,7 +374,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
   const totalSpecialtyRevenue = formData.bySpecialty.reduce((sum, s) => sum + s.revenue, 0);
 
   const isCurrentMonth = selectedMonthKey === getCurrentMonthKey();
-  const selectedMonthLabel = last3Months.find(m => `${m.year}-${m.month}` === selectedMonthKey)?.fullLabel || '';
+  const selectedMonthLabel = format(new Date(selectedMonthData.year, selectedMonthData.month - 1, 1), 'MMMM/yyyy', { locale: ptBR }).toUpperCase();
 
   if (loading && plannings.length === 0) {
     return (
@@ -433,63 +422,31 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-      {/* Header */}
-      <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#8B5CF6' }}>
-            <Assessment sx={{ fontSize: 22, color: 'white' }} />
-          </div>
-          <div>
-            <p className="text-sm font-black text-gray-900">Planejamento Anual</p>
-            <p className="text-2xs text-gray-500">Defina metas de receita, sessões e acompanhe o progresso</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={async () => await refreshAllPlannings()}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-violet-200 text-violet-600 hover:bg-violet-50 transition-colors"
-            title="Atualizar dados reais"
-          >
-            <Refresh fontSize="small" />
-          </button>
-          <button
-            onClick={handleOpenModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}
-          >
-            <Add fontSize="small" /> Nova Meta
-          </button>
-        </div>
+      {/* Ações (o título já está no cartão do topo do Financeiro) */}
+      <div className="mb-3 flex items-center justify-end gap-2">
+        <button
+          onClick={async () => { await refreshAllPlannings(); setAnnualReload(n => n + 1); }}
+          className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+          title="Atualizar dados reais"
+          aria-label="Atualizar dados reais"
+        >
+          <Refresh fontSize="small" />
+        </button>
+        <button
+          onClick={handleOpenModal}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+        >
+          <Add fontSize="small" /> Nova meta
+        </button>
       </div>
 
-      {/* NAVEGAÇÃO: Seletor de Meses */}
-      <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-3">
-        <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-2">Período</p>
-        <div className="flex gap-2">
-          {last3Months.map((m) => {
-            const isSelected = selectedMonthKey === `${m.year}-${m.month}`;
-            const isCurrent = `${m.year}-${m.month}` === getCurrentMonthKey();
-            return (
-              <button
-                key={`${m.year}-${m.month}`}
-                onClick={() => setSelectedMonthKey(`${m.year}-${m.month}`)}
-                className={`flex-1 py-2.5 rounded-xl text-center transition-all ${
-                  isSelected ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-                style={isSelected ? { backgroundColor: '#8B5CF6' } : {}}
-              >
-                <div className="text-sm font-bold leading-tight">{m.label}</div>
-                <div className="text-3xs opacity-70">{m.year}</div>
-                {isCurrent && (
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white bg-opacity-20 text-white' : 'bg-violet-100 text-violet-700'}`}>
-                    atual
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Metas do ano: 12 meses lado a lado; clicar num mês abre o detalhe dele abaixo */}
+      <AnnualGoals
+        year={selectedMonthData.year}
+        selectedMonth={selectedMonthData.month}
+        onSelect={(m) => setSelectedMonthKey(getMonthKey(m, selectedMonthData.year))}
+        reloadKey={annualReload}
+      />
 
       {/* KPIs do MÊS SELECIONADO */}
       {monthlyOfMonth && (
@@ -1177,7 +1134,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <Card sx={{ width: '100%', bgcolor: '#10B98110', border: '1px solid #10B98130' }}>
                 <CardContent>
                   <Typography variant="h4" fontWeight="bold" color="#10B981">
-                    {formatCurrency(dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? selectedPlanning?.actual?.actualRevenue ?? 0)}
+                    {formatCurrency(selectedPlanning?.actual?.actualRevenue ?? 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Arrecadado no período
@@ -1667,6 +1624,11 @@ const PlanningCard = ({
               {expanded ? 'Menos' : 'Mais'}
             </Button>
             <Box>
+              <Tooltip title="Ver pagamentos, pacientes e pacotes do período">
+                <Button size="small" onClick={() => onViewDetails(planning)} sx={{ textTransform: 'none', color: '#047857', minWidth: 0, mr: 0.5 }}>
+                  Detalhes
+                </Button>
+              </Tooltip>
               <Tooltip title="Editar">
                 <IconButton size="small" sx={{ color: '#8B5CF6' }} onClick={() => onEdit(planning)}>
                   <Edit fontSize="small" />

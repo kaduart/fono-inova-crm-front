@@ -356,7 +356,7 @@ const allTabs = [
     { id: 'nfse', label: 'NFSe', icon: <FileText size={18} /> },
     { id: 'dashboard', label: 'Indicadores', icon: <BarChart3 size={18} /> },
     { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
-    { id: 'planejamento', label: 'Planejamento Anual', icon: <Calendar size={18} /> },
+    { id: 'planejamento', label: 'Metas do ano', icon: <Calendar size={18} /> },
 ];
 
 // Título/subtítulo do card de topo, por aba — mesmo padrão usado nas demais
@@ -401,8 +401,8 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
     },
     'planejamento': {
         icon: <Calendar {...HEADER_ICON_PROPS} />,
-        title: 'Planejamento Anual',
-        subtitle: 'Metas e projeção financeira para o ano.'
+        title: 'Metas do ano',
+        subtitle: 'Meta e realizado de cada mês do ano, pela regra do caixa.'
     },
 };
 const DEFAULT_HEADER_META = {
