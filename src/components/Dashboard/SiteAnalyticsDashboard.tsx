@@ -36,8 +36,11 @@ import {
 import { translateEvent } from '../../services/analytics';
 import API from '../../services/api';
 import AnapolisSEOPagesCard from './AnapolisSEOPagesCard';
+import LandingPagesTab from './LandingPagesTab';
+import { brl, KpiStrip } from '../../pages/Financial/components/finUi';
+import { useRoiSummary } from '../mkt/SalesParts';
 import { 
-    RefreshCw, Users, MousePointer, TrendingUp, Globe, 
+    RefreshCw, Users, TrendingUp, Globe, 
     Clock, Smartphone, MapPin, Calendar, Filter, 
     ChevronDown, ChevronUp, ExternalLink, AlertTriangle, 
     Lightbulb, Zap, Award, AlertCircle, ChevronRight
@@ -127,6 +130,10 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
 
     const [selectedEventType, setSelectedEventType] = useState('Todos');
 
+    // Leads e pacientes do canal Site vêm do ERP (mesma regra do ROI)
+    const roiRange = useMemo(() => ({ key: 'custom' as const, start: dateRange.startDate, end: dateRange.endDate, label: '' }), [dateRange.startDate, dateRange.endDate]);
+    const { data: roiSummary } = useRoiSummary(roiRange);
+
     // ============================================
     // ESTADOS - INSIGHTS & ALERTAS
     // ============================================
@@ -199,7 +206,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
         landingPages: landingPagesRaw,
         anapolisPages,
         conversions,
-        realtime,
+
         loading,
         error,
         refetch
@@ -338,6 +345,11 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
         ? ((metrics.conversions / metrics.sessions) * 100).toFixed(1)
         : '0';
 
+    // Leitura das LPs (o back manda views/leads por LP; aqui só ordenamos para o alerta)
+    const lpsWithoutLead = landingPages.filter(lp => (lp.views || 0) >= 100 && !lp.leads).sort((a, b) => b.views - a.views);
+    const bestLp = landingPages.filter(lp => lp.leads > 0 && lp.views >= 30).sort((a, b) => (b.leads / b.views) - (a.leads / a.views))[0];
+    const siteRoi = roiSummary?.channels.find(c => c.key === 'site');
+
     if (error) {
         return (
             <div className="container mx-auto p-4">
@@ -368,22 +380,6 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-                {/* Usuários em tempo real */}
-                {realtime?.activeUsers !== null && realtime?.activeUsers !== undefined ? (
-                    <div className="flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-green-800">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
-                        </span>
-                        <span className="text-sm font-medium">{realtime.activeUsers} online</span>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-gray-600" title="Dados realtime requerem configuração da GA4 Realtime API">
-                        <span className="h-2 w-2 rounded-full bg-gray-400"></span>
-                        <span className="text-sm font-medium">Realtime não disponível</span>
-                    </div>
-                )}
-
                 <button
                     onClick={refetch}
                     disabled={loading}
@@ -573,30 +569,22 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                 </div>
             </div>
         )}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
-            {[
-                { label: 'Usuários', value: metrics?.totalUsers, icon: Users, color: 'blue' },
-                { label: 'Ativos', value: metrics?.activeUsers, icon: Users, color: 'green' },
-                { label: 'Sessões', value: metrics?.sessions, icon: MousePointer, color: 'purple' },
-                { label: 'Page Views', value: metrics?.pageViews ?? 0, icon: TrendingUp, color: 'orange' },
-                { label: 'Conv.', value: metrics?.conversions, icon: TrendingUp, color: 'red' },
-                { label: 'Taxa Conv.', value: `${conversionRate}%`, icon: TrendingUp, color: 'teal' },
-                { label: 'Leads Período', value: metrics?.leadsPeriod ?? metrics?.leadsThisWeek, icon: Users, color: 'indigo' },
-                { label: 'Leads Hoje', value: metrics?.leadsToday, icon: Users, color: 'pink' },
-            ].map((metric, idx) => (
-                <div key={idx} className={`bg-white rounded-xl border border-gray-200 p-3 relative ${loading ? 'opacity-70' : ''}`}>
-                    <div className={`text-${metric.color}-600 mb-1`}>
-                        <metric.icon className="w-4 h-4" />
-                    </div>
-                    <div className="text-xs text-gray-500">{metric.label}</div>
-                    {loading ? (
-                        <div className="h-6 w-16 bg-gray-200 rounded animate-pulse mt-1"></div>
-                    ) : (
-                        <div className="text-lg font-bold text-gray-900">{metric.value ?? '-'}</div>
-                    )}
-                </div>
-            ))}
+        {/* KPIs do site até o agendamento: GA4 (visitas) + ERP (leads e pacientes do canal Site) */}
+        <div className="mb-4">
+            <KpiStrip cols={5} loading={loading && !metrics} items={[
+                { label: 'Visitas', value: metrics?.totalUsers ?? '—', sub: metrics?.sessions != null ? `${metrics.sessions} sessões` : undefined },
+                { label: 'Conversões (GA4)', value: metrics?.conversions ?? '—', sub: `${conversionRate}% das sessões (cliques no WhatsApp/form)` },
+                { label: 'Leads do site', value: siteRoi?.leads ?? metrics?.leadsPeriod ?? '—', sub: siteRoi ? 'origem Site no ERP' : 'leads do período' },
+                { label: 'Fecharam pacote', value: siteRoi?.patients ?? '—', hero: true, sub: siteRoi?.revenue ? `${brl(siteRoi.revenue)} em caixa` : 'pacientes novos do site' },
+                { label: 'LPs sem lead', value: lpsWithoutLead.length, danger: lpsWithoutLead.length > 0, sub: 'com 100+ visitas no período' },
+            ]} />
         </div>
+        {lpsWithoutLead[0] && (
+            <div className="mb-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                A LP "{lpsWithoutLead[0].title || lpsWithoutLead[0].path}" teve {lpsWithoutLead[0].views} visitas e nenhum lead. Vale conferir se o botão de WhatsApp está funcionando e visível sem rolar a página.
+                {bestLp && <> A que mais converte é "{bestLp.title || bestLp.path}" ({bestLp.leads} leads em {bestLp.views} visitas).</>}
+            </div>
+        )}
         </>
     );
 
@@ -1533,7 +1521,13 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             
             {activeTab === 'overview' && renderOverview()}
             {activeTab === 'daily' && renderDailyReport()}
-            {activeTab === 'landing-pages' && renderLandingPages()}
+            {activeTab === 'landing-pages' && (
+                <>
+                    {renderLandingPages()}
+                    {/* Gestão das LPs veio de Social Media (aprovado em 30/10/2026) */}
+                    <div className="mt-6"><LandingPagesTab /></div>
+                </>
+            )}
             {activeTab === 'anapolis-seo' && (
                 <div className="space-y-6">
                     <AnapolisSEOPagesCard pages={anapolisPages} loading={loading} />
