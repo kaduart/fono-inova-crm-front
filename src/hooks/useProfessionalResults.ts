@@ -99,15 +99,14 @@ export function useProfessionalResults(): UseProfessionalResultsReturn {
     if (!selectedDoctorId) return;
     setLoadingPreviousSummary(true);
     try {
-      const start = new Date(period.startDate);
-      const end = new Date(period.endDate);
-      const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-
-      const prevEnd = new Date(start.getTime() - 24 * 60 * 60 * 1000);
-      const prevStart = new Date(prevEnd.getTime() - diffDays * 24 * 60 * 60 * 1000);
-
-      const prevStartStr = prevStart.toISOString().split('T')[0];
-      const prevEndStr = prevEnd.toISOString().split('T')[0];
+      // Mês civil anterior. Antes: "mesmo nº de dias antes do início", que para outubro
+      // começava em 31/08 e distorcia todas as setas "vs período anterior".
+      const [y, m] = period.startDate.split('-').map(Number);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const py = m === 1 ? y - 1 : y;
+      const pm = m === 1 ? 12 : m - 1;
+      const prevStartStr = `${py}-${pad(pm)}-01`;
+      const prevEndStr = `${py}-${pad(pm)}-${pad(new Date(py, pm, 0).getDate())}`;
 
       const data = await professionalResultsService.getSummary(selectedDoctorId, prevStartStr, prevEndStr);
       setPreviousSummary(data);

@@ -9,7 +9,6 @@ import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
 import { PeriodKey, rangeFor, todaySP } from './components/finUi';
-import ProfessionalResultsPage from '../ProfessionalResults/ProfessionalResultsPage';
 import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
 import { FiscalConfiguration } from '../../components/fiscal/FiscalConfiguration';
 
@@ -61,6 +60,8 @@ const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
 const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
 const FinancialDashboardTab = lazyWithRetry(() => import('./tabs/FinancialDashboardTab'));
+const IndicadoresTab = lazyWithRetry(() => import('./tabs/IndicadoresTab'));
+const ProfissionaisTab = lazyWithRetry(() => import('./tabs/ProfissionaisTab'));
 
 // ── Skeletons por aba ─────────────────────────────────────────────────────────
 
@@ -507,9 +508,10 @@ const FinancialDashboard = ({
             import('./tabs/ExpensesTab');
             import('./tabs/InsuranceTab');
             import('./tabs/PlanningTab');
+            import('./tabs/IndicadoresTab');
             import('./tabs/FinancialDashboardTab');
             import('./tabs/AnaliseProjecaoTab');
-            import('../ProfessionalResults/ProfessionalResultsPage');
+            import('./tabs/ProfissionaisTab');
         };
         if (window.requestIdleCallback) {
             window.requestIdleCallback(prefetchChunks);
@@ -649,13 +651,13 @@ const FinancialDashboard = ({
             case 'dashboard':
                 return (
                     <Suspense fallback={<DashboardV3Skeleton />}>
-                        <FinancialDashboardTab month={selectedMonth} year={selectedYear} />
+                        <IndicadoresTab month={selectedMonth} year={selectedYear} />
                     </Suspense>
                 );
             case 'profissionais':
                 return (
                     <Suspense fallback={<div className="min-h-[400px] flex items-center justify-center text-gray-400">Carregando...</div>}>
-                        <ProfessionalResultsPage
+                        <ProfissionaisTab
                             month={selectedMonth}
                             year={selectedYear}
                             onMonthChange={setSelectedMonth}

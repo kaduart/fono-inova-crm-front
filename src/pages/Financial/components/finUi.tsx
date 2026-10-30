@@ -63,9 +63,10 @@ export function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
 }
 
 export interface KpiItem { label: string; value: ReactNode; sub?: ReactNode; hero?: boolean; danger?: boolean; onClick?: () => void }
-export function KpiStrip({ items, loading }: { items: KpiItem[]; loading?: boolean }) {
+const KPI_COLS: Record<3 | 4 | 5, string> = { 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-3 xl:grid-cols-5' };
+export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loading?: boolean; cols?: 3 | 4 | 5 }) {
     return (
-        <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200 bg-white md:grid-cols-4">
+        <div className={`grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200 bg-white ${KPI_COLS[cols]}`}>
             {items.map((k) => {
                 const Tag = k.onClick ? 'button' : 'div';
                 return (
