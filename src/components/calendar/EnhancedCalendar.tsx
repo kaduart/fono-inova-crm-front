@@ -3,7 +3,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Button, GlobalStyles, Paper, Skeleton, Tooltip, Typography } from '@mui/material';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { AlertCircle, Calendar, CalendarClock, CalendarPlus, CheckCircle, Clock, DollarSign, Plus, RotateCcw, User, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -395,7 +395,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [isAppointmentDetailModalOpen, setIsAppointmentDetailModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
     const [cancellationTarget, setCancellationTarget] = useState<SelectedEvent | null>(null);
-    const theme = useTheme();
 
     // 🆕 Convênios para resolução de nomes no calendário (inclui inativos: sessão antiga
     // de convênio desativado aparecia com o código, ex. "unimed-anapolis")
@@ -2090,25 +2089,26 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         '.fc .fc-today-button:disabled': { color: '#64748b !important', borderColor: '#cbd5e1 !important' },
                         '.fc-dayGridMonth-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.07) !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
                         '.fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: '#fffbeb !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
-                        // Tema escuro (mesma paleta do dark.css)
-                        'html.dark .fc': { '--fc-border-color': '#26312d', '--fc-page-bg-color': '#161d1b', '--fc-neutral-bg-color': '#1b2421', '--fc-today-bg-color': 'rgba(16,185,129,0.08)' },
-                        'html.dark .fc .fc-toolbar-title': { color: '#eef3f1' },
-                        'html.dark .fc .fc-toolbar': { borderColor: '#26312d' },
-                        'html.dark .fc .fc-scrollgrid-section-header th': { backgroundColor: '#1b2421' },
-                        'html.dark .fc .fc-button': { background: '#1b2421', borderColor: '#33413c', color: '#cfd8d4' },
-                        'html.dark .fc .fc-button-primary:not(:disabled).fc-button-active': { background: '#047857', borderColor: '#047857', color: '#fff' },
-                        'html.dark .fc .fc-today-button': { color: '#6ee7b7 !important' },
-                        'html.dark .fc .fc-timegrid-slot-label-cushion': { color: '#a9b5b0' },
-                        'html.dark .fc-timeGridWeek-view .fc-day-today, html.dark .fc-timeGridDay-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.06) !important' },
-                        'html.dark .fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: 'rgba(245,158,11,0.1) !important' },
                     } : {}),
+                    // Tema escuro (mesma paleta do dark.css), vale para admin e terapeuta
+                    'html.dark .fc': { '--fc-border-color': '#26312d', '--fc-page-bg-color': '#161d1b', '--fc-neutral-bg-color': '#1b2421', '--fc-today-bg-color': 'rgba(16,185,129,0.08)' },
+                    'html.dark .fc .fc-toolbar-title': { color: '#eef3f1' },
+                    'html.dark .fc .fc-toolbar': { borderColor: '#26312d' },
+                    'html.dark .fc .fc-scrollgrid-section-header th': { backgroundColor: '#1b2421' },
+                    'html.dark .fc .fc-button': { background: '#1b2421', borderColor: '#33413c', color: '#cfd8d4' },
+                    'html.dark .fc .fc-button-primary:not(:disabled).fc-button-active': { background: '#047857', borderColor: '#047857', color: '#fff' },
+                    'html.dark .fc .fc-today-button': { color: '#6ee7b7 !important' },
+                    'html.dark .fc .fc-timegrid-slot-label-cushion': { color: '#a9b5b0' },
+                    'html.dark .fc-timeGridWeek-view .fc-day-today, html.dark .fc-timeGridDay-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.06) !important' },
+                    'html.dark .fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: 'rgba(245,158,11,0.1) !important' },
+                    'html.dark .fc-dayGridMonth-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.08) !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
                     // 🎯 Esconde eventos na visualização mensal (popup group-hover já cobre)
                     '.fc-dayGridMonth-view .fc-daygrid-event': {
                         display: 'none !important',
                     },
                 }}
             />
-        <Box sx={{ backgroundColor: isAdminMode ? undefined : 'grey.50', minHeight: '100vh' }}>
+        <Box className={isAdminMode ? undefined : 'bg-gray-50'} sx={{ minHeight: '100vh' }}>
             {isAdminMode ? (
                 <AgendaHeader
                     monthLabel={monthTitle(currentViewDate)}
@@ -2200,7 +2200,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             )}
 
             {featureFlags.showCarteiraView && calendarView === 'carteira' && (
-                <Paper elevation={1} className={isAdminMode ? 'border border-gray-200 bg-white' : undefined} sx={{ borderRadius: 3, border: isAdminMode ? undefined : '1px solid', borderColor: isAdminMode ? undefined : 'grey.200', bgcolor: isAdminMode ? undefined : 'white', minHeight: 500 }}>
+                <Paper elevation={1} className="border border-gray-200 bg-white" sx={{ borderRadius: 3, minHeight: 500 }}>
                     {/* Falha numa aba fica dentro dela, sem derrubar a Agenda */}
                     <TabErrorBoundary tabName="Acompanhamento">
                         <CarteiraView
@@ -2220,7 +2220,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             )}
 
             {featureFlags.showRecorrenciaView && calendarView === 'semanal' && (
-                <Paper elevation={1} className={isAdminMode ? 'border border-gray-200 bg-white' : undefined} sx={{ borderRadius: 3, border: isAdminMode ? undefined : '1px solid', borderColor: isAdminMode ? undefined : 'grey.200', bgcolor: isAdminMode ? undefined : 'white', minHeight: 500 }}>
+                <Paper elevation={1} className="border border-gray-200 bg-white" sx={{ borderRadius: 3, minHeight: 500 }}>
                     <TabErrorBoundary tabName="Recorrência">
                         <CarteiraWeeklyView doctors={doctors} />
                     </TabErrorBoundary>
@@ -2229,13 +2229,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
             <Paper
                 elevation={1}
-                // admin: cor pelas classes do tema (o dark.css escurece .bg-white e .border-gray-200)
-                className={isAdminMode ? 'border border-gray-200 bg-white' : undefined}
+                // cor pelas classes do tema (o dark.css escurece .bg-white e .border-gray-200)
+                className="border border-gray-200 bg-white"
                 sx={{
                     borderRadius: 3,
                     overflow: 'visible',
-                    border: isAdminMode ? undefined : `1px solid ${theme.palette.grey[200]}`,
-                    background: isAdminMode ? undefined : 'white',
                     position: 'relative',
                     display: calendarView === 'agenda' ? undefined : 'none',
                     ...(showDayByPro ? { '& .fc-view-harness': { display: 'none' } } : {}),
@@ -2256,7 +2254,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 )}
                 {/* Skeleton de loading — overlay sobre o FullCalendar (não desmonta o calendário) */}
                 {loading && (
-                    <Box className={isAdminMode ? 'bg-white' : undefined} sx={{ position: 'absolute', inset: 0, zIndex: 10, borderRadius: 3, bgcolor: isAdminMode ? undefined : 'white', p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
+                    <Box className="bg-white" sx={{ position: 'absolute', inset: 0, zIndex: 10, borderRadius: 3, p: 2, display: 'flex', flexDirection: 'column', minHeight: 560 }}>
                         {/* Toolbar do FC: prev/next/today | título do mês | month/week/day */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 1 }}>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -2546,10 +2544,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 // No admin a legenda fica atrás do botão "Legenda" dos filtros; o <style> abaixo continua valendo
                 <Box sx={{ display: isAdminMode ? 'none' : 'flex', flexWrap: 'wrap', gap: 3, mt: 3 }}>
                     <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="text.primary">
                             📅 Status do Agendamento
                         </Typography>
-                        <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Indicado pela cor da borda esquerda
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -2574,10 +2572,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     </Paper>
 
                     <Paper elevation={1} sx={{ p: 3, borderRadius: 2, flex: 1, minWidth: 300 }}>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="text.primary">
                             🧩 Tipo de Atendimento
                         </Typography>
-                        <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Indicado pela cor de fundo do card
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -2589,7 +2587,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             ].map((t) => (
                                 <Box key={t.label} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <Box sx={{ width: 44, height: 24, borderRadius: 1, background: t.bg, border: '1px solid rgba(0,0,0,0.08)' }} />
-                                    <Typography variant="body2" fontWeight="medium" sx={{ color: t.text }}>
+                                    <Typography variant="body2" fontWeight="medium" color="text.primary">
                                         {t.label}
                                     </Typography>
                                 </Box>
@@ -2609,10 +2607,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             background: "linear-gradient(135deg, #ffffff, #f9fafb)",
                         }}
                     >
-                        <Typography variant="h6" fontWeight="bold" gutterBottom color="grey.800">
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="text.primary">
                             💰 Status do Pagamento
                         </Typography>
-                        <Typography variant="body2" color="grey.600" sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Indicado pela etiqueta no rodapé do card
                         </Typography>
 
