@@ -1094,3 +1094,54 @@ export const addBalancePaymentMultiWithFallback = async (
         status: { status: 'completed' }
     };
 };
+
+// ── Aba Financeiro › Pagamentos: pagamentos reais + sessões a cobrar, paginado no servidor ──
+export type LedgerSituacao = 'todos' | 'paid' | 'partial' | 'pending' | 'canceled' | 'a_cobrar';
+export interface LedgerParams {
+    startDate: string;
+    endDate: string;
+    situacao?: LedgerSituacao;
+    tipo?: string;
+    forma?: string;
+    doctorId?: string;
+    q?: string;
+    page?: number;
+    limit?: number;
+}
+export interface LedgerItem {
+    _id: string;
+    kind: 'payment' | 'a_cobrar';
+    data: string;
+    hora?: string | null;
+    patient: { _id: string; fullName: string; phone?: string } | null;
+    doctor: { _id: string; fullName: string } | null;
+    amount: number;
+    status: string;
+    tipo: 'particular' | 'pacote' | 'convenio' | 'liminar';
+    forma: string | null;
+    paymentMethod?: string | null;
+    splitMethods?: { method: string; amount: number }[];
+    serviceType?: string | null;
+    appointment?: { _id: string; date: string; time?: string; operationalStatus?: string } | null;
+    package?: { _id: string; totalSessions?: number; sessionsDone?: number } | null;
+    paymentKind?: string | null;
+    notes?: string | null;
+}
+export interface LedgerResponse {
+    success: boolean;
+    period: { startDate: string; endDate: string };
+    kpis: {
+        recebido: { total: number; count: number };
+        aCobrar: { total: number; count: number };
+        parcial: { total: number; count: number };
+        cancelado: { total: number; count: number };
+    };
+    facets: { status: Record<string, number>; tipo: Record<string, number>; forma: Record<string, number> };
+    items: LedgerItem[];
+    pagination: { page: number; limit: number; total: number; pages: number };
+    totalFiltrado: number;
+}
+export const getPaymentsLedger = async (params: LedgerParams): Promise<LedgerResponse> => {
+    const { data } = await API.get('/v2/payments/ledger', { params });
+    return data;
+};

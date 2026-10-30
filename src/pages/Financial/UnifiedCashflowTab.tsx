@@ -155,9 +155,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     const [faturarSubFilter, setFaturarSubFilter] = useState<'pacotes' | 'convenios' | 'liminares'>('pacotes');
-    const [dashboardOpen, setDashboardOpen] = useState(false);
+    // Resumo aberto por padrão: os números do dia não ficam escondidos.
+    const [dashboardOpen, setDashboardOpen] = useState(true);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    // Horário de Brasília (toISOString é UTC e depois das 21h abria o dia seguinte).
+    const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }));
     const [manualDateOverride, setManualDateOverride] = useState(false);
     const [dayAppointments, setDayAppointments] = useState<any[]>([]);
     const [appointmentFilter, setAppointmentFilter] = useState<string>('all');
@@ -277,7 +279,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     useEffect(() => {
         if (viewMode !== 'day') return;
         setPatientsWithoutNextLoading(true);
-        operationalService.getPatientsWithoutNextSession()
+        operationalService.getPatientsWithoutNextSession(selectedDate)
             .then(res => {
                 setPatientsWithoutNext(res.total);
                 setPatientsWithoutNextRecurrent(res.recurrent);
@@ -1324,7 +1326,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 { label: 'A Faturar',          count: (data.pacotesAtendidos?.length || 0) + (data.conveniosAtendidos?.length || 0) + (data.liminaresAtendidos?.length || 0), icon: <InventoryIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Agenda do Dia',      count: dayAppointments.length || 0,                                       icon: <CalendarTodayIcon style={{ fontSize: 15 }} /> },
                                 { label: 'Especialidades',     count: Object.keys(data.producao?.porEspecialidade || {}).length,          icon: <PieChartIcon style={{ fontSize: 15 }} /> },
-                                { label: 'Profissionais',      count: 0,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
+                                { label: 'Profissionais',      count: new Set([...(data.transacoes || []).map((t: any) => t.profissional || 'Não informado'), ...dayAppointments.map((a: any) => a.professionalName || 'Não informado')]).size,                                                                  icon: <PeopleIcon style={{ fontSize: 15 }} /> },
                             ].map((tab, i) => (
                                 <button key={i} onClick={() => setActiveTab(i)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
@@ -2447,12 +2449,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                         </div>
                                         <LinearProgress 
                                             variant="determinate" 
-                                            value={(esp.recebido / esp.total) * 100} 
+                                            value={esp.total > 0 ? (esp.recebido / esp.total) * 100 : 0} 
                                             className="mt-2 h-1.5 rounded-full"
                                         />
-                                        <div className="flex justify-between text-xs mt-1">
-                                            <span className="text-emerald-600">{formatCurrency(esp.recebido)} recebido</span>
-                                            <span className="text-amber-600">{formatCurrency(esp.pendente)} pendente</span>
+                                        <div className="flex flex-wrap justify-between gap-x-2 text-xs mt-1">
+                                            <span className="text-emerald-700">{formatCurrency(esp.recebido)} recebido</span>
+                                            {(esp as any).convenio > 0 && <span className="text-blue-700">{formatCurrency((esp as any).convenio)} convênio</span>}
+                                            <span className="text-amber-700">{formatCurrency(esp.pendente)} pendente</span>
                                         </div>
                                     </div>
                                 ))}
@@ -2615,7 +2618,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 </thead>
                                 <tbody>
                                     {monthData
-                                        .filter(d => (d.caixa > 0 || d.producao > 0) && d.date <= new Date().toISOString().slice(0, 10))
+                                        .filter(d => (d.caixa > 0 || d.producao > 0) && d.date <= new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }))
                                         .map((day) => {
                                             const ticket = day.atendimentos > 0 ? day.producao / day.atendimentos : 0;
                                             return (

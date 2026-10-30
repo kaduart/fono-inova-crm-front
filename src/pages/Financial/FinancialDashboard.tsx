@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
+import { PeriodKey, rangeFor, todaySP } from './components/finUi';
 import ProfessionalResultsPage from '../ProfessionalResults/ProfessionalResultsPage';
 import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
 import { FiscalConfiguration } from '../../components/fiscal/FiscalConfiguration';
@@ -55,7 +56,7 @@ const lazyWithRetry = (importFn: () => Promise<any>, retries = 3, delay = 1500) 
 
 // 🚀 LAZY LOAD: Só carrega quando a aba for ativada
 // NOTA: UnifiedCashflowTab é importado estaticamente (primeira tab — F5 instantâneo)
-const PaymentPage = lazyWithRetry(() => import('../../components/financial/PaymentPage'));
+const PaymentsTab = lazyWithRetry(() => import('./tabs/PaymentsTab'));
 const ExpensesTab = lazyWithRetry(() => import('./tabs/ExpensesTab'));
 const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
@@ -482,7 +483,7 @@ const FinancialDashboard = ({
     const [cashflowLoading, setCashflowLoading] = useState(false);
     const [cashflowRefreshTarget, setCashflowRefreshTarget] = useState<HTMLDivElement | null>(null);
 
-    const [activePeriodKey, setActivePeriodKey] = useState<string | null>(null);
+    const [activePeriodKey, setActivePeriodKey] = useState<string | null>('day');
 
     // 🚀 Prefetch all tab chunks on mount so tab switching feels instant
     //
@@ -502,7 +503,7 @@ const FinancialDashboard = ({
     //     estratégia sem prova. Ver [[project_admin_page_load_performance]].
     useEffect(() => {
         const prefetchChunks = () => {
-            import('../../components/financial/PaymentPage');
+            import('./tabs/PaymentsTab');
             import('./tabs/ExpensesTab');
             import('./tabs/InsuranceTab');
             import('./tabs/PlanningTab');
@@ -551,15 +552,15 @@ const FinancialDashboard = ({
             case 'caixa-unificado':
                 return (
                     <>
-                    <div className="flex flex-wrap items-center gap-2 mb-4 p-3 border border-gray-200 rounded-lg bg-white">
-                            <span className="text-xs font-medium text-gray-600">Período:</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                            <span className="mr-1 text-xs font-semibold text-gray-500">Período</span>
                             {[
                                 { key: 'day', label: 'Hoje' },
                                 { key: 'yesterday', label: 'Ontem' },
-                                { key: 'week', label: 'Esta Semana' },
-                                { key: 'last_week', label: 'Semana Passada' },
-                                { key: 'month', label: 'Este Mês' },
-                                { key: 'last_month', label: 'Mês Passado' },
+                                { key: 'week', label: 'Esta semana' },
+                                { key: 'last_week', label: 'Semana passada' },
+                                { key: 'month', label: 'Este mês' },
+                                { key: 'last_month', label: 'Mês passado' },
                             ].map((chip) => {
                                 const isActive = activePeriodKey === chip.key;
                                 const isLoading = cashflowLoading && isActive;
@@ -569,53 +570,25 @@ const FinancialDashboard = ({
                                     disabled={cashflowLoading}
                                     onClick={() => {
                                         setActivePeriodKey(chip.key);
-                                        const now = new Date();
-                                        const toISODate = (d: Date) => d.toLocaleDateString('en-CA');
-                                        if (chip.key === 'day') {
-                                            const today = toISODate(now);
-                                            setCashflowViewMode('day');
-                                            setCashflowRange({ startDate: today, endDate: today, label: 'Hoje' });
-                                        } else if (chip.key === 'yesterday') {
-                                            const y = new Date(now);
-                                            y.setDate(now.getDate() - 1);
-                                            const yStr = toISODate(y);
-                                            setCashflowViewMode('day');
-                                            setCashflowRange({ startDate: yStr, endDate: yStr, label: 'Ontem' });
-                                        } else if (chip.key === 'week') {
-                                            const dayOfWeek = now.getDay();
-                                            const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                                            const monday = new Date(now);
-                                            monday.setDate(now.getDate() - diffToMonday);
-                                            const saturday = new Date(monday);
-                                            saturday.setDate(monday.getDate() + 5);
-                                            setCashflowViewMode('day');
-                                            setCashflowRange({ startDate: toISODate(monday), endDate: toISODate(saturday), label: 'Esta Semana' });
-                                        } else if (chip.key === 'last_week') {
-                                            const dayOfWeek = now.getDay();
-                                            const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                                            const lastMonday = new Date(now);
-                                            lastMonday.setDate(now.getDate() - diffToMonday - 7);
-                                            const lastSaturday = new Date(lastMonday);
-                                            lastSaturday.setDate(lastMonday.getDate() + 5);
-                                            setCashflowViewMode('day');
-                                            setCashflowRange({ startDate: toISODate(lastMonday), endDate: toISODate(lastSaturday), label: 'Semana Passada' });
-                                        } else if (chip.key === 'month') {
+                                        // Datas no horário de Brasília; semana de segunda a domingo (igual a Pagamentos).
+                                        const r = rangeFor(chip.key as PeriodKey, selectedMonth, selectedYear);
+                                        if (chip.key === 'month' || chip.key === 'last_month') {
+                                            const base = todaySP();
+                                            const ref = chip.key === 'month' ? base : new Date(base.getFullYear(), base.getMonth() - 1, 1, 12);
                                             setCashflowRange(undefined);
                                             setCashflowViewMode('month');
-                                            setSelectedMonth(now.getMonth() + 1);
-                                            setSelectedYear(now.getFullYear());
-                                        } else if (chip.key === 'last_month') {
-                                            setCashflowRange(undefined);
-                                            setCashflowViewMode('month');
-                                            const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                                            setSelectedMonth(lm.getMonth() + 1);
-                                            setSelectedYear(lm.getFullYear());
+                                            setSelectedMonth(ref.getMonth() + 1);
+                                            setSelectedYear(ref.getFullYear());
+                                        } else {
+                                            setCashflowViewMode('day');
+                                            setCashflowRange({ startDate: r.start, endDate: r.end, label: chip.label });
                                         }
                                     }}
-                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all inline-flex items-center gap-1.5 ${
-                                        cashflowLoading
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    aria-pressed={isActive}
+                                    className={`min-h-8 px-3 rounded-full border text-sm font-medium transition-colors inline-flex items-center gap-1.5 disabled:cursor-not-allowed ${
+                                        isActive
+                                            ? 'border-emerald-700 bg-emerald-700 text-white'
+                                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60'
                                     }`}
                                 >
                                     {isLoading && (
@@ -640,14 +613,11 @@ const FinancialDashboard = ({
             case 'pagamentos':
                 return (
                     <Suspense fallback={<PaymentsSkeleton />}>
-                        <PaymentPage
-                            patients={patients}
-                            doctors={doctors}
+                        <PaymentsTab
                             onMarkAsPaid={onMarkAsPaid}
                             onMarkAsDebit={onMarkAsDebit}
                             registerAppointmentAndPayemntFuture={registerAppointmentAndPaymentFuture}
                             onCancelPayment={onCancelPayment}
-                            enabled={true}
                             month={selectedMonth}
                             year={selectedYear}
                         />
