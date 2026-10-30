@@ -602,6 +602,13 @@ const FinancialDashboard = ({
                         year={selectedYear}
                         dateRange={cashflowRange}
                         defaultViewMode={cashflowViewMode}
+                        onDateChange={date => {
+                            const today = rangeFor('day', selectedMonth, selectedYear).start;
+                            const yesterday = rangeFor('yesterday', selectedMonth, selectedYear).start;
+                            setActivePeriodKey(date === today ? 'day' : date === yesterday ? 'yesterday' : null);
+                            setCashflowViewMode('day');
+                            setCashflowRange({ startDate: date, endDate: date, label: 'Dia escolhido' });
+                        }}
                         onLoadingChange={setCashflowLoading}
                         refreshTarget={cashflowRefreshTarget}
                     />

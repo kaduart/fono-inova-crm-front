@@ -57,6 +57,7 @@ export interface CashflowSummary {
 
 // 🆕 NOVO: Interface para o endpoint V2 de caixa diário
 export interface CashflowV2Data {
+    agenda?: { previsto: number; sessoes: number; perdido: number; faltasOuCancelados: number };
     atendimentos?: { realizados: number; faltantes: number; total: number };
     data: string;
     receitaReal?: number;
