@@ -1,0 +1,76 @@
+# CI do front do CRM: roda a cada push e PR. Não faz deploy (o deploy segue na Vercel).
+#
+# O repo já tinha erros de lint, de tipos e testes falhando quando o CI foi criado.
+# Por isso lint, tipos e testes usam uma "catraca" (.github/ci/ratchet.mjs):
+# tudo roda, e o CI só fica vermelho se a mudança PIORAR o que já existia.
+# O build é obrigatório e precisa passar sempre.
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: America/Sao_Paulo
+  NODE_VERSION: 22
+
+jobs:
+  build:
+    name: Build (vite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+  testes:
+    name: Testes (vitest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Rodar todos os testes
+        run: npx vitest run --reporter=default --reporter=json --outputFile=vitest-report.json || true
+      - name: Catraca dos testes
+        run: node .github/ci/ratchet.mjs tests vitest-report.json .github/ci/testes-falhando-baseline.txt
+
+  qualidade:
+    name: Lint e tipos (catraca)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: ESLint
+        run: |
+          npx eslint . -f json -o eslint-report.json || true
+          ERROS=$(node -e 'console.log(require("./eslint-report.json").reduce((n,f)=>n+f.errorCount,0))')
+          node .github/ci/ratchet.mjs count eslint_erros "$ERROS" .github/ci/contagens-baseline.json
+      - name: TypeScript
+        if: ${{ !cancelled() }}
+        run: |
+          ERROS=$( (npx tsc -p tsconfig.app.json --noEmit || true) | grep -c "error TS" || true)
+          node .github/ci/ratchet.mjs count typescript_erros "$ERROS" .github/ci/contagens-baseline.json

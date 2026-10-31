@@ -1,0 +1,14 @@
+# Arquivos de teste que JÁ falhavam quando o CI foi criado (31/10/2026).
+# O CI roda todos eles; só fica vermelho se um arquivo FORA desta lista falhar.
+# Ao consertar um teste, remova a linha dele daqui no mesmo PR.
+src/App.test.js
+src/components/__tests__/AdminDashboard.flow.test.tsx
+src/components/admin/tabs/__tests__/AnalyticsTab.test.tsx
+src/components/admin/tabs/__tests__/CalendarTab.test.tsx
+src/components/admin/tabs/__tests__/FinancialTab.test.tsx
+src/hooks/__tests__/doctorFlow.integration.test.ts
+src/hooks/__tests__/useConvenioMetrics.test.ts
+src/hooks/__tests__/useDoctorList.test.ts
+src/hooks/__tests__/useDoctorStats.test.ts
+src/hooks/__tests__/usePayment.test.ts
+src/pages/Financial/tabs/__tests__/guideBilledSelection.test.tsx
