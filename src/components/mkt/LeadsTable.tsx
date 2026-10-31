@@ -3,6 +3,7 @@ import { Mail, MessageCircle, Phone } from "lucide-react";
 import React from "react";
 import { Button } from "../ui/Button";
 import Skeleton from "../ui/Skeleton";
+import { WA_TAB } from "../commercial/commercialCopy";
 
 interface LeadTableProps {
     leads: any[];
@@ -127,8 +128,7 @@ const LeadTable: React.FC<LeadTableProps> = ({
                                             <Phone size={14} className="text-slate-400" />
                                             <a
                                                 href={`https://wa.me/${lead.contact.phone.replace(/\D/g, '')}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                                target={WA_TAB}
                                                 className="text-emerald-600 hover:text-emerald-700 font-medium hover:underline"
                                             >
                                                 {lead.contact.phone}

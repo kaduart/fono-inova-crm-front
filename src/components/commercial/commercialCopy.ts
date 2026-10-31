@@ -44,9 +44,15 @@ export function waLink(phone?: string | null, text?: string): string | null {
     return `https://wa.me/${full}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 }
 
+// Nome fixo da aba do WhatsApp: ao reusar o mesmo "target", o navegador
+// reaproveita a aba já aberta em vez de abrir uma nova a cada clique
+// (pedido do comercial 31/10). Sem "noopener" de propósito — ele faria o
+// navegador ignorar o nome e criar aba nova toda vez.
+export const WA_TAB = 'fonoinovaWhatsApp';
+
 export const openWhatsApp = (phone?: string | null, text?: string) => {
     const url = waLink(phone, text);
-    if (url) window.open(url, '_blank', 'noopener');
+    if (url) window.open(url, WA_TAB);
     return !!url;
 };
 

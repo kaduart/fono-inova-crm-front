@@ -6,6 +6,7 @@ import { useRetention, RetentionLifecycle, RetentionPatient } from '../../hooks/
 import { useDoctorsContext } from '../../contexts/DoctorsContext';
 import { IDoctor } from '../../utils/types/types';
 import { Chip } from './agenda/AgendaParts';
+import { WA_TAB } from '../commercial/commercialCopy';
 
 const LIFECYCLE: Record<RetentionLifecycle, { label: string; plural: string; dot: string }> = {
   engajado: { label: 'Engajado', plural: 'Engajados', dot: '#1baf7a' },
@@ -27,7 +28,7 @@ function openWhatsApp(phone: string, name: string) {
   const number = formatWhatsApp(phone);
   if (!number) return;
   const msg = encodeURIComponent(`Olá, ${name.split(' ')[0]}! Tudo bem? Gostaríamos de agendar sua próxima sessão na Fono Inova.`);
-  window.open(`https://wa.me/${number}?text=${msg}`, '_blank', 'noopener');
+  window.open(`https://wa.me/${number}?text=${msg}`, WA_TAB);
 }
 
 const fmtDay = (iso: string | null) =>

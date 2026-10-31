@@ -1,5 +1,6 @@
 // src/pages/FollowupPage.tsx
 import { AnimatePresence } from "framer-motion";
+import { WA_TAB } from "../components/commercial/commercialCopy";
 import {
   BarChart3,
   MessageCircle,
@@ -631,8 +632,7 @@ const FollowupPage = () => {
                                 {lead.interactions?.[0]?.phone || lead.phone ? (
                                   <a
                                     href={`https://wa.me/${lead.interactions?.[0]?.phone || lead.phone}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    target={WA_TAB}
                                     className="text-emerald-600 hover:text-emerald-700 text-sm font-medium hover:underline flex items-center gap-1"
                                   >
                                     📱 {lead.interactions?.[0]?.phone || lead.phone}
@@ -721,8 +721,7 @@ const FollowupPage = () => {
                             {(lead.interactions?.[0]?.phone || lead.phone) && (
                               <a
                                 href={`https://wa.me/${lead.interactions?.[0]?.phone || lead.phone}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                target={WA_TAB}
                                 className="flex-shrink-0 w-8 h-8 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center transition-colors"
                                 title="Conversar no WhatsApp"
                               >

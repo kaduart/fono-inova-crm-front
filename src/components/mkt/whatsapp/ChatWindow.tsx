@@ -6,6 +6,7 @@ import { updateContactApi, MediaType } from '../../../services/whatsappService';
 import { socketManager } from '../../../utils/socketManager';
 import { logger } from '../../../utils/logger';
 import { normalizeE164BR } from '../../../utils/phone';
+import { WA_TAB } from '../../commercial/commercialCopy';
 import { Button } from '../../ui/Button';
 import { useContacts } from '../../../contexts/ContactsContext';
 import EditContactModal from './EditContactModal';
@@ -381,7 +382,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                             const phone = contact?.phone?.replace(/\D/g, '');
                             if (phone) {
                                 const message = encodeURIComponent(`Olá ${contact?.name?.split(' ')[0] || ''}, aqui é da Clínica Fono Inova 💚`);
-                                window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+                                window.open(`https://wa.me/55${phone}?text=${message}`, WA_TAB);
                             }
                         }}
                         className="p-2 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"

@@ -1,6 +1,7 @@
 // src/components/whatsapp/AppChat.tsx
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowLeft } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FiAlertCircle, FiMessageCircle, FiUserPlus, FiX } from "react-icons/fi";
 import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 import { useContacts } from "../../../contexts/ContactsContext";
@@ -19,6 +20,13 @@ import ChatContextPanel from "./ChatContextPanel";
 import { socketManager } from "../../../utils/socketManager";
 
 const AppChat: React.FC = () => {
+    const navigate = useNavigate();
+    // Volta para a tela de onde o usuário abriu as Conversas (ex.: Financeiro).
+    // Usa o histórico quando existe; senão cai no painel admin.
+    const handleBack = () => {
+        if (window.history.length > 1) navigate(-1);
+        else navigate('/admin');
+    };
     const { pendingContactPhone, setPendingContactPhone } = useChatNavigation();
 
     const {
@@ -156,9 +164,15 @@ const AppChat: React.FC = () => {
     return (
         <div className="text-left">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <h1 className="text-lg font-bold text-gray-900 dark:text-gray-50">Conversas</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">WhatsApp da clínica. Quem espera resposta aparece primeiro no filtro "Esperando resposta".</p>
+                <div className="flex items-start gap-2">
+                    <button type="button" onClick={handleBack} aria-label="Voltar"
+                        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
+                        <ArrowLeft size={16} aria-hidden />
+                    </button>
+                    <div>
+                        <h1 className="text-lg font-bold text-gray-900 dark:text-gray-50">Conversas</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">WhatsApp da clínica. Quem espera resposta aparece primeiro no filtro "Esperando resposta".</p>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <AmandaStatusBadge />

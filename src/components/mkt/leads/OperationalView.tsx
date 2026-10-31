@@ -3,7 +3,7 @@ import CommercialQuickReplies from './CommercialQuickReplies';
 import { Calendar, ChevronRight, MessageCircle, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
 import Skeleton from '../../ui/Skeleton';
-import { leadNextStep, waLink } from '../../commercial/commercialCopy';
+import { leadNextStep, waLink, WA_TAB } from '../../commercial/commercialCopy';
 
 export interface NewFollowupPayload {
   name: string;
@@ -632,8 +632,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                           {phone && (
                             <a
                               href={waLink(phone, next.message) || `https://wa.me/${phone.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              target={WA_TAB}
                               className="w-8 h-8 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center transition-colors"
                               title="WhatsApp com a mensagem do próximo passo"
                             >
