@@ -193,7 +193,8 @@ const getProximosDias = () => {
 };
 
 import MetaAdsTab from './MetaAdsTab';
-import LandingPagesTab from './LandingPagesTab';
+import { Chip, chipCls } from '../../pages/Financial/components/finUi';
+import { WeekSuggestions } from '../mkt/SalesParts';
 import LandingPageSuggestion from './LandingPageSuggestion';
 import { FileText } from 'lucide-react';
 
@@ -223,12 +224,6 @@ function getTabConfigMap() {
         activeClass: 'border-indigo-600 text-indigo-600',
         shortLabel: 'FB'
       },
-      landingpages: {
-        label: 'Landing Pages',
-        icon: FileText,
-        activeClass: 'border-cyan-600 text-cyan-600',
-        shortLabel: 'LPs'
-      },
       metaads: {
         label: 'Tráfego Pago',
         icon: TrendingUp,
@@ -252,8 +247,14 @@ function getTabConfigMap() {
   return _tabConfigCache;
 }
 
+const SOCIAL_GROUPS: { key: string; label: string; tabs: string[] }[] = [
+  { key: 'calendario', label: 'Calendário de posts', tabs: ['instagram', 'gmb', 'facebook'] },
+  { key: 'ia', label: 'Criar com IA', tabs: ['videos'] },
+  { key: 'anuncios', label: 'Anúncios', tabs: ['metaads', 'spy'] },
+];
+
 export default function MarketingDashboard() {
-  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('gmb');
+  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('instagram');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'top' | 'middle' | 'bottom'>('all');
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
@@ -1133,8 +1134,8 @@ export default function MarketingDashboard() {
               </svg>
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">Social Media Dashboard</h1>
-              <p className="mt-0.5 text-sm text-gray-600">GMB • Instagram • Facebook • Vídeos • Spy de Concorrentes</p>
+              <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl">Social Media</h1>
+              <p className="mt-0.5 text-sm text-gray-600">Posts da semana por canal, criação com IA e anúncios</p>
             </div>
           </div>
           <button
@@ -1147,26 +1148,32 @@ export default function MarketingDashboard() {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
-          {Object.entries(getTabConfigMap()).map(([key, config]) => {
-            const Icon = config.icon;
-
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key as any)}
-                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-all ${activeTab === key
-                  ? config.activeClass
-                  : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-                  }`}
-              >
-                <Icon size={16} />
-                {config.label}
-              </button>
-            );
-          })}
+        {/* 3 grupos (aprovado em 30/10/2026): Calendário, Criar com IA, Anúncios */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {SOCIAL_GROUPS.map(g => (
+            <Chip key={g.key} label={g.label} on={g.tabs.includes(activeTab)} onClick={() => setActiveTab(g.tabs[0] as any)} />
+          ))}
         </div>
+        {(() => {
+          const group = SOCIAL_GROUPS.find(g => g.tabs.includes(activeTab));
+          if (!group || group.tabs.length < 2) return null;
+          const cfg = getTabConfigMap();
+          return (
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500">{group.key === 'calendario' ? 'Canal' : 'Ver'}</span>
+              {group.tabs.map(t => {
+                const Icon = cfg[t].icon;
+                return (
+                  <button key={t} type="button" aria-pressed={activeTab === t} onClick={() => setActiveTab(t as any)} className={chipCls(activeTab === t)}>
+                    <Icon size={14} /> {cfg[t].label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'metaads' && <WeekSuggestions onPick={() => setActiveTab('instagram')} />}
 
         {/* Stats Cards - apenas para abas de posts */}
         {activeTab !== 'videos' && activeTab !== 'spy' && activeTab !== 'landingpages' && <StatsCards />}
@@ -1500,7 +1507,6 @@ export default function MarketingDashboard() {
         {activeTab === 'metaads' && <MetaAdsTab />}
 
         {/* 🎯 LANDING PAGES */}
-        {activeTab === 'landingpages' && <LandingPagesTab />}
 
         {/* Área de Geração - Vídeos */}
        {activeTab === 'videos' && (

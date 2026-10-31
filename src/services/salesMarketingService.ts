@@ -30,11 +30,17 @@ export interface RoiSummary {
     channels: RoiChannel[];
 }
 
+export interface IdleSpecialty { specialty: string; idleSlots: number; period: 'manhã' | 'tarde'; weekday: string | null }
+
 const unwrap = <T>(res: any): T => (res?.data?.data ?? res?.data) as T;
 
 export const salesMarketingService = {
     async leadsSummary(start: string, end: string) {
         return unwrap<LeadsSummary>(await API.get('/v2/commercial/leads-summary', { params: { start, end } }));
+    },
+    async idleSlots() {
+        const d = unwrap<{ items?: IdleSpecialty[] }>(await API.get('/v2/commercial/idle-slots'));
+        return d?.items || [];
     },
     async roiSummary(start: string, end: string) {
         return unwrap<RoiSummary>(await API.get('/v2/commercial/roi-summary', { params: { start, end } }));
