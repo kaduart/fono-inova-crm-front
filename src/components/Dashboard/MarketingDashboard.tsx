@@ -17,8 +17,8 @@ import type { EditOptions, Video as VideoType } from '../../hooks/useMarketing';
 import InstagramIcon from "@mui/icons-material/Instagram";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
-import { Facebook, Google, Instagram, Search, VideoCall } from '@mui/icons-material';
-import { Video, TrendingUp } from 'lucide-react';
+import { Facebook, Google, Instagram, VideoCall } from '@mui/icons-material';
+import { Video } from 'lucide-react';
 import { ymdSP } from '../../utils/dateFormat';
 
 // Tráfego Pago só carrega quando a aba é aberta (tela mais leve).
@@ -29,7 +29,7 @@ import LandingPageSuggestion from './LandingPageSuggestion';
 import { FileText } from 'lucide-react';
 import {
   RefreshIcon, EditIcon, TrashIcon, PublishIcon, StarIcon, SearchIcon, SparklesIcon,
-  ESPECIALIDADES, TEMAS_VIDEO, type Subtema, ESPECIALIDADE_AREAS, HORARIOS_ESTRATEGICOS,
+  ESPECIALIDADES, TEMAS_VIDEO, ESPECIALIDADE_AREAS, HORARIOS_ESTRATEGICOS,
   getProximosDias, getTabConfigMap, SOCIAL_GROUPS,
 } from './marketing/marketingStatic';
 

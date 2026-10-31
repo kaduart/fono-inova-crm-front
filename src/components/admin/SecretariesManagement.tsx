@@ -4,6 +4,9 @@ import { toast } from 'react-toastify';
 import { adminService } from '../../services/adminService';
 import AddAdminContent from './AddAdminContent';
 
+const apiErro = (e: unknown): string | undefined =>
+  (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+
 type Secretary = { _id: string; fullName: string; email: string; role: 'secretary'; active?: boolean };
 
 const initialsOf = (name?: string) =>
@@ -28,8 +31,8 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
     try {
       const response = await adminService.fetchSecretaries();
       setSecretaries(response.data?.data || []);
-    } catch (error: any) {
-      setLoadError(error?.response?.data?.error || 'Verifique a conexão e tente de novo.');
+    } catch (error) {
+      setLoadError(apiErro(error) || 'Verifique a conexão e tente de novo.');
     } finally {
       setLoading(false);
     }
@@ -45,8 +48,8 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
       await adminService.setSecretaryActive(secretary._id, !willDeactivate);
       setSecretaries(prev => prev.map(s => (s._id === secretary._id ? { ...s, active: !willDeactivate } : s)));
       toast.success(willDeactivate ? 'Acesso desativado' : 'Acesso reativado');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Não foi possível mudar o acesso.');
+    } catch (error) {
+      toast.error(apiErro(error) || 'Não foi possível mudar o acesso.');
     } finally {
       setBusyId(null);
     }
