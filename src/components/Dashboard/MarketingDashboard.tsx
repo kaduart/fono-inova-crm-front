@@ -96,6 +96,8 @@ export default function MarketingDashboard() {
   const [previewModal, setPreviewModal] = useState<{ open: boolean; post: any } | null>(null);
   const [previewContent, setPreviewContent] = useState<{ type: 'caption' | 'hooks' | null; data: any } | null>(null);
   const [selectedMode, setSelectedMode] = useState<'full' | 'caption' | 'hooks'>('full');
+  // Composer enxuto: opções secundárias recolhidas por padrão (mock aprovado 31/10).
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Timers de polling do GMB: limpos ao sair da tela para não vazar (auditoria 31/10).
   const gmbTimersRef = useRef<Array<ReturnType<typeof setInterval>>>([]);
@@ -1122,13 +1124,30 @@ export default function MarketingDashboard() {
               </select>
             </div>
 
+            {/* Opções avançadas — recolhidas por padrão para deixar o composer enxuto */}
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(v => !v)}
+                aria-expanded={showAdvanced}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                <span>⚙️</span>
+                {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas'}
+                <span className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▾</span>
+              </button>
+              <span className="text-[11px] text-gray-400">tema, imagem, modo, tom de voz</span>
+            </div>
+
+            {showAdvanced && (
+            <div className="mt-3 space-y-3">
             {/* Tema personalizado */}
             <input
               type="text"
               value={customTheme}
               onChange={(e) => setCustomTheme(e.target.value)}
               placeholder="Tema personalizado (opcional) — ex: volta às aulas, ansiedade infantil..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors mb-3"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             />
 
             {/* Layouts Instagram (apenas modo full) */}
@@ -1275,6 +1294,8 @@ export default function MarketingDashboard() {
                 </button>
               )}
             </div>
+            </div>
+            )}
 
             {/* 🔗 Sugestão de Landing Page - Apenas GMB */}
             {activeTab === 'gmb' && (
