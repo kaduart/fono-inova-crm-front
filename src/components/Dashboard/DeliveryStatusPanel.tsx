@@ -6,7 +6,7 @@ import { Send, CheckCircle2, Clock, Ban, AlertTriangle, Info } from "lucide-reac
 import API from "../../services/api";
 
 type Platform = {
-  pending: number; accepted: number; sentLegacy: number; ignored: number; failed: number;
+  pending: number; inconsistent: number; accepted: number; sentLegacy: number; ignored: number; failed: number;
   lastSentAt: string | null; reasons: Record<string, number>;
 };
 type Payload = { total: number; platforms: { meta: Platform; google: Platform; tiktok: Platform } };
@@ -46,6 +46,14 @@ function Card({ id, p }: { id: string; p: Platform }) {
         <Stat icon={<Ban size={14} />} value={p.ignored} label="Ignoradas" tone="text-slate-500" />
         <Stat icon={<AlertTriangle size={14} />} value={p.failed} label="Falhas" tone="text-red-500" />
       </div>
+      {p.inconsistent > 0 && (
+        <div className="mt-2.5 flex items-start gap-1.5 rounded-md bg-amber-50 border border-amber-200 px-2 py-1.5">
+          <AlertTriangle size={12} className="shrink-0 text-amber-500 mt-0.5" />
+          <p className="text-[11px] text-amber-700">
+            {p.inconsistent} registro(s) com status pendente já finalizado (done) — <span className="font-medium">inconsistência</span>, não é envio ativo. Histórico preservado.
+          </p>
+        </div>
+      )}
       {reasons.length > 0 && (
         <div className="mt-3 border-t border-slate-100 pt-2.5">
           <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Motivos</p>
