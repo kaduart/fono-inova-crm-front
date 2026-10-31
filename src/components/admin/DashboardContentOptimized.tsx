@@ -19,7 +19,7 @@ import {
 } from '../../services/dashboardService';
 
 import BirthdayList from './BirthdayList';
-import { LeadsWaitingStrip, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
+import { EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
 
 // Ordem aprovada pelo Kadu em 29/10 (mock "Dashboard do admin"):
@@ -268,7 +268,7 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
                     {[0, 1, 2, 3].map(i => <div key={i} className="h-[92px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}
                 </div>
             ) : visible.length === 0 ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, pacotes, retornos e aniversários estão em dia.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, avaliações, confirmações, pacotes, retornos e aniversários estão em dia.</p>
             ) : (
                 <div className={`grid gap-3 ${cols}`}>
                     {visible.map(item => item.error && !item.count ? (
@@ -578,7 +578,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     useEffect(() => { loadPreStats(); }, [loadPreStats]);
     const opCounts = useOperationalCounts();
     const commercial = useCommercialQueues();
-    const [queueOpen, setQueueOpen] = useState<'renewal' | 'reactivation' | null>(null);
+    const [queueOpen, setQueueOpen] = useState<'renewal' | 'reactivation' | 'evaluation' | 'nextDay' | null>(null);
 
     const handleRefreshAll = useCallback(() => {
         onRefresh();
@@ -602,7 +602,29 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         });
     }, [aniversariantes]);
 
+    const tomorrowYmd = localDay(new Date(Date.now() + 86400000));
+    const nextDayPending = commercial.nextDay ? commercial.nextDay.total - commercial.nextDay.confirmed : 0;
+    const nextDayLabel = commercial.nextDay?.date
+        ? (commercial.nextDay.date === tomorrowYmd ? 'amanhã' : new Date(`${commercial.nextDay.date}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'UTC' }))
+        : 'amanhã';
     const needItems: NeedItem[] = [
+        {
+            key: 'evaluation', count: commercial.evaluation?.total || 0, tone: 'warn', title: 'Avaliou e não fechou',
+            detail: (() => {
+                const list = commercial.evaluation?.items || [];
+                const old = list.filter(i => i.daysSince > 10).length;
+                const pot = (commercial.evaluation?.potentialMonthly || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+                return `${old ? `${old} há mais de 10 dias · ` : ''}${pot}/mês em aberto`;
+            })(),
+            cta: 'Ver e oferecer pacote', onClick: () => setQueueOpen('evaluation'),
+            error: commercial.queueErrors.evaluation, onRetry: commercial.reloadQueues,
+        },
+        {
+            key: 'nextDay', count: nextDayPending, tone: 'info', title: `${nextDayLabel.charAt(0).toUpperCase()}${nextDayLabel.slice(1)} sem confirmação`,
+            detail: commercial.nextDay ? `de ${commercial.nextDay.total} sessões${commercial.nextDay.date === tomorrowYmd ? ' de amanhã' : ''}` : '',
+            cta: 'Confirmar agora', onClick: () => setQueueOpen('nextDay'),
+            error: commercial.queueErrors.nextDay, onRetry: commercial.reloadQueues,
+        },
         {
             key: 'pre', count: preStats?.total || 0, tone: 'warn', title: 'Pré-agendamentos',
             detail: preStats ? [preStats.semContato ? `${preStats.semContato} sem contato` : '', preStats.urgentes ? `${preStats.urgentes} urgentes` : ''].filter(Boolean).join(' · ') || 'a confirmar' : '',
@@ -719,6 +741,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             <NeedsYou items={needItems} loading={!preStats} />
             {queueOpen === 'renewal' && <PackageEndingPanel items={commercial.packageEnding || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'reactivation' && <ReactivationPanel items={commercial.reactivation || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
+            {queueOpen === 'evaluation' && commercial.evaluation && <EvaluationPanel queue={commercial.evaluation} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
+            {queueOpen === 'nextDay' && commercial.nextDay && <NextDayConfirmPanel queue={commercial.nextDay} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} onOpenAgenda={onNavigate ? () => { setQueueOpen(null); onNavigate('Calendário'); } : undefined} />}
 
             {/* 2. Aniversariantes */}
             <Section
