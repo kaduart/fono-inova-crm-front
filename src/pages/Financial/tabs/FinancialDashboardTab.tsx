@@ -85,6 +85,7 @@ import {
 import { toast } from 'react-toastify';
 import { IAppointment } from '../../../utils/types/types';
 import { FEATURE_FLAGS } from '../../../config/featureFlags';
+import { ymdSP } from '../../../utils/dateFormat';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -234,7 +235,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     try {
       await receiveInsuranceSession(sessionId, {
         receivedAmount: grossAmount || 0,
-        receivedDate: new Date().toISOString().split('T')[0]
+        receivedDate: ymdSP()
       });
       toast.success('Recebimento registrado!');
       fetchPendingInsurance();
