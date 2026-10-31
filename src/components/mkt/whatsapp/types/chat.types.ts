@@ -9,6 +9,9 @@ export interface Contact {
     lastSeen?: string;
     manualActive?: boolean;
     autoReplyEnabled?: boolean;
+    patientId?: string;
+    lastDirection?: 'inbound' | 'outbound';
+    lead?: { origin: string | null; stage: string | null; status: string | null; therapyArea: string | null; createdAt: string | null; age: number | null };
 }
 
 export interface Message {

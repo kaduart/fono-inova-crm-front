@@ -88,6 +88,11 @@ export interface Contact {
     createdAt?: string;
     updatedAt?: string;
     tags?: string[];
+    /** Quem mandou a última mensagem: 'inbound' = a família está esperando resposta */
+    lastDirection?: 'inbound' | 'outbound';
+    lastMessagePreview?: string;
+    /** Contexto comercial vindo do inbox V2 */
+    lead?: { origin: string | null; stage: string | null; status: string | null; therapyArea: string | null; createdAt: string | null; age: number | null };
 }
 
 // =========================
@@ -123,6 +128,9 @@ export async function fetchContacts(
             lastMessageAt: c.lastMessageAt || null,
             unreadCount: c.unreadCount || 0,
             leadId: c.leadId,
+            lastDirection: c.lastDirection,
+            lead: c.lead,
+            patientId: c.patientId || undefined,
         }));
 
         const pg = res.data.pagination;
