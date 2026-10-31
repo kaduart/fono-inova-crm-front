@@ -15,10 +15,13 @@ describe('Resumo operacional do caixa', () => {
   expect(value('Agendados ativos')).toBe('17');
   expect(value('Atendidos')).toBe('12');
   expect(value('Aguardando')).toBe('5');
-  expect(value('Primeira consulta')).toBe('1');
+  expect(value('Pacientes novos')).toBe('1');
+  expect(screen.getByText('0 pré-agendados · 1 1ª consulta')).toBeTruthy();
   expect(within(screen.getByText('Agendamentos criados').parentElement!).getAllByRole('definition')[0].textContent).toBe('8');
   fireEvent.click(screen.getByRole('button', { name: 'Ver agenda e atendimentos' }));
   expect(base.onAgenda).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Ver atendidos: 12' }));
+  expect(base.onAgenda).toHaveBeenLastCalledWith('completed');
  });
  it('informa indisponibilidade sem apresentar zero como dado confirmado', () => {
   render(<CashflowAgendaSummary {...base} analytics={null} error createdError />);

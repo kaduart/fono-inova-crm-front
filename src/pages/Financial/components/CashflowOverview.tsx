@@ -4,7 +4,7 @@ import { commercialService, PackageEndingItem } from '../../../services/commerci
 const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const button = 'min-h-10 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950';
 interface Props {
-    agendaSummary?: ReactNode; data: CashflowV2Data; periodLabel: string; patientsWithoutNext: number; patientsLoading: boolean; patientsError: boolean;
+    agendaSummary?: ReactNode; onMetric?: (key: 'caixa' | 'previsto' | 'receber' | 'ticket') => void; data: CashflowV2Data; periodLabel: string; patientsWithoutNext: number; patientsLoading: boolean; patientsError: boolean;
     patientsImpact: number; recurrent: number; onSchedule: () => void; onCollect: () => void;
     onBill: () => void; slotsAtRisk: number; slotImpact: number; onFit: () => void; onContact: (phone: string) => void;
 }
@@ -23,14 +23,16 @@ export default function CashflowOverview(p: Props) {
     const pending = data.pendentesCobranca || [];
     const bills = data.conveniosAtendidos || [];
     const metrics = [
-        { label: 'Caixa recebido', value: money(data.caixa.total), detail: p.periodLabel === 'do Dia' ? `Dia anterior: ${money(data.comparativos.ontem)} · ${data.comparativos.variacaoVsOntem.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : 'Dinheiro recebido no período' },
-        { label: 'Previsto da agenda', value: data.agenda ? money(data.agenda.previsto) : 'Não disponível', detail: data.agenda ? `${data.agenda.sessoes} sessões · faltas e cancelamentos fora do previsto` : 'Atualize o backend para consultar' },
-        { label: `A receber ${p.periodLabel.toLowerCase()}`, value: money(pending.reduce((sum, item) => sum + item.valor, 0)), detail: `${pending.length} ${pending.length === 1 ? 'atendido sem pagamento' : 'atendidos sem pagamento'}` },
-        { label: 'Ticket médio do caixa', value: money(data.estatisticas.ticketMedio), detail: `Acumulado do mês: ${money(data.comparativos.totalAcumuladoMes)}` },
+        { key: 'caixa' as const, label: 'Caixa recebido', value: money(data.caixa.total), detail: p.periodLabel === 'do Dia' ? `Dia anterior: ${money(data.comparativos.ontem)} · ${data.comparativos.variacaoVsOntem.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : 'Dinheiro recebido no período' },
+        { key: 'previsto' as const, label: 'Previsto da agenda', value: data.agenda ? money(data.agenda.previsto) : 'Não disponível', detail: data.agenda ? `${data.agenda.sessoes} sessões · faltas e cancelamentos fora do previsto` : 'Atualize o backend para consultar' },
+        { key: 'receber' as const, label: `A receber ${p.periodLabel.toLowerCase()}`, value: money(pending.reduce((sum, item) => sum + item.valor, 0)), detail: `${pending.length} ${pending.length === 1 ? 'atendido sem pagamento' : 'atendidos sem pagamento'}` },
+        { key: 'ticket' as const, label: 'Ticket médio do caixa', value: money(data.estatisticas.ticketMedio), detail: `Acumulado do mês: ${money(data.comparativos.totalAcumuladoMes)}` },
     ];
     return <div className="mb-5 space-y-4 text-left text-gray-900 dark:text-gray-100">
         <dl className="grid grid-cols-2 gap-y-1 rounded-xl border border-gray-200 bg-gray-50/70 sm:grid-cols-2 xl:grid-cols-4 dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-900">
-            {metrics.map(metric => <div key={metric.label} className="min-w-0 px-4 py-3"><dt className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">{metric.label}</dt><dd className="mt-1 text-xl font-bold tabular-nums">{metric.value}</dd><dd className="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">{metric.detail}</dd></div>)}
+            {metrics.map(metric => <div key={metric.label} role={p.onMetric ? 'button' : undefined} tabIndex={p.onMetric ? 0 : undefined} title={p.onMetric ? 'Clique para ver a lista' : undefined}
+                onClick={p.onMetric ? () => p.onMetric!(metric.key) : undefined} onKeyDown={p.onMetric ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onMetric!(metric.key); } } : undefined}
+                className={`min-w-0 px-4 py-3 ${p.onMetric ? 'cursor-pointer rounded-xl hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:hover:bg-gray-800' : ''}`}><dt className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">{metric.label}</dt><dd className="mt-1 text-xl font-bold tabular-nums">{metric.value}</dd><dd className="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">{metric.detail}</dd></div>)}
         </dl>
         {p.agendaSummary}
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
