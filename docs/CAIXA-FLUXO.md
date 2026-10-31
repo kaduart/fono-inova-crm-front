@@ -20,3 +20,13 @@ Nenhuma cobrança, mensagem ou faturamento é executado automaticamente por essa
 ## Verificação
 
 Prévia isolada dos componentes com dados sintéticos em desktop e celular; compilação de produção; testes de navegação, preservação dos parâmetros de URL, competência e regressão do chip Hoje. O teste unitário do backend de atendimentos e previsto foi executado separadamente.
+
+## Correção do resumo operacional
+
+A agenda e o movimento ficam sempre visíveis: agendados ativos (realizados + aguardando), atendidos, aguardando, faltas/cancelamentos e agendamentos criados. O perfil mostra primeira consulta, nova especialidade, retornos, recorrentes e liminares.
+
+O perfil considera a data marcada para atendimento: a API também retorna registros criados no intervalo para datas futuras, que são excluídos desse perfil. Agendamentos criados usam o resumo independente de `mode: createdAt` (ativos, incluindo datas futuras). Falhas de consulta não são apresentadas como zero.
+
+O painel financeiro força alinhamento à esquerda para neutralizar a centralização herdada do aplicativo. Pendências e composição ficam lado a lado em telas largas, com linhas compactas. Os detalhes financeiros anteriores continuam acessíveis.
+
+Validação da correção: nove testes de navegação, dois testes do resumo operacional e compilação de produção aprovados. A revisão visual desta rodada ficou pendente por indisponibilidade da conexão do navegador e expiração da abertura do Chrome.

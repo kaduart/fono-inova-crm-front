@@ -683,7 +683,7 @@ const FinancialDashboard = ({
     };
 
     return (
-        <Box>
+        <Box sx={{ textAlign: 'left' }}>
             {/* Header */}
             <div className="mb-2 flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-4 shadow-sm md:flex-row md:items-center md:p-5">
                 <div className="flex min-w-0 items-center gap-3">

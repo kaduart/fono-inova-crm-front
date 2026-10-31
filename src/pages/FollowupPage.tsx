@@ -1,14 +1,11 @@
 // src/pages/FollowupPage.tsx
-import { Paper, Typography, useTheme } from "@mui/material";
 import { AnimatePresence } from "framer-motion";
 import {
   BarChart3,
-  DollarSign,
   MessageCircle,
   Plus,
   RefreshCw,
   Search,
-  TrendingUp,
   Users,
   X
 } from "lucide-react";
@@ -25,7 +22,6 @@ import FollowupConversionChart from "../components/Dashboard/FollowupConversionC
 import { FollowupFilters } from "../components/Dashboard/FollowupFilters";
 import FollowupInsights from "../components/Dashboard/FollowupInsights";
 import FollowupStats from "../components/Dashboard/FollowupStats";
-import AcquisitionByChannel from "../components/Dashboard/AcquisitionByChannel";
 import FollowupTrendChart from "../components/Dashboard/FollowupTrendChart";
 
 // Hooks customizados
@@ -40,7 +36,10 @@ import TimelineModal from "../components/mkt/leads/TimelineModal";
 import { Button } from "../components/ui/Button";
 import Skeleton from "../components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
-import { WhatsAppDiagnostic } from '../pages/Settings/WhatsAppDiagnostic'; // ⬅️ ADICIONAR
+import { Chip, PeriodBar } from "./Financial/components/finUi";
+import { CUR_MONTH, CUR_YEAR, FunnelBars, LeadsKpis, useLeadsSummary, useSalesPeriod } from "../components/mkt/SalesParts";
+import { LeadsWaitingStrip } from "../components/commercial/CommercialParts";
+import { commercialService, type WaitingLead } from "../services/commercialService";
 import { formatMessageTime } from "../utils/dateHelper";
 import { extractErrorMessage } from "../utils/errorUtils";
 import { notifyApiError } from '../utils/notifyApiError';
@@ -260,8 +259,6 @@ const FollowupPage = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
-  const theme = useTheme();
-
   const [leadFilters, setLeadFilters] = useState({ status: '', origin: '' });
 
   const {
@@ -288,7 +285,16 @@ const FollowupPage = () => {
     loading: analyticsLoading,
     error: analyticsError,
     refetch: refetchAnalytics
-  } = useFollowupAnalytics();
+  } = useFollowupAnalytics(activeTab === "metricas");
+
+  const [period, setPeriod] = useSalesPeriod();
+  const [summaryTick, setSummaryTick] = useState(0);
+  const { data: leadsSummary, loading: summaryLoading, error: summaryError } = useLeadsSummary(period, summaryTick);
+  const [leadsWaiting, setLeadsWaiting] = useState<WaitingLead[]>([]);
+  const loadWaiting = useCallback(() => {
+    commercialService.leadsWaiting(2).then(setLeadsWaiting).catch((e) => console.error('[leads] esperando', e));
+  }, []);
+  useEffect(() => { loadWaiting(); }, [loadWaiting]);
 
   // ✅ REMOVIDO: fetchLeadFollowups, resendFollowup, estado de followups
   // Agora o TimelineModal gerencia tudo via hook useFollowup
@@ -296,14 +302,16 @@ const FollowupPage = () => {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchLeads(), refetchAnalytics()]);
+      setSummaryTick((t) => t + 1);
+      loadWaiting();
+      await Promise.all([refetchLeads(), activeTab === "metricas" ? refetchAnalytics() : Promise.resolve()]);
       toast.success("Dados atualizados!");
     } catch (error) {
       toast.error("Erro ao atualizar dados");
     } finally {
       setTimeout(() => setRefreshing(false), 600);
     }
-  }, [refetchLeads, refetchAnalytics]);
+  }, [refetchLeads, refetchAnalytics, loadWaiting, activeTab]);
 
   const openLeadTimeline = useCallback((lead: any) => {
     setSelectedLead(lead);
@@ -369,13 +377,14 @@ const FollowupPage = () => {
 
   useEffect(() => {
     if (activeTab === "leads") {
+      // 60s: fila + leads esperando. Os KPIs do período não mudam a cada minuto (cache de 60s no back).
       const interval = setInterval(() => {
         refetchLeads();
-        refetchAnalytics();
-      }, 30000);
+        loadWaiting();
+      }, 60000);
       return () => clearInterval(interval);
     }
-  }, [activeTab, refetchLeads, refetchAnalytics]);
+  }, [activeTab, refetchLeads, loadWaiting]);
 
   useEffect(() => {
     const loadHistoryMetrics = async () => {
@@ -383,7 +392,6 @@ const FollowupPage = () => {
         setHistoryLoading(true);
         setHistoryError(null);
         const res = await leadService.getHistoryMetrics();
-        console.log('ressssss', res)
         if (res.success) {
           setHistoryMetrics(res.data);
         } else {
@@ -414,128 +422,58 @@ const FollowupPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/30 p-6">
-      {/* CABEÇALHO */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 4,
-          mb: 6,
-          borderRadius: 3,
-          background: `linear-gradient(135deg, ${theme.palette.primary.main}08, ${theme.palette.secondary.main}05)`,
-          border: `1px solid ${theme.palette.grey[200]}`,
-        }}
-      >
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-              <Users size={28} className="text-emerald-600" />
-            </div>
-            <div>
-              <Typography variant="h4" fontWeight="bold" color="grey.800" className="mb-1">
-                Gestão de Leads & Follow-ups
-              </Typography>
-              <Typography variant="body2" color="grey.600" className="max-w-2xl">
-                Acompanhe leads, automatize follow-ups e converta mais pacientes
-              </Typography>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-           {/*  <Button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
-            >
-              <Plus size={18} />
-              Novo Lead
-            </Button> */}
-
-            <Button
-              onClick={handleRefresh}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
-              Atualizar
-            </Button>
-          </div>
+      {/* CABEÇALHO + PERÍODO (padrão finUi) */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-900 md:text-2xl">Leads &amp; Follow-up</h1>
+          <p className="text-sm text-gray-600">Quem precisa de resposta, o próximo passo de cada lead e o funil do período.</p>
         </div>
-      </Paper>
+        <Button
+          onClick={handleRefresh}
+          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700"
+        >
+          <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          Atualizar
+        </Button>
+      </div>
 
-      {/* ESTATÍSTICAS */}
-      <FollowupStats
-        data={analyticsData?.stats}
-        loading={analyticsLoading}
-        error={analyticsError}
-      />
-
-      {/* 🎯 RESULTADO REAL POR CANAL (atribuição automática) */}
-      <AcquisitionByChannel />
+      <div className="mb-4 flex flex-col gap-3">
+        <PeriodBar value={period} month={CUR_MONTH} year={CUR_YEAR} onChange={setPeriod}
+          keys={['day', 'week', 'month', 'last_month', 'custom']} />
+        <LeadsKpis data={leadsSummary} loading={summaryLoading} waitingCount={leadsWaiting.length}
+          onWaitingClick={() => document.getElementById('leads-esperando')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
+        {summaryError && <p className="text-sm text-red-600">Não consegui carregar os números do período: {summaryError}</p>}
+        <LeadsWaitingStrip items={leadsWaiting} onChanged={loadWaiting} />
+      </div>
 
       {/* TABS */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 flex gap-1 p-1.5">
+        <TabsList className="mb-4 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
           <TabsTrigger
             value="leads"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900"
           >
             <Users size={16} />
-            Leads
-            {leads.length > 0 && (
-              <span className="bg-emerald-100 text-emerald-600 text-xs px-1.5 py-0.5 rounded-full ml-1">
-                {leads.length}
-              </span>
-            )}
+            Fila de leads
           </TabsTrigger>
-
           <TabsTrigger
             value="metricas"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900"
           >
             <BarChart3 size={16} />
-            Métricas do Funil
-          </TabsTrigger>
-
-
-
-          <TabsTrigger
-            value="diagnostic"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
-          >
-            <RefreshCw size={16} />
-            Diagnóstico WhatsApp
+            Métricas do funil
           </TabsTrigger>
         </TabsList>
 
         {/* ABA LEADS */}
         <TabsContent value="leads" className="space-y-6">
-          {/* TOGGLE MARKETING / OPERACIONAL */}
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-              <button
-                onClick={() => handleViewModeChange("operacional")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === "operacional"
-                    ? "bg-white shadow-sm text-slate-800"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Operacional
-              </button>
-              <button
-                onClick={() => handleViewModeChange("marketing")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === "marketing"
-                    ? "bg-white shadow-sm text-slate-800"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Marketing
-              </button>
-            </div>
-            {viewMode === "operacional" && (
-              <span className="text-xs text-slate-500">
-                Fila de trabalho da secretária · ordenado por urgência
-              </span>
-            )}
+          {/* FILA DO DIA x BASE COMPLETA */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip on={viewMode === "operacional"} onClick={() => handleViewModeChange("operacional")} label="Fila de trabalho" />
+            <Chip on={viewMode === "marketing"} onClick={() => handleViewModeChange("marketing")} label="Base completa" count={pagination?.total ?? undefined} />
+            <span className="text-xs text-slate-500">
+              {viewMode === "operacional" ? "Ordenada por urgência, com o próximo passo de cada lead" : "Todos os leads, com busca e filtros"}
+            </span>
           </div>
 
           {/* VISTA OPERACIONAL */}
@@ -918,6 +856,13 @@ const FollowupPage = () => {
         {/* ABA MÉTRICAS DO FUNIL */}
         <TabsContent value="metricas">
           <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h3 className="text-base font-semibold text-slate-800">Funil do período</h3>
+              <p className="mb-3 text-xs text-slate-500">Leads criados no período e até onde cada um chegou. O número vermelho é a perda em relação à etapa anterior.</p>
+              {leadsSummary ? <FunnelBars steps={leadsSummary.funnel} /> : <Skeleton className="h-32 w-full" />}
+            </div>
+
+            <FollowupStats data={analyticsData?.stats} loading={analyticsLoading} error={analyticsError} />
             <FollowupInsights data={analyticsData} />
 
             {/* 🔥 MÉTRICAS DE HISTÓRICO WHATSAPP */}
@@ -974,113 +919,7 @@ const FollowupPage = () => {
               )}
             </div>
 
-            {/* 🔥 ROI POR ORIGEM (Lead → Patient → Revenue) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-800">
-                    ROI por Origem de Lead
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Conversão de leads em pacientes e receita gerada por canal de aquisição.
-                  </p>
-                </div>
-                {analyticsData?.roi?.summary && (
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-xs text-slate-500">Taxa de conversão</div>
-                      <div className="text-lg font-bold text-emerald-600">
-                        {((analyticsData.roi.summary.overallConversionRate || 0) * 100).toFixed(1)}%
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-slate-500">Receita total</div>
-                      <div className="text-lg font-bold text-amber-600">
-                        {new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(analyticsData.roi.summary.totalRevenue || 0)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {analyticsLoading && (
-                <div className="text-sm text-slate-500">Carregando métricas de ROI...</div>
-              )}
-
-              {analyticsError && !analyticsLoading && (
-                <div className="text-sm text-red-500">{analyticsError}</div>
-              )}
-
-              {analyticsData?.roi?.data && !analyticsLoading && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="text-left px-3 py-2 font-semibold text-slate-600">Origem</th>
-                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Leads</th>
-                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Convertidos</th>
-                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Conversão</th>
-                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Agend.</th>
-                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Receita</th>
-                        <th className="text-right px-3 py-2 font-semibold text-slate-600">Média/Lead</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {analyticsData.roi.data.map((row: any) => (
-                        <tr key={row.origin} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-3 py-2 font-medium text-slate-800 capitalize">
-                            <span className="inline-flex items-center gap-2">
-                              <TrendingUp size={14} className="text-teal-500" />
-                              {row.origin === "web_app" ? "Site" :
-                               row.origin === "google_ads" ? "Google Ads" :
-                               row.origin === "desconhecido" ? "Desconhecido" : row.origin}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-right text-slate-700">{row.totalLeads}</td>
-                          <td className="px-3 py-2 text-right text-emerald-600 font-medium">{row.totalConverted}</td>
-                          <td className="px-3 py-2 text-right">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                (row.conversionRate || 0) >= 0.3
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : (row.conversionRate || 0) >= 0.15
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-red-100 text-red-700"
-                              }`}
-                            >
-                              {((row.conversionRate || 0) * 100).toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-right text-slate-700">{row.totalAppointments}</td>
-                          <td className="px-3 py-2 text-right font-medium text-slate-800">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(row.totalRevenue || 0)}
-                          </td>
-                          <td className="px-3 py-2 text-right text-slate-500">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(row.avgRevenuePerLead || 0)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {(!analyticsData?.roi?.data || analyticsData.roi.data.length === 0) && !analyticsLoading && !analyticsError && (
-                <div className="text-sm text-slate-400 text-center py-6">
-                  <DollarSign size={24} className="mx-auto mb-2 opacity-50" />
-                  Nenhum dado de ROI encontrado para o período.
-                </div>
-              )}
-            </div>
+            <p className="text-sm text-slate-500">O ROI por origem agora fica só na aba <b>ROI &amp; Atribuição</b>.</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FollowupTrendChart data={analyticsData?.trend} />
@@ -1090,9 +929,6 @@ const FollowupPage = () => {
         </TabsContent>
 
 
-        <TabsContent value="diagnostic">
-          <WhatsAppDiagnostic />
-        </TabsContent>
       </Tabs>
 
       {/* MODAL TIMELINE */}

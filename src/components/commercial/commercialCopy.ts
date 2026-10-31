@@ -92,3 +92,30 @@ export function waitingText(minutes: number): string {
 }
 
 export const daysText = (d: number | null) => (d == null ? 'sem data' : d === 0 ? 'hoje' : d === 1 ? 'há 1 dia' : `há ${d} dias`);
+
+/**
+ * Próximo passo da fila de leads, a partir do motivo e da etapa do acompanhamento.
+ * Valor antes do preço; só horário genérico; 1 💚 no final.
+ */
+export function leadNextStep(p: { name?: string | null; reason?: string; pipeline?: string; overdueDays?: number }): { text: string; message: string } {
+    const n = firstName(p.name);
+    const oi = `Oi${n ? `, ${n}` : ''}! Aqui é da Clínica Fono Inova.`;
+    if (p.pipeline === 'agendado' || p.reason === 'confirmar_agendamento') {
+        return { text: 'Confirmar a avaliação e lembrar o que levar', message: `${oi} Passando para confirmar a avaliação. Se tiverem relatório da escola ou de outro profissional, vale levar. Podemos confirmar? 💚` };
+    }
+    if (p.reason === 'enviar_proposta' || p.pipeline === 'interessado') {
+        return { text: 'Explicar o valor da avaliação e depois o preço (R$ 220)', message: `${oi} Na avaliação a terapeuta conhece a criança, entende a queixa e já sai com um plano do que trabalhar. Ela custa R$ 220. Tenho horário amanhã à tarde ou quinta de manhã, qual fica melhor? 💚` };
+    }
+    if (p.reason === 'aguardando_decisao_familia' || p.pipeline === 'aguardando_decisao') {
+        return (p.overdueDays ?? 0) >= 7
+            ? { text: 'Último toque: oferecer uma vaga genérica desta semana', message: `${oi} Ainda temos vaga nesta semana, quinta de manhã. Começar cedo faz diferença no desenvolvimento. Querem que eu reserve? 💚` }
+            : { text: 'Retomar: perguntar se conseguiram conversar', message: `${oi} Conseguiram conversar sobre a avaliação? Fico à disposição para tirar qualquer dúvida. 💚` };
+    }
+    if (p.reason === 'aguardando_documentacao') {
+        return { text: 'Lembrar dos documentos pendentes', message: `${oi} Só lembrando dos documentos para seguirmos com o atendimento. Pode me mandar por aqui mesmo. 💚` };
+    }
+    if (p.pipeline === 'novo_contato' || p.pipeline === 'aguardando_clinica') {
+        return { text: 'Responder e entender a queixa antes de falar de preço', message: `${oi} Vi sua mensagem e já vou te ajudar. Me conta um pouco do que vocês estão buscando? 💚` };
+    }
+    return { text: 'Retomar o contato', message: `${oi} Passando para saber como vocês estão e se posso ajudar em algo. 💚` };
+}
