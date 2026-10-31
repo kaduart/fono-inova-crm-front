@@ -11,6 +11,7 @@ import { useChatNavigation } from '../../contexts/ChatNavigationContext';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import CashflowOverview from './components/CashflowOverview';
+import CashflowAgendaSummary from './components/CashflowAgendaSummary';
 import CashflowMonthChart from './components/CashflowMonthChart';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
 import { beginCashflowLoad } from '../../services/financialLoadCoordinator';
@@ -156,7 +157,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     const [faturarSubFilter, setFaturarSubFilter] = useState<'pacotes' | 'convenios' | 'liminares'>('pacotes');
-    // Resumo aberto por padrão: os números do dia não ficam escondidos.
+    // O resumo operacional fica sempre visível; apenas os detalhes extras são recolhidos.
     const [dashboardOpen, setDashboardOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'day' | 'month'>('day');
     // Horário de Brasília (toISOString é UTC e depois das 21h abria o dia seguinte).
@@ -222,8 +223,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const isFirstRender = useRef(true);
 
     // PatientsSummaryCard data
-    const { data: analyticsData, loading: analyticsLoading, fetch: fetchAnalytics } = useAppointmentsByType();
-    const { data: analyticsCreatedData, fetch: fetchAnalyticsCreated } = useAppointmentsByType();
+    const { data: analyticsData, loading: analyticsLoading, error: analyticsError, fetch: fetchAnalytics } = useAppointmentsByType();
+    const { data: analyticsCreatedData, loading: analyticsCreatedLoading, error: analyticsCreatedError, summary: analyticsCreatedSummary, fetch: fetchAnalyticsCreated } = useAppointmentsByType();
 
     // 🏥 Dados operacionais: retenção + pacientes sem próxima sessão
     const { data: retentionData } = useRetentionSlots('', 30);
@@ -239,7 +240,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
         const period = !manualDateOverride && dateRange ? dateRange : { startDate: selectedDate, endDate: selectedDate };
-        await Promise.all([
+        await Promise.allSettled([
             fetchAnalytics({ startDate: period.startDate, endDate: period.endDate, mode: 'date' }),
             fetchAnalyticsCreated({ startDate: period.startDate, endDate: period.endDate, mode: 'createdAt' })
         ]);
@@ -507,6 +508,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         recurrent={patientsWithoutNextRecurrent} onSchedule={() => setSemProximaModalOpen(true)}
                         onCollect={() => setActiveTab(1)} onBill={() => { setActiveTab(2); setFaturarSubFilter('convenios'); }}
                         slotsAtRisk={retentionCritical} slotImpact={retentionLoss} onFit={() => navigate('/retention')}
+                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData}
+                            loading={analyticsLoading} error={!!analyticsError} createdTotal={analyticsCreatedSummary?.total}
+                            createdLoading={analyticsCreatedLoading} createdError={!!analyticsCreatedError}
+                            startDate={dateRange && !manualDateOverride ? dateRange.startDate : selectedDate}
+                            endDate={dateRange && !manualDateOverride ? dateRange.endDate : selectedDate}
+                            onAgenda={() => setActiveTab(3)} onNewSpecialty={() => setNewSpecialtyModalOpen(true)} />}
                         onContact={handleOpenWhatsApp} />
                     <button type="button" onClick={() => setDashboardOpen(open => !open)} aria-expanded={dashboardOpen}
                         aria-controls="cashflow-day-details" className="mb-4 flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-emerald-600">
