@@ -3,7 +3,7 @@
  * Centraliza GMB, Instagram, Facebook, Vídeos e Spy de Concorrentes
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import API from '../../services/api';
 import { trackGmbPostView, openGmbWhatsApp } from '../../services/gmbAbTracking';
@@ -19,6 +19,7 @@ import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
 import { Facebook, Google, Instagram, Search, VideoCall } from '@mui/icons-material';
 import { Video, TrendingUp } from 'lucide-react';
+import { ymdSP } from '../../utils/dateFormat';
 
 // Ícones
 const RefreshIcon = () => (
@@ -185,7 +186,7 @@ const getProximosDias = () => {
   for (let i = 0; i < 7; i++) {
     const data = new Date(hoje);
     data.setDate(hoje.getDate() + i);
-    const value = data.toISOString().split('T')[0];
+    const value = ymdSP(data);
     const label = i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
     dias.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
   }
@@ -316,6 +317,10 @@ export default function MarketingDashboard() {
   const [previewModal, setPreviewModal] = useState<{ open: boolean; post: any } | null>(null);
   const [previewContent, setPreviewContent] = useState<{ type: 'caption' | 'hooks' | null; data: any } | null>(null);
   const [selectedMode, setSelectedMode] = useState<'full' | 'caption' | 'hooks'>('full');
+
+  // Timers de polling do GMB: limpos ao sair da tela para não vazar (auditoria 31/10).
+  const gmbTimersRef = useRef<Array<ReturnType<typeof setInterval>>>([]);
+  useEffect(() => () => { gmbTimersRef.current.forEach(clearInterval); gmbTimersRef.current = []; }, []);
 
   // 🧪 Tracking de visualização do post A/B
   useEffect(() => {
@@ -577,24 +582,30 @@ export default function MarketingDashboard() {
           toast.info(scheduledAt ? '📅 Post GMB agendado! Aguarde o briefing...' : '✨ Post sendo gerado... o briefing abrirá automaticamente!');
 
           if (postId) {
-            const pollInterval = setInterval(async () => {
+            let pollInterval: ReturnType<typeof setInterval>;
+            const stop = () => {
+              clearInterval(pollInterval);
+              gmbTimersRef.current = gmbTimersRef.current.filter(t => t !== pollInterval);
+            };
+            pollInterval = setInterval(async () => {
               try {
                 const postRes = await API.get(`/gmb/posts/${postId}`);
                 const post = postRes.data.data;
                 if (post.processingStatus === 'completed') {
-                  clearInterval(pollInterval);
+                  stop();
                   setPreviewModal({ open: true, post });
                   refresh();
                 } else if (post.processingStatus === 'failed') {
-                  clearInterval(pollInterval);
+                  stop();
                   toast.error('Falha ao gerar post');
                   refresh();
                 }
               } catch {
-                clearInterval(pollInterval);
+                stop();
               }
             }, 3000);
-            setTimeout(() => clearInterval(pollInterval), 180000);
+            gmbTimersRef.current.push(pollInterval);
+            setTimeout(stop, 180000);
           }
         } else {
           gmb.generate(espId, customTheme, scheduledAt, funnel, selectedProvider, false);
@@ -1240,7 +1251,7 @@ export default function MarketingDashboard() {
                       onChange={(e) => {
                         setSchedulePost(e.target.checked);
                         if (e.target.checked) {
-                          setScheduleDate(new Date().toISOString().split('T')[0]);
+                          setScheduleDate(ymdSP());
                           setScheduleTime('08:00');
                         }
                       }}

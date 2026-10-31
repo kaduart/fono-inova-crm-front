@@ -39,6 +39,7 @@ import AnapolisSEOPagesCard from './AnapolisSEOPagesCard';
 import LandingPagesTab from './LandingPagesTab';
 import { brl, KpiStrip } from '../../pages/Financial/components/finUi';
 import { useRoiSummary } from '../mkt/SalesParts';
+import { ymdSP } from '../../utils/dateFormat';
 import { 
     RefreshCw, Users, TrendingUp, Globe, 
     Clock, Smartphone, MapPin, Calendar, Filter, 
@@ -124,8 +125,8 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     }, [today]);
 
     const [dateRange, setDateRange] = useState({
-        startDate: daysAgo7.toISOString().split('T')[0],
-        endDate: today.toISOString().split('T')[0],
+        startDate: ymdSP(daysAgo7),
+        endDate: ymdSP(today),
     });
 
     const [selectedEventType, setSelectedEventType] = useState('Todos');
@@ -229,7 +230,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     const handleDatePreset = useCallback((preset: 'today' | '7d' | '30d' | 'custom') => {
         setDatePreset(preset);
         
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = ymdSP(today);
         
         if (preset === 'today') {
             setDateRange({
@@ -239,13 +240,13 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             setShowCustomDate(false);
         } else if (preset === '7d') {
             setDateRange({
-                startDate: daysAgo7.toISOString().split('T')[0],
+                startDate: ymdSP(daysAgo7),
                 endDate: todayStr
             });
             setShowCustomDate(false);
         } else if (preset === '30d') {
             setDateRange({
-                startDate: daysAgo30.toISOString().split('T')[0],
+                startDate: ymdSP(daysAgo30),
                 endDate: todayStr
             });
             setShowCustomDate(false);
