@@ -1,6 +1,7 @@
 // Peças das filas comerciais: painel lateral, encaixe de horário livre, filas de pacote
 // acabando e reativação, e a faixa de lead sem resposta. Regras: back/docs/COMMERCIAL_QUEUES.md.
 import { CalendarPlus, Check, Clock, MessageCircle, RefreshCw, X } from 'lucide-react';
+import { createSharedPoll, PollState } from '../../utils/sharedPoll';
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -315,23 +316,29 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: (
 
 // ── Dados das filas do Dashboard ────────────────────────────────────────────
 
+// Lead esperando muda rápido: uma busca a cada 2 min, compartilhada e pausada com a aba oculta.
+const leadsWaitingPoll = createSharedPoll<WaitingLead[]>(() => commercialService.leadsWaiting(2), 120_000);
+
 export function useCommercialQueues() {
     const [packageEnding, setPackageEnding] = useState<PackageEndingItem[] | null>(null);
     const [reactivation, setReactivation] = useState<QueuePatient[] | null>(null);
-    const [leadsWaiting, setLeadsWaiting] = useState<WaitingLead[]>([]);
+    // Erro ≠ zero: o "Precisa de você" mostra "não carregou" em vez de esconder a fila.
+    const [queueErrors, setQueueErrors] = useState<{ packageEnding: boolean; reactivation: boolean }>({ packageEnding: false, reactivation: false });
+    const [leadsState, setLeadsState] = useState<PollState<WaitingLead[]>>(leadsWaitingPoll.getState());
 
     const loadQueues = useCallback(() => {
-        commercialService.packageEnding().then(setPackageEnding).catch(e => { console.error('[commercial] pacote acabando', e); setPackageEnding([]); });
-        commercialService.reactivation().then(setReactivation).catch(e => { console.error('[commercial] reativação', e); setReactivation([]); });
+        commercialService.packageEnding()
+            .then(d => { setPackageEnding(d); setQueueErrors(e => ({ ...e, packageEnding: false })); })
+            .catch(e => { console.error('[commercial] pacote acabando', e); setPackageEnding([]); setQueueErrors(x => ({ ...x, packageEnding: true })); });
+        commercialService.reactivation()
+            .then(d => { setReactivation(d); setQueueErrors(e => ({ ...e, reactivation: false })); })
+            .catch(e => { console.error('[commercial] reativação', e); setReactivation([]); setQueueErrors(x => ({ ...x, reactivation: true })); });
     }, []);
-    const loadLeads = useCallback(() => {
-        commercialService.leadsWaiting(2).then(setLeadsWaiting).catch(e => { console.error('[commercial] leads esperando', e); });
-    }, []);
+    const loadLeads = useCallback(() => { leadsWaitingPoll.refresh(); }, []);
 
     useEffect(() => { loadQueues(); }, [loadQueues]);
-    // Lead esperando muda rápido: atualiza a cada 2 min
-    useEffect(() => { loadLeads(); const t = setInterval(loadLeads, 120_000); return () => clearInterval(t); }, [loadLeads]);
+    useEffect(() => leadsWaitingPoll.subscribe(setLeadsState), []);
 
     const reload = useCallback(() => { loadQueues(); loadLeads(); }, [loadQueues, loadLeads]);
-    return { packageEnding, reactivation, leadsWaiting, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
+    return { packageEnding, reactivation, leadsWaiting: leadsState.data || [], queueErrors, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
 }

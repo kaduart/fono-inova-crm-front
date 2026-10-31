@@ -244,7 +244,7 @@ Section.displayName = 'Section';
 
 // --- Precisa de você ---
 
-interface NeedItem { key: string; count: number; title: string; detail: string; cta: string; onClick: () => void; tone: 'warn' | 'bad' | 'info' | 'pink' }
+interface NeedItem { key: string; count: number; title: string; detail: string; cta: string; onClick: () => void; tone: 'warn' | 'bad' | 'info' | 'pink'; error?: boolean; onRetry?: () => void }
 
 const TONE: Record<NeedItem['tone'], string> = {
     warn: 'text-amber-700 dark:text-amber-400',
@@ -254,7 +254,8 @@ const TONE: Record<NeedItem['tone'], string> = {
 };
 
 const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading }) => {
-    const visible = items.filter(i => i.count > 0);
+    // Erro ≠ zero: fila que não carregou aparece como "não carregou", nunca some como se estivesse em dia.
+    const visible = items.filter(i => i.count > 0 || i.error);
     const cols = visible.length > 4 ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4';
     return (
         <section aria-labelledby="precisa-de-voce" className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
@@ -270,7 +271,21 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
                 <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, pacotes, retornos e aniversários estão em dia.</p>
             ) : (
                 <div className={`grid gap-3 ${cols}`}>
-                    {visible.map(item => (
+                    {visible.map(item => item.error && !item.count ? (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={item.onRetry}
+                            className="group flex min-w-0 flex-col items-start rounded-lg border border-dashed border-amber-300 p-3.5 text-left transition-colors hover:bg-amber-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-amber-500/40 dark:hover:bg-amber-500/5"
+                        >
+                            <span className="flex items-baseline gap-2">
+                                <span className="text-2xl font-bold text-gray-400" aria-hidden>—</span>
+                                <span className="font-semibold text-gray-900 dark:text-gray-50">{item.title}</span>
+                            </span>
+                            <span className="mt-0.5 text-sm text-amber-800 dark:text-amber-300">Não foi possível carregar.</span>
+                            <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">Tentar de novo</span>
+                        </button>
+                    ) : (
                         <button
                             key={item.key}
                             type="button"
@@ -439,6 +454,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const [todaySessions, setTodaySessions] = useState<TodayAppt[]>([]);
     const [todayLoading, setTodayLoading] = useState(false);
     const [todayLoaded, setTodayLoaded] = useState(false);
+    const [todayError, setTodayError] = useState(false);
     const todayFetching = useRef(false);
 
     const loadTodaySessions = useCallback(async (force = false) => {
@@ -453,8 +469,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             const list = Array.isArray(d) ? d : Array.isArray(d?.data?.appointments) ? d.data.appointments : Array.isArray(d?.appointments) ? d.appointments : Array.isArray(d?.data) ? d.data : [];
             setTodaySessions(list.filter((a: any) => apptDay(a.date) === todayStr || !a.date));
             setTodayLoaded(true);
+            setTodayError(false);
         } catch {
-            setTodaySessions([]);
+            setTodayError(true);
         } finally {
             todayFetching.current = false;
             setTodayLoading(false);
@@ -547,13 +564,15 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
 
     // --- Pré-agendamentos e leads para o "Precisa de você" ---
     const [preStats, setPreStats] = useState<{ total: number; semContato: number; urgentes: number } | null>(null);
+    const [preStatsError, setPreStatsError] = useState(false);
     const loadPreStats = useCallback(async () => {
         try {
             const res = await API.get('/v2/pre-appointments/stats/dashboard');
             const d = res.data?.data ?? res.data;
             setPreStats({ total: d?.total || 0, semContato: d?.semContato || 0, urgentes: d?.urgentes || 0 });
+            setPreStatsError(false);
         } catch {
-            setPreStats({ total: 0, semContato: 0, urgentes: 0 });
+            setPreStatsError(true);
         }
     }, []);
     useEffect(() => { loadPreStats(); }, [loadPreStats]);
@@ -588,6 +607,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             key: 'pre', count: preStats?.total || 0, tone: 'warn', title: 'Pré-agendamentos',
             detail: preStats ? [preStats.semContato ? `${preStats.semContato} sem contato` : '', preStats.urgentes ? `${preStats.urgentes} urgentes` : ''].filter(Boolean).join(' · ') || 'a confirmar' : '',
             cta: 'Abrir pré-agendamentos', onClick: () => onNavigate?.('Pré-Agendamentos'),
+            error: preStatsError, onRetry: loadPreStats,
         },
         {
             key: 'pay', count: stats?.pendingPayments || 0, tone: 'bad', title: 'Pagamentos em aberto',
@@ -597,6 +617,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             key: 'leads', count: opCounts.total || 0, tone: 'info', title: 'Leads para retornar',
             detail: [opCounts.overdue ? `${opCounts.overdue} atrasados` : '', opCounts.today ? `${opCounts.today} para hoje` : ''].filter(Boolean).join(' · '),
             cta: 'Abrir leads', onClick: () => onNavigate?.('Leads'),
+            error: opCounts.error, onRetry: opCounts.reload,
         },
         {
             key: 'renewal', count: commercial.packageEnding?.length || 0, tone: 'warn', title: 'Pacote acabando',
@@ -606,6 +627,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 return last ? `${last} na última sessão ou sem sessões · renovar` : '2 sessões restantes · renovar';
             })(),
             cta: 'Ver e renovar', onClick: () => setQueueOpen('renewal'),
+            error: commercial.queueErrors.packageEnding, onRetry: commercial.reloadQueues,
         },
         {
             key: 'reactivation', count: commercial.reactivation?.length || 0, tone: 'bad', title: 'Sem próxima sessão',
@@ -615,6 +637,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 return recent ? `${recent} sem vir há até 3 semanas · chamar de volta` : 'chamar de volta';
             })(),
             cta: 'Ver e reativar', onClick: () => setQueueOpen('reactivation'),
+            error: commercial.queueErrors.reactivation, onRetry: commercial.reloadQueues,
         },
         {
             key: 'bday', count: aniversariantesMeta.todayPending || 0, tone: 'pink',
@@ -635,10 +658,12 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             all: list,
             today: list.filter(a => apptDay(a.date) === todayStr),
             tomorrow: list.filter(a => apptDay(a.date) === tomorrowStr),
-            unconfirmed: list.filter(a => ['scheduled', 'pending', 'pre_agendado'].includes(a.status)),
+            unconfirmed: list.filter(a => !a.confirmed && ['scheduled', 'pre_agendado'].includes(a.status)),
         };
     }, [upcomingAppointments, todayStr, tomorrowStr]);
     const upcomingShown = upcoming[upcomingFilter];
+    // Contagem real vem do back (stats.upcomingCounts); a lista pode ser parcial (até 50).
+    const upcomingCount = (k: keyof typeof upcoming) => stats?.upcomingCounts?.[k] ?? upcoming[k].length;
 
     const weekdayOnly = useCallback(<T extends { date: string }>(rows: T[]) => rows.filter(r => {
         const [y, m, d] = r.date.split('-').map(Number);
@@ -737,7 +762,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 4. Números */}
             <Section
                 title="Números da clínica"
-                meta={stats ? `${stats.todayAppointments} sessões hoje · ${formatCurrency(stats.monthRevenue)} no mês` : undefined}
+                meta={stats ? `${stats.todayAppointments} sessões hoje · ${formatCurrency(stats.monthRevenue)} de caixa no mês` : undefined}
                 isOpen={numbersOpen}
                 onToggle={() => setNumbersOpen(v => !v)}
                 icon={<BarChart3 size={17} />}
@@ -747,12 +772,12 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         <StatTile
                             label="Sessões hoje"
                             value={stats.todayAppointments}
-                            detail={todayLoading && !todayLoaded ? 'carregando…' : `${plural(todaySummary.done,'realizada','realizadas')} · ${plural(todaySummary.missed,'falta','faltas')} · ${todaySummary.todo} a fazer`}
+                            detail={todayLoading && !todayLoaded ? 'carregando…' : todayError && !todayLoaded ? 'não foi possível carregar a quebra do dia' : `${plural(todaySummary.done,'realizada','realizadas')} · ${plural(todaySummary.missed,'falta','faltas')} · ${todaySummary.todo} a fazer`}
                             onClick={openTodaySessionsModal}
                         />
-                        <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem canceladas e pré-agendadas" />
+                        <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem as canceladas" />
                         <StatTile label="Caixa hoje" value={formatCurrency(stats.todayRevenue)} detail="recebido hoje" />
-                        <StatTile label="Receita do mês" value={formatCurrency(stats.monthRevenue)} detail="pagamentos confirmados" />
+                        <StatTile label="Caixa do mês" value={formatCurrency(stats.monthRevenue)} detail="recebido no mês (regra do caixa)" />
                         <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Financeiro') : undefined} />
                         <StatTile label="Leads do mês" value={stats.monthLeads} detail="novos interessados" onClick={onNavigate ? () => onNavigate('Leads') : undefined} />
                         <StatTile
@@ -800,7 +825,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 ) : (
                     <div className="space-y-4">
                         {todayByDoctor.length === 0 ? (
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão hoje.</p>
+                            todayError && !todayLoaded ? (
+                                <p className="text-sm text-amber-800 dark:text-amber-300">Não foi possível carregar as sessões de hoje. <button type="button" onClick={() => loadTodaySessions(true)} className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">Tentar de novo</button></p>
+                            ) : <p className="text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão hoje.</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[520px] text-sm">
@@ -857,17 +884,23 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 7. Próximas sessões */}
             <Section
                 title="Próximas sessões"
-                meta={`${upcoming.all.length} nos próximos dias · ${upcoming.unconfirmed.length} não confirmadas`}
+                meta={`${upcomingCount('all')} nos próximos 7 dias · ${upcomingCount('unconfirmed')} não confirmadas`}
                 isOpen={upcomingOpen}
                 onToggle={() => setUpcomingOpen(v => !v)}
                 icon={<Clock size={17} />}
             >
                 <div className="mb-3 flex flex-wrap gap-2">
-                    <Chip active={upcomingFilter === 'all'} onClick={() => setUpcomingFilter('all')}>Todas <b className="tabular-nums">{upcoming.all.length}</b></Chip>
-                    <Chip active={upcomingFilter === 'today'} onClick={() => setUpcomingFilter('today')}>Hoje <b className="tabular-nums">{upcoming.today.length}</b></Chip>
-                    <Chip active={upcomingFilter === 'tomorrow'} onClick={() => setUpcomingFilter('tomorrow')}>Amanhã <b className="tabular-nums">{upcoming.tomorrow.length}</b></Chip>
-                    <Chip active={upcomingFilter === 'unconfirmed'} onClick={() => setUpcomingFilter('unconfirmed')}>Não confirmadas <b className="tabular-nums">{upcoming.unconfirmed.length}</b></Chip>
+                    <Chip active={upcomingFilter === 'all'} onClick={() => setUpcomingFilter('all')}>Todas <b className="tabular-nums">{upcomingCount('all')}</b></Chip>
+                    <Chip active={upcomingFilter === 'today'} onClick={() => setUpcomingFilter('today')}>Hoje <b className="tabular-nums">{upcomingCount('today')}</b></Chip>
+                    <Chip active={upcomingFilter === 'tomorrow'} onClick={() => setUpcomingFilter('tomorrow')}>Amanhã <b className="tabular-nums">{upcomingCount('tomorrow')}</b></Chip>
+                    <Chip active={upcomingFilter === 'unconfirmed'} onClick={() => setUpcomingFilter('unconfirmed')}>Não confirmadas <b className="tabular-nums">{upcomingCount('unconfirmed')}</b></Chip>
                 </div>
+                {upcomingShown.length < upcomingCount(upcomingFilter) && (
+                    <p className="mb-2 text-xs text-gray-600 dark:text-gray-400">
+                        Mostrando as {upcomingShown.length} primeiras de {upcomingCount(upcomingFilter)}.{' '}
+                        <button type="button" onClick={() => onNavigate?.('Calendário')} className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">Ver todas na Agenda</button>
+                    </p>
+                )}
                 {upcomingShown.length === 0 ? (
                     <p className="text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão neste filtro.</p>
                 ) : (
@@ -905,7 +938,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 icon={<PieChart size={17} />}
             >
                 <div className="grid gap-3 lg:grid-cols-2">
-                    <HBars title="Leads do mês por origem" rows={originRows} empty="Nenhum lead no mês." />
+                    <HBars title="Leads dos últimos 30 dias por origem" rows={originRows} empty="Nenhum lead nos últimos 30 dias." />
                     <HBars title="Pacientes por especialidade" rows={specialtyRows} empty="Sem atendimentos nos últimos 30 dias." />
                 </div>
             </Section>
@@ -960,7 +993,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                             />
                         </>
                     ) : (
-                        <p className="py-10 text-center text-sm text-gray-600 dark:text-gray-400">Nenhuma sessão hoje.</p>
+                        <p className="py-10 text-center text-sm text-gray-600 dark:text-gray-400">{todayError ? 'Não foi possível carregar as sessões de hoje.' : 'Nenhuma sessão hoje.'}</p>
                     )}
                 </DialogContent>
             </Dialog>

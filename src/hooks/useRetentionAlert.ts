@@ -19,7 +19,8 @@ export function useRetentionAlert(): RetentionAlertCounts {
 
   useEffect(() => {
     let cancelled = false;
-    const month = new Date().toISOString().slice(0, 7);
+    // Mês no fuso de São Paulo (toISOString é UTC: no último dia, depois das 21h, virava o mês seguinte).
+    const month = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
 
     // Cache hit: serve imediatamente sem delay
     if (cachedResult && cacheMonth === month) {
