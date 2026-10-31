@@ -32,6 +32,7 @@ import {
 } from '@mui/material';
 import { Activity, AlertCircle, Bot, RefreshCw, Zap } from 'lucide-react';
 import axios from 'axios';
+import { useVisiblePolling } from '../../utils/useVisiblePolling';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -122,11 +123,8 @@ const AmandaMetricsDashboard = () => {
     }
   }, [window_]);
 
-  useEffect(() => {
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 120_000); // 🔥 2min em vez de 30s
-    return () => clearInterval(interval);
-  }, [fetchMetrics]);
+  useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
+  useVisiblePolling(fetchMetrics, 120_000); // 2min; pausa com a aba oculta
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

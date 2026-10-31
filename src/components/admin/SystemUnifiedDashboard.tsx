@@ -26,6 +26,7 @@ import {
 import { Tabs, Tab } from '@mui/material';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { WhatsAppDiagnostic } from '../../pages/Settings/WhatsAppDiagnostic';
+import { useVisiblePolling } from '../../utils/useVisiblePolling';
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -1053,11 +1054,8 @@ export default function SystemUnifiedDashboard() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchRaw();
-        const id = setInterval(fetchRaw, REFRESH_INTERVAL);
-        return () => clearInterval(id);
-    }, [fetchRaw]);
+    useEffect(() => { fetchRaw(); }, [fetchRaw]);
+    useVisiblePolling(fetchRaw, REFRESH_INTERVAL);
 
     const handleRefresh = () => { fetchRaw(); refresh(); };
 

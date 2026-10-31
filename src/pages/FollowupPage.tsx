@@ -43,6 +43,7 @@ import { commercialService, type WaitingLead } from "../services/commercialServi
 import { formatMessageTime } from "../utils/dateHelper";
 import { extractErrorMessage } from "../utils/errorUtils";
 import { notifyApiError } from '../utils/notifyApiError';
+import { useVisiblePolling } from '../utils/useVisiblePolling';
 
 /** -------- Modal completo de "Novo Lead" -------- */
 type NewLeadPayload = {
@@ -375,16 +376,9 @@ const FollowupPage = () => {
     toast.success("Filtros aplicados!");
   };
 
-  useEffect(() => {
-    if (activeTab === "leads") {
-      // 60s: fila + leads esperando. Os KPIs do período não mudam a cada minuto (cache de 60s no back).
-      const interval = setInterval(() => {
-        refetchLeads();
-        loadWaiting();
-      }, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTab, refetchLeads, loadWaiting]);
+  // 60s: fila + leads esperando. Os KPIs do período não mudam a cada minuto
+  // (cache de 60s no back). Pausa com a aba oculta e só roda na aba "leads".
+  useVisiblePolling(() => { refetchLeads(); loadWaiting(); }, 60000, activeTab === "leads");
 
   useEffect(() => {
     const loadHistoryMetrics = async () => {

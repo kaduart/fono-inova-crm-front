@@ -6,8 +6,9 @@ import { confirmToast } from '../../utils/confirmToast';
 
 import whatsappQueueService, { WhatsAppQueueStatus } from '../../services/whatsappQueueService';
 import { notifyApiError } from '../../utils/notifyApiError';
+import { useVisiblePolling } from '../../utils/useVisiblePolling';
 
-const POLL_INTERVAL_MS = 8000;
+const POLL_INTERVAL_MS = 15000; // 15s; pausa com a aba oculta (useVisiblePolling)
 
 const countTiles: Array<{ key: keyof WhatsAppQueueStatus['counts']; label: string; danger?: boolean }> = [
   { key: 'waiting', label: 'Aguardando' },
@@ -34,11 +35,8 @@ export default function WhatsAppQueueControl() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(() => fetchStatus(true), POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  useVisiblePolling(() => fetchStatus(true), POLL_INTERVAL_MS);
 
   const handlePause = async () => {
     setActionLoading('pause');
