@@ -73,6 +73,7 @@ import { useAppointmentsContext } from '../contexts/AppointmentsContext';
 import { useChatNavigation } from "../contexts/ChatNavigationContext";
 import { useChatOptional } from '../contexts/ChatContext'; // 🆕 Para mensagens de erro no chat
 import { useAdmin } from '../hooks/useAdmin';
+import { useAuth } from '../contexts/AuthContext';
 import { useDashboard, useDoctorsOverview } from '../hooks/useDashboard';
 import { usePatients } from '../hooks/usePatients';
 import { useCalendarAppointmentsSync } from '../hooks/useCalendarAppointmentsSync';
@@ -115,6 +116,7 @@ const EnhancedCalendar = lazyWithRetry(() => import('./calendar/EnhancedCalendar
 const SiteAnalyticsDashboard = lazyWithRetry(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazyWithRetry(() => import('./Dashboard/MarketingDashboard'));
 const RevenueTab = lazyWithRetry(() => import('./Dashboard/RoiTab'));
+const ConversionIntelligenceDashboard = lazyWithRetry(() => import('./Dashboard/ConversionIntelligenceDashboard'));
 const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 
 // Componentes de abas específicas - só carregam quando a aba é aberta
@@ -130,6 +132,12 @@ const PatientModal = lazyWithRetry(() => import('./patients/PatientModal').then(
 // Modais lazy loaded
 const AdvancedPaymentModal = lazyWithRetry(() => import('./financial/AdvancedPaymentModal').then(m => ({ default: m.AdvancedPaymentModal })));
 const PaymentModal = lazyWithRetry(() => import('./financial/PaymentModal').then(m => ({ default: m.PaymentModal })));
+
+const AdminOnlyNotice = () => (
+    <div className="p-8 text-center text-sm text-gray-600 dark:text-gray-400">
+        Esta área é só do administrador.
+    </div>
+);
 
 const TabSpinner = () => (
     <LoadingSpinner centered size="large" color="border-emerald-600" className="min-h-[400px]" />
@@ -272,6 +280,8 @@ export default function AdminDashboard() {
     
     // 🎯 Estado para identificar o tipo de usuário
     const [userRole, setUserRole] = useState<string | null>(null);
+    const { user: authUser } = useAuth();
+    const isAdmin = authUser?.role === 'admin';
     
     // 🎯 Verifica o role do usuário no localStorage
     useEffect(() => {
@@ -1119,7 +1129,8 @@ export default function AdminDashboard() {
         setSelectedPatient,
         setPaymentContext,
         setPaymentModalOpen,
-        onDeletePatient: handleDeletePatient,
+        // Excluir é só do admin (o back responde 403 aos outros perfis).
+        onDeletePatient: isAdmin ? handleDeletePatient : undefined,
     }), [stats, dashboardCharts, setActiveTab, safeDoctorsOverview, upcomingAppts, patients, dashboardLoading, refreshDashboard,
         handleAddProfessional, handleAddPatient, handleDeletePatient]);
 
@@ -1206,10 +1217,15 @@ export default function AdminDashboard() {
                         updateAdminProfile={updateAdminProfile}
                     />
                 );
+            // Só admin: o back responde 403 para os outros perfis (auditoria 31/10/2026, A6/C5).
             case 'Add Admin':
-                return <AddAdminContent addNewAdmin={addNewAdmin} role="admin" />;
+                return isAdmin
+                    ? <AddAdminContent addNewAdmin={addNewAdmin} role="admin" />
+                    : <AdminOnlyNotice />;
             case 'Add Secretária':
-                return <SecretariesManagement addNewAdmin={addNewAdmin} />;
+                return isAdmin
+                    ? <SecretariesManagement addNewAdmin={addNewAdmin} />
+                    : <AdminOnlyNotice />;
             case 'Add Profissional':
                 return (
                     <Suspense fallback={<TabSpinner />}>
@@ -1278,6 +1294,15 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
+            case 'Conversao':
+                return (
+                    <TabErrorBoundary tabName="Inteligência de Conversão">
+                        <Suspense fallback={<TabSpinner />}>
+                            <ConversionIntelligenceDashboard />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+
             case 'Mensagens':
                 return (
                     <TabErrorBoundary tabName="Mensagens">

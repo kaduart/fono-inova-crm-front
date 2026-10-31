@@ -23,9 +23,13 @@ export interface NovidadesScreen {
 export const NOVIDADES_SCREENS: NovidadesScreen[] = [
     // ── Admin / secretária ───────────────────────────────────────────────
     {
-        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-10-30', tabs: ['Dashboard'],
+        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-10-31', tabs: ['Dashboard'],
         summary: 'O que precisa de você hoje fica logo no topo.',
         items: [
+            { title: 'Avaliou e não fechou', what: 'Quem fez avaliação particular nos últimos 30 dias e ainda não fechou pacote, com o valor em aberto por mês e a mensagem pronta (valor antes do preço).', how: 'Abra o cartão, envie pelo WhatsApp e marque como contatado, ou use "Não vai fechar" com o motivo.' },
+            { title: 'Sessões sem confirmação', what: 'As sessões do próximo dia com agenda que ainda não foram confirmadas, separadas em sem resposta, pediu remarcar e sem telefone.', how: 'Use "Enviar lembrete" para mandar a confirmação a quem ainda não recebeu (1 por sessão), ou confirme manualmente.' },
+            { title: 'Números que batem', what: 'Hoje, Amanhã e Não confirmadas em Próximas sessões contam todas as sessões dos próximos 7 dias, e os pré-agendados entram em Sessões hoje e Semana.', how: 'Se a lista mostrar só parte, use "Ver todas na Agenda".' },
+            { title: 'Quando algo não carrega', what: 'O cartão mostra "Não foi possível carregar" em vez de zero.', how: 'Clique em Tentar de novo.' },
             { title: 'Precisa de você hoje', what: 'Pré-agendamentos, pagamentos em aberto, leads para retornar e aniversariantes sem parabéns.', how: 'Clique no número para ir direto à aba.' },
             { title: 'Lead esperando resposta', what: 'Faixa com leads novos sem resposta há mais de 2h, com cronômetro.', how: 'Responda primeiro os que esperam há mais tempo.' },
             { title: 'Pacote acabando e sem próxima sessão', what: 'Cartões com a mensagem de renovação ou de retorno já pronta.', how: 'Clique em Renovar ou Chamar de volta e confira o texto antes de enviar.' },

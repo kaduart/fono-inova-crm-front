@@ -1,13 +1,14 @@
 // Peças das filas comerciais: painel lateral, encaixe de horário livre, filas de pacote
 // acabando e reativação, e a faixa de lead sem resposta. Regras: back/docs/COMMERCIAL_QUEUES.md.
 import { CalendarPlus, Check, Clock, MessageCircle, RefreshCw, X } from 'lucide-react';
+import { createSharedPoll, PollState } from '../../utils/sharedPoll';
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    commercialService, ContactKind, FitLead, PackageEndingItem, QueuePatient, WaitingLead,
+    commercialService, ContactKind, EvaluationQueue, FitLead, NextDayItem, NextDayQueue, PackageEndingItem, QueuePatient, WaitingLead,
 } from '../../services/commercialService';
 import {
-    daysText, fitLeadMessage, fitPatientMessage, genericWhen, leadReplyMessage, openWhatsApp,
+    confirmationNudgeMessage, daysText, evaluationMessage, fitLeadMessage, fitPatientMessage, genericWhen, leadReplyMessage, openWhatsApp,
     reactivationMessage, renewalMessage, specialtyText, waitingText, waLink,
 } from './commercialCopy';
 
@@ -42,10 +43,10 @@ export const SidePanel: React.FC<{ title: string; kicker?: string; subtitle?: Re
 
 const useContact = () => {
     const [done, setDone] = useState<Record<string, 'saving' | 'ok' | 'err'>>({});
-    const mark = useCallback(async (targetType: 'patient' | 'lead', targetId: string, kind: ContactKind) => {
+    const mark = useCallback(async (targetType: 'patient' | 'lead', targetId: string, kind: ContactKind, note?: string) => {
         setDone(d => ({ ...d, [targetId]: 'saving' }));
         try {
-            await commercialService.registerContact({ targetType, targetId, kind });
+            await commercialService.registerContact({ targetType, targetId, kind, note });
             setDone(d => ({ ...d, [targetId]: 'ok' }));
             return true;
         } catch (e) {
@@ -313,25 +314,205 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: (
     );
 };
 
+// ── 5. Avaliou e não fechou pacote ──────────────────────────────────────────
+
+const LOST_REASONS = ['Preço', 'Vai usar o convênio', 'Distância ou horário', 'Vai pensar', 'Outro'];
+
+export const EvaluationPanel: React.FC<{ queue: EvaluationQueue; onClose: () => void; onChanged: () => void }> = ({ queue, onClose, onChanged }) => {
+    const { done, mark } = useContact();
+    const [range, setRange] = useState<'recent' | 'older'>('recent');
+    const [lostFor, setLostFor] = useState<string | null>(null);
+    const recent = queue.items.filter(i => i.daysSince <= 10);
+    const older = queue.items.filter(i => i.daysSince > 10);
+    const shown = range === 'recent' ? recent : older;
+    const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    return (
+        <SidePanel kicker="Precisa de você" title="Avaliou e não fechou"
+            subtitle={<>Avaliação particular feita nos últimos 30 dias, sem pacote e sem sessão marcada depois. Potencial: <b>{brl(queue.potentialMonthly)}/mês</b>.</>}
+            onClose={onClose}>
+            <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Período">
+                {([['recent', '3 a 10 dias', recent.length], ['older', '11 a 30 dias', older.length]] as const).map(([k, label, n]) => (
+                    <button key={k} type="button" aria-pressed={range === k} onClick={() => setRange(k)}
+                        className={`rounded-full border px-3 py-1 text-sm ${range === k ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800'}`}>
+                        {label} <b className="tabular-nums">{n}</b>
+                    </button>
+                ))}
+            </div>
+            <ListState loading={false} error={null} empty={shown.length === 0} onRetry={onChanged} emptyText="Ninguém nesta faixa agora." />
+            <ul className="flex flex-col gap-2">
+                {shown.map(i => (
+                    <QueueRow key={i.patientId} title={`${i.name}${i.specialty ? ` · ${specialtyText(i.specialty)}` : ''}`}
+                        lines={[
+                            `Avaliou ${daysText(i.daysSince)}${i.doctorName ? ` com ${i.doctorName}` : ''}`,
+                            i.lastContactNote ? `Último contato: ${i.lastContactNote}` : '',
+                        ]}
+                        phone={i.phone} state={done[i.patientId]} contactedBefore={i.lastContactAt}
+                        message={evaluationMessage({ name: i.name, specialty: i.specialty, doctorName: i.doctorName })}
+                        onContacted={async () => { if (await mark('patient', i.patientId, 'evaluation')) onChanged(); }}
+                        extra={lostFor === i.patientId ? (
+                            <span className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Motivo">
+                                {LOST_REASONS.map(r => (
+                                    <button key={r} type="button" disabled={done[i.patientId] === 'saving'}
+                                        onClick={async () => { if (await mark('patient', i.patientId, 'evaluation_lost', r)) { setLostFor(null); onChanged(); } }}
+                                        className="rounded-full border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200">{r}</button>
+                                ))}
+                                <button type="button" onClick={() => setLostFor(null)} className="text-xs text-gray-500 hover:underline">voltar</button>
+                            </span>
+                        ) : (
+                            <button type="button" onClick={() => setLostFor(i.patientId)}
+                                className="rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">Não vai fechar</button>
+                        )} />
+                ))}
+            </ul>
+        </SidePanel>
+    );
+};
+
+// ── 6. Próximo dia útil sem confirmação ─────────────────────────────────────
+
+const STATE_LABEL: Record<NextDayItem['state'], string> = {
+    not_sent: 'lembrete não enviado',
+    no_reply: 'sem resposta',
+    change_requested: 'pediu para remarcar',
+    review_required: 'quer falar com a recepção',
+    no_phone: 'sem telefone',
+};
+
+export const NextDayConfirmPanel: React.FC<{ queue: NextDayQueue; onClose: () => void; onChanged: () => void; onOpenAgenda?: () => void }> = ({ queue, onClose, onChanged, onOpenAgenda }) => {
+    const [filter, setFilter] = useState<'waiting' | 'change' | 'no_phone'>('waiting');
+    const [bulk, setBulk] = useState<'idle' | 'confirm' | 'sending' | { queued: number; failed: number; paused: boolean } | 'error'>('idle');
+    const [confirmed, setConfirmed] = useState<Record<string, 'saving' | 'ok' | 'err'>>({});
+    const groups = {
+        waiting: queue.items.filter(i => i.state === 'not_sent' || i.state === 'no_reply'),
+        change: queue.items.filter(i => i.state === 'change_requested' || i.state === 'review_required'),
+        no_phone: queue.items.filter(i => i.state === 'no_phone'),
+    };
+    const notSent = queue.items.filter(i => i.state === 'not_sent').length;
+    const dayText = queue.date
+        ? new Date(`${queue.date}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'UTC' })
+        : '';
+    const sendAll = async () => {
+        if (!queue.date) return;
+        setBulk('sending');
+        try {
+            const r = await commercialService.sendConfirmationReminders(queue.date);
+            setBulk({ queued: r?.queued ?? 0, failed: r?.failed ?? 0, paused: !!r?.queuePaused });
+            onChanged();
+        } catch (e) {
+            console.error('[commercial] lembretes', e);
+            setBulk('error');
+        }
+    };
+    const confirmOne = async (id: string) => {
+        setConfirmed(c => ({ ...c, [id]: 'saving' }));
+        try { await commercialService.confirmAttendance(id); setConfirmed(c => ({ ...c, [id]: 'ok' })); onChanged(); }
+        catch { setConfirmed(c => ({ ...c, [id]: 'err' })); }
+    };
+    const shown = groups[filter];
+    return (
+        <SidePanel kicker="Precisa de você" title="Sessões sem confirmação"
+            subtitle={queue.date ? <><span className="capitalize">{dayText}</span> · {queue.total} sessões, {queue.confirmed} já confirmadas.</> : 'Nenhuma sessão nos próximos 7 dias.'}
+            onClose={onClose}>
+            {notSent > 0 && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 p-3 text-sm dark:bg-emerald-500/10">
+                    {bulk === 'idle' && <><span>{notSent} {notSent === 1 ? 'paciente ainda não recebeu' : 'pacientes ainda não receberam'} o lembrete.</span>
+                        <button type="button" onClick={() => setBulk('confirm')} className="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700">Enviar lembrete para {notSent}</button></>}
+                    {bulk === 'confirm' && <><span>Enviar o lembrete de confirmação pelo WhatsApp da clínica para {notSent}?</span>
+                        <span className="flex gap-2"><button type="button" onClick={sendAll} className="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700">Enviar</button>
+                        <button type="button" onClick={() => setBulk('idle')} className="rounded-lg border border-gray-300 px-3 py-1.5 dark:border-gray-600">Cancelar</button></span></>}
+                    {bulk === 'sending' && <span>Enviando…</span>}
+                    {bulk === 'error' && <><span className="text-red-700 dark:text-red-300">Não foi possível enfileirar os lembretes.</span><button type="button" onClick={sendAll} className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">Tentar de novo</button></>}
+                </div>
+            )}
+            {typeof bulk === 'object' && (
+                <p className="mb-3 rounded-lg bg-emerald-50 p-3 text-sm dark:bg-emerald-500/10" role="status">
+                    {bulk.queued} {bulk.queued === 1 ? 'lembrete entrou' : 'lembretes entraram'} na fila de envio{bulk.failed ? `, ${bulk.failed} com falha` : ''}.
+                    {bulk.paused ? ' A fila do WhatsApp está pausada: eles saem quando ela voltar.' : ' A resposta aparece aqui quando o paciente responder.'}
+                </p>
+            )}
+            <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Filtro">
+                {([['waiting', 'Sem resposta', groups.waiting.length], ['change', 'Pediu remarcar', groups.change.length], ['no_phone', 'Sem telefone', groups.no_phone.length]] as const).map(([k, label, n]) => (
+                    <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}
+                        className={`rounded-full border px-3 py-1 text-sm ${filter === k ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800'}`}>
+                        {label} <b className="tabular-nums">{n}</b>
+                    </button>
+                ))}
+            </div>
+            <ListState loading={false} error={null} empty={shown.length === 0} onRetry={onChanged} emptyText="Ninguém neste filtro." />
+            <ul className="flex flex-col gap-2">
+                {shown.map(i => {
+                    const st = confirmed[i.appointmentId];
+                    const hasPhone = !!waLink(i.phone);
+                    return (
+                        <li key={i.appointmentId} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <p className="font-semibold text-gray-900 dark:text-gray-50"><span className="tabular-nums">{i.time}</span> · {i.name}{i.specialty ? ` · ${specialtyText(i.specialty)}` : ''}</p>
+                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{STATE_LABEL[i.state]}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {[i.doctorName, i.sentAt ? `lembrete ${new Date(i.sentAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : '', i.responseText ? `respondeu "${i.responseText.slice(0, 60)}"` : '', i.missed30 ? `${i.missed30} ${i.missed30 === 1 ? 'falta' : 'faltas'} em 30 dias` : ''].filter(Boolean).join(' · ')}
+                            </p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <button type="button" disabled={!hasPhone} onClick={() => openWhatsApp(i.phone, confirmationNudgeMessage({ name: i.name, when: queue.date ? genericWhen(queue.date, i.time) : 'amanhã' }))}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700">
+                                    <MessageCircle size={14} aria-hidden /> {hasPhone ? 'WhatsApp' : 'Sem telefone'}
+                                </button>
+                                {st === 'ok' ? (
+                                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={14} aria-hidden /> Confirmada</span>
+                                ) : (
+                                    <button type="button" disabled={st === 'saving'} onClick={() => confirmOne(i.appointmentId)}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">
+                                        <Check size={14} aria-hidden /> {st === 'saving' ? 'Salvando…' : 'Confirmar manualmente'}
+                                    </button>
+                                )}
+                                {(i.state === 'change_requested' || i.state === 'review_required') && onOpenAgenda && (
+                                    <button type="button" onClick={onOpenAgenda} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
+                                        <CalendarPlus size={14} aria-hidden /> Remarcar na Agenda
+                                    </button>
+                                )}
+                                {st === 'err' && <span className="text-xs text-red-600 dark:text-red-400">Não salvou. Tente de novo.</span>}
+                            </div>
+                        </li>
+                    );
+                })}
+            </ul>
+        </SidePanel>
+    );
+};
+
 // ── Dados das filas do Dashboard ────────────────────────────────────────────
+
+// Lead esperando muda rápido: uma busca a cada 2 min, compartilhada e pausada com a aba oculta.
+const leadsWaitingPoll = createSharedPoll<WaitingLead[]>(() => commercialService.leadsWaiting(2), 120_000);
 
 export function useCommercialQueues() {
     const [packageEnding, setPackageEnding] = useState<PackageEndingItem[] | null>(null);
     const [reactivation, setReactivation] = useState<QueuePatient[] | null>(null);
-    const [leadsWaiting, setLeadsWaiting] = useState<WaitingLead[]>([]);
+    // Erro ≠ zero: o "Precisa de você" mostra "não carregou" em vez de esconder a fila.
+    const [evaluation, setEvaluation] = useState<EvaluationQueue | null>(null);
+    const [nextDay, setNextDay] = useState<NextDayQueue | null>(null);
+    const [queueErrors, setQueueErrors] = useState<{ packageEnding: boolean; reactivation: boolean; evaluation: boolean; nextDay: boolean }>({ packageEnding: false, reactivation: false, evaluation: false, nextDay: false });
+    const [leadsState, setLeadsState] = useState<PollState<WaitingLead[]>>(leadsWaitingPoll.getState());
 
     const loadQueues = useCallback(() => {
-        commercialService.packageEnding().then(setPackageEnding).catch(e => { console.error('[commercial] pacote acabando', e); setPackageEnding([]); });
-        commercialService.reactivation().then(setReactivation).catch(e => { console.error('[commercial] reativação', e); setReactivation([]); });
+        commercialService.packageEnding()
+            .then(d => { setPackageEnding(d); setQueueErrors(e => ({ ...e, packageEnding: false })); })
+            .catch(e => { console.error('[commercial] pacote acabando', e); setPackageEnding([]); setQueueErrors(x => ({ ...x, packageEnding: true })); });
+        commercialService.reactivation()
+            .then(d => { setReactivation(d); setQueueErrors(e => ({ ...e, reactivation: false })); })
+            .catch(e => { console.error('[commercial] reativação', e); setReactivation([]); setQueueErrors(x => ({ ...x, reactivation: true })); });
+        commercialService.evaluationNoPackage()
+            .then(d => { setEvaluation(d); setQueueErrors(e => ({ ...e, evaluation: false })); })
+            .catch(e => { console.error('[commercial] avaliação sem pacote', e); setQueueErrors(x => ({ ...x, evaluation: true })); });
+        commercialService.unconfirmedNextDay()
+            .then(d => { setNextDay(d); setQueueErrors(e => ({ ...e, nextDay: false })); })
+            .catch(e => { console.error('[commercial] sem confirmação', e); setQueueErrors(x => ({ ...x, nextDay: true })); });
     }, []);
-    const loadLeads = useCallback(() => {
-        commercialService.leadsWaiting(2).then(setLeadsWaiting).catch(e => { console.error('[commercial] leads esperando', e); });
-    }, []);
+    const loadLeads = useCallback(() => { leadsWaitingPoll.refresh(); }, []);
 
     useEffect(() => { loadQueues(); }, [loadQueues]);
-    // Lead esperando muda rápido: atualiza a cada 2 min
-    useEffect(() => { loadLeads(); const t = setInterval(loadLeads, 120_000); return () => clearInterval(t); }, [loadLeads]);
+    useEffect(() => leadsWaitingPoll.subscribe(setLeadsState), []);
 
     const reload = useCallback(() => { loadQueues(); loadLeads(); }, [loadQueues, loadLeads]);
-    return { packageEnding, reactivation, leadsWaiting, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
+    return { packageEnding, reactivation, evaluation, nextDay, leadsWaiting: leadsState.data || [], queueErrors, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
 }

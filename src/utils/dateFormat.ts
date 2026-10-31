@@ -149,3 +149,11 @@ export function combineLocalDateTime(datePart: Date, timePart: Date): string {
   
   return `${combined.getFullYear()}-${pad(combined.getMonth()+1)}-${pad(combined.getDate())}T${pad(combined.getHours())}:${pad(combined.getMinutes())}:00${offset >= 0 ? '+' : '-'}${pad(Math.abs(offset))}:00`;
 }
+/**
+ * Data (YYYY-MM-DD) no fuso da clínica. Use no lugar de
+ * `new Date().toISOString().split('T')[0]`, que é UTC e vira o dia seguinte
+ * depois das 21h em São Paulo (pagamento caía no caixa do dia errado).
+ */
+export function ymdSP(d: Date | string | number = new Date()): string {
+  return new Date(d).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}

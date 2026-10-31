@@ -3,10 +3,11 @@ import { DollarSign, Calendar, RefreshCw, Eye, TrendingUp, TrendingDown } from '
 import { formatCurrency } from '../../../utils/format';
 import API from '../../../services/api';
 import DailyCashModal from './DailyCashModal';
+import { ymdSP } from '../../../utils/dateFormat';
 
 export const DailySummaryCard = () => {
     const [data, setData] = useState<any>(null);
-    const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(() => ymdSP());
     const [modalOpen, setModalOpen] = useState(false);
 
     const fetchData = async () => {

@@ -81,7 +81,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     onLogout,
 }) => {
     const navigate = useNavigate();
-    const { logout: authLogout } = useAuth();
+    const { logout: authLogout, user: authUser } = useAuth();
+    // Secretárias é só do admin (o back responde 403 para os outros perfis).
+    const isAdmin = authUser?.role === 'admin';
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const opCounts       = useOperationalCounts();
@@ -111,7 +113,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     }, [openMenu, toggleMenu, isProfileDropdownOpen]);
 
     const isVendasMarketingActive =
-        activeTab === "Leads" || activeTab === "InteresseConvenios" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI";
+        activeTab === "Leads" || activeTab === "InteresseConvenios" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI" || activeTab === "Conversao";
     
     const isSistemaActive =
         activeTab === "Sistema" || activeTab === "AmandaMetrics" || activeTab === "WhatsApp";
@@ -183,6 +185,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             <span className="text-xs text-gray-500">Cadastro e histórico</span>
                                         </div>
                                     </NavDropdownItem>
+                                    {isAdmin && (
                                     <NavDropdownItem
                                         active={activeTab === "Add Secretária"}
                                         onClick={() => handleTabChange("Add Secretária")}
@@ -193,6 +196,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             <span className="text-xs text-gray-500">Cadastro e acesso</span>
                                         </div>
                                     </NavDropdownItem>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -304,6 +308,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800">ROI & Atribuição</span>
                                             <span className="text-xs text-gray-500">Receita por campanha e origem</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "Conversao"}
+                                        onClick={() => handleTabChange("Conversao")}
+                                        icon={<Gauge className="h-4 w-4 text-teal-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800">Inteligência de Conversão</span>
+                                            <span className="text-xs text-gray-500">Funil: conversa → agendamento por origem</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
@@ -539,6 +553,14 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 icon={<DollarSign size={18} className="text-green-400" />}
                             >
                                 ROI & Atribuição
+                            </MobileNavItem>
+                            <MobileNavItem
+                                indent
+                                active={activeTab === "Conversao"}
+                                onClick={() => handleMobileTabChange("Conversao")}
+                                icon={<Gauge size={18} className="text-teal-400" />}
+                            >
+                                Inteligência de Conversão
                             </MobileNavItem>
                             <MobileNavItem
                                 active={activeTab === "Mensagens"}

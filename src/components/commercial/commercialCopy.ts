@@ -119,3 +119,17 @@ export function leadNextStep(p: { name?: string | null; reason?: string; pipelin
     }
     return { text: 'Retomar o contato', message: `${oi} Passando para saber como vocês estão e se posso ajudar em algo. 💚` };
 }
+
+/** Avaliou e não fechou: valor antes do preço, horário genérico, um 💚. */
+export const evaluationMessage = (p: { name?: string | null; specialty?: string | null; doctorName?: string | null }) => {
+    const n = firstName(p.name);
+    const doc = p.doctorName ? p.doctorName.split(/\s+/).slice(0, 2).join(' ') : 'a terapeuta';
+    const area = specialtyText(p.specialty);
+    return `Oi! Aqui é da Clínica Fono Inova. ${doc} gostou muito de conhecer ${n || 'vocês'} na avaliação${area ? ` de ${area}` : ''} e já tem um plano para as próximas semanas. Com sessões semanais a evolução aparece mais rápido. No pacote 1x/semana cada sessão sai por R$ 180 (cerca de R$ 720/mês). Posso reservar um horário para começar, quinta de manhã ou sexta à tarde? 💚`;
+};
+
+/** Contato manual com quem não respondeu a confirmação (horário genérico). */
+export const confirmationNudgeMessage = (p: { name?: string | null; when: string }) => {
+    const n = firstName(p.name);
+    return `Oi! Aqui é da Clínica Fono Inova. Só confirmando a sessão${n ? ` de ${n}` : ''} ${p.when}. Podemos contar com vocês? 💚`;
+};

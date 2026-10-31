@@ -13,6 +13,7 @@ import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
 
 import { notifyApiError } from '../../utils/notifyApiError';
+import { ymdSP } from '../../utils/dateFormat';
 
 interface PaymentModalProps {
     open: boolean;
@@ -56,7 +57,7 @@ export const PaymentModal = ({
         specialty: 'fonoaudiologia',
         status: 'paid' as const,
         isEvaluation: false,
-        paymentDate: new Date().toISOString().split('T')[0]
+        paymentDate: ymdSP()
     });
 
     const canSubmit = useMemo(() => {
@@ -100,8 +101,8 @@ export const PaymentModal = ({
                     specialty: payment.doctor?.specialty || 'fonoaudiologia',
                     isEvaluation: payment.serviceType === 'evaluation',
                     paymentDate: payment.date
-                        ? new Date(payment.date).toISOString().split('T')[0]
-                        : new Date().toISOString().split('T')[0]
+                        ? ymdSP(payment.date)
+                        : ymdSP()
                 });
                 if (payment.advanceSessions && Array.isArray(payment.advanceSessions) && payment.advanceSessions.length > 0) {
                     setAdvanceServices(payment.advanceSessions.map((session: any) => ({
