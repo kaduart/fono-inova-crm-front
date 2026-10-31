@@ -7,6 +7,7 @@ import API from "../../services/api";
 type Platform = {
   pending: number;
   accepted: number;
+  sentLegacy: number;
   ignored: number;
   failed: number;
   lastSentAt: string | null;
@@ -27,9 +28,10 @@ function Card({ id, p }: { id: string; p: Platform }) {
         <h4 className="text-sm font-semibold text-slate-800">{NAMES[id] || id}</h4>
         <span className="text-xs text-slate-400">último envio: {fmtDate(p.lastSentAt)}</span>
       </div>
-      <div className="grid grid-cols-4 gap-2 text-center">
+      <div className="grid grid-cols-5 gap-2 text-center">
         <div><div className="text-lg font-bold text-slate-700 tabular-nums">{p.pending}</div><div className="text-[11px] text-slate-500">Pendentes</div></div>
-        <div><div className="text-lg font-bold text-emerald-700 tabular-nums">{p.accepted}</div><div className="text-[11px] text-slate-500">Aceitas</div></div>
+        <div><div className="text-lg font-bold text-emerald-700 tabular-nums">{p.accepted}</div><div className="text-[11px] text-slate-500">Aceitas (API)</div></div>
+        <div><div className="text-lg font-bold text-slate-400 tabular-nums">{p.sentLegacy}</div><div className="text-[11px] text-slate-500">Histórico</div></div>
         <div><div className="text-lg font-bold text-slate-500 tabular-nums">{p.ignored}</div><div className="text-[11px] text-slate-500">Ignoradas</div></div>
         <div><div className="text-lg font-bold text-red-600 tabular-nums">{p.failed}</div><div className="text-[11px] text-slate-500">Falhas</div></div>
       </div>
@@ -81,8 +83,9 @@ export default function DeliveryStatusPanel() {
         </select>
       </div>
       <p className="text-xs text-slate-500 mb-4">
-        Fila real do envio (registro AdConversion). <strong>Aceita</strong> = a API recebeu o evento —
-        não significa atribuída ao anúncio nem usada na otimização (isso se confirma no Ads/Events Manager).
+        Fila real do envio (registro AdConversion). <strong>Aceita (API)</strong> = resposta da API comprovou o
+        recebimento (Meta events_received≥1, TikTok request_id); <strong>Histórico</strong> = marcado enviado antes,
+        sem resposta comprovada. Aceita ≠ atribuída ao anúncio nem usada na otimização (isso se confirma no Ads/Events Manager).
       </p>
 
       {loading ? (

@@ -68,8 +68,9 @@ export default function ConversionFunnelPanel() {
         </select>
       </div>
       <p className="text-xs text-slate-500 mb-4">
-        Canal vem da atribuição (Meta, TikTok, Instagram, Google, indicação…). Unidade: contato (telefone distinto);
-        remarcações e sessões recorrentes contam uma vez. Conversão = agendamentos ÷ contatos do mesmo canal.
+        Canal vem da atribuição (Meta, TikTok, Instagram, Google, indicação…). São contagens de CONTATOS
+        (telefones distintos) — não de pacientes nem de atendimentos; remarcações e sessões recorrentes contam uma
+        vez. Conversão = contatos que agendaram ÷ contatos recebidos do MESMO canal (mesma coorte do período).
       </p>
 
       {loading ? (
@@ -87,9 +88,9 @@ export default function ConversionFunnelPanel() {
             <thead>
               <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
                 <th className="py-2 pr-3">Canal</th>
-                <th className="py-2 px-3 text-right">Contatos</th>
-                <th className="py-2 px-3 text-right">Pré-agend. pendentes</th>
-                <th className="py-2 px-3 text-right">Agendamentos</th>
+                <th className="py-2 px-3 text-right">Contatos recebidos</th>
+                <th className="py-2 px-3 text-right">Contatos que pré-agendaram</th>
+                <th className="py-2 px-3 text-right">Contatos que agendaram</th>
                 <th className="py-2 pl-3 text-right">Conversão</th>
               </tr>
             </thead>
