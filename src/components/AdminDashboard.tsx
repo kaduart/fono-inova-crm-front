@@ -115,6 +115,7 @@ const EnhancedCalendar = lazyWithRetry(() => import('./calendar/EnhancedCalendar
 const SiteAnalyticsDashboard = lazyWithRetry(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazyWithRetry(() => import('./Dashboard/MarketingDashboard'));
 const RevenueTab = lazyWithRetry(() => import('./Dashboard/RoiTab'));
+const ConversionIntelligenceDashboard = lazyWithRetry(() => import('./Dashboard/ConversionIntelligenceDashboard'));
 const AppChat = lazyWithRetry(() => import('./mkt/whatsapp/AppChat'));
 
 // Componentes de abas específicas - só carregam quando a aba é aberta
@@ -1278,6 +1279,15 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
+            case 'Conversao':
+                return (
+                    <TabErrorBoundary tabName="Inteligência de Conversão">
+                        <Suspense fallback={<TabSpinner />}>
+                            <ConversionIntelligenceDashboard />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+
             case 'Mensagens':
                 return (
                     <TabErrorBoundary tabName="Mensagens">
