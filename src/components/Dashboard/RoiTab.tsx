@@ -46,7 +46,7 @@ export default function RoiTab() {
             </div>
 
             {view === 'canal' && (data ? <RoiChannelTable data={data} /> : <div className="h-40 animate-pulse rounded-xl bg-gray-100" />)}
-            {view === 'anuncio' && <AcquisitionByChannel />}
+            {view === 'anuncio' && <AcquisitionByChannel startDate={period.start} endDate={period.end} />}
             {view === 'detalhe' && (
                 <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-gray-100" />}>
                     <RevenueTab />

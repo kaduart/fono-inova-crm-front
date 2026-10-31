@@ -54,7 +54,8 @@ const brl = (v: number) =>
 const adName = (r: AdRow) =>
   r.adTitle || (r.kind === "whatsapp_ad" ? `Anúncio …${r.adKey.slice(-6)}` : r.adKey);
 
-export default function AcquisitionByChannel() {
+export default function AcquisitionByChannel({ startDate, endDate }: { startDate?: string; endDate?: string } = {}) {
+  const usePeriod = !!(startDate && endDate);
   const [days, setDays] = useState(30);
   const [view, setView] = useState<"canal" | "anuncio">("canal");
   const [data, setData] = useState<Row[]>([]);
@@ -68,7 +69,8 @@ export default function AcquisitionByChannel() {
 
   // Gasto digitado à mão (sem token de API): soma no período; "desfazer" remove o último lançamento
   const addSpend = async (adKey: string) => {
-    const raw = window.prompt(`Gasto (R$) deste anúncio nos últimos ${days} dias — será somado ao já lançado:`);
+    const janela = usePeriod ? "deste período" : `nos últimos ${days} dias`;
+    const raw = window.prompt(`Gasto (R$) deste anúncio ${janela} — será somado ao já lançado:`);
     if (!raw) return;
     try {
       await API.post("/v2/analytics/roi/acquisition-by-ad/spend", { adKey, amount: raw });
@@ -92,7 +94,7 @@ export default function AcquisitionByChannel() {
     setLoading(true);
     setError(null);
     const url = view === "canal" ? "/v2/analytics/roi/acquisition" : "/v2/analytics/roi/acquisition-by-ad";
-    API.get(url, { params: { days } })
+    API.get(url, { params: usePeriod ? { startDate, endDate } : { days } })
       .then((r) => {
         if (!alive) return;
         const empty = { conversations: 0, firstAppointments: 0, revenue: 0 };
@@ -108,7 +110,7 @@ export default function AcquisitionByChannel() {
       .catch(() => alive && setError("Erro ao carregar aquisição"))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [days, view, reload]);
+  }, [days, startDate, endDate, view, reload]);
 
   const shown = view === "canal" ? totals : adTotals;
   const tab = (id: "canal" | "anuncio", label: string) => (
@@ -150,15 +152,17 @@ export default function AcquisitionByChannel() {
             <div className="text-xs text-slate-500">Valor</div>
             <div className="text-lg font-bold text-amber-600">{brl(shown.revenue)}</div>
           </div>
-          <select
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="text-sm border border-slate-300 rounded-lg px-2 py-1"
-          >
-            <option value={7}>7 dias</option>
-            <option value={30}>30 dias</option>
-            <option value={90}>90 dias</option>
-          </select>
+          {!usePeriod && (
+            <select
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              className="text-sm border border-slate-300 rounded-lg px-2 py-1"
+            >
+              <option value={7}>7 dias</option>
+              <option value={30}>30 dias</option>
+              <option value={90}>90 dias</option>
+            </select>
+          )}
         </div>
       </div>
 
