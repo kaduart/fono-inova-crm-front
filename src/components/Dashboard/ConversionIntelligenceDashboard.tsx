@@ -12,6 +12,8 @@
 import type { ReactNode } from 'react';
 import { Gauge, Radio, TrendingUp } from 'lucide-react';
 import AcquisitionByChannel from './AcquisitionByChannel';
+import ConversionFunnelPanel from './ConversionFunnelPanel';
+import DeliveryStatusPanel from './DeliveryStatusPanel';
 import FollowupInsights from './FollowupInsights';
 import FollowupConversionChart from './FollowupConversionChart';
 import GmbConversionDashboard from './GmbConversionDashboard';
@@ -50,6 +52,26 @@ export default function ConversionIntelligenceDashboard() {
                     </p>
                 </div>
             </div>
+
+            {/* Funil comercial por canal — vem da atribuição, independe do pixel */}
+            <section className="flex flex-col gap-3">
+                <SectionTitle
+                    icon={<Gauge size={16} className="text-emerald-600" />}
+                    title="Funil comercial por canal"
+                    subtitle="Contatos → pré-agendamentos → agendamentos por canal de marketing (independe do pixel)"
+                />
+                <ConversionFunnelPanel />
+            </section>
+
+            {/* Entrega das conversões às plataformas — fila real do AdConversion */}
+            <section className="flex flex-col gap-3">
+                <SectionTitle
+                    icon={<Radio size={16} className="text-emerald-600" />}
+                    title="Entrega das conversões às plataformas"
+                    subtitle="Fila real de envio ao pixel (pendente/aceita/ignorada/falha) — separada dos números comerciais"
+                />
+                <DeliveryStatusPanel />
+            </section>
 
             {/* Resultado real por canal/anúncio — o que alimenta o pixel */}
             <section className="flex flex-col gap-3">
