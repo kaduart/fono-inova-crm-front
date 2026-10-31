@@ -259,7 +259,11 @@ const PatientTable: React.FC<PatientTableProps> = ({
                     >
                         Saldo devedor
                         {onlyWithDebt && debtTotal !== null && <span className="ml-1 opacity-80">{debtTotal}</span>}
-                        {onlyWithDebt && debtTotalAmount !== null && debtTotalAmount > 0 && <span className="ml-1 font-bold">· {brl(debtTotalAmount)}</span>}
+                        {onlyWithDebt && debtTotalAmount !== null && debtTotalAmount > 0 && (
+                            // A soma é dos pacientes carregados (até 100); com mais devedores, o rótulo diz isso
+                            // em vez de parecer o total da clínica (auditoria 31/10/2026, A3).
+                            <span className="ml-1 font-bold">· {brl(debtTotalAmount)}{debtTotal !== null && debtTotal > patients.length ? ` nos ${patients.length} primeiros` : ''}</span>
+                        )}
                     </button>
                     {onOpenNoNext && (noNextCount ?? 0) > 0 && (
                         <button type="button" onClick={onOpenNoNext} title="Abre a fila de quem foi atendido e não tem nada marcado"

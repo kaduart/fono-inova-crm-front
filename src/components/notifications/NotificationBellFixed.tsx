@@ -62,14 +62,14 @@ export const NotificationBellFixed: React.FC = () => {
     try {
       const response = await api.get('/v2/pre-appointments?limit=50');
       const items = response.data?.data || [];
-      // V2 usa operationalStatus, com fallback para status
-      const getStatus = (p: any) => p.operationalStatus || p.status;
-      const pendentes = items.filter((p: any) =>
-        getStatus(p) === 'novo' || getStatus(p) === 'em_analise' || getStatus(p) === 'contatado'
-      );
+      // A rota lê Appointments com operationalStatus 'pre_agendado' (a collection antiga
+      // de pré-agendamento, com status novo/em_analise/contatado, não é mais usada —
+      // por isso o sino ficava em 0). Auditoria do Dashboard admin, 31/10/2026.
+      const pendentes = items.filter((p: any) => (p.operationalStatus || 'pre_agendado') === 'pre_agendado');
 
       setPreAgendamentos(pendentes);
-      setCount(pendentes.length);
+      // Total real vem da paginação (a lista traz no máximo 50).
+      setCount(Number(response.data?.pagination?.total ?? pendentes.length));
       setIsReady(true); // Marca como pronto
     } catch (e) {
       console.log('Erro:', e);

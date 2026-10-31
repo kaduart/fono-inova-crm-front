@@ -36,6 +36,7 @@ import {
     getDefaultPermissions,
     getDefaultFeatureFlags,
 } from '../../types/calendarCapabilities';
+import { ymdSP } from '../../utils/dateFormat';
 /** yyyy-mm-dd na data local (as datas do FullCalendar chegam em horário local) */
 // "09:00 - 09:40" do FullCalendar; cai para o horário salvo se vier vazio
 const fmtSlimTime = (timeText?: string, fallback?: string) => (timeText || fallback || '').replace(/(\d{2}:\d{2}):\d{2}/g, '$1').trim();
@@ -2322,7 +2323,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     events={events}
                     dateClick={(arg) => {
                         // 🆕 Validação de feriado
-                        const dateStr = arg.date.toISOString().split('T')[0];
+                        const dateStr = ymdSP(arg.date);
                         if (isHoliday(dateStr)) {
                             const holidayName = getHolidayName(dateStr);
                             alert(`🗓️ ${holidayName}\n\nNão é possível agendar em feriado.`);
@@ -2360,7 +2361,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         }
                     }}
                     dayCellClassNames={(arg) => {
-                        const dateStr = arg.date.toISOString().split('T')[0];
+                        const dateStr = ymdSP(arg.date);
                         return isHoliday(dateStr) ? 'fc-day-holiday' : '';
                     }}
                     dayCellContent={(arg) => {
@@ -2390,7 +2391,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                 </div>
                             );
                         }
-                        const dateStr = arg.date.toISOString().split('T')[0];
+                        const dateStr = ymdSP(arg.date);
                         const isHolidayDate = isHoliday(dateStr);
                         const holidayName = isHolidayDate ? getHolidayName(dateStr) : '';
                         const dayAppts = getAppointmentsByDay(dateStr);

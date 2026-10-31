@@ -1,4 +1,5 @@
 import ThemeToggle from '../common/ThemeToggle';
+import NovidadesCenter from '../novidades/NovidadesCenter';
 import {
     Activity,
     ChevronDown,
@@ -80,7 +81,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     onLogout,
 }) => {
     const navigate = useNavigate();
-    const { logout: authLogout } = useAuth();
+    const { logout: authLogout, user: authUser } = useAuth();
+    // Secretárias é só do admin (o back responde 403 para os outros perfis).
+    const isAdmin = authUser?.role === 'admin';
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const opCounts       = useOperationalCounts();
@@ -182,6 +185,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             <span className="text-xs text-gray-500">Cadastro e histórico</span>
                                         </div>
                                     </NavDropdownItem>
+                                    {isAdmin && (
                                     <NavDropdownItem
                                         active={activeTab === "Add Secretária"}
                                         onClick={() => handleTabChange("Add Secretária")}
@@ -192,6 +196,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                             <span className="text-xs text-gray-500">Cadastro e acesso</span>
                                         </div>
                                     </NavDropdownItem>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -376,6 +381,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
                     <div className="flex shrink-0 items-center gap-1.5">
                         <NotificationBellFixed />
+                        <NovidadesCenter area="admin" activeTab={activeTab} />
                         <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
 
                         {/* Hamburguer - mobile */}

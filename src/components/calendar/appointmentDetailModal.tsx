@@ -39,6 +39,7 @@ import {
     CalendarPermissions,
     getDefaultPermissions,
 } from '../../types/calendarCapabilities';
+import { ymdSP } from '../../utils/dateFormat';
 
 interface AppointmentDetailModalProps {
     isOpen: boolean;
@@ -551,7 +552,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             setPayments([{
                 id: 1,
                 amount: financialAmounts.amountDueNow,
-                date: new Date().toISOString().split('T')[0],
+                date: ymdSP(),
                 method: event.paymentMethod || ''
             }]);
 

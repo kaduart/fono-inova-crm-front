@@ -24,6 +24,8 @@ export interface DashboardStats {
             pct3: number; pct4: number; pct5: number;
         }>;
     };
+    /** Contagens reais dos próximos 7 dias (o front não conta sobre a lista limitada). */
+    upcomingCounts?: { all: number; today: number; tomorrow: number; unconfirmed: number };
     todayAppointments: number;
     weekAppointments: number;
     todayRevenue: number;
@@ -56,6 +58,8 @@ export interface UpcomingAppointment {
     time: string;
     reason: string;
     status: string;
+    /** Confirmada pelo profissional ou pelo paciente (WhatsApp). */
+    confirmed?: boolean;
     patientName: string;
     professionalName: string;
     specialty?: string;
