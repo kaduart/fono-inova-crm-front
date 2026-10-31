@@ -1,6 +1,7 @@
 // Funil comercial por CANAL DE MARKETING (vem da atribuição, não da origem técnica).
 // Fonte: GET /v2/analytics/roi/funnel-by-channel. Independe da fila do pixel.
 import { useEffect, useState } from "react";
+import { Users, Info, AlertTriangle } from "lucide-react";
 import API from "../../services/api";
 
 type Row = {
@@ -12,21 +13,26 @@ type Row = {
 };
 type Totals = { contatos: number; preAgendamentos: number; agendamentos: number; conversao: number | null };
 
-const LABELS: Record<string, string> = {
-  meta_ads: "Meta Ads (Facebook)",
-  instagram_ads: "Instagram Ads",
-  instagram: "Instagram",
-  facebook: "Facebook",
-  tiktok_ads: "TikTok Ads",
-  tiktok: "TikTok",
-  google_ads: "Google Ads",
-  google: "Google",
-  gmb: "Google Meu Negócio",
-  indication: "Indicação",
-  nao_identificado: "Não identificado",
+const CH: Record<string, { label: string; dot: string }> = {
+  meta_ads: { label: "Meta Ads", dot: "bg-blue-500" },
+  instagram_ads: { label: "Instagram Ads", dot: "bg-pink-500" },
+  instagram: { label: "Instagram", dot: "bg-pink-400" },
+  facebook: { label: "Facebook", dot: "bg-blue-600" },
+  tiktok_ads: { label: "TikTok Ads", dot: "bg-slate-800" },
+  tiktok: { label: "TikTok", dot: "bg-slate-700" },
+  google_ads: { label: "Google Ads", dot: "bg-amber-500" },
+  google: { label: "Google", dot: "bg-amber-400" },
+  gmb: { label: "Google Meu Negócio", dot: "bg-emerald-500" },
+  indication: { label: "Indicação", dot: "bg-purple-500" },
+  nao_identificado: { label: "Não identificado", dot: "bg-slate-300" },
 };
-const label = (c: string) => LABELS[c] || c;
+const ch = (c: string) => CH[c] || { label: c, dot: "bg-slate-400" };
 const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
+const convTone = (v: number | null) =>
+  v == null ? "bg-slate-100 text-slate-500"
+    : v >= 0.3 ? "bg-emerald-100 text-emerald-700"
+    : v >= 0.1 ? "bg-amber-100 text-amber-700"
+    : "bg-slate-100 text-slate-600";
 const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || "";
 
 export default function ConversionFunnelPanel() {
@@ -38,8 +44,7 @@ export default function ConversionFunnelPanel() {
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     API.get("/v2/analytics/roi/funnel-by-channel", { params: { days } })
       .then((r) => {
         if (!alive) return;
@@ -48,75 +53,103 @@ export default function ConversionFunnelPanel() {
       })
       .catch((e) => {
         if (!alive) return;
-        const status = e?.response?.status;
+        const st = e?.response?.status;
         const msg = e?.response?.data?.message || e?.message || "falha na requisição";
-        setError(status ? `Erro ${status}: ${msg}` : `Não foi possível falar com a API (${apiBase || "base não definida"}): ${msg}`);
+        setError(st ? `Erro ${st}: ${msg}` : `Sem resposta da API (${apiBase || "base não definida"}): ${msg}`);
       })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [days]);
 
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
-        <h3 className="text-base font-semibold text-slate-800">Funil por canal de aquisição</h3>
-        <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-          className="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white text-slate-700">
-          <option value={7}>7 dias</option>
-          <option value={30}>30 dias</option>
-          <option value={90}>90 dias</option>
-        </select>
-      </div>
-      <p className="text-xs text-slate-500 mb-4">
-        Canal vem da atribuição (Meta, TikTok, Instagram, Google, indicação…). São contagens de CONTATOS
-        (telefones distintos) — não de pacientes nem de atendimentos; remarcações e sessões recorrentes contam uma
-        vez. Conversão = contatos que agendaram ÷ contatos recebidos do MESMO canal (mesma coorte do período).
-      </p>
+  const DaySelect = (
+    <select value={days} onChange={(e) => setDays(Number(e.target.value))}
+      className="text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-600 hover:bg-slate-100 transition">
+      <option value={7}>Últimos 7 dias</option>
+      <option value={30}>Últimos 30 dias</option>
+      <option value={90}>Últimos 90 dias</option>
+    </select>
+  );
 
-      {loading ? (
-        <div className="animate-pulse h-32 bg-slate-100 rounded-xl" />
-      ) : error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-medium text-red-700">Não carregou — isto é um erro, não “sem dados”.</p>
-          <p className="text-xs text-red-600 mt-1 break-all">{error}</p>
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-500">Sem contatos no período (consulta ok, resultado vazio).</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                <th className="py-2 pr-3">Canal</th>
-                <th className="py-2 px-3 text-right">Contatos recebidos</th>
-                <th className="py-2 px-3 text-right">Contatos que pré-agendaram</th>
-                <th className="py-2 px-3 text-right">Contatos que agendaram</th>
-                <th className="py-2 pl-3 text-right">Conversão</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.channel} className="border-b border-slate-100 last:border-0">
-                  <td className="py-2 pr-3 text-slate-700">{label(r.channel)}</td>
-                  <td className="py-2 px-3 text-right tabular-nums">{r.contatos}</td>
-                  <td className="py-2 px-3 text-right tabular-nums text-amber-600">{r.preAgendamentos}</td>
-                  <td className="py-2 px-3 text-right tabular-nums font-semibold text-emerald-700">{r.agendamentos}</td>
-                  <td className="py-2 pl-3 text-right tabular-nums">{pct(r.conversao)}</td>
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Info size={13} className="shrink-0 text-slate-400" />
+          Contagem de <span className="font-medium text-slate-600">contatos</span> (telefones) — não pacientes nem atendimentos.
+        </p>
+        {DaySelect}
+      </div>
+
+      <div className="p-5">
+        {loading ? (
+          <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="animate-pulse h-9 bg-slate-100 rounded-lg" />)}</div>
+        ) : error ? (
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <AlertTriangle size={18} className="shrink-0 text-red-500 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-700">Não carregou — isto é um erro, não “sem dados”.</p>
+              <p className="text-xs text-red-600 mt-0.5 break-all">{error}</p>
+            </div>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 mb-3">
+              <Users size={22} className="text-slate-400" />
+            </div>
+            <p className="text-sm font-medium text-slate-600">Nenhum contato neste período</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+              Consulta respondeu normalmente — o banco atual não tem contatos na janela.
+              Os números reais aparecem quando a tela lê o banco com os agendamentos (produção).
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-1">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-slate-400">
+                  <th className="text-left font-medium py-2 pr-3">Canal</th>
+                  <th className="text-right font-medium py-2 px-3">Contatos recebidos</th>
+                  <th className="text-right font-medium py-2 px-3">Pré-agendaram</th>
+                  <th className="text-right font-medium py-2 px-3">Agendaram</th>
+                  <th className="text-right font-medium py-2 pl-3">Conversão</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-slate-200 font-semibold text-slate-800">
-                <td className="py-2 pr-3">Total</td>
-                <td className="py-2 px-3 text-right tabular-nums">{totals.contatos}</td>
-                <td className="py-2 px-3 text-right tabular-nums text-amber-600">{totals.preAgendamentos}</td>
-                <td className="py-2 px-3 text-right tabular-nums text-emerald-700">{totals.agendamentos}</td>
-                <td className="py-2 pl-3 text-right tabular-nums">{pct(totals.conversao)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.channel} className="border-t border-slate-100 hover:bg-slate-50/60 transition">
+                    <td className="py-2.5 pr-3">
+                      <span className="inline-flex items-center gap-2 text-slate-700">
+                        <span className={`h-2 w-2 rounded-full ${ch(r.channel).dot}`} />
+                        {ch(r.channel).label}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right tabular-nums text-slate-600">{r.contatos}</td>
+                    <td className="py-2.5 px-3 text-right tabular-nums text-amber-600">{r.preAgendamentos}</td>
+                    <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-emerald-700">{r.agendamentos}</td>
+                    <td className="py-2.5 pl-3 text-right">
+                      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${convTone(r.conversao)}`}>{pct(r.conversao)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 font-semibold text-slate-800">
+                  <td className="py-2.5 pr-3">Total</td>
+                  <td className="py-2.5 px-3 text-right tabular-nums">{totals.contatos}</td>
+                  <td className="py-2.5 px-3 text-right tabular-nums text-amber-600">{totals.preAgendamentos}</td>
+                  <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700">{totals.agendamentos}</td>
+                  <td className="py-2.5 pl-3 text-right">
+                    <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${convTone(totals.conversao)}`}>{pct(totals.conversao)}</span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+            <p className="text-[11px] text-slate-400 mt-3">
+              Conversão = contatos que agendaram ÷ contatos recebidos do mesmo canal (mesma coorte do período). Canal vem da atribuição; remarcação e sessões recorrentes contam uma vez.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
