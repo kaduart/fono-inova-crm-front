@@ -19,7 +19,15 @@ export const adminService = {
         API.post(USE_V2 ? '/v2/admin/dashboard/admins' : '/admin/add-admin', adminData),
 
     fetchSecretaries: () =>
-        API.get<{ success: boolean; data: Array<{ _id: string; fullName: string; email: string; role: 'secretary' }> }>('/admin/secretaries'),
+        API.get<{ success: boolean; data: Array<{ _id: string; fullName: string; email: string; role: 'secretary'; active?: boolean }> }>('/admin/secretaries'),
+
+    // Ativar/desativar o acesso de uma secretária (ERP + agenda externa). Só admin.
+    setSecretaryActive: (id: string, active: boolean) =>
+        API.patch<{ success: boolean; data: { _id: string; active: boolean } }>(`/admin/secretaries/${id}/active`, { active }),
+
+    // Redefinir a senha de uma secretária. Só admin.
+    resetSecretaryPassword: (id: string, password: string) =>
+        API.patch<{ success: boolean; message: string }>(`/admin/secretaries/${id}/reset-password`, { password }),
     
     // 🚀 V2: Novo método para overview do dashboard
     fetchDashboardOverview: () =>
