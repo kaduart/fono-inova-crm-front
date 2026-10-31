@@ -1,4 +1,5 @@
 import ThemeToggle from '../common/ThemeToggle';
+import NovidadesCenter from '../novidades/NovidadesCenter';
 import {
     Activity,
     ChevronDown,
@@ -366,6 +367,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
                     <div className="flex shrink-0 items-center gap-1.5">
                         <NotificationBellFixed />
+                        <NovidadesCenter area="admin" activeTab={activeTab} />
                         <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
 
                         {/* Hamburguer - mobile */}

@@ -30,3 +30,17 @@ O perfil considera a data marcada para atendimento: a API também retorna regist
 O painel financeiro força alinhamento à esquerda para neutralizar a centralização herdada do aplicativo. Pendências e composição ficam lado a lado em telas largas, com linhas compactas. Os detalhes financeiros anteriores continuam acessíveis.
 
 Validação da correção: nove testes de navegação, dois testes do resumo operacional e compilação de produção aprovados. A revisão visual desta rodada ficou pendente por indisponibilidade da conexão do navegador e expiração da abertura do Chrome.
+
+## Cliques que detalham (31/10/2026)
+
+Pedido do Kadu: tudo que era clicável continua clicável para facilitar o comercial.
+- Números do topo: Caixa e Ticket abrem Recebimentos, Previsto abre a Agenda do dia, A receber abre Pendentes.
+- Agenda e movimento: Agendados, Atendidos, Aguardando e Faltas abrem a Agenda do dia já filtrada. "Ver agenda e atendimentos" abre a aba e rola até ela (antes trocava a aba lá embaixo e parecia que nada acontecia).
+- Perfil: pré-agendado e 1ª consulta viram "Pacientes novos" (com a divisão embaixo). Esse grupo, Retornos, Recorrentes e Liminar abrem uma lista com nome, horário, profissional e botão de WhatsApp. Nova especialidade segue com o modal próprio.
+
+## Visual do topo (aprovado em 31/10/2026)
+
+Mock: https://claude.ai/artifact/MofvBUst4aP3nUUB3Vx11G
+- Caixa em destaque (número grande, barra de quanto do previsto entrou, variação vs ontem).
+- Agenda e perfil numa linha de chips clicáveis (mesmos cliques de antes).
+- Ações com número colorido pela urgência; origem do caixa em barra empilhada com %.

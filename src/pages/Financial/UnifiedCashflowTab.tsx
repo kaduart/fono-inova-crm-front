@@ -236,6 +236,16 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const [patientsWithoutNextList, setPatientsWithoutNextList] = useState<any[]>([]);
     const [semProximaModalOpen, setSemProximaModalOpen] = useState(false);
     const [newPatientsModalOpen, setNewPatientsModalOpen] = useState(false);
+    const [profileList, setProfileList] = useState<{ title: string; items: any[] } | null>(null);
+
+    // Abre uma sub-aba (opcionalmente já filtrada) e rola até ela: antes o clique trocava a aba
+    // lá embaixo da página e parecia que nada tinha acontecido.
+    const openDetailTab = (tab: number, agendaStatus?: string) => {
+        setActiveTab(tab);
+        if (agendaStatus) setAppointmentFilter(agendaStatus);
+        if (tab === 3 && dayAppointments.length === 0) loadDayAppointments();
+        requestAnimationFrame(() => document.getElementById('cashflow-detail-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    };
     const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
@@ -506,14 +516,16 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     <CashflowOverview data={data} periodLabel={periodTitle} patientsWithoutNext={patientsWithoutNext}
                         patientsLoading={patientsWithoutNextLoading} patientsError={patientsWithoutNextError} patientsImpact={patientsWithoutNextImpact}
                         recurrent={patientsWithoutNextRecurrent} onSchedule={() => setSemProximaModalOpen(true)}
-                        onCollect={() => setActiveTab(1)} onBill={() => { setActiveTab(2); setFaturarSubFilter('convenios'); }}
+                        onCollect={() => openDetailTab(1)} onBill={() => { setFaturarSubFilter('convenios'); openDetailTab(2); }}
+                        onMetric={(k) => openDetailTab(k === 'previsto' ? 3 : k === 'receber' ? 1 : 0)}
                         slotsAtRisk={retentionCritical} slotImpact={retentionLoss} onFit={() => navigate('/retention')}
                         agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData}
                             loading={analyticsLoading} error={!!analyticsError} createdTotal={analyticsCreatedSummary?.total}
                             createdLoading={analyticsCreatedLoading} createdError={!!analyticsCreatedError}
                             startDate={dateRange && !manualDateOverride ? dateRange.startDate : selectedDate}
                             endDate={dateRange && !manualDateOverride ? dateRange.endDate : selectedDate}
-                            onAgenda={() => setActiveTab(3)} onNewSpecialty={() => setNewSpecialtyModalOpen(true)} />}
+                            onAgenda={(status) => openDetailTab(3, status || 'all')} onNewSpecialty={() => setNewSpecialtyModalOpen(true)}
+                            onProfile={(title, items) => setProfileList({ title, items })} />}
                         onContact={handleOpenWhatsApp} />
                     <button type="button" onClick={() => setDashboardOpen(open => !open)} aria-expanded={dashboardOpen}
                         aria-controls="cashflow-day-details" className="mb-4 flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-emerald-600">
@@ -967,6 +979,46 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     )}
 
                     </div>
+                    {/* Modal: lista de um grupo do perfil da agenda (nome, horário, profissional, WhatsApp) */}
+                    {profileList && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setProfileList(null)}>
+                            <div role="dialog" aria-modal="true" aria-label={profileList.title} className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between border-b border-gray-100 p-5 dark:border-gray-700">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{profileList.title} · {profileList.items.length}</h3>
+                                        <p className="mt-0.5 text-sm text-gray-500">{isRangeActive && dateRange ? formatDateRange(dateRange) : format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}</p>
+                                    </div>
+                                    <button type="button" aria-label="Fechar" onClick={() => setProfileList(null)} className="text-2xl text-gray-400 hover:text-gray-600">✕</button>
+                                </div>
+                                <div className="divide-y divide-gray-100 overflow-y-auto px-5 dark:divide-gray-800">
+                                    {profileList.items.length === 0 && <p className="py-8 text-center text-gray-500">Ninguém neste grupo.</p>}
+                                    {[...profileList.items].sort((a: any, b: any) => `${a.date || ''}${a.time || ''}`.localeCompare(`${b.date || ''}${b.time || ''}`)).map((apt: any, i: number) => {
+                                        const phone = apt.patientInfo?.phone || apt.patient?.phone;
+                                        const pre = apt.operationalStatus === 'pre_agendado';
+                                        return (
+                                            <div key={apt._id || i} className="flex flex-wrap items-center gap-3 py-3">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                                        {apt.patientInfo?.fullName || apt.patient?.fullName || 'Nome não informado'}
+                                                        {pre && <span className="ml-2 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-3xs font-bold text-amber-800">pré-agendado</span>}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {[apt.date ? format(parseISO(String(apt.date).slice(0, 10)), 'dd/MM') : null, apt.time, apt.doctor?.fullName || apt.professionalName, apt.specialty].filter(Boolean).join(' · ')}
+                                                    </p>
+                                                </div>
+                                                {phone && (
+                                                    <button type="button" onClick={() => handleOpenWhatsApp(phone)} className="rounded-md border border-emerald-700 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-500/10">
+                                                        Abrir conversa
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Modal: Pré-agendados Novos */}
                     {newPatientsModalOpen && (() => {
                         const leads = [
@@ -1176,7 +1228,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     </div>
 
                     {/* Tabs de Detalhes */}
-                    <div className="mb-3">
+                    <div className="mb-3 scroll-mt-24" id="cashflow-detail-tabs">
                         <div className="flex gap-1 overflow-x-auto bg-gray-100 rounded-xl p-1">
                             {[
                                 { label: 'Recebimentos',       count: data.transacoes?.length || 0,                                      icon: <ReceiptIcon style={{ fontSize: 15 }} /> },

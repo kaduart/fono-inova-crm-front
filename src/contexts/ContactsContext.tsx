@@ -347,6 +347,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                             lastMessage: data.lastMessage ?? c.lastMessage,
                             lastMessagePreview: data.lastMessage ?? c.lastMessagePreview,
                             lastMessageAt: data.lastMessageAt ?? c.lastMessageAt,
+                            lastDirection: data.lastDirection ?? c.lastDirection,
                             // usa unreadCount do DB apenas se for inbound e não estiver na conversa ativa
                             unreadCount: incUnread ? (data.unreadCount ?? c.unreadCount) : c.unreadCount,
                         }
@@ -387,6 +388,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                 
                 if (!phone) return;
 
+                // Declarados antes do contato novo (antes ficavam abaixo e davam ReferenceError)
+                const preview = buildPreview(payload);
+                const ts = getEventTimestamp(payload);
+                const direction: 'inbound' | 'outbound' = (String(payload.direction || "").toLowerCase() || (from ? 'inbound' : 'outbound')) === 'outbound' ? 'outbound' : 'inbound';
+
                 // 🎯 PRIORIZA contactId do payload (mais confiável que busca por telefone)
                 let contactId: string | undefined = payload.contactId || payload.contact?._id;
                 
@@ -407,6 +413,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                         hasNewMessage: true,
                         unreadCount: 1,
                         leadId: payload.leadId,
+                        lastDirection: direction,
                     };
                     setContacts(prev => {
                         const updated = [newContact, ...prev];
@@ -418,9 +425,6 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
                 const dir = String(payload.direction || "").toLowerCase();
                 const isInbound = dir ? dir === "inbound" : Boolean(from);
-
-                const preview = buildPreview(payload);
-                const ts = getEventTimestamp(payload);
                 const activeId = activeContactIdRef.current;
                 const incUnread = isInbound && activeId !== contactId;
 
@@ -446,6 +450,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
                                 lastMessagePreview: preview,
                                 lastMessage: preview,
                                 lastMessageAt: ts,
+                                lastDirection: direction,
                                 hasNewMessage: incUnread ? true : c.hasNewMessage,
                                 unreadCount: incUnread ? (c.unreadCount || 0) + 1 : c.unreadCount || 0,
                             }

@@ -103,7 +103,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     return (
         <div 
             ref={containerRef}
-            className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-green-50/30 relative"
+            className="flex-1 overflow-y-auto bg-gray-50 relative dark:bg-gray-950"
         >
             <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(circle_at_1px_1px,#000_1px,transparent_0)] bg-[length:20px_20px]" />
 
@@ -190,7 +190,7 @@ const SystemMessageBubble: React.FC<{ message: Message }> = ({ message }) => {
     );
 };
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, contact, isPending, onRetry }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, isPending, onRetry }) => {
     // 🆕 Renderiza mensagens de sistema de forma diferente
     if (message.isSystem || message.type === 'system') {
         return <SystemMessageBubble message={message} />;
@@ -204,7 +204,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, contact, isPending, 
                         text={message.text}
                         isMine={message.fromMe || false}
                         type={message.type}
-                        senderName={!message.fromMe ? (contact?.name || "Paciente") : "Você"}
+                        // Conversa 1:1: o nome no balão só repetia o cabeçalho
                         mediaUrl={message.mediaUrl}
                         mediaId={message.mediaId}
                         caption={message.caption}

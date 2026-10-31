@@ -19,6 +19,7 @@ import type { Contact, ChatWindowProps } from './types/chat.types';
 import { enviarViaExtensao, type PreAgendamentoChat } from './extensionHelper';
 import LeadJourneyPanel from './LeadJourneyPanel';
 import { useChat } from '../../../contexts/ChatContext';
+import { formatPhoneBR, isPatientContact, quickReplies } from './chatHelpers';
 
 // Interface local (já importamos do helper)
 type PreAgendamentoLocal = PreAgendamentoChat;
@@ -300,6 +301,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
         updateContact(contact._id, { name: updated?.name ?? newName });
     };
 
+    const replies = React.useMemo(
+        () => quickReplies({ name: hasGenericNameValue ? null : contact?.name, therapyArea: contact?.lead?.therapyArea }),
+        [contact?.name, contact?.lead?.therapyArea, hasGenericNameValue]
+    );
+    const applyReply = (text: string) => {
+        setDraft(text);
+        requestAnimationFrame(() => {
+            const el = inputRef.current;
+            if (!el) return;
+            el.focus();
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+        });
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -319,9 +335,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
     }
 
     return (
-        <div className={`${className} flex flex-col h-full bg-white shadow-lg rounded-2xl overflow-hidden`}>
+        <div className={`${className} flex flex-col h-full bg-white dark:bg-gray-900 overflow-hidden`}>
             {/* Header */}
-            <div className="px-4 py-3 border-b bg-white flex items-center justify-between gap-4">
+            <div className="px-4 py-3 border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="relative">
                         <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center overflow-hidden">
@@ -337,19 +353,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                     </div>
 
                     <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 truncate flex items-center gap-2">
-                            {contact?.name || contact?.phone || "Sem nome"}
-                            {!socketConnected && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-medium bg-red-100 text-red-700">
-                                    Offline
-                                </span>
-                            )}
+                        <div className="font-semibold text-gray-900 dark:text-gray-50 truncate flex items-center gap-2">
+                            {hasGenericNameValue ? formatPhoneBR(contact?.phone) : (contact?.name || formatPhoneBR(contact?.phone) || "Sem nome")}
+                            <span className={`rounded-full px-1.5 text-[11px] font-semibold ${isPatientContact(contact)
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                : 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'}`}>{isPatientContact(contact) ? 'Paciente' : 'Lead'}</span>
                         </div>
-                        <div className="text-xs text-gray-500 truncate">{contact?.phone}</div>
+                        <div className="text-xs text-gray-500 truncate tabular-nums">
+                            {formatPhoneBR(contact?.phone)}
+                            {!socketConnected && <span className="ml-2 text-amber-600 dark:text-amber-400">reconectando…</span>}
+                        </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                    {/* Estado da Amanda sempre à vista (antes ficava só no menu) */}
+                    <button type="button" disabled={amandaLoading}
+                        onClick={() => (manualActive ? handleResumeAmanda() : handlePauseAmanda())}
+                        title={manualActive ? 'A equipe está respondendo. Clique para a Amanda voltar a responder.' : 'A Amanda (IA) está respondendo. Clique para pausar e responder você.'}
+                        className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-[12.5px] text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                        <span aria-hidden className={`h-2 w-2 rounded-full ${manualActive ? 'bg-gray-400' : 'bg-emerald-500'}`} />
+                        {manualActive ? 'Amanda pausada · reativar' : 'Amanda respondendo · pausar'}
+                    </button>
                     {/* Botão Abrir no WhatsApp */}
                     <button
                         onClick={() => {
@@ -564,8 +589,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                 isInitialLoad={isInitialLoad}
             />
 
+            {/* Respostas prontas: só preenchem o campo; a equipe revisa antes de enviar */}
+            <div className="flex flex-wrap gap-1.5 border-t border-gray-200 bg-white px-3 pt-2.5 dark:border-gray-800 dark:bg-gray-900" role="group" aria-label="Respostas prontas">
+                {replies.map(r => (
+                    <button key={r.key} type="button" onClick={() => applyReply(r.text)}
+                        className="rounded-full border border-dashed border-emerald-500 px-2.5 py-0.5 text-[12.5px] text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10">
+                        {r.label}
+                    </button>
+                ))}
+            </div>
+
             {/* Input Area */}
-            <div className="p-3 border-t border-gray-200 bg-white">
+            <div className="px-3 pb-3 pt-2 bg-white dark:bg-gray-900">
                 <div className="flex items-end gap-2">
                     <MediaUpload 
                         phone={contact?.phone || ''}
@@ -592,7 +627,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ contact, className, leadId }) =
                         <textarea
                             ref={inputRef}
                             rows={1}
-                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all placeholder:text-gray-500 resize-none min-h-[48px] max-h-[120px]"
+                            className="w-full py-3 px-4 bg-gray-100 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all placeholder:text-gray-500 resize-none min-h-[48px] max-h-[160px]"
                             placeholder="Digite uma mensagem..."
                             value={draft}
                             onChange={(e) => {

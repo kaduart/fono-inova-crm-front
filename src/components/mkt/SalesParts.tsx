@@ -1,8 +1,9 @@
 // Peças comuns das abas de Vendas & Marketing (padrão finUi do Financeiro).
 // Os números vêm prontos do back (docs/SALES_MARKETING.md); aqui só formatamos.
 import { useEffect, useState } from 'react';
+import { specialtyText } from '../commercial/commercialCopy';
 import { brl, KpiStrip, Pill, rangeFor, type PeriodRange } from '../../pages/Financial/components/finUi';
-import { salesMarketingService, type LeadsSummary, type RoiSummary } from '../../services/salesMarketingService';
+import { salesMarketingService, type IdleSpecialty, type LeadsSummary, type RoiSummary } from '../../services/salesMarketingService';
 
 const now = new Date();
 export const CUR_MONTH = now.getMonth() + 1;
@@ -123,5 +124,39 @@ export function RoiKpis({ data, loading }: { data: RoiSummary | null; loading: b
             { label: 'Receita (caixa)', value: t ? brl(t.revenue) : '—', hero: true, sub: 'dos pacientes novos' },
             { label: 'Retorno', value: t?.returnMultiple != null ? `${t.returnMultiple.toLocaleString('pt-BR')}×` : '—', hero: true, sub: 'receita ÷ investimento' },
         ]} />
+    );
+}
+
+/**
+ * Social Media: "Sugestões da semana" a partir das vagas ociosas por especialidade
+ * (GET /v2/commercial/idle-slots). Post de uma especialidade com vaga traz o lead que ocupa a vaga.
+ */
+export function WeekSuggestions({ onPick }: { onPick?: (specialty: string) => void }) {
+    const [items, setItems] = useState<IdleSpecialty[] | null>(null);
+    useEffect(() => {
+        salesMarketingService.idleSlots().then(setItems).catch((e) => { console.error('[social] vagas ociosas', e); setItems([]); });
+    }, []);
+    if (!items || !items.length) return null;
+    const top = items.slice(0, 2);
+    return (
+        <section aria-label="Sugestões da semana" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <h2 className="mb-2 text-sm font-bold text-emerald-900 dark:text-emerald-200">Sugestões da semana</h2>
+            <ul className="flex flex-col gap-2">
+                {top.map(s => (
+                    <li key={s.specialty} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-emerald-950 dark:text-emerald-100">
+                        <span className="min-w-0 flex-1">
+                            <b>{specialtyText(s.specialty)}</b> tem {s.idleSlots} {s.idleSlots === 1 ? 'horário vago' : 'horários vagos'} na grade
+                            {s.weekday ? `, mais na ${s.weekday} de ${s.period}` : `, mais de ${s.period}`}. Um post sobre {specialtyText(s.specialty)} no Instagram e no GMB ajuda a ocupar esses horários.
+                        </span>
+                        {onPick && (
+                            <button type="button" onClick={() => onPick(s.specialty)}
+                                className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800">
+                                Criar post
+                            </button>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </section>
     );
 }
