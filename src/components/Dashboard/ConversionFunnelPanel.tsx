@@ -1,7 +1,7 @@
 // Funil comercial por CANAL DE MARKETING (vem da atribuição, não da origem técnica).
 // Fonte: GET /v2/analytics/roi/funnel-by-channel. Independe da fila do pixel.
 import { useEffect, useState } from "react";
-import { Users, Info, AlertTriangle } from "lucide-react";
+import { Users, Info, AlertTriangle, Unlink } from "lucide-react";
 import API from "../../services/api";
 
 type Row = {
@@ -35,10 +35,24 @@ const convTone = (v: number | null) =>
     : "bg-slate-100 text-slate-600";
 const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || "";
 
+function SemVinculo({ s }: { s: { agendamentos: number; preAgendamentos: number } }) {
+  if (s.agendamentos + s.preAgendamentos === 0) return null;
+  return (
+    <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <Unlink size={14} className="shrink-0 text-slate-400 mt-0.5" />
+      <p className="text-xs text-slate-500">
+        <span className="font-medium text-slate-600">Agendamentos sem vínculo com contato:</span>{" "}
+        {s.agendamentos} agendado(s){s.preAgendamentos ? `, ${s.preAgendamentos} pré-agendado(s)` : ""} — telefone sem Lead; mostrados à parte, fora da taxa de conversão.
+      </p>
+    </div>
+  );
+}
+
 export default function ConversionFunnelPanel() {
   const [days, setDays] = useState(30);
   const [rows, setRows] = useState<Row[]>([]);
   const [totals, setTotals] = useState<Totals>({ contatos: 0, preAgendamentos: 0, agendamentos: 0, conversao: null });
+  const [semVinculo, setSemVinculo] = useState({ agendamentos: 0, preAgendamentos: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +64,7 @@ export default function ConversionFunnelPanel() {
         if (!alive) return;
         setRows(r.data?.data || []);
         setTotals(r.data?.totals || { contatos: 0, preAgendamentos: 0, agendamentos: 0, conversao: null });
+        setSemVinculo(r.data?.semVinculo || { agendamentos: 0, preAgendamentos: 0 });
       })
       .catch((e) => {
         if (!alive) return;
@@ -98,9 +113,9 @@ export default function ConversionFunnelPanel() {
             </div>
             <p className="text-sm font-medium text-slate-600">Nenhum contato neste período</p>
             <p className="text-xs text-slate-400 mt-1 max-w-sm">
-              Consulta respondeu normalmente — o banco atual não tem contatos na janela.
-              Os números reais aparecem quando a tela lê o banco com os agendamentos (produção).
+              A consulta respondeu normalmente — não há contatos registrados neste período.
             </p>
+            <SemVinculo s={semVinculo} />
           </div>
         ) : (
           <div className="overflow-x-auto -mx-1">
@@ -147,6 +162,7 @@ export default function ConversionFunnelPanel() {
             <p className="text-[11px] text-slate-400 mt-3">
               Conversão = contatos que agendaram ÷ contatos recebidos do mesmo canal (mesma coorte do período). Canal vem da atribuição; remarcação e sessões recorrentes contam uma vez.
             </p>
+            <SemVinculo s={semVinculo} />
           </div>
         )}
       </div>
