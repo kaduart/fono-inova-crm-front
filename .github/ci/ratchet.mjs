@@ -7,12 +7,14 @@
  *
  * Uso:
  *   node .github/ci/ratchet.mjs tests <vitest-report.json> <baseline.txt>
+ *   node .github/ci/ratchet.mjs syntax <lista-de-arquivos.txt> <baseline.txt>
  *   node .github/ci/ratchet.mjs count <nome> <numero-atual> <baseline.json>
  *
  * Quando algo melhora, o script avisa para baixar a linha de base no mesmo PR.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const [mode, ...args] = process.argv.slice(2);
 const notice = (msg) => console.log(`::notice::${msg}`);
@@ -28,6 +30,23 @@ function readBaselineList(file) {
   );
 }
 
+function compareLists(label, failing, baselineFile) {
+  const baseline = readBaselineList(baselineFile);
+  const novos = [...failing].filter((f) => !baseline.has(f)).sort();
+  const corrigidos = [...baseline].filter((f) => !failing.has(f)).sort();
+  console.log(`${label}: ${failing.size} arquivo(s) falhando (linha de base: ${baseline.size}).`);
+  if (failing.size) console.log(`Lista atual:\n${[...failing].sort().join('\n')}`);
+  if (corrigidos.length) {
+    notice(`${corrigidos.length} arquivo(s) da linha de base agora passam. Remova de ${baselineFile}: ${corrigidos.join(', ')}`);
+  }
+  if (novos.length) {
+    for (const f of novos) error(`${label}: arquivo falhando que não estava na linha de base: ${f}`);
+    process.exit(1);
+  }
+  console.log(`OK: nenhum arquivo novo falhando em ${label}.`);
+  process.exit(0);
+}
+
 if (mode === 'tests') {
   const [reportFile, baselineFile] = args;
   if (!fs.existsSync(reportFile)) {
@@ -41,22 +60,23 @@ if (mode === 'tests') {
       .filter((r) => r.status !== 'passed' && r.status !== 'skipped' && r.status !== 'pending')
       .map((r) => path.relative(root, r.name).split(path.sep).join('/')),
   );
-  const baseline = readBaselineList(baselineFile);
-  const novos = [...failing].filter((f) => !baseline.has(f)).sort();
-  const corrigidos = [...baseline].filter((f) => !failing.has(f)).sort();
-
   console.log(`Testes: ${report.numPassedTests ?? '?'} passaram, ${report.numFailedTests ?? '?'} falharam.`);
-  console.log(`Arquivos falhando: ${failing.size} (linha de base: ${baseline.size}).`);
+  compareLists('testes', failing, baselineFile);
+}
 
-  if (corrigidos.length) {
-    notice(`${corrigidos.length} arquivo(s) da linha de base agora passam. Remova de ${baselineFile}: ${corrigidos.join(', ')}`);
+if (mode === 'syntax') {
+  const [listFile, baselineFile] = args;
+  const files = fs.readFileSync(listFile, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean);
+  const failing = new Set();
+  for (const f of files) {
+    const r = spawnSync(process.execPath, ['--check', f], { encoding: 'utf8' });
+    if (r.status !== 0) {
+      failing.add(f);
+      console.log(`--- ${f}\n${(r.stderr || '').split('\n').slice(0, 5).join('\n')}`);
+    }
   }
-  if (novos.length) {
-    for (const f of novos) error(`Arquivo de teste falhando que não estava na linha de base: ${f}`);
-    process.exit(1);
-  }
-  console.log('OK: nenhum arquivo de teste novo falhando.');
-  process.exit(0);
+  console.log(`Sintaxe conferida em ${files.length} arquivo(s).`);
+  compareLists('sintaxe', failing, baselineFile);
 }
 
 if (mode === 'count') {
