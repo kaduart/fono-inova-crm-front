@@ -973,10 +973,7 @@ export default function MarketingDashboard() {
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-5 shadow-sm">
             {/* Cabeçalho com ícone e título */}
             <div className="flex items-center gap-2 mb-3">
-              <div className={`p-1.5 rounded-md ${activeTab === 'gmb' ? 'bg-blue-100 text-blue-600' :
-                activeTab === 'instagram' ? 'bg-pink-100 text-pink-600' :
-                  'bg-indigo-100 text-indigo-600'
-                }`}>
+              <div className="p-1.5 rounded-md bg-emerald-100 text-emerald-700">
                 {activeTab === 'gmb' && <span className="text-base">📍</span>}
                 {activeTab === 'instagram' && <span className="text-base">📸</span>}
                 {activeTab === 'facebook' && <span className="text-base">📘</span>}
@@ -994,10 +991,10 @@ export default function MarketingDashboard() {
             </div>
 
             {/* Header com botão Gerar - sempre no topo direito */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 border border-blue-200">
+            <div className="bg-emerald-50/70 rounded-lg p-3 mb-4 border border-emerald-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-1">
+                  <p className="text-xs text-emerald-700 uppercase tracking-wider font-medium mb-1">
                     {!selectedEspecialidade ? '🔄 Próximo da fila automática' : '🎯 Modo Manual'}
                   </p>
                   <div className="flex items-center gap-3">
@@ -1034,7 +1031,7 @@ export default function MarketingDashboard() {
                           setScheduleTime('08:00');
                         }
                       }}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
                     <span>📅 Agendar</span>
                   </label>
@@ -1042,10 +1039,7 @@ export default function MarketingDashboard() {
                   <button
                     onClick={() => handleGenerate('full')}
                     disabled={generating}
-                    className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex items-center gap-2 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' :
-                        activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' :
-                          'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'
-                      }`}
+                    className="px-4 py-2 text-white rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
                   >
                     {generating ? (
                       <>
@@ -1067,11 +1061,11 @@ export default function MarketingDashboard() {
               
               {/* Campos de agendamento (aparecem abaixo quando checkbox marcado) */}
               {schedulePost && (
-                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-blue-200">
+                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-emerald-200">
                   <select
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50"
+                    className="px-3 py-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-white"
                   >
                     {getProximosDias().map(dia => (
                       <option key={dia.value} value={dia.value}>{dia.label}</option>
@@ -1080,7 +1074,7 @@ export default function MarketingDashboard() {
                   <select
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
-                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50"
+                    className="px-3 py-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-white"
                   >
                     {HORARIOS_ESTRATEGICOS.map(horario => (
                       <option key={horario.value} value={horario.value}>{horario.label}</option>
@@ -1095,7 +1089,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedEspecialidade}
                 onChange={(e) => setSelectedEspecialidade(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
               >
                 <option value="">🔄 Fila Automática</option>
                 {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -1104,7 +1098,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedFunnelStage}
                 onChange={(e) => setSelectedFunnelStage(e.target.value as FunnelStage)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
               >
                 <option value="top">🔴 Topo (Descoberta)</option>
                 <option value="middle">🟡 Meio (Consideração)</option>
@@ -1114,7 +1108,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedProvider}
                 onChange={(e) => setSelectedProvider(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
                 title="IA para gerar imagem"
               >
                 <option value="auto">🤖 Auto (melhor)</option>
@@ -1134,17 +1128,17 @@ export default function MarketingDashboard() {
               value={customTheme}
               onChange={(e) => setCustomTheme(e.target.value)}
               placeholder="Tema personalizado (opcional) — ex: volta às aulas, ansiedade infantil..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-3"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors mb-3"
             />
 
             {/* Layouts Instagram (apenas modo full) */}
             {activeTab === 'instagram' && selectedMode === 'full' && (
-              <div className="mb-3 border border-pink-200 rounded-lg overflow-hidden">
-                <div className="bg-pink-50 px-3 py-2 flex items-center justify-between">
+              <div className="mb-3 border border-emerald-200 rounded-lg overflow-hidden">
+                <div className="bg-emerald-50 px-3 py-2 flex items-center justify-between">
                   <p className="text-xs font-semibold text-gray-700">
                     🎨 Layout Profissional
                     {layoutSelecionado && (
-                      <span className="ml-2 text-xs text-pink-600 font-normal">
+                      <span className="ml-2 text-xs text-emerald-600 font-normal">
                         ✓ {(layoutsDisponiveis || []).find(l => l.id === layoutSelecionado)?.nome}
                       </span>
                     )}
@@ -1174,8 +1168,8 @@ export default function MarketingDashboard() {
                         key={layout.id}
                         onClick={() => setLayoutSelecionado(layoutSelecionado === layout.id ? null : layout.id)}
                         className={`rounded border p-1.5 text-left transition-all ${layoutSelecionado === layout.id
-                          ? 'border-pink-500 bg-pink-50 shadow-sm'
-                          : 'border-gray-200 hover:border-pink-300'
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : 'border-gray-200 hover:border-emerald-300'
                           }`}
                       >
                         <div
@@ -1202,7 +1196,7 @@ export default function MarketingDashboard() {
               <div className="grid grid-cols-3 gap-1.5">
                 <button
                   onClick={() => setSelectedMode('full')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">✨</span>
                   <span>Completo</span>
@@ -1218,7 +1212,7 @@ export default function MarketingDashboard() {
                 </button>
                 <button
                   onClick={() => setSelectedMode('hooks')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">🎣</span>
                   <span>10 Ganchos</span>
@@ -1240,7 +1234,7 @@ export default function MarketingDashboard() {
                   <button
                     key={key}
                     onClick={() => setSelectedTone(key as any)}
-                    className={`px-1.5 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                    className={`px-1.5 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                   >
                     <span className="text-base">{emoji}</span>
                     <span className="text-2xs font-semibold">{label}</span>
@@ -1255,7 +1249,7 @@ export default function MarketingDashboard() {
               <button
                 onClick={handleGenerateVariations}
                 disabled={loadingVariations}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-violet-700 border border-violet-200 bg-violet-50 hover:bg-violet-100 rounded-lg transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all disabled:opacity-50"
               >
                 {loadingVariations ? (
                   <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -1269,7 +1263,7 @@ export default function MarketingDashboard() {
                 <button
                   onClick={handleWeeklyPlan}
                   disabled={weeklyPlanLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all disabled:opacity-50"
                 >
                   {weeklyPlanLoading ? (
                     <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -1385,7 +1379,7 @@ export default function MarketingDashboard() {
         <select
           value={selectedEspecialidade}
           onChange={(e) => { setSelectedEspecialidade(e.target.value); setVideoArea(''); setVideoSubTema(''); }}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
         >
           <option value="">Selecione uma especialidade...</option>
           {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -1393,7 +1387,7 @@ export default function MarketingDashboard() {
         <select
           value={videoDuration}
           onChange={(e) => setVideoDuration(Number(e.target.value) as 30 | 45 | 60)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
         >
           <option value={30}>⏱️ 30 segundos</option>
           <option value={45}>⏱️ 45 segundos</option>
@@ -1402,7 +1396,7 @@ export default function MarketingDashboard() {
         <select
           value={videoMode}
           onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'veo3' | 'runway' | 'economico' | 'teste' | 'infinitetalk')}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
         >
           <option value="teste">🧪 MODO TESTE (Grátis - Testar flow sem custo)</option>
           <option value="economico">💰 Econômico (Imagens + TTS) ~R$0,20</option>
@@ -1827,7 +1821,7 @@ export default function MarketingDashboard() {
               ? 'Tema que o avatar vai falar (opcional) — ex: "atraso na fala: quando se preocupar". Vazio = Zeus gera automaticamente.'
               : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
         }
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
         rows={2}
       />
 
@@ -1886,7 +1880,7 @@ export default function MarketingDashboard() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             >
               <option value="all">Todos Status</option>
               <option value="draft">📝 Rascunho</option>
@@ -1895,7 +1889,7 @@ export default function MarketingDashboard() {
             <select
               value={funnelFilter}
               onChange={(e) => setFunnelFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             >
               <option value="all">Todos Funis</option>
               <option value="top">🔴 Topo (Descoberta)</option>
@@ -2040,7 +2034,7 @@ export default function MarketingDashboard() {
                             <>
                               <button
                                 onClick={() => setEditModal({ open: true, post })}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
                               >
                                 <EditIcon />
                                 <span>Editar</span>
@@ -2048,7 +2042,7 @@ export default function MarketingDashboard() {
                               <button
                                 onClick={() => handlePublish(post._id)}
                                 disabled={publishingPost === post._id}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-green-200 disabled:opacity-50"
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors border border-emerald-600 disabled:opacity-50"
                               >
                                 <PublishIcon />
                                 <span>{publishingPost === post._id ? '...' : 'Publicar'}</span>
@@ -2072,7 +2066,7 @@ export default function MarketingDashboard() {
                               {post.status === 'approved' && (
                                 <button
                                   onClick={() => setPublishModal({ post, channel: activeTab as 'instagram' | 'facebook' })}
-                                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200"
+                                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors border border-emerald-600"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -2087,7 +2081,7 @@ export default function MarketingDashboard() {
                             <button
                               onClick={() => handleRepublish(post._id, post.status)}
                               disabled={republishingPost === post._id}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-orange-200 disabled:opacity-50"
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 disabled:opacity-50"
                             >
                               <RefreshIcon />
                               <span>{republishingPost === post._id ? '...' : 'Republicar'}</span>
@@ -2112,7 +2106,7 @@ export default function MarketingDashboard() {
                             <button
                               onClick={() => handleScorePost(post)}
                               disabled={scoringPostId === post._id}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 disabled:opacity-50"
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 disabled:opacity-50"
                               title="Avaliar qualidade"
                             >
                               {scoringPostId === post._id ? (
@@ -2127,7 +2121,7 @@ export default function MarketingDashboard() {
                           {/* Ver - todos os posts */}
                           <button
                             onClick={() => setPreviewModal({ open: true, post })}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
                             title="Ver post completo"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
