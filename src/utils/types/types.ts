@@ -362,6 +362,10 @@ export interface ScheduleAppointment {
 
     // usado só pra sincronizar slots localmente
     _syncKey?: number;
+
+    // Pré-preenchimento de paciente novo (ex.: "Agendar avaliação" vindo de Conversas)
+    isNewPatient?: boolean;
+    patientInfo?: { fullName?: string; phone?: string; birthDate?: string };
 }
 
 
