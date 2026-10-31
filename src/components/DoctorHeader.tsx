@@ -1,6 +1,7 @@
 // src/pages/doctor/components/DoctorHeader.tsx
 import HeaderNavButton, { HeaderBrand, HEADER_ICON_BUTTON_CLASS, HEADER_SHELL_CLASS } from './ui/HeaderNavButton';
 import ThemeToggle from './common/ThemeToggle';
+import NovidadesCenter from './novidades/NovidadesCenter';
 import {
     BarChart2,
     Calendar,
@@ -170,6 +171,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
 
                     {/* Tema + Perfil + Hamburguer */}
                     <div className="flex shrink-0 items-center gap-1.5">
+                        <NovidadesCenter area="doctor" activeTab={activeTab} />
                         <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
                         {/* Hamburguer - só no mobile */}
                         <button
