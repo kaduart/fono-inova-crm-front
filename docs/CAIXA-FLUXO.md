@@ -37,3 +37,10 @@ Pedido do Kadu: tudo que era clicável continua clicável para facilitar o comer
 - Números do topo: Caixa e Ticket abrem Recebimentos, Previsto abre a Agenda do dia, A receber abre Pendentes.
 - Agenda e movimento: Agendados, Atendidos, Aguardando e Faltas abrem a Agenda do dia já filtrada. "Ver agenda e atendimentos" abre a aba e rola até ela (antes trocava a aba lá embaixo e parecia que nada acontecia).
 - Perfil: pré-agendado e 1ª consulta viram "Pacientes novos" (com a divisão embaixo). Esse grupo, Retornos, Recorrentes e Liminar abrem uma lista com nome, horário, profissional e botão de WhatsApp. Nova especialidade segue com o modal próprio.
+
+## Visual do topo (aprovado em 31/10/2026)
+
+Mock: https://claude.ai/artifact/MofvBUst4aP3nUUB3Vx11G
+- Caixa em destaque (número grande, barra de quanto do previsto entrou, variação vs ontem).
+- Agenda e perfil numa linha de chips clicáveis (mesmos cliques de antes).
+- Ações com número colorido pela urgência; origem do caixa em barra empilhada com %.
