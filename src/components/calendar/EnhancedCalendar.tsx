@@ -2022,6 +2022,32 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setOpenSchedule(true);
     };
 
+    // "Agendar avaliação" vindo de Conversas: abre o modal já com o lead (paciente novo).
+    // O lead é deixado em sessionStorage por ChatContextPanel antes de navegar para cá.
+    useEffect(() => {
+        if (!permissions.canCreate) return;
+        let seedRaw: string | null = null;
+        try { seedRaw = sessionStorage.getItem('pendingScheduleLead'); } catch { /* sem storage */ }
+        if (!seedRaw) return;
+        try { sessionStorage.removeItem('pendingScheduleLead'); } catch { /* ignore */ }
+        try {
+            const lead = JSON.parse(seedRaw) as { fullName?: string; phone?: string; serviceType?: string };
+            setScheduleSeed({
+                doctorId: '', patientId: '', date: ymdSP(), time: '',
+                sessionType: 'fonoaudiologia', specialty: 'fonoaudiologia', notes: '',
+                paymentAmount: 0, paymentMethod: 'dinheiro', status: 'agendado',
+                serviceType: lead.serviceType || 'evaluation', billingType: 'particular',
+                insuranceProvider: '', authorizationCode: '',
+                isNewPatient: true,
+                patientInfo: { fullName: lead.fullName || '', phone: lead.phone || '' },
+            });
+            setAppointmentData(null);
+            setMode('create');
+            setOpenSchedule(true);
+        } catch { /* seed inválido, ignora */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [permissions.canCreate]);
+
     return (
         <>
             {/* 🆕 Estilos globais para o dia de feriado no FullCalendar */}

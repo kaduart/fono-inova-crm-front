@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { WA_TAB } from '../../components/commercial/commercialCopy';
 import {
   Box, Paper, Typography, Grid, Card, CardContent, Chip, Button,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton,
@@ -219,7 +220,7 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
                 variant="contained"
                 color="success"
                 startIcon={<WhatsApp />}
-                onClick={() => window.open(whatsappLinks.confirmacao, '_blank')}
+                onClick={() => window.open(whatsappLinks.confirmacao, WA_TAB)}
                 fullWidth
               >
                 1️⃣ Enviar Confirmação Agora

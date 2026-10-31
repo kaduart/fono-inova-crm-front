@@ -193,6 +193,13 @@ const ScheduleAppointmentModal = ({
                 setSearchedPatients([]);
                 setSelectedPatient(null);
             }
+            // Paciente novo pré-preenchido (ex.: "Agendar avaliação" vindo de Conversas)
+            if (initialData.isNewPatient && initialData.patientInfo) {
+                setIsNewPatient(true);
+                setNewPatientName(initialData.patientInfo.fullName || '');
+                setNewPatientPhone(initialData.patientInfo.phone || '');
+                setNewPatientBirthDate(initialData.patientInfo.birthDate || '');
+            }
         } else {
             setFormData(defaultForm);
             setServiceType('individual_session');

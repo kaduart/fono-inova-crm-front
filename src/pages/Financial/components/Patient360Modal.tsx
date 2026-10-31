@@ -1,4 +1,5 @@
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { WA_TAB } from '../../../components/commercial/commercialCopy';
 // frontend/src/pages/Financial/components/Patient360Modal.tsx
 import React from 'react';
 import {
@@ -46,7 +47,7 @@ export const Patient360Modal: React.FC<Props> = ({ patientId, open, onClose }) =
         if (!patient360?.patient.phone) return;
         const phone = patient360.patient.phone.replace(/\D/g, '');
         const message = encodeURIComponent(`Olá ${patient360.patient.name}, tudo bem? Gostaria de conversar sobre seu acompanhamento na Fono Inova.`);
-        window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+        window.open(`https://wa.me/55${phone}?text=${message}`, WA_TAB);
     };
 
     if (!open) return null;

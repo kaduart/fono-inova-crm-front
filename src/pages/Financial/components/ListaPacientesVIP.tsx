@@ -6,6 +6,7 @@ import { Crown, Eye, Phone, Users, Calendar, TrendingUp, Wallet } from 'lucide-r
 import { Patient360Modal } from './Patient360Modal';
 import { DashboardSection } from '../../../components/dashboard/DashboardSection';
 import { DataCard } from '../../../components/dashboard/DataCard';
+import { WA_TAB } from '../../../components/commercial/commercialCopy';
 import { MetricBadge } from '../../../components/dashboard/MetricBadge';
 import { EmptyState } from '../../../components/dashboard/EmptyState';
 import { CardSkeleton } from '../../../components/dashboard/CardSkeleton';
@@ -174,8 +175,7 @@ export const ListaPacientesVIP: React.FC<ListaPacientesVIPProps> = ({
                       {phone && (
                         <a
                           href={`https://wa.me/${phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          target={WA_TAB}
                           title="Abrir WhatsApp"
                           className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
                         >

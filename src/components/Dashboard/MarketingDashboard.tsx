@@ -3,7 +3,7 @@
  * Centraliza GMB, Instagram, Facebook, Vídeos e Spy de Concorrentes
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { toast } from 'react-toastify';
 import API from '../../services/api';
 import { trackGmbPostView, openGmbWhatsApp } from '../../services/gmbAbTracking';
@@ -17,241 +17,21 @@ import type { EditOptions, Video as VideoType } from '../../hooks/useMarketing';
 import InstagramIcon from "@mui/icons-material/Instagram";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
-import { Facebook, Google, Instagram, Search, VideoCall } from '@mui/icons-material';
-import { Video, TrendingUp } from 'lucide-react';
+import { Facebook, Google, Instagram, VideoCall } from '@mui/icons-material';
+import { Video } from 'lucide-react';
+import { ymdSP } from '../../utils/dateFormat';
 
-// Ícones
-const RefreshIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-  </svg>
-);
-
-const PlusIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-);
-
-const EditIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-  </svg>
-);
-
-const PublishIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-  </svg>
-);
-
-const StarIcon = ({ filled }: { filled?: boolean }) => (
-  <svg className={`w-4 h-4 ${filled ? 'text-yellow-500 fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-  </svg>
-);
-
-const SearchIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
-
-const SparklesIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-  </svg>
-);
-
-const ESPECIALIDADES = [
-  { id: 'fonoaudiologia', nome: 'Fonoaudiologia', cor: 'purple' },
-  { id: 'psicologia', nome: 'Psicologia', cor: 'pink' },
-  { id: 'terapia_ocupacional', nome: 'Terapia Ocupacional', cor: 'amber' },
-  { id: 'fisioterapia', nome: 'Fisioterapia', cor: 'emerald' },
-  { id: 'psicomotricidade', nome: 'Psicomotricidade', cor: 'orange' },
-  { id: 'freio_lingual', nome: 'Freio Lingual', cor: 'rose' },
-  { id: 'neuropsicologia', nome: 'Avaliação Neuropsicológica', cor: 'violet' },
-  { id: 'psicopedagogia', nome: 'Psicopedagogia', cor: 'cyan' },
-  { id: 'musicoterapia', nome: 'Musicoterapia', cor: 'fuchsia' },
-];
-
-// 🎯 Temas de conteúdo para vídeos — Área → Subtemas em cascata
-// Cada subtema tem gancho, tom e emoji sugeridos → auto-preenchidos ao selecionar
-type Subtema = { id: string; label: string; gancho: 'dor' | 'alerta' | 'curiosidade' | 'erro_comum' | 'autoridade'; tom: 'emotional' | 'educativo' | 'inspiracional' | 'bastidores'; emoji: string };
-const TEMAS_VIDEO: Record<string, { label: string; subtemas: Subtema[] }> = {
-  fono_fala: {
-    label: '🗣️ Fono / Fala',
-    subtemas: [
-      { id: 'atraso_fala',           label: 'Atraso de fala',                      gancho: 'dor',        tom: 'emotional',     emoji: '💔' },
-      { id: 'apraxia_infantil',      label: 'Apraxia infantil',                    gancho: 'curiosidade', tom: 'educativo',     emoji: '🤔' },
-      { id: 'dislalia',              label: 'Dislalia / Troca de sons',             gancho: 'erro_comum', tom: 'educativo',     emoji: '❌' },
-      { id: 'disturbios_linguagem',  label: 'Distúrbios de linguagem',              gancho: 'alerta',     tom: 'emotional',     emoji: '🚨' },
-      { id: 'estimulacao_fala',      label: 'Estimulação da fala em casa',          gancho: 'curiosidade', tom: 'educativo',    emoji: '💡' },
-      { id: 'leitura_comunicacao',   label: 'Leitura e comunicação precoce',        gancho: 'autoridade', tom: 'educativo',     emoji: '📚' },
-    ],
-  },
-  tea: {
-    label: '🧩 Autismo / TEA',
-    subtemas: [
-      { id: 'autismo',               label: 'Autismo / TEA (geral)',                gancho: 'alerta',     tom: 'emotional',     emoji: '💔' },
-      { id: 'comportamento',         label: 'Comportamento e birra',                gancho: 'dor',        tom: 'emotional',     emoji: '💔' },
-      { id: 'interacao_social',      label: 'Interação social',                    gancho: 'autoridade', tom: 'inspiracional', emoji: '💚' },
-      { id: 'comunicacao_nao_verbal',label: 'Comunicação não-verbal',               gancho: 'curiosidade', tom: 'educativo',    emoji: '🤔' },
-      { id: 'rotinas_adaptacao',     label: 'Rotinas e adaptação',                  gancho: 'curiosidade', tom: 'educativo',    emoji: '🗓️' },
-    ],
-  },
-  avaliacoes: {
-    label: '🧠 Avaliações',
-    subtemas: [
-      { id: 'avaliacao_neuropsicologica', label: 'Avaliação neuropsicológica',      gancho: 'autoridade', tom: 'educativo',     emoji: '👩‍⚕️' },
-      { id: 'teste_linguinha',            label: 'Teste da linguinha',              gancho: 'curiosidade', tom: 'educativo',    emoji: '👅' },
-      { id: 'teste_cognitivo',            label: 'Teste de desenvolvimento cognitivo', gancho: 'autoridade', tom: 'educativo',  emoji: '🧠' },
-      { id: 'triagem_fala',               label: 'Triagem de fala e linguagem',     gancho: 'alerta',     tom: 'emotional',     emoji: '🚨' },
-    ],
-  },
-  terapias: {
-    label: '🤲 Terapias',
-    subtemas: [
-      { id: 'musicoterapia',         label: 'Musicoterapia',                        gancho: 'curiosidade', tom: 'inspiracional', emoji: '🎵' },
-      { id: 'coordenacao_motora',    label: 'Coordenação motora fina e grossa',     gancho: 'curiosidade', tom: 'educativo',    emoji: '🤹' },
-      { id: 'terapia_ocupacional',   label: 'Terapia ocupacional infantil',         gancho: 'autoridade', tom: 'educativo',     emoji: '🤲' },
-      { id: 'psicomotricidade',      label: 'Psicomotricidade',                     gancho: 'curiosidade', tom: 'educativo',    emoji: '🤸' },
-      { id: 'fisioterapia_infantil', label: 'Fisioterapia infantil',                gancho: 'autoridade', tom: 'educativo',     emoji: '💪' },
-      { id: 'estimulacao_sensorial', label: 'Estimulação sensorial',                gancho: 'curiosidade', tom: 'educativo',    emoji: '✨' },
-    ],
-  },
-  dicas_pais: {
-    label: '👨‍👩‍👧 Dicas para Pais',
-    subtemas: [
-      { id: 'estimular_fala_casa',    label: 'Como estimular a fala em casa',       gancho: 'curiosidade', tom: 'educativo',    emoji: '💡' },
-      { id: 'brincadeiras_linguagem', label: 'Brincadeiras que desenvolvem linguagem', gancho: 'curiosidade', tom: 'educativo', emoji: '🎮' },
-      { id: 'alimentacao_fala',       label: 'Alimentação e fala',                  gancho: 'erro_comum', tom: 'educativo',     emoji: '❌' },
-      { id: 'lidar_birras',           label: 'Como lidar com birras',               gancho: 'dor',        tom: 'educativo',     emoji: '😤' },
-      { id: 'rotina_aprendizado',     label: 'Estratégias para rotina e aprendizado', gancho: 'autoridade', tom: 'educativo',   emoji: '📋' },
-    ],
-  },
-  publico: {
-    label: '👶 Público / Situação',
-    subtemas: [
-      { id: 'primeira_avaliacao',       label: 'Primeira avaliação',               gancho: 'alerta',     tom: 'emotional',     emoji: '🚨' },
-      { id: 'pos_diagnostico',          label: 'Pós-diagnóstico',                  gancho: 'autoridade', tom: 'inspiracional', emoji: '💚' },
-      { id: 'acompanhamento_progresso', label: 'Acompanhamento de progresso',      gancho: 'autoridade', tom: 'inspiracional', emoji: '✨' },
-      { id: 'criancas_2_3',             label: 'Crianças 2-3 anos',               gancho: 'dor',        tom: 'emotional',     emoji: '💔' },
-      { id: 'criancas_4_5',             label: 'Crianças 4-5 anos',               gancho: 'curiosidade', tom: 'educativo',    emoji: '🤔' },
-    ],
-  },
-  cta_extras: {
-    label: '📣 CTA / Extras',
-    subtemas: [
-      { id: 'mensagem_educativa',   label: 'Mensagem educativa com emoji',          gancho: 'curiosidade', tom: 'educativo',    emoji: '💡' },
-      { id: 'convite_consulta',     label: 'Convite para avaliação ou consulta',    gancho: 'autoridade', tom: 'inspiracional', emoji: '💚' },
-      { id: 'conteudo_interativo',  label: 'Conteúdo divertido / interativo',       gancho: 'curiosidade', tom: 'inspiracional', emoji: '🎯' },
-    ],
-  },
-};
-
-// Mapeamento: qual especialidade exibe quais áreas de tema
-const ESPECIALIDADE_AREAS: Record<string, string[]> = {
-  fonoaudiologia:      ['fono_fala', 'tea', 'avaliacoes', 'dicas_pais', 'publico', 'cta_extras'],
-  psicologia:          ['tea', 'dicas_pais', 'publico', 'cta_extras'],              // comportamento, emoções, dicas família
-  terapia_ocupacional: ['terapias', 'tea', 'dicas_pais', 'publico', 'cta_extras'],
-  fisioterapia:        ['terapias', 'publico', 'cta_extras'],                        // foco em motricidade/reabilitação
-  psicomotricidade:    ['terapias', 'dicas_pais', 'publico', 'cta_extras'],
-  freio_lingual:       ['fono_fala', 'avaliacoes', 'cta_extras'],                    // foco em avaliação e fala
-  neuropsicologia:     ['avaliacoes', 'tea', 'publico', 'cta_extras'],               // foco em avaliação e TEA
-  psicopedagogia:      ['dicas_pais', 'publico', 'cta_extras'],                      // foco em aprendizagem e família
-  musicoterapia:       ['terapias', 'tea', 'cta_extras'],
-};
-
-// 🕐 Horários estratégicos para publicação no GMB
-const HORARIOS_ESTRATEGICOS = [
-  { value: '08:00', label: '🌅 08:00 - Início do dia' },
-  { value: '12:30', label: '🌞 12:30 - Almoço' },
-  { value: '15:00', label: '☕ 15:00 - Tarde' },
-  { value: '19:00', label: '🌆 19:00 - Final do dia' },
-  { value: '21:00', label: '🌙 21:00 - Noite' },
-];
-
-// Gerar datas dos próximos 7 dias
-const getProximosDias = () => {
-  const dias = [];
-  const hoje = new Date();
-  for (let i = 0; i < 7; i++) {
-    const data = new Date(hoje);
-    data.setDate(hoje.getDate() + i);
-    const value = data.toISOString().split('T')[0];
-    const label = i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
-    dias.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
-  }
-  return dias;
-};
-
-import MetaAdsTab from './MetaAdsTab';
+// Tráfego Pago só carrega quando a aba é aberta (tela mais leve).
+const MetaAdsTab = lazy(() => import('./MetaAdsTab'));
 import { Chip, chipCls } from '../../pages/Financial/components/finUi';
 import { WeekSuggestions } from '../mkt/SalesParts';
 import LandingPageSuggestion from './LandingPageSuggestion';
 import { FileText } from 'lucide-react';
-
-// 🐛 FIX (2026-09-17): const de nível de módulo referenciando componentes de
-// ícone no carregamento do módulo — mesmo bug real de TDZ entre chunks
-// confirmado via sourcemap em appointmentDetailModal.tsx (build de produção
-// do Rollup). Corrigido: construção preguiçosa, só no primeiro uso em função.
-let _tabConfigCache: Record<string, { label: string; icon: any; activeClass: string; shortLabel: string }> | null = null;
-function getTabConfigMap() {
-  if (!_tabConfigCache) {
-    _tabConfigCache = {
-      gmb: {
-        label: 'Google Meu Negócio',
-        icon: Google,
-        activeClass: 'border-blue-600 text-blue-600',
-        shortLabel: 'GMB'
-      },
-      instagram: {
-        label: 'Instagram',
-        icon: Instagram,
-        activeClass: 'border-pink-600 text-pink-600',
-        shortLabel: 'IG'
-      },
-      facebook: {
-        label: 'Facebook',
-        icon: Facebook,
-        activeClass: 'border-indigo-600 text-indigo-600',
-        shortLabel: 'FB'
-      },
-      metaads: {
-        label: 'Tráfego Pago',
-        icon: TrendingUp,
-        activeClass: 'border-emerald-600 text-emerald-600',
-        shortLabel: 'Ads'
-      },
-      videos: {
-        label: 'Vídeos com IA',
-        icon: Video,
-        activeClass: 'border-red-600 text-red-600',
-        shortLabel: 'Vídeos'
-      },
-      spy: {
-        label: 'Spy de Concorrentes',
-        icon: Search,
-        activeClass: 'border-purple-600 text-purple-600',
-        shortLabel: 'Spy'
-      }
-    };
-  }
-  return _tabConfigCache;
-}
-
-const SOCIAL_GROUPS: { key: string; label: string; tabs: string[] }[] = [
-  { key: 'calendario', label: 'Calendário de posts', tabs: ['instagram', 'gmb', 'facebook'] },
-  { key: 'ia', label: 'Criar com IA', tabs: ['videos'] },
-  { key: 'anuncios', label: 'Anúncios', tabs: ['metaads', 'spy'] },
-];
+import {
+  RefreshIcon, EditIcon, TrashIcon, PublishIcon, StarIcon, SearchIcon, SparklesIcon,
+  ESPECIALIDADES, TEMAS_VIDEO, ESPECIALIDADE_AREAS, HORARIOS_ESTRATEGICOS,
+  getProximosDias, getTabConfigMap, SOCIAL_GROUPS,
+} from './marketing/marketingStatic';
 
 export default function MarketingDashboard() {
   const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('instagram');
@@ -316,6 +96,12 @@ export default function MarketingDashboard() {
   const [previewModal, setPreviewModal] = useState<{ open: boolean; post: any } | null>(null);
   const [previewContent, setPreviewContent] = useState<{ type: 'caption' | 'hooks' | null; data: any } | null>(null);
   const [selectedMode, setSelectedMode] = useState<'full' | 'caption' | 'hooks'>('full');
+  // Composer enxuto: opções secundárias recolhidas por padrão (mock aprovado 31/10).
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Timers de polling do GMB: limpos ao sair da tela para não vazar (auditoria 31/10).
+  const gmbTimersRef = useRef<Array<ReturnType<typeof setInterval>>>([]);
+  useEffect(() => () => { gmbTimersRef.current.forEach(clearInterval); gmbTimersRef.current = []; }, []);
 
   // 🧪 Tracking de visualização do post A/B
   useEffect(() => {
@@ -577,24 +363,30 @@ export default function MarketingDashboard() {
           toast.info(scheduledAt ? '📅 Post GMB agendado! Aguarde o briefing...' : '✨ Post sendo gerado... o briefing abrirá automaticamente!');
 
           if (postId) {
-            const pollInterval = setInterval(async () => {
+            let pollInterval: ReturnType<typeof setInterval>;
+            const stop = () => {
+              clearInterval(pollInterval);
+              gmbTimersRef.current = gmbTimersRef.current.filter(t => t !== pollInterval);
+            };
+            pollInterval = setInterval(async () => {
               try {
                 const postRes = await API.get(`/gmb/posts/${postId}`);
                 const post = postRes.data.data;
                 if (post.processingStatus === 'completed') {
-                  clearInterval(pollInterval);
+                  stop();
                   setPreviewModal({ open: true, post });
                   refresh();
                 } else if (post.processingStatus === 'failed') {
-                  clearInterval(pollInterval);
+                  stop();
                   toast.error('Falha ao gerar post');
                   refresh();
                 }
               } catch {
-                clearInterval(pollInterval);
+                stop();
               }
             }, 3000);
-            setTimeout(() => clearInterval(pollInterval), 180000);
+            gmbTimersRef.current.push(pollInterval);
+            setTimeout(stop, 180000);
           }
         } else {
           gmb.generate(espId, customTheme, scheduledAt, funnel, selectedProvider, false);
@@ -1183,10 +975,7 @@ export default function MarketingDashboard() {
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-5 shadow-sm">
             {/* Cabeçalho com ícone e título */}
             <div className="flex items-center gap-2 mb-3">
-              <div className={`p-1.5 rounded-md ${activeTab === 'gmb' ? 'bg-blue-100 text-blue-600' :
-                activeTab === 'instagram' ? 'bg-pink-100 text-pink-600' :
-                  'bg-indigo-100 text-indigo-600'
-                }`}>
+              <div className="p-1.5 rounded-md bg-emerald-100 text-emerald-700">
                 {activeTab === 'gmb' && <span className="text-base">📍</span>}
                 {activeTab === 'instagram' && <span className="text-base">📸</span>}
                 {activeTab === 'facebook' && <span className="text-base">📘</span>}
@@ -1204,10 +993,10 @@ export default function MarketingDashboard() {
             </div>
 
             {/* Header com botão Gerar - sempre no topo direito */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 border border-blue-200">
+            <div className="bg-emerald-50/70 rounded-lg p-3 mb-4 border border-emerald-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-1">
+                  <p className="text-xs text-emerald-700 uppercase tracking-wider font-medium mb-1">
                     {!selectedEspecialidade ? '🔄 Próximo da fila automática' : '🎯 Modo Manual'}
                   </p>
                   <div className="flex items-center gap-3">
@@ -1240,11 +1029,11 @@ export default function MarketingDashboard() {
                       onChange={(e) => {
                         setSchedulePost(e.target.checked);
                         if (e.target.checked) {
-                          setScheduleDate(new Date().toISOString().split('T')[0]);
+                          setScheduleDate(ymdSP());
                           setScheduleTime('08:00');
                         }
                       }}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
                     <span>📅 Agendar</span>
                   </label>
@@ -1252,10 +1041,7 @@ export default function MarketingDashboard() {
                   <button
                     onClick={() => handleGenerate('full')}
                     disabled={generating}
-                    className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex items-center gap-2 ${activeTab === 'gmb' ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' :
-                        activeTab === 'instagram' ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700' :
-                          'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800'
-                      }`}
+                    className="px-4 py-2 text-white rounded-lg disabled:opacity-50 transition-all text-sm font-medium flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
                   >
                     {generating ? (
                       <>
@@ -1277,11 +1063,11 @@ export default function MarketingDashboard() {
               
               {/* Campos de agendamento (aparecem abaixo quando checkbox marcado) */}
               {schedulePost && (
-                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-blue-200">
+                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-emerald-200">
                   <select
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50"
+                    className="px-3 py-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-white"
                   >
                     {getProximosDias().map(dia => (
                       <option key={dia.value} value={dia.value}>{dia.label}</option>
@@ -1290,7 +1076,7 @@ export default function MarketingDashboard() {
                   <select
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
-                    className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-blue-50"
+                    className="px-3 py-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 bg-white"
                   >
                     {HORARIOS_ESTRATEGICOS.map(horario => (
                       <option key={horario.value} value={horario.value}>{horario.label}</option>
@@ -1305,7 +1091,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedEspecialidade}
                 onChange={(e) => setSelectedEspecialidade(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
               >
                 <option value="">🔄 Fila Automática</option>
                 {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -1314,7 +1100,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedFunnelStage}
                 onChange={(e) => setSelectedFunnelStage(e.target.value as FunnelStage)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
               >
                 <option value="top">🔴 Topo (Descoberta)</option>
                 <option value="middle">🟡 Meio (Consideração)</option>
@@ -1324,7 +1110,7 @@ export default function MarketingDashboard() {
               <select
                 value={selectedProvider}
                 onChange={(e) => setSelectedProvider(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
                 title="IA para gerar imagem"
               >
                 <option value="auto">🤖 Auto (melhor)</option>
@@ -1338,23 +1124,40 @@ export default function MarketingDashboard() {
               </select>
             </div>
 
+            {/* Opções avançadas — recolhidas por padrão para deixar o composer enxuto */}
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(v => !v)}
+                aria-expanded={showAdvanced}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                <span>⚙️</span>
+                {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas'}
+                <span className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▾</span>
+              </button>
+              <span className="text-[11px] text-gray-400">tema, imagem, modo, tom de voz</span>
+            </div>
+
+            {showAdvanced && (
+            <div className="mt-3 space-y-3">
             {/* Tema personalizado */}
             <input
               type="text"
               value={customTheme}
               onChange={(e) => setCustomTheme(e.target.value)}
               placeholder="Tema personalizado (opcional) — ex: volta às aulas, ansiedade infantil..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors mb-3"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             />
 
             {/* Layouts Instagram (apenas modo full) */}
             {activeTab === 'instagram' && selectedMode === 'full' && (
-              <div className="mb-3 border border-pink-200 rounded-lg overflow-hidden">
-                <div className="bg-pink-50 px-3 py-2 flex items-center justify-between">
+              <div className="mb-3 border border-emerald-200 rounded-lg overflow-hidden">
+                <div className="bg-emerald-50 px-3 py-2 flex items-center justify-between">
                   <p className="text-xs font-semibold text-gray-700">
                     🎨 Layout Profissional
                     {layoutSelecionado && (
-                      <span className="ml-2 text-xs text-pink-600 font-normal">
+                      <span className="ml-2 text-xs text-emerald-600 font-normal">
                         ✓ {(layoutsDisponiveis || []).find(l => l.id === layoutSelecionado)?.nome}
                       </span>
                     )}
@@ -1384,8 +1187,8 @@ export default function MarketingDashboard() {
                         key={layout.id}
                         onClick={() => setLayoutSelecionado(layoutSelecionado === layout.id ? null : layout.id)}
                         className={`rounded border p-1.5 text-left transition-all ${layoutSelecionado === layout.id
-                          ? 'border-pink-500 bg-pink-50 shadow-sm'
-                          : 'border-gray-200 hover:border-pink-300'
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : 'border-gray-200 hover:border-emerald-300'
                           }`}
                       >
                         <div
@@ -1412,7 +1215,7 @@ export default function MarketingDashboard() {
               <div className="grid grid-cols-3 gap-1.5">
                 <button
                   onClick={() => setSelectedMode('full')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'full' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">✨</span>
                   <span>Completo</span>
@@ -1428,7 +1231,7 @@ export default function MarketingDashboard() {
                 </button>
                 <button
                   onClick={() => setSelectedMode('hooks')}
-                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedMode === 'hooks' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                 >
                   <span className="text-base">🎣</span>
                   <span>10 Ganchos</span>
@@ -1450,7 +1253,7 @@ export default function MarketingDashboard() {
                   <button
                     key={key}
                     onClick={() => setSelectedTone(key as any)}
-                    className={`px-1.5 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                    className={`px-1.5 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-0.5 transition-all ${selectedTone === key ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
                   >
                     <span className="text-base">{emoji}</span>
                     <span className="text-2xs font-semibold">{label}</span>
@@ -1465,7 +1268,7 @@ export default function MarketingDashboard() {
               <button
                 onClick={handleGenerateVariations}
                 disabled={loadingVariations}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-violet-700 border border-violet-200 bg-violet-50 hover:bg-violet-100 rounded-lg transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all disabled:opacity-50"
               >
                 {loadingVariations ? (
                   <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -1479,7 +1282,7 @@ export default function MarketingDashboard() {
                 <button
                   onClick={handleWeeklyPlan}
                   disabled={weeklyPlanLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all disabled:opacity-50"
                 >
                   {weeklyPlanLoading ? (
                     <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -1491,6 +1294,8 @@ export default function MarketingDashboard() {
                 </button>
               )}
             </div>
+            </div>
+            )}
 
             {/* 🔗 Sugestão de Landing Page - Apenas GMB */}
             {activeTab === 'gmb' && (
@@ -1504,7 +1309,11 @@ export default function MarketingDashboard() {
         )}
 
         {/* 💰 META ADS - Tráfego Pago */}
-        {activeTab === 'metaads' && <MetaAdsTab />}
+        {activeTab === 'metaads' && (
+          <Suspense fallback={<div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">Carregando…</div>}>
+            <MetaAdsTab />
+          </Suspense>
+        )}
 
         {/* 🎯 LANDING PAGES */}
 
@@ -1591,7 +1400,7 @@ export default function MarketingDashboard() {
         <select
           value={selectedEspecialidade}
           onChange={(e) => { setSelectedEspecialidade(e.target.value); setVideoArea(''); setVideoSubTema(''); }}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
         >
           <option value="">Selecione uma especialidade...</option>
           {ESPECIALIDADES.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -1599,7 +1408,7 @@ export default function MarketingDashboard() {
         <select
           value={videoDuration}
           onChange={(e) => setVideoDuration(Number(e.target.value) as 30 | 45 | 60)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
         >
           <option value={30}>⏱️ 30 segundos</option>
           <option value={45}>⏱️ 45 segundos</option>
@@ -1608,7 +1417,7 @@ export default function MarketingDashboard() {
         <select
           value={videoMode}
           onChange={(e) => setVideoMode(e.target.value as 'avatar' | 'ilustrativo' | 'veo' | 'veo3' | 'runway' | 'economico' | 'teste' | 'infinitetalk')}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
         >
           <option value="teste">🧪 MODO TESTE (Grátis - Testar flow sem custo)</option>
           <option value="economico">💰 Econômico (Imagens + TTS) ~R$0,20</option>
@@ -2033,7 +1842,7 @@ export default function MarketingDashboard() {
               ? 'Tema que o avatar vai falar (opcional) — ex: "atraso na fala: quando se preocupar". Vazio = Zeus gera automaticamente.'
               : 'Tema personalizado (opcional) — ou deixe em branco para gerar automaticamente pelo subTema...'
         }
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
         rows={2}
       />
 
@@ -2092,7 +1901,7 @@ export default function MarketingDashboard() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             >
               <option value="all">Todos Status</option>
               <option value="draft">📝 Rascunho</option>
@@ -2101,7 +1910,7 @@ export default function MarketingDashboard() {
             <select
               value={funnelFilter}
               onChange={(e) => setFunnelFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             >
               <option value="all">Todos Funis</option>
               <option value="top">🔴 Topo (Descoberta)</option>
@@ -2246,7 +2055,7 @@ export default function MarketingDashboard() {
                             <>
                               <button
                                 onClick={() => setEditModal({ open: true, post })}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
                               >
                                 <EditIcon />
                                 <span>Editar</span>
@@ -2254,7 +2063,7 @@ export default function MarketingDashboard() {
                               <button
                                 onClick={() => handlePublish(post._id)}
                                 disabled={publishingPost === post._id}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-green-200 disabled:opacity-50"
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors border border-emerald-600 disabled:opacity-50"
                               >
                                 <PublishIcon />
                                 <span>{publishingPost === post._id ? '...' : 'Publicar'}</span>
@@ -2278,7 +2087,7 @@ export default function MarketingDashboard() {
                               {post.status === 'approved' && (
                                 <button
                                   onClick={() => setPublishModal({ post, channel: activeTab as 'instagram' | 'facebook' })}
-                                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200"
+                                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors border border-emerald-600"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -2293,7 +2102,7 @@ export default function MarketingDashboard() {
                             <button
                               onClick={() => handleRepublish(post._id, post.status)}
                               disabled={republishingPost === post._id}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-orange-200 disabled:opacity-50"
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 disabled:opacity-50"
                             >
                               <RefreshIcon />
                               <span>{republishingPost === post._id ? '...' : 'Republicar'}</span>
@@ -2318,7 +2127,7 @@ export default function MarketingDashboard() {
                             <button
                               onClick={() => handleScorePost(post)}
                               disabled={scoringPostId === post._id}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 disabled:opacity-50"
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 disabled:opacity-50"
                               title="Avaliar qualidade"
                             >
                               {scoringPostId === post._id ? (
@@ -2333,7 +2142,7 @@ export default function MarketingDashboard() {
                           {/* Ver - todos os posts */}
                           <button
                             onClick={() => setPreviewModal({ open: true, post })}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
                             title="Ver post completo"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

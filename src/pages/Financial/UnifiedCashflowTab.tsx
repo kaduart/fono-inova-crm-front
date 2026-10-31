@@ -7,7 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useChatNavigation } from '../../contexts/ChatNavigationContext';
+import { openWhatsApp } from '../../components/commercial/commercialCopy';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import CashflowOverview from './components/CashflowOverview';
@@ -179,13 +179,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { setPendingContactPhone, setShouldOpenMessagesTab } = useChatNavigation();
 
+    // Abre direto no WhatsApp Web, reusando a mesma aba (pedido do comercial
+    // 31/10 — opção B). Antes levava para a tela interna de Conversas.
     const handleOpenWhatsApp = (phone: string) => {
-        const clean = phone.replace(/\D/g, '');
-        setPendingContactPhone(clean);
-        setShouldOpenMessagesTab(true);
-        navigate('/admin/messages');
+        openWhatsApp(phone);
     };
 
     const handleDeletePayment = async (paymentId: string, label: string) => {

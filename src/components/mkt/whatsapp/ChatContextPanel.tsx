@@ -61,8 +61,20 @@ const ChatContextPanel: React.FC<{ contact: Contact }> = ({ contact }) => {
     };
 
     const openAgenda = () => {
+        // Lead (não paciente): abre a Agenda já com o modal de avaliação preenchido.
+        if (!isPatient) {
+            try {
+                sessionStorage.setItem('pendingScheduleLead', JSON.stringify({
+                    fullName: contact.name || '',
+                    phone: contact.phone || '',
+                    serviceType: 'evaluation',
+                }));
+            } catch { /* sem storage: segue só abrindo a agenda */ }
+        }
         navigate('/admin?tab=Calend%C3%A1rio');
-        toast.info(`Agenda aberta. Escolha o horário para ${contact.name?.split(' ')[0] || 'o contato'}.`);
+        toast.info(isPatient
+            ? `Agenda aberta. Escolha o horário para ${contact.name?.split(' ')[0] || 'o contato'}.`
+            : `Avaliação de ${contact.name?.split(' ')[0] || 'o lead'} iniciada. Escolha o profissional e o horário.`);
     };
 
     // Mesmo critério da lista de pacientes (PatientList.debtOf): positivo = valor em aberto

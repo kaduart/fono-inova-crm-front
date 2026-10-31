@@ -8,7 +8,7 @@ import { IDoctor } from '../../utils/types/types';
 import { getSpecialtyLabel } from '../../constants/specialties';
 import { Chip } from './agenda/AgendaParts';
 import { FitSlotPanel, FitSlot } from '../commercial/CommercialParts';
-import { openWhatsApp as openWa, reactivationMessage } from '../commercial/commercialCopy';
+import { openWhatsApp as openWa, reactivationMessage, WA_TAB } from '../commercial/commercialCopy';
 import { commercialService } from '../../services/commercialService';
 import { patientService } from '../../services/patientService';
 import { toast } from 'react-toastify';
@@ -46,7 +46,7 @@ function openWhatsApp(phone: string, name: string) {
   if (!digits) return;
   const number = digits.startsWith('55') && digits.length >= 12 ? digits : `55${digits}`;
   const msg = encodeURIComponent(`Olá, ${name.split(' ')[0]}! Gostaríamos de agendar sua próxima sessão na Fono Inova.`);
-  window.open(`https://wa.me/${number}?text=${msg}`, '_blank', 'noopener');
+  window.open(`https://wa.me/${number}?text=${msg}`, WA_TAB);
 }
 
 const brl = (v: number) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
