@@ -303,8 +303,8 @@ export const fetchFutureAppointments = async (_doctorId?: string) => {
 };
 
 export const updateClinicalStatus = async (appointmentId: string, status: string) => {
-  // Rota correta: /appointments/:id/clinical-status
-  const response = await API.patch(`/appointments/${appointmentId}/clinical-status`, { clinicalStatus: status });
+  // V1 (/appointments) foi desligado no back: a rota viva é a v2, que lê `status` do corpo.
+  const response = await API.patch(`/v2/appointments/${appointmentId}/clinical-status`, { status });
   return response.data?.data || response.data;
 };
 
