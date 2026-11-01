@@ -43,16 +43,46 @@ export function statusChip(apt: any) {
     if (s === 'suspended') return <Chip tone="neu">Suspenso</Chip>;
     if (isCanceled(apt)) return <Chip tone="bad">Cancelado</Chip>;
     if (s.startsWith('processing')) return <Chip tone="neu">Processando…</Chip>;
-    return <Chip tone="warn">Agendado · não confirmado</Chip>;
+    return <Chip tone="warn">Não confirmado</Chip>;
 }
 
 export function billingChip(apt: any) {
     const type = apt.billingType || (apt.liminarContract ? 'liminar' : apt.insuranceProvider ? 'convenio' : 'particular');
     if (type === 'liminar') return <Chip tone="pur">Liminar</Chip>;
     if (type === 'convenio') return <Chip tone="info">Convênio{apt.insuranceProvider ? ` · ${apt.insuranceProvider}` : ''}</Chip>;
-    if (apt.package) return <Chip tone="neu">Pacote</Chip>;
+    if (apt.package) {
+        const pk = typeof apt.package === 'object' ? apt.package : null;
+        const total = Number(pk?.totalSessions) || 0;
+        // Sessão de hoje = próxima depois das já feitas (ex.: 7/12).
+        return <Chip tone="neu">Pacote{total ? ` · ${Math.min(total, (Number(pk?.sessionsDone) || 0) + 1)}/${total}` : ''}</Chip>;
+    }
     const paid = apt.payment?.status === 'paid';
     return <Chip tone="neu">Particular{apt.payment?.status ? ` · ${paid ? 'pago' : 'pendente'}` : ''}</Chip>;
+}
+
+// Linha de sinais: o que o terapeuta precisa saber antes de entrar na sessão.
+// Dados só de leitura vindos de /doctors/appointments/today (pacote, guia e sessão anterior).
+const DAY_MS = 86_400_000;
+export function sessionSignals(apt: any): string[] {
+    const out: string[] = [];
+    const pk = typeof apt.package === 'object' ? apt.package : null;
+    const total = Number(pk?.totalSessions) || 0;
+    const done = Number(pk?.sessionsDone) || 0;
+    if (total && !isCompleted(apt) && done + 1 >= total) out.push('Última sessão do pacote: falar de renovação');
+    const g = typeof apt.insuranceGuide === 'object' ? apt.insuranceGuide : null;
+    if (g?.expiresAt) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(g.expiresAt));
+        if (m) {
+            const exp = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            const t = new Date(); t.setHours(0, 0, 0, 0);
+            const days = Math.round((exp.getTime() - t.getTime()) / DAY_MS);
+            if (days >= 0 && days <= 15) out.push(days === 0 ? 'Guia vence hoje' : `Guia vence em ${days} ${days === 1 ? 'dia' : 'dias'}`);
+        }
+        const left = (Number(g.totalSessions) || 0) - (Number(g.usedSessions) || 0);
+        if (g.totalSessions && left <= 1) out.push(left <= 0 ? 'Guia sem sessões restantes' : 'Última sessão da guia');
+    }
+    if (apt.previousSession?.status === 'missed') out.push('Faltou na sessão anterior');
+    return out;
 }
 
 function journeyChip(apt: any) {
@@ -163,6 +193,9 @@ export default function TodayAgendaPanel({
                                         {journeyChip(apt)}
                                         {evolutionPending && <Chip tone="warn">Evolução pendente</Chip>}
                                     </div>
+                                    {!dim && sessionSignals(apt).length > 0 && (
+                                        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">{sessionSignals(apt).join(' · ')}</p>
+                                    )}
                                 </div>
                                 <div className="col-start-2 flex flex-wrap items-center gap-1.5 sm:col-start-3 sm:justify-end">
                                     {isCompleted(apt) ? (

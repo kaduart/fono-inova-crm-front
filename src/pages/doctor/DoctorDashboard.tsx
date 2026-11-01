@@ -11,7 +11,8 @@ import { IPatient } from '../../utils/types/types';
 
 import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
 import PatientDetail, { type PatientSection } from '../../components/doctor/patient/PatientDetail';
-import MyPatientsPanel from '../../components/doctor/patient/MyPatientsPanel';
+import MyPatientsPanel, { type Filter as PatientsFilter } from '../../components/doctor/patient/MyPatientsPanel';
+import { fetchMyPatients, type MyPatientsSummary } from '../../services/doctorService';
 import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
 import useDoctorInsights from '../../hooks/useDoctorInsights';
 import ScheduleAppointmentModal from '../../components/patients/ScheduleAppointmentModal';
@@ -104,6 +105,9 @@ export default function DoctorDashboard() {
   const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
   const [detailSection, setDetailSection] = useState<PatientSection | undefined>(undefined);
   const [createSignal, setCreateSignal] = useState(0);
+  // Filtro da lista "Meus pacientes" vindo de um atalho (KPI "Sem próxima sessão").
+  const [patientsFilter, setPatientsFilter] = useState<PatientsFilter>('');
+  const [careSummary, setCareSummary] = useState<MyPatientsSummary | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -178,7 +182,8 @@ export default function DoctorDashboard() {
     setScheduleModalLoading(true);
     try {
       await appointmentService.create(data);
-      toast.success('Consulta reagendada com sucesso!');
+      const when = data?.date ? `${String(data.date).slice(8, 10)}/${String(data.date).slice(5, 7)}${data.time ? ` às ${data.time}` : ''}` : '';
+      toast.success(when ? `Sessão agendada para ${when}` : 'Sessão agendada');
       setScheduleModalSignal(s => s + 1); // fecha modal via closeModalSignal
       loadOverview(true);       // atualiza consultas de hoje
       doctorInsights.refresh(); // atualiza métricas de risco
@@ -282,6 +287,16 @@ export default function DoctorDashboard() {
   const handleLogout = useCallback(() => {
     navigate('/logout');
   }, [navigate]);
+
+  // Resumo da carteira (ativos, sem próxima sessão…) para o KPI clicável do Dashboard.
+  useEffect(() => {
+    if (!doctorId || activeTab !== 'overview') return;
+    let alive = true;
+    fetchMyPatients({ limit: 1 })
+      .then(r => { if (alive) setCareSummary(r.meta.summary || null); })
+      .catch(() => { if (alive) setCareSummary(null); });
+    return () => { alive = false; };
+  }, [doctorId, activeTab, patientsRefreshKey]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
@@ -431,7 +446,9 @@ export default function DoctorDashboard() {
                   loading={loading.overview && !stats}
                   insights={doctorInsights.insights}
                   nextLabel={overviewKpis[3]}
-                  onOpenPatients={() => handleTabChange('patients')}
+                  onOpenPatients={() => { setPatientsFilter(''); handleTabChange('patients'); }}
+                  noNext={careSummary?.no_next}
+                  onOpenNoNext={() => { setPatientsFilter('no_next'); handleTabChange('patients'); }}
                   onOpenInsights={() => handleTabChange('insights')}
                 />
               </>
@@ -446,7 +463,7 @@ export default function DoctorDashboard() {
                 onRegisterEvolution={handleGoToEvolution}
                 onOpenPatient={openPatient}
               />
-              <TomorrowPanel futureAppointments={futureAppointments ?? []} />
+              <TomorrowPanel futureAppointments={futureAppointments ?? []} onSeeAgenda={() => handleTabChange('appointments')} />
             </div>}
           </div>
         );
@@ -472,11 +489,13 @@ export default function DoctorDashboard() {
               refreshKey={patientsRefreshKey}
               onOpenPatient={(p) => handleViewPatientDetails(p as IPatient)}
               onCreateAnamnesis={(p) => handleCreateAnamnesis(p as IPatient)}
+              onViewAnamnesis={(p) => { setSelectedPatient(p as IPatient); setDetailSection('anamnesis'); setCreateSignal(0); setViewMode('detail'); }}
               onCreateSchoolReport={(p) => handleCreateSchoolReport(p as IPatient)}
               onViewReports={(p) => handleViewMedicalReports(p as IPatient)}
               onRegisterEvolution={handleGoToEvolution}
               onSchedule={(p) => handleScheduleRiskPatient(p._id, p.fullName)}
               onAddNewPatient={isStaffViewer ? handleAddNewPatient : undefined}
+              initialFilter={patientsFilter}
             />
           </div>
         );
@@ -522,6 +541,7 @@ export default function DoctorDashboard() {
               onPatientClick={handleViewPatientHistory}
               onSchedule={handleScheduleRiskPatient}
               onViewHistory={handleViewPatientHistory}
+              futureAppointments={futureAppointments ?? []}
             />
         );
 

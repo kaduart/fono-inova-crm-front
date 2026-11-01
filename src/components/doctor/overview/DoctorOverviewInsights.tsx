@@ -14,15 +14,18 @@ interface Props {
     nextLabel?: { value: string | number; hint?: string };
     onOpenPatients: () => void;
     onOpenInsights: () => void;
+    /** Pacientes atendidos nos últimos 60 dias sem sessão futura (resumo do back). */
+    noNext?: number;
+    onOpenNoNext?: () => void;
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-export default function DoctorOverviewInsights({ stats, loading, insights, nextLabel, onOpenPatients, onOpenInsights }: Props) {
+export default function DoctorOverviewInsights({ stats, loading, insights, nextLabel, onOpenPatients, onOpenInsights, noNext, onOpenNoNext }: Props) {
     if (loading) {
         return (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true">
-                {[1, 2, 3, 4].map(i => <div key={i} className="h-[92px] animate-pulse rounded-xl bg-gray-100" />)}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-busy="true">
+                {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-[92px] animate-pulse rounded-xl bg-gray-100" />)}
             </div>
         );
     }
@@ -50,7 +53,7 @@ export default function DoctorOverviewInsights({ stats, loading, insights, nextL
 
     return (
         <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                 <button type="button" onClick={onOpenPatients} className={`${tile} hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`}>
                     <span className="text-xs font-medium text-gray-600">Pacientes ativos</span>
                     <span className="text-2xl font-bold leading-tight tabular-nums text-gray-900">{active === null ? '—' : <AnimatedValue value={active} />}</span>
@@ -69,6 +72,12 @@ export default function DoctorOverviewInsights({ stats, loading, insights, nextL
                     </span>
                     <span className="mt-1 text-xs text-gray-600">concluídas ÷ previstas até hoje</span>
                 </div>
+                <button type="button" onClick={onOpenNoNext} disabled={!onOpenNoNext}
+                    className={`${tile} hover:border-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-default`}>
+                    <span className="text-xs font-medium text-gray-600">Sem próxima sessão</span>
+                    <span className={`text-2xl font-bold leading-tight tabular-nums ${noNext ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900'}`}>{typeof noNext === 'number' ? <AnimatedValue value={noNext} /> : '—'}</span>
+                    <span className="inline-flex items-center gap-0.5 text-xs text-gray-600">atendidos sem retorno marcado <ChevronRight size={12} aria-hidden /></span>
+                </button>
                 <div className={tile}>
                     <span className="text-xs font-medium text-gray-600">Próxima consulta</span>
                     <span className="text-2xl font-bold leading-tight tabular-nums text-gray-900">{nextLabel?.value ?? '—'}</span>
