@@ -22,6 +22,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: '/',
+    // 01/11: o Vite só deve escanear o index.html da raiz (antes varria dist/ e public/ e travava a otimização).
+    optimizeDeps: { entries: ['index.html'] },
     plugins: [
       react(),
       VitePWA({
