@@ -357,8 +357,6 @@ export function NewEvaluationModal({
     objectives = [],
     protocols = [],
     selectedProtocolCode,
-    protocolsLoading,
-    protocolsError,
     onSelectProtocol,
     lastEvolution,
     defaultDate,

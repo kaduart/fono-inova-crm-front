@@ -431,7 +431,7 @@ export default function TherapyEvolution({
             const query = specialty ? `?specialty=${encodeURIComponent(specialty)}` : '';
             const response = await API.get(`/protocols${query}`);
             setProtocols(response.data || []);
-        } catch (err: any) {
+        } catch {
             setProtocolsError('Erro ao carregar protocolos terapêuticos');
         } finally {
             setProtocolsLoading(false);
@@ -445,7 +445,7 @@ export default function TherapyEvolution({
             const query = `?specialty=${encodeURIComponent(specialty)}`;
             const response = await API.get(`/protocols${query}`);
             setProtocols(response.data || []);
-        } catch (err: any) {
+        } catch {
             setProtocolsError('Erro ao carregar protocolos terapêuticos');
         } finally {
             setProtocolsLoading(false);

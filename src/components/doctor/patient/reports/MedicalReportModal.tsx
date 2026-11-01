@@ -7,11 +7,9 @@ import {
     FileText, 
     Stethoscope, 
     Target,
-    Calendar,
     Pill,
     ClipboardList,
     Lightbulb,
-    ArrowRight
 } from 'lucide-react';
 
 interface MedicalReportModalProps {
