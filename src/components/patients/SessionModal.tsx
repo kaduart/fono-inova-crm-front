@@ -2,7 +2,7 @@ import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, X
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-// import ReactInputMask from 'react-input-mask';
+// (máscara agora em components/ui/MaskedInput)
 import { toast } from '../../utils/toast';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';

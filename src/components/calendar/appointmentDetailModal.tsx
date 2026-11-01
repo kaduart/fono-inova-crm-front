@@ -21,7 +21,7 @@ import LiminarBillingFields from '../ui/LiminarBillingFields';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import ReactInputMask from 'react-input-mask';
+import ReactInputMask from '../ui/MaskedInput';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { useConvenios } from '../../hooks/useConvenios';
 import liminarContractService from '../../services/liminarContractService';
