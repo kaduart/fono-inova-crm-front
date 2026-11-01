@@ -80,6 +80,11 @@ class ReportsService {
     return response.data;
   }
 
+  async deleteAnamnesisReport(id) {
+    const response = await API.delete(`/reports/anamnesis/${id}`);
+    return response.data;
+  }
+
   // Relatórios Escolares
   async getSchoolReports(patientId, params = {}) {
     const response = await API.get(`/reports/school/patient/${patientId}`, { params });

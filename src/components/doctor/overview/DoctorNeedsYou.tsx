@@ -18,6 +18,8 @@ type PanelKey = 'evolutions' | 'confirm' | 'risk' | 'birthdays' | null;
 
 interface Props {
     pendingEvolutions: PendingEvolution[];
+    /** A busca de evoluções pendentes falhou (não dá para dizer que está em dia). */
+    pendingError?: boolean;
     todayAppointments: any[];
     birthdayPatients: any[];
     riskPatients: PatientRisk[];
@@ -48,7 +50,7 @@ function daysSince(iso?: string | null): number | null {
 const rowBtn = 'inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800';
 
 export default function DoctorNeedsYou(props: Props) {
-    const { pendingEvolutions, todayAppointments, birthdayPatients, riskPatients, riskLoading, specialty, canRegisterContact, onRegisterEvolution, onOpenPatient, onSchedule } = props;
+    const { pendingEvolutions, pendingError, todayAppointments, birthdayPatients, riskPatients, riskLoading, specialty, canRegisterContact, onRegisterEvolution, onOpenPatient, onSchedule } = props;
     const [panel, setPanel] = useState<PanelKey>(null);
     const [animRef] = useAutoAnimate<HTMLDivElement>();
     const { done, mark } = useContact();
@@ -77,8 +79,15 @@ export default function DoctorNeedsYou(props: Props) {
                 <h2 id="doctor-needs-you" className="text-base font-bold text-gray-900 dark:text-gray-50">Precisa de você hoje</h2>
                 {riskLoading && <span className="text-xs text-gray-500 dark:text-gray-400">atualizando…</span>}
             </div>
+            {pendingError && (
+                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                    Não foi possível conferir as evoluções pendentes agora. Confira na aba Evolução ou tente atualizar.
+                </p>
+            )}
             {visible.length === 0 ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">Tudo em dia: evoluções registradas, sessões de hoje confirmadas e nenhum paciente em risco.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{pendingError
+                    ? 'Sessões de hoje confirmadas e nenhum paciente em risco.'
+                    : 'Tudo em dia: evoluções registradas, sessões de hoje confirmadas e nenhum paciente em risco.'}</p>
             ) : (
                 <div ref={animRef} className={`grid gap-3 sm:grid-cols-2 ${visible.length >= 4 ? 'xl:grid-cols-4' : visible.length === 3 ? 'xl:grid-cols-3' : ''}`}>
                     {visible.map(item => (

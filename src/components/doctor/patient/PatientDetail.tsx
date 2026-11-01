@@ -1,542 +1,308 @@
+// Ficha do paciente na visão do terapeuta, no padrão do Dashboard admin: cabeçalho enxuto,
+// indicadores de frequência/presença (PatientInsights), dados clínicos à vista e o resto
+// recolhido em "ver detalhes" (nada some). Seção atual fica na URL (?secao=).
+// Dados: /v2/patients/:id (resumo: próxima/última sessão) + /patients/:id (cadastro e dados
+// clínicos, que o resumo não traz) + /patients/:id/appointments-summary (frequência).
 import {
-    Activity,
-    ArrowLeft,
-    BarChart3,
-    Calendar,
-    ClipboardList,
-    FileText,
-    Heart,
-    Mail,
-    MapPin,
-    Package,
-    Phone,
-    School,
-    Shield,
-    Stethoscope,
-    User
+    Activity, ArrowLeft, BarChart3, Calendar, ClipboardList, FileText, IdCard, MapPin,
+    MessageCircle, Package, Phone, RefreshCw, School, Shield, Stethoscope,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import API from '../../../services/api';
+import { getEvaluationsByPatient } from '../../../services/evaluationService';
 import PackagesReadOnly from './PackagesReadOnly';
 import MedicalReportsSection from './reports/MedicalReportsSection';
+import PatientInsights, { FoldSection } from '../../patients/PatientInsights';
+import PatientEvolution from '../../patients/PatientEvolution';
+import { waLink } from '../../commercial/commercialCopy';
 
-interface Address {
-    street: string;
-    number: string;
-    district: string;
-    city: string;
-    state: string;
-    zipCode: string;
-}
-
-interface HealthPlan {
-    name: string;
-    policyNumber: string;
-}
-
-interface EmergencyContact {
-    name: string;
-    phone: string;
-    relationship: string;
-}
-
-interface Patient {
-    _id: string;
-    fullName: string;
-    dateOfBirth: string;
-    gender: string;
-    maritalStatus: string;
-    profession: string;
-    placeOfBirth: string;
-    phone: string;
-    email: string;
-    cpf: string;
-    rg: string;
-    mainComplaint: string;
-    clinicalHistory: string;
-    medications: string;
-    allergies: string;
-    familyHistory: string;
-    legalGuardian: string;
-    imageAuthorization: boolean;
-    createdAt: string;
-    updatedAt: string;
-    lastAppointment?: string;
-    nextAppointment?: string;
-    status: string;
-    address: Address;
-    healthPlan: HealthPlan;
-    emergencyContact: EmergencyContact;
-    appointments: string[];
-    reports?: any[];
-}
+export type PatientSection = 'overview' | 'anamnesis' | 'school' | 'medical' | 'evolution' | 'packages';
 
 interface PatientDetailProps {
     patientId?: string;
     onBack?: () => void;
+    /** Seção para abrir (atalhos da lista de pacientes). */
+    initialSection?: PatientSection;
+    /** Muda de valor para abrir o modal de novo relatório da seção (anamnese/escolar/médico). */
+    createSignal?: number;
 }
 
-function calculateAge(dateOfBirth: string): number {
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-    return age;
-}
-
-function formatDate(dateString: string): string {
-    if (!dateString) return '—';
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('pt-BR');
-}
-
-function getInitials(name: string) {
-    return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
-}
-
-const tabs = [
-    { id: 0, label: 'Visão Geral',         icon: BarChart3,     color: 'text-emerald-500' },
-    { id: 1, label: 'Anamnese',             icon: ClipboardList, color: 'text-green-500'   },
-    { id: 2, label: 'Rel. Escolares',       icon: School,        color: 'text-purple-500'  },
-    { id: 3, label: 'Rel. Médicos',         icon: FileText,      color: 'text-orange-500'  },
-    { id: 4, label: 'Evolução',             icon: Activity,      color: 'text-cyan-500'    },
-    { id: 5, label: 'Pacotes',              icon: Package,       color: 'text-teal-500'    },
+const SECTIONS: { id: PatientSection; label: string; icon: typeof BarChart3 }[] = [
+    { id: 'overview', label: 'Visão geral', icon: BarChart3 },
+    { id: 'anamnesis', label: 'Anamnese', icon: ClipboardList },
+    { id: 'school', label: 'Rel. escolares', icon: School },
+    { id: 'medical', label: 'Rel. médicos', icon: FileText },
+    { id: 'evolution', label: 'Evolução', icon: Activity },
+    { id: 'packages', label: 'Pacotes', icon: Package },
 ];
+const isSection = (v: string | null): v is PatientSection => !!v && SECTIONS.some(s => s.id === v);
+// Compatibilidade com links antigos (?tab=anamnesis&create=new).
+const legacyTab = (v: string | null): PatientSection | null => (v === 'anamnesis' || v === 'school' || v === 'medical' ? v : null);
 
-export default function PatientDetail({ patientId, onBack }: PatientDetailProps) {
+// Datas do banco chegam como ISO à meia-noite UTC: ler o dia gravado, sem fuso
+// (new Date().toLocaleDateString mostrava o dia anterior no Brasil).
+const ymd = (d?: string | null) => (d ? /^(\d{4})-(\d{2})-(\d{2})/.exec(d) : null);
+const fmtDay = (d?: string | null) => { const m = ymd(d); return m ? `${m[3]}/${m[2]}/${m[1]}` : null; };
+function ageOf(d?: string | null): number | null {
+    const m = ymd(d);
+    if (!m) return null;
+    const now = new Date();
+    let age = now.getFullYear() - Number(m[1]);
+    const mm = now.getMonth() + 1 - Number(m[2]);
+    if (mm < 0 || (mm === 0 && now.getDate() < Number(m[3]))) age -= 1;
+    return age >= 0 && age < 130 ? age : null;
+}
+const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+const sessionText = (s?: { date?: string; time?: string } | null) => {
+    const day = fmtDay(s?.date);
+    return day ? `${day}${s?.time ? ` às ${s.time}` : ''}` : null;
+};
+
+function Info({ label, value }: { label: string; value?: React.ReactNode }) {
+    return (
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+            <dt className="w-36 shrink-0 text-xs font-medium text-gray-600">{label}</dt>
+            <dd className="text-sm text-gray-900">{value || <span className="text-gray-500">Não informado</span>}</dd>
+        </div>
+    );
+}
+
+export default function PatientDetail({ patientId, onBack, initialSection, createSignal }: PatientDetailProps) {
     const { id: urlPatientId } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const location = useLocation();
+    const [params, setParams] = useSearchParams();
+    const pid = patientId || urlPatientId;
 
-    const actualPatientId = patientId || urlPatientId;
-    const [currentTab, setCurrentTab] = useState(0);
-    const [isCreatingReport, setIsCreatingReport] = useState(false);
-    const [reportType, setReportType] = useState('');
-    const [patient, setPatient] = useState<Patient | null>(null);
+    const fromUrl = isSection(params.get('secao')) ? params.get('secao') as PatientSection : legacyTab(params.get('tab'));
+    const [section, setSection] = useState<PatientSection>(initialSection || fromUrl || 'overview');
+    const [create, setCreate] = useState<number>(() => (params.get('create') === 'new' ? Date.now() : 0));
+
+    const [patient, setPatient] = useState<any>(null);
+    const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState(false);
+    const [evolutions, setEvolutions] = useState<any[] | null>(null);
+    const [evoError, setEvoError] = useState(false);
+
+    // Atalhos de fora (lista de pacientes) trocam a seção e pedem o modal de novo.
+    useEffect(() => { if (initialSection) setSection(initialSection); }, [initialSection]);
+    useEffect(() => { if (createSignal) setCreate(createSignal); }, [createSignal]);
+
+    // Seção na URL para voltar/compartilhar no mesmo ponto.
     useEffect(() => {
-        const fetchPatient = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const response = await API.get(`/v2/patients/${actualPatientId}`);
-                setPatient(response.data?.data || response.data);
-            } catch {
-                setError('Erro ao carregar dados do paciente');
-            } finally {
-                setLoading(false);
-            }
-        };
-        if (actualPatientId) fetchPatient();
-        else { setError('ID do paciente não fornecido'); setLoading(false); }
-    }, [actualPatientId]);
+        if (params.get('secao') === section && !params.get('tab') && !params.get('create')) return;
+        const next = new URLSearchParams(params);
+        next.set('secao', section);
+        next.delete('tab');
+        next.delete('create');
+        setParams(next, { replace: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [section]);
 
-    useEffect(() => {
-        const p = new URLSearchParams(location.search);
-        const tab = p.get('tab');
-        const create = p.get('create');
-        if (tab === 'anamnesis') setCurrentTab(1);
-        if (tab === 'school') setCurrentTab(2);
-        if (tab === 'medical') setCurrentTab(3);
-        if (create === 'new') { setIsCreatingReport(true); setReportType(tab || ''); }
-    }, [location.search]);
+    const load = useCallback(async () => {
+        if (!pid) { setError(true); setLoading(false); return; }
+        setLoading(true);
+        setError(false);
+        const [view, raw, appts] = await Promise.allSettled([
+            API.get(`/v2/patients/${pid}`),
+            API.get(`/patients/${pid}`),
+            API.get(`/patients/${pid}/appointments-summary`),
+        ]);
+        const v = view.status === 'fulfilled' ? (view.value.data?.data || view.value.data) : null;
+        const r = raw.status === 'fulfilled' ? raw.value.data : null;
+        if (!v && !r) { setError(true); setLoading(false); return; }
+        // Cadastro completo primeiro; o resumo acrescenta próxima/última sessão e contagens.
+        setPatient({ ...(r || {}), ...(v || {}), _id: pid, fullName: v?.fullName || r?.fullName });
+        setAppointments(appts.status === 'fulfilled' ? (appts.value.data?.data || []) : []);
+        setLoading(false);
+    }, [pid]);
 
-    const handleTabChange = (v: number) => { setCurrentTab(v); setIsCreatingReport(false); };
+    useEffect(() => { load(); }, [load]);
 
-    const handleBack = () => onBack ? onBack() : navigate('/patients');
+    const loadEvolutions = useCallback(async () => {
+        if (!pid) return;
+        setEvoError(false);
+        setEvolutions(null);
+        try { setEvolutions(((await getEvaluationsByPatient(pid)) as any[]) || []); } catch { setEvoError(true); setEvolutions([]); }
+    }, [pid]);
+    useEffect(() => { if (section === 'evolution' && evolutions === null) loadEvolutions(); }, [section, evolutions, loadEvolutions]);
 
-    const handleCreateReport = (type: string) => {
-        setReportType(type);
-        setIsCreatingReport(true);
-        if (type === 'anamnesis') setCurrentTab(1);
-        if (type === 'school') setCurrentTab(2);
-        if (type === 'medical') setCurrentTab(3);
-    };
+    const handleBack = () => (onBack ? onBack() : navigate('/patients'));
+    const goCreate = (s: 'anamnesis' | 'school') => { setSection(s); setCreate(Date.now()); };
 
-    // ── Loading / Error states ──────────────────────────────────────────────
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto" />
-                    <p className="mt-4 text-gray-600 font-medium">Carregando paciente…</p>
-                </div>
+            <div className="mx-auto max-w-6xl space-y-4 text-left" aria-busy="true">
+                <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
+                <div className="h-28 animate-pulse rounded-xl bg-gray-100" />
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{[1, 2, 3, 4].map(i => <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-100" />)}</div>
+                <div className="h-64 animate-pulse rounded-xl bg-gray-100" />
             </div>
         );
     }
 
     if (error || !patient) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-10 text-center max-w-md">
-                    <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Heart className="w-7 h-7 text-red-500" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{error || 'Paciente não encontrado'}</h3>
-                    <p className="text-sm text-gray-400 mb-6">ID: {actualPatientId}</p>
-                    <button onClick={handleBack} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium">
-                        Voltar para lista
+            <div className="mx-auto max-w-md rounded-xl border border-gray-200 bg-white p-8 text-center">
+                <h3 className="text-base font-semibold text-gray-900">Não foi possível abrir a ficha deste paciente.</h3>
+                <p className="mt-1 text-sm text-gray-600">Pode ser a conexão ou o cadastro foi removido.</p>
+                <div className="mt-5 flex justify-center gap-2">
+                    <button type="button" onClick={handleBack} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Voltar</button>
+                    <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                        <RefreshCw size={14} aria-hidden /> Tentar de novo
                     </button>
                 </div>
             </div>
         );
     }
 
-    const age = calculateAge(patient.dateOfBirth);
-    const reportCounts = {
-        anamnesis: patient.reports?.filter((r: any) => r.type === 'anamnesis').length || 0,
-        school:    patient.reports?.filter((r: any) => r.type === 'school').length    || 0,
-        medical:   patient.reports?.filter((r: any) => r.type === 'medical').length   || 0,
-    };
-    const totalConsultas = patient.appointments?.length || 0;
-    const isActive = totalConsultas > 0;
+    const age = ageOf(patient.dateOfBirth);
+    const birth = fmtDay(patient.dateOfBirth);
+    const next = sessionText(patient.nextAppointment);
+    const last = sessionText(patient.lastAppointment);
+    const wa = waLink(patient.phone);
+    const addr = patient.address || {};
+    const addrText = [addr.street && `${addr.street}${addr.number ? `, ${addr.number}` : ''}`, addr.neighborhood || addr.district, addr.city && `${addr.city}${addr.state ? `/${addr.state}` : ''}`, addr.zipCode && `CEP ${addr.zipCode}`].filter(Boolean).join(' · ');
+    const emergency = patient.emergencyContact?.name
+        ? `${patient.emergencyContact.name}${patient.emergencyContact.relationship ? ` (${patient.emergencyContact.relationship})` : ''}${patient.emergencyContact.phone ? ` · ${patient.emergencyContact.phone}` : ''}`
+        : null;
 
-    // ── Tab content ─────────────────────────────────────────────────────────
-    const renderTabContent = () => {
-        switch (currentTab) {
-            case 0:
+    const renderSection = () => {
+        switch (section) {
+            case 'overview':
                 return (
-                    <div className="space-y-5">
-                        {/* KPI row */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            {[
-                                { label: 'Consultas',  value: totalConsultas,          icon: Calendar,      bg: 'bg-emerald-50', iconColor: 'text-emerald-600', border: 'border-emerald-100' },
-                                { label: 'Anamneses',  value: reportCounts.anamnesis,  icon: ClipboardList, bg: 'bg-green-50',   iconColor: 'text-green-600',   border: 'border-green-100'   },
-                                { label: 'Escolares',  value: reportCounts.school,     icon: School,        bg: 'bg-purple-50',  iconColor: 'text-purple-600',  border: 'border-purple-100'  },
-                                { label: 'Médicos',    value: reportCounts.medical,    icon: FileText,      bg: 'bg-orange-50',  iconColor: 'text-orange-600',  border: 'border-orange-100'  },
-                            ].map(k => {
-                                const Icon = k.icon;
-                                return (
-                                    <div key={k.label} className={`${k.bg} border ${k.border} rounded-2xl p-4 flex items-center gap-3`}>
-                                        <div className={`w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm`}>
-                                            <Icon className={`w-5 h-5 ${k.iconColor}`} />
-                                        </div>
-                                        <div>
-                                            <p className="text-2xl font-bold text-gray-900">{k.value}</p>
-                                            <p className="text-xs text-gray-500 font-medium">{k.label}</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                    <div className="space-y-4">
+                        {appointments.length > 0
+                            ? <PatientInsights appointments={appointments} />
+                            : <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">Ainda não há sessões registradas para medir frequência e presença.</p>}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            {/* Histórico Clínico */}
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                        <Stethoscope className="w-4 h-4 text-emerald-600" />
-                                    </div>
-                                    <h4 className="font-semibold text-gray-900">Histórico Clínico</h4>
-                                </div>
-                                <div className="space-y-3">
-                                    {[
-                                        { label: 'Queixa Principal', value: patient.mainComplaint },
-                                        { label: 'Histórico Clínico', value: patient.clinicalHistory },
-                                        { label: 'Medicações', value: patient.medications || 'Nenhuma' },
-                                        { label: 'Alergias', value: patient.allergies || 'Nenhuma' },
-                                        { label: 'Histórico Familiar', value: patient.familyHistory },
-                                    ].map(item => (
-                                        <div key={item.label} className="flex gap-2">
-                                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-32 pt-0.5 flex-shrink-0">{item.label}</span>
-                                            <span className="text-sm text-gray-700">{item.value || 'Não informado'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                        <section className="rounded-xl border border-gray-200 bg-white p-4">
+                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900"><Stethoscope size={16} className="text-emerald-700" aria-hidden /> Dados clínicos</h3>
+                            <dl className="space-y-2.5">
+                                <Info label="Queixa principal" value={patient.mainComplaint} />
+                                <Info label="Histórico clínico" value={patient.clinicalHistory} />
+                                <Info label="Medicações" value={patient.medications} />
+                                <Info label="Alergias" value={patient.allergies} />
+                                <Info label="Histórico familiar" value={patient.familyHistory} />
+                            </dl>
+                        </section>
 
-                            {/* Próxima consulta + endereço */}
-                            <div className="space-y-4">
-                                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                            <Calendar className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h4 className="font-semibold text-gray-900">Agendamento</h4>
-                                    </div>
-                                    {patient.nextAppointment ? (
-                                        <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <div>
-                                                <p className="text-xs text-emerald-600 font-medium">Próxima consulta</p>
-                                                <p className="text-sm font-semibold text-gray-900">{formatDate(patient.nextAppointment)}</p>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-gray-400 italic">Nenhuma consulta agendada</p>
-                                    )}
-                                </div>
-
-                                {patient.address && (
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                                                <MapPin className="w-4 h-4 text-gray-600" />
-                                            </div>
-                                            <h4 className="font-semibold text-gray-900">Endereço</h4>
-                                        </div>
-                                        <div className="text-sm text-gray-600 space-y-1">
-                                            <p>{patient.address.street}{patient.address.number ? `, ${patient.address.number}` : ''}</p>
-                                            <p>{patient.address.district} — {patient.address.city}/{patient.address.state}</p>
-                                            <p className="text-gray-400">CEP {patient.address.zipCode}</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <FoldSection title="Cadastro" icon={<IdCard size={16} />}
+                            meta={[birth && `Nascimento ${birth}`, patient.healthPlan?.name || 'Particular', addr.city].filter(Boolean).join(' · ')}>
+                            <dl className="space-y-2.5">
+                                <Info label="Nascimento" value={birth} />
+                                <Info label="Gênero" value={patient.gender} />
+                                <Info label="Naturalidade" value={patient.placeOfBirth} />
+                                <Info label="Profissão" value={patient.profession} />
+                                <Info label="Estado civil" value={patient.maritalStatus} />
+                                <Info label="Responsável" value={patient.legalGuardian} />
+                                <Info label="CPF" value={patient.cpf} />
+                                <Info label="RG" value={patient.rg} />
+                                <Info label="E-mail" value={patient.email} />
+                                <Info label="Convênio" value={patient.healthPlan?.name ? `${patient.healthPlan.name}${patient.healthPlan.policyNumber ? ` · ${patient.healthPlan.policyNumber}` : ''}` : 'Particular'} />
+                                <Info label="Endereço" value={addrText} />
+                                <Info label="Contato de emergência" value={emergency} />
+                                <Info label="Uso de imagem" value={patient.imageAuthorization == null ? null : patient.imageAuthorization ? 'Autorizado' : 'Não autorizado'} />
+                            </dl>
+                        </FoldSection>
                     </div>
                 );
-
-            case 1:
-                return isCreatingReport && reportType === 'anamnesis' ? (
-                    <div className="text-center py-16">
-                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">Formulário de anamnese em breve.</p>
-                    </div>
-                ) : <MedicalReportsSection patient={patient} reportType="anamnesis" />;
-
-            case 2:
-                return isCreatingReport && reportType === 'school' ? (
-                    <div className="text-center py-16">
-                        <School className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">Relatório escolar em breve.</p>
-                    </div>
-                ) : <MedicalReportsSection patient={patient} reportType="school" />;
-
-            case 3:
-                return <MedicalReportsSection patient={patient} reportType="medical" />;
-
-            case 4:
-                return (
-                    <div className="text-center py-16">
-                        <div className="w-16 h-16 bg-cyan-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Activity className="w-8 h-8 text-cyan-400" />
+            case 'anamnesis':
+            case 'school':
+            case 'medical':
+                return <MedicalReportsSection key={section} patient={patient} reportType={section} createSignal={create || undefined} />;
+            case 'evolution':
+                if (evolutions === null) return <div className="h-64 animate-pulse rounded-xl bg-gray-100" aria-busy="true" />;
+                if (evoError) {
+                    return (
+                        <div className="py-10 text-center">
+                            <p className="text-sm font-medium text-gray-900">Não foi possível carregar as evoluções.</p>
+                            <button type="button" onClick={loadEvolutions} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <RefreshCw size={14} aria-hidden /> Tentar de novo
+                            </button>
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-700 mb-1">Gráficos de Evolução</h3>
-                        <p className="text-sm text-gray-400">
-                            {totalConsultas > 0
-                                ? `${totalConsultas} consultas registradas — visualização em breve.`
-                                : 'Nenhuma consulta registrada ainda.'}
-                        </p>
-                    </div>
-                );
-
-            case 5:
-                return (
-                    <PackagesReadOnly patientId={(patient as any)?._id || (patient as any)?.patientId} />
-                );
-
+                    );
+                }
+                return <PatientEvolution patientId={pid!} patientName={patient.fullName} initialEvolutions={evolutions} />;
+            case 'packages':
+                return <PackagesReadOnly patientId={pid} />;
             default:
                 return null;
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-emerald-50/30 py-6">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+        <div className="mx-auto max-w-6xl space-y-4 text-left">
+            <button type="button" onClick={handleBack} className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                <ArrowLeft size={16} aria-hidden /> Meus pacientes
+            </button>
 
-                {/* Breadcrumb externo */}
-                <div className="flex items-center gap-1.5 text-sm">
-                    <button
-                        onClick={handleBack}
-                        className="flex items-center gap-1 text-emerald-600 hover:text-emerald-800 transition-colors font-medium"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Pacientes
-                    </button>
-                    <span className="text-gray-300">/</span>
-                    <span className="text-gray-500 truncate max-w-xs">{patient.fullName}</span>
-                </div>
-
-                {/* ── Hero Card ─────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    {/* Gradient banner — apenas decorativo */}
-                    <div className="h-20 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500" />
-
-                    {/* Patient info below banner */}
-                    <div className="px-6 pb-6">
-                        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 -mt-8">
-                            {/* Avatar + name */}
-                            <div className="flex items-end gap-4">
-                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl font-bold shadow-lg ring-4 ring-white">
-                                    {getInitials(patient.fullName)}
-                                </div>
-                                <div className="pb-1">
-                                    <h1 className="text-2xl font-bold text-gray-900 leading-tight">{patient.fullName}</h1>
-                                    <div className="flex flex-wrap items-center gap-3 mt-1">
-                                        <span className="flex items-center gap-1 text-sm text-gray-500">
-                                            <User className="w-3.5 h-3.5" />{age} anos • {patient.gender || '—'}
-                                        </span>
-                                        {patient.mainComplaint && (
-                                            <span className="flex items-center gap-1 text-sm text-gray-500">
-                                                <Stethoscope className="w-3.5 h-3.5" />{patient.mainComplaint}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Status + última consulta */}
-                            <div className="flex items-center gap-3 pb-1">
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                                    isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                                    {isActive ? 'Ativo' : 'Sem consultas'}
-                                </span>
-                                {patient.lastAppointment && (
-                                    <span className="flex items-center gap-1 text-sm text-gray-400">
-                                        <Calendar className="w-3.5 h-3.5" />
-                                        Última: {formatDate(patient.lastAppointment)}
-                                    </span>
-                                )}
+            {/* Cabeçalho */}
+            <header className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-base font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" aria-hidden>{initials(patient.fullName)}</span>
+                        <div className="min-w-0">
+                            <h1 className="truncate text-xl font-bold text-gray-900">{patient.fullName}</h1>
+                            <p className="mt-0.5 text-sm text-gray-600">
+                                {[age !== null && `${age} ${age === 1 ? 'ano' : 'anos'}`, patient.legalGuardian && `Responsável: ${patient.legalGuardian}`].filter(Boolean).join(' · ') || 'Idade não informada'}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700"><Shield size={12} aria-hidden />{patient.healthPlan?.name || 'Particular'}</span>
+                                {addr.city && <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700"><MapPin size={12} aria-hidden />{addr.city}</span>}
                             </div>
                         </div>
-
-                        {/* Contact strip */}
-                        <div className="mt-5 flex flex-wrap gap-4 pt-4 border-t border-gray-100">
-                            {patient.phone && (
-                                <a href={`tel:${patient.phone}`} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-emerald-600 transition-colors">
-                                    <div className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center">
-                                        <Phone className="w-3.5 h-3.5" />
-                                    </div>
-                                    {patient.phone}
-                                </a>
-                            )}
-                            {patient.email && (
-                                <a href={`mailto:${patient.email}`} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-emerald-600 transition-colors">
-                                    <div className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center">
-                                        <Mail className="w-3.5 h-3.5" />
-                                    </div>
-                                    {patient.email}
-                                </a>
-                            )}
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <div className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <Shield className="w-3.5 h-3.5" />
-                                </div>
-                                {patient.healthPlan?.name || 'Particular'}
-                            </div>
-                            {patient.address?.city && (
-                                <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                    <div className="w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center">
-                                        <MapPin className="w-3.5 h-3.5" />
-                                    </div>
-                                    {patient.address.city}/{patient.address.state}
-                                </div>
-                            )}
-                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {patient.phone && (
+                            <a href={`tel:${patient.phone}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <Phone size={14} aria-hidden /> {patient.phone}
+                            </a>
+                        )}
+                        {wa && (
+                            <a href={wa} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400">
+                                <MessageCircle size={14} aria-hidden /> WhatsApp
+                            </a>
+                        )}
+                        <button type="button" onClick={() => goCreate('anamnesis')} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                            <ClipboardList size={14} aria-hidden /> Nova anamnese
+                        </button>
+                        <button type="button" onClick={() => goCreate('school')} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            <School size={14} aria-hidden /> Rel. escolar
+                        </button>
                     </div>
                 </div>
-
-                {/* ── Info grid ────────────────────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Dados Pessoais</p>
-                        <div className="space-y-2">
-                            {[
-                                { l: 'Nascimento', v: formatDate(patient.dateOfBirth) },
-                                { l: 'Naturalidade', v: patient.placeOfBirth },
-                                { l: 'Profissão', v: patient.profession },
-                            ].map(i => (
-                                <div key={i.l} className="flex justify-between text-sm">
-                                    <span className="text-gray-400">{i.l}</span>
-                                    <span className="text-gray-800 font-medium text-right">{i.v || '—'}</span>
-                                </div>
-                            ))}
-                        </div>
+                <dl className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-2">
+                    <div className="flex items-center gap-2 text-sm">
+                        <Calendar size={14} className="text-emerald-700 dark:text-emerald-400" aria-hidden />
+                        <dt className="text-gray-600">Próxima sessão:</dt>
+                        <dd className="font-semibold text-gray-900">{next || 'nenhuma agendada'}</dd>
                     </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Documentos</p>
-                        <div className="space-y-2">
-                            {[
-                                { l: 'CPF', v: patient.cpf },
-                                { l: 'RG', v: patient.rg },
-                                { l: 'Estado Civil', v: patient.maritalStatus },
-                            ].map(i => (
-                                <div key={i.l} className="flex justify-between text-sm">
-                                    <span className="text-gray-400">{i.l}</span>
-                                    <span className="text-gray-800 font-medium text-right">{i.v || '—'}</span>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="flex items-center gap-2 text-sm">
+                        <Calendar size={14} className="text-gray-500" aria-hidden />
+                        <dt className="text-gray-600">Última sessão:</dt>
+                        <dd className="font-semibold text-gray-900">{last || '—'}</dd>
                     </div>
-                    {patient.emergencyContact?.name ? (
-                        <div className="bg-amber-50 rounded-2xl border border-amber-100 shadow-sm p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Heart className="w-4 h-4 text-amber-500" />
-                                <p className="text-xs text-amber-600 uppercase tracking-wide font-semibold">Contato de Emergência</p>
-                            </div>
-                            <p className="text-sm font-semibold text-gray-900">{patient.emergencyContact.name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{patient.emergencyContact.relationship}</p>
-                            <p className="text-sm text-amber-700 font-medium mt-2">{patient.emergencyContact.phone}</p>
-                        </div>
-                    ) : (
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-center">
-                            <p className="text-sm text-gray-300 italic">Sem contato de emergência</p>
-                        </div>
-                    )}
-                </div>
+                </dl>
+            </header>
 
-                {/* ── Tabs ─────────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="border-b border-gray-100 px-5 py-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            {/* Tab pills */}
-                            <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-                                {tabs.map(tab => {
-                                    const Icon = tab.icon;
-                                    const active = currentTab === tab.id;
-                                    return (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => handleTabChange(tab.id)}
-                                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                                                active
-                                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
-                                            }`}
-                                        >
-                                            <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : tab.color}`} />
-                                            {tab.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Quick actions (only on non-package tabs) */}
-                            {currentTab !== 5 && (
-                                <div className="flex gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={() => handleCreateReport('anamnesis')}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
-                                    >
-                                        <Stethoscope className="w-3.5 h-3.5" />
-                                        Nova Anamnese
-                                    </button>
-                                    <button
-                                        onClick={() => handleCreateReport('school')}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
-                                    >
-                                        <School className="w-3.5 h-3.5" />
-                                        Rel. Escolar
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="p-5">
-                        {renderTabContent()}
-                    </div>
-                </div>
+            {/* Seções */}
+            <div className="rounded-xl border border-gray-200 bg-white">
+                <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 px-2" aria-label="Seções da ficha" role="tablist">
+                    {SECTIONS.map(s => {
+                        const Icon = s.icon;
+                        const active = s.id === section;
+                        return (
+                            <button key={s.id} type="button" role="tab" aria-selected={active} onClick={() => { setSection(s.id); setCreate(0); }}
+                                className={`-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${active ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-gray-600 hover:text-gray-900'}`}>
+                                <Icon size={15} aria-hidden /> {s.label}
+                            </button>
+                        );
+                    })}
+                </nav>
+                <div className="p-4 sm:p-5">{renderSection()}</div>
             </div>
-
-
         </div>
     );
 }

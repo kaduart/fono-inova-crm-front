@@ -14,6 +14,7 @@ import {
     GitBranch,
     Minus,
     MoreHorizontal,
+    Pencil,
     Plus,
     Search,
     Target,
@@ -31,6 +32,9 @@ import { fetchMyPatients } from '../../services/doctorService';
 import { fetchPendingEvolutions, type PendingEvolution } from '../../services/evolutionService';
 import patientService from '../../services/patientService';
 import { confirmToast } from '../../utils/confirmToast';
+import { confirmDialog } from '../ui/ConfirmHost';
+import { ModalShell } from '../ui/TailwindParts';
+import { notifyApiError } from '../../utils/notifyApiError';
 import { toDateString } from '../../utils/dateUtils';
 import { IPatient } from '../../utils/types/types';
 import ProtocolAnalytics from '../protocols/ProtocolAnalytics';
@@ -190,7 +194,7 @@ const btnSm = 'min-h-9 px-2.5';
 const card = 'rounded-2xl border border-gray-200 bg-white min-w-0';
 const tabBtn = (on: boolean) => `-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-gray-600 hover:text-gray-900'}`;
 
-function EntryMenu({ label, deleting, onDelete }: { label: string; deleting: boolean; onDelete: () => void }) {
+function EntryMenu({ label, deleting, onDelete, onEdit }: { label: string; deleting: boolean; onDelete: () => void; onEdit: () => void }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -208,6 +212,10 @@ function EntryMenu({ label, deleting, onDelete }: { label: string; deleting: boo
             </button>
             {open && (
                 <div role="menu" className="absolute right-0 top-10 z-20 min-w-[190px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+                    <button role="menuitem" type="button" onClick={() => { setOpen(false); onEdit(); }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none">
+                        <Pencil className="h-4 w-4" aria-hidden />Editar texto
+                    </button>
                     <button role="menuitem" type="button" disabled={deleting} onClick={() => { setOpen(false); onDelete(); }}
                         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 focus:bg-red-50 focus:outline-none disabled:opacity-50">
                         <Trash2 className="h-4 w-4" aria-hidden />Excluir evolução
@@ -240,6 +248,7 @@ export default function TherapyEvolution({
     const [pending, setPending] = useState<PendingEvolution[]>([]);
     const [activeList, setActiveList] = useState<any[]>([]);
     const [queueLoading, setQueueLoading] = useState(true);
+    const [pendingFailed, setPendingFailed] = useState(false);
     const [patientInfo, setPatientInfo] = useState<any | null>(null);
     // Últimas 5 avaliações registradas pelo profissional (atalho em chips)
     const [recent, setRecent] = useState<any[]>([]);
@@ -247,12 +256,14 @@ export default function TherapyEvolution({
 
     const loadQueue = useCallback(async () => {
         setQueueLoading(true);
+        let failed = false;
         const [pend, act, rec] = await Promise.all([
-            fetchPendingEvolutions().catch(() => [] as PendingEvolution[]),
+            fetchPendingEvolutions().catch(() => { failed = true; return [] as PendingEvolution[]; }),
             fetchMyPatients({ care: 'active', sort: 'next', limit: 50 }).then(r => r.data || []).catch(() => [] as any[]),
             // Promise.resolve: uma falha síncrona (ou mock sem retorno) não derruba a fila inteira
             Promise.resolve().then(() => API.get('/v2/evolutions/search', { params: { limit: 5 } })).then(r => r?.data?.data || []).catch(() => [] as any[]),
         ]);
+        setPendingFailed(failed);
         setPending(Array.isArray(pend) ? pend : []);
         setActiveList(Array.isArray(act) ? act : []);
         setRecent(Array.isArray(rec) ? rec.filter((e: any) => e?.patient?._id).slice(0, 5) : []);
@@ -291,8 +302,41 @@ export default function TherapyEvolution({
         lastEvolution,
         isLoading,
         create,
+        update,
         remove,
     } = useEvolution(selectedPatientId || null);
+
+    // Editar o texto de uma evolução: só quem escreveu (ou admin). O back confere de novo.
+    const [editing, setEditing] = useState<{ id: string; label: string; original: string; text: string } | null>(null);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const canChangeEvolution = (ev: any) => {
+        if (String(user?.role) === 'admin') return true;
+        const author = typeof ev?.doctor === 'object' ? ev?.doctor?._id : ev?.doctor;
+        return !!author && !!user?._id && String(author) === String(user._id);
+    };
+    const closeEdit = async () => {
+        if (!editing || savingEdit) return;
+        if (editing.text.trim() !== editing.original.trim()) {
+            const ok = await confirmDialog('A alteração no texto não será salva.', { title: 'Fechar sem salvar?', confirmText: 'Descartar', cancelText: 'Continuar editando' });
+            if (!ok) return;
+        }
+        setEditing(null);
+    };
+    const saveEdit = async () => {
+        if (!editing) return;
+        if (!editing.text.trim()) { toast.warning('O texto da evolução não pode ficar vazio.'); return; }
+        setSavingEdit(true);
+        try {
+            const r: any = await update(editing.id, { content: editing.text.trim() } as any);
+            if (r?.success === false) throw new Error(r?.error?.message || 'falha');
+            toast.success('Evolução atualizada');
+            setEditing(null);
+        } catch (e) {
+            notifyApiError(e, 'Não foi possível salvar a alteração. O texto continua aberto para tentar de novo.');
+        } finally {
+            setSavingEdit(false);
+        }
+    };
 
     const [isAdding, setIsAdding] = useState(false);
     const [addDefaults, setAddDefaults] = useState<{ date?: string; time?: string }>({});
@@ -617,6 +661,20 @@ export default function TherapyEvolution({
 
     return (
         <>
+            <ModalShell open={!!editing} onClose={closeEdit} labelledBy="evo-edit-title" className="w-full max-w-2xl border border-gray-200 sm:rounded-2xl">
+                <div className="flex flex-col gap-3 p-5 text-left">
+                    <h2 id="evo-edit-title" className="text-lg font-semibold text-gray-900">Editar evolução · {editing?.label}</h2>
+                    <textarea value={editing?.text || ''} onChange={(e) => setEditing(ed => (ed ? { ...ed, text: e.target.value } : ed))} autoFocus
+                        aria-label="Texto da evolução" className="h-56 w-full resize-y rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+                    <p className="text-xs text-gray-600">Notas por área e métricas não mudam aqui.</p>
+                    <div className="flex justify-end gap-2">
+                        <button type="button" onClick={closeEdit} disabled={savingEdit} className={btnGhost}>Cancelar</button>
+                        <button type="button" onClick={saveEdit} disabled={savingEdit} className="inline-flex min-h-10 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                            {savingEdit ? 'Salvando…' : 'Salvar'}
+                        </button>
+                    </div>
+                </div>
+            </ModalShell>
             <NewEvaluationModal
                 open={isAdding}
                 onClose={() => setIsAdding(false)}
@@ -631,6 +689,7 @@ export default function TherapyEvolution({
                 onSpecialtyChange={(specialty) => setSelectedSpecialty(specialty)}
                 doctorSpecialty={(user as any)?.specialty}
                 lastEvolution={lastEvolution}
+                patientName={resolvedPatient?.fullName}
                 defaultDate={addDefaults.date}
                 defaultTime={addDefaults.time}
             />
@@ -683,7 +742,13 @@ export default function TherapyEvolution({
                             </div>
 
                             <p className={sectionLabel}>Evolução pendente · {queueLoading ? '…' : pendingShown.length}</p>
-                            {!queueLoading && pendingShown.length === 0 && (
+                            {!queueLoading && pendingFailed && (
+                                <div className="mx-4 mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                                    Não foi possível carregar as pendências.{' '}
+                                    <button type="button" onClick={loadQueue} className="font-semibold underline">Tentar de novo</button>
+                                </div>
+                            )}
+                            {!queueLoading && !pendingFailed && pendingShown.length === 0 && (
                                 <p className="px-4 pb-3 text-sm text-gray-600">{term ? 'Ninguém pendente com esse nome.' : 'Tudo em dia: todo atendimento recente tem evolução.'}</p>
                             )}
                             <ul>
@@ -930,7 +995,10 @@ export default function TherapyEvolution({
                                                                             <button type="button" className={`${btnGhost} ${btnSm}`} disabled={pdfId === evaluation._id} onClick={() => handleDownloadPdf(evaluation)} aria-label={`Baixar PDF da evolução de ${fmtDate(evaluation.date)}`}>
                                                                                 <FileDown className="h-4 w-4" aria-hidden />{pdfId === evaluation._id ? 'Gerando…' : 'PDF'}
                                                                             </button>
-                                                                            <EntryMenu label={fmtDate(evaluation.date)} deleting={deletingId === evaluation._id} onDelete={() => handleDeleteEvaluation(evaluation._id)} />
+                                                                            {canChangeEvolution(evaluation) && (
+                                                                                <EntryMenu label={fmtDate(evaluation.date)} deleting={deletingId === evaluation._id} onDelete={() => handleDeleteEvaluation(evaluation._id)}
+                                                                                    onEdit={() => setEditing({ id: evaluation._id, label: fmtDate(evaluation.date), original: text, text })} />
+                                                                            )}
                                                                         </div>
                                                                     </li>
                                                                 );

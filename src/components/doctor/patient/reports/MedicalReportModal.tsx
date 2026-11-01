@@ -1,5 +1,6 @@
 // components/reports/MedicalReportModal.tsx
 import { useState } from 'react';
+import { useReportDraft } from './useReportDraft';
 import { 
     X, 
     Save, 
@@ -19,6 +20,8 @@ interface MedicalReportModalProps {
     onSave: (data: any) => void;
     patient: any;
     loading?: boolean;
+    /** Relatório salvo, quando é edição (abre já preenchido). */
+    initialData?: any;
 }
 
 const reportTypes = [
@@ -34,7 +37,7 @@ const statusOptions = [
     { value: 'archived', label: 'Arquivado', color: 'text-blue-600' }
 ];
 
-export default function MedicalReportModal({ open, onClose, onSave, patient, loading = false }: MedicalReportModalProps) {
+export default function MedicalReportModal({ open, onClose, onSave, patient, loading = false, initialData }: MedicalReportModalProps) {
     const [activeSection, setActiveSection] = useState('basic');
     const [formData, setFormData] = useState({
         title: '',
@@ -52,6 +55,12 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
             exams: ''
         },
         status: 'completed' as 'draft' | 'completed' | 'archived'
+    });
+
+    const { requestClose, isEdit } = useReportDraft({
+        open, onClose, formData, setFormData: setFormData as any, editData: initialData,
+        draftKey: `fono-report-draft:medical:${patient?._id || 'sem-paciente'}`,
+        onOpen: () => setActiveSection('basic'),
     });
 
     const sections = [
@@ -339,7 +348,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
         <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                 {/* Background overlay */}
-                <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
+                <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={requestClose}></div>
 
                 {/* Modal panel */}
                 <div className="relative inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-2xl shadow-xl">
@@ -348,14 +357,14 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">
-                                    Novo Relatório Médico
+                                    {isEdit ? 'Editar Relatório Médico' : 'Novo Relatório Médico'}
                                 </h2>
                                 <p className="text-sm text-gray-600 mt-1">
                                     {patient.fullName} • {new Date().toLocaleDateString('pt-BR')}
                                 </p>
                             </div>
                             <button
-                                onClick={onClose}
+                                onClick={requestClose}
                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5" />
@@ -436,7 +445,7 @@ export default function MedicalReportModal({ open, onClose, onSave, patient, loa
                                 
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={onClose}
+                                        onClick={requestClose}
                                         className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
                                         Cancelar

@@ -10,7 +10,7 @@ import patientService from '../../services/patientService';
 import { IPatient } from '../../utils/types/types';
 
 import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
-import PatientDetail from '../../components/doctor/patient/PatientDetail';
+import PatientDetail, { type PatientSection } from '../../components/doctor/patient/PatientDetail';
 import MyPatientsPanel from '../../components/doctor/patient/MyPatientsPanel';
 import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
 import useDoctorInsights from '../../hooks/useDoctorInsights';
@@ -102,6 +102,8 @@ export default function DoctorDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
+  const [detailSection, setDetailSection] = useState<PatientSection | undefined>(undefined);
+  const [createSignal, setCreateSignal] = useState(0);
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -129,6 +131,7 @@ export default function DoctorDashboard() {
     loadPatients,
     ensurePatientsLoaded,
     pendingEvolutions,
+    pendingEvolutionsError,
     userRole,
     selectViewDoctor
   } = useDoctorDashboard();
@@ -201,6 +204,8 @@ export default function DoctorDashboard() {
 
   const handleViewPatientDetails = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
+    setDetailSection(undefined);
+    setCreateSignal(0);
     setViewMode('detail');
     setActiveTab('patients');
   }, []);
@@ -214,21 +219,24 @@ export default function DoctorDashboard() {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    toast.info(`Criar anamnese para ${patient.fullName}`);
+    setDetailSection('anamnesis');
+    setCreateSignal(Date.now());
   }, []);
 
   const handleCreateSchoolReport = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    toast.info(`Criar relatório escolar para ${patient.fullName}`);
+    setDetailSection('school');
+    setCreateSignal(Date.now());
   }, []);
 
   const handleViewMedicalReports = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    toast.info(`Ver relatórios médicos de ${patient.fullName}`);
+    setDetailSection('medical');
+    setCreateSignal(0);
   }, []);
 
   const handleAddNewPatient = useCallback(() => {
@@ -407,6 +415,7 @@ export default function DoctorDashboard() {
               <>
                 <DoctorNeedsYou
                   pendingEvolutions={pendingEvolutions}
+                  pendingError={pendingEvolutionsError}
                   todayAppointments={todayAppointments}
                   birthdayPatients={birthdayPatients}
                   riskPatients={doctorInsights.insights?.riskPatients ?? []}
@@ -447,8 +456,11 @@ export default function DoctorDashboard() {
           return (
             <div className="p-6">
               <PatientDetail
+                key={selectedPatient._id}
                 patientId={selectedPatient._id}
                 onBack={handleBackToList}
+                initialSection={detailSection}
+                createSignal={createSignal || undefined}
               />
             </div>
           );

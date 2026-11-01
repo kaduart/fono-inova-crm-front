@@ -1,5 +1,5 @@
 // src/hooks/useDoctorDashboard.ts
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from '../utils/toast';
 import doctorService, {
   fetchFutureAppointments,
@@ -54,6 +54,8 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   // Pacientes atendidos sem evolução (calculado no backend)
   const [pendingEvolutions, setPendingEvolutions] = useState<PendingEvolution[]>([]);
+  // Falha ao buscar pendências não pode virar "tudo em dia".
+  const [pendingEvolutionsError, setPendingEvolutionsError] = useState(false);
   const [therapySessions, setTherapySessions] = useState<any[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -130,7 +132,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
         fetchStats(doctorId),
         fetchFutureAppointments(doctorId),
         // Falha aqui não deve derrubar o overview — só esconde o alerta
-        fetchPendingEvolutions(doctorId).catch(() => [] as PendingEvolution[])
+        fetchPendingEvolutions(doctorId).then(r => { setPendingEvolutionsError(false); return r; }).catch(() => { setPendingEvolutionsError(true); return [] as PendingEvolution[]; })
       ]);
       setPendingEvolutions(pendingRes || []);
       console.log(`[Overview] ✅ dados carregados em ${Date.now() - t0}ms — pacientes=${patientsRes?.length ?? (patientsRes as any)?.data?.length ?? 0} consultas=${(appointmentsRes as any[])?.length ?? 0}`);
@@ -388,6 +390,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     futureAppointments: overviewData.futureAppointments,
     calendarEvents,
     pendingEvolutions,
+    pendingEvolutionsError,
     therapySessions,
     attendanceSummary,
 
