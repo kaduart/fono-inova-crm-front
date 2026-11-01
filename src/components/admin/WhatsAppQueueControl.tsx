@@ -144,8 +144,7 @@ export default function WhatsAppQueueControl() {
             return (
               <Box
                 key={key}
-                className="rounded-lg p-3 text-center"
-                sx={{ backgroundColor: isAlert ? '#fef2f2' : '#f9fafb' }}
+                className={`rounded-lg p-3 text-center ${isAlert ? 'bg-red-50' : 'bg-gray-50'}`}
               >
                 <Typography variant="caption" className="text-gray-400 block">{label}</Typography>
                 <Typography variant="h6" fontWeight="bold" className={isAlert ? 'text-red-600' : 'text-gray-700'}>

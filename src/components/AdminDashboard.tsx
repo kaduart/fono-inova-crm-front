@@ -1356,7 +1356,7 @@ export default function AdminDashboard() {
 
     return (
         <SystemHealthProvider active={activeTab === 'Observability' || activeTab === 'Monitor'}>
-        <div className="min-h-screen bg-gray-100 text-gray-800">
+        <div className="min-h-screen bg-gray-100 text-left text-gray-800">
             <WhatsAppCriticalBanner />
             <AdminHeader
                 activeTab={activeTab}
