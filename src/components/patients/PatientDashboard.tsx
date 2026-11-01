@@ -26,6 +26,7 @@ import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
+import { PatientNextActions, PatientSituationStrip, findNextSession, usePatientSituation } from './PatientSituation';
 import LiminarContractPanel from '../liminar/LiminarContractPanel';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { socketManager } from '../../utils/socketManager';
@@ -111,6 +112,8 @@ export default function PatientDashboard() {
 
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
+  const situation = usePatientSituation((patientInfo as any)?.patientId || patientId);
+  const nextSession = findNextSession(patientAppointments as any[], (patientInfo as any)?.nextAppointment);
 
   // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
   const { patients } = usePatients();
@@ -506,14 +509,24 @@ export default function PatientDashboard() {
     const formatBalance = (value: number) => value.toLocaleString('pt-BR', {
       style: 'currency', currency: 'BRL',
     });
-    const nextApt       = pi.nextAppointment;
-    const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
-    const ptTags: string[] = pi.tags || [];
+    // Próxima sessão real (com horário e profissional) vinda da agenda do paciente.
+    const nextApt: any  = nextSession;
+    const nextAptDate   = nextApt?.date ? new Date(nextApt.date + 'T12:00:00') : null;
 
     return (
     <>
+      <PatientNextActions
+        patient={patientInfo}
+        situation={situation}
+        nextSession={nextSession}
+        totalAppointments={totalApts}
+        onReceive={() => setShowBalanceModal(true)}
+        onSchedule={() => setOpenSchedule(true)}
+        onGoTab={setActiveTab}
+      />
+
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 auto-rows-fr mb-5">
+      <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3 sm:auto-rows-fr mb-5">
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500" />
           <div className="flex items-start justify-between gap-3">
@@ -586,25 +599,10 @@ export default function PatientDashboard() {
                 {nextAptDate ? nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Sem agenda'}
               </p>
               <p className="mt-0.5 truncate text-2xs text-slate-500">
-                {nextAptDate ? `${nextApt.time || 'Horário pendente'} · ${nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}` : 'Nenhuma sessão futura'}
+                {nextAptDate ? [nextApt.time || 'Horário pendente', nextApt.serviceType === 'evaluation' ? 'Avaliação' : (nextApt.specialty || 'Sessão'), nextApt.doctorName].filter(Boolean).join(' · ') : 'Nenhuma sessão futura'}
               </p>
             </div>
             <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Calendar size={18} /></div>
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-violet-500" />
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Classificações</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {ptTags.length > 0 ? ptTags.map((tag: string) => (
-                  <span key={tag} className={`rounded-full px-2 py-1 text-3xs font-bold uppercase ${tag === 'debito' ? 'bg-red-100 text-red-700' : tag === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
-                )) : <span className="text-sm font-bold text-emerald-700">Regular</span>}
-              </div>
-              <p className="mt-1.5 text-2xs text-slate-500">situação atual do paciente</p>
-            </div>
-            <div className="rounded-xl bg-violet-50 p-2.5 text-violet-600"><ShieldCheck size={18} /></div>
           </div>
         </div>
       </div>
@@ -685,8 +683,8 @@ export default function PatientDashboard() {
                       {nextApt.time && ` às ${nextApt.time}`}
                     </p>
                     <p className="text-xs text-blue-600 mt-0.5">
-                      {nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}
-                      {(nextApt.doctorName || nextApt.doctor?.fullName || nextApt.doctor?.name) && ` · ${nextApt.doctorName || nextApt.doctor?.fullName || nextApt.doctor?.name}`}
+                      {nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.specialty || 'Sessão'}
+                      {nextApt.doctorName && ` · ${nextApt.doctorName}`}
                     </p>
                   </div>
                 ) : (
@@ -1102,33 +1100,15 @@ export default function PatientDashboard() {
 
 
       <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
-        {/* 🔹 Cabeçalho institucional */}
-        <div className="relative mb-5 flex flex-col items-start justify-between gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500" />
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600">
-              <Calendar size={22} />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
-                {patientInfo?.fullName || 'Paciente'}
-              </h1>
-              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                Visão consolidada do acompanhamento clínico e financeiro.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowBalanceModal(true)}
-            title="Sessões em aberto e baixa de pagamento"
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
-          >
-            <CreditCard size={18} />
-            Receber
-          </button>
-        </div>
-
+        {/* Faixa de situação: quem é, cobertura, quanto deve e próxima sessão (todas as abas) */}
+        <PatientSituationStrip
+          patient={patientInfo}
+          situation={situation}
+          nextSession={nextSession}
+          onReceive={() => setShowBalanceModal(true)}
+          onSchedule={() => setOpenSchedule(true)}
+          onGoTab={setActiveTab}
+        />
 
         {(pollingState.isPolling || isLoading) && <div className="mb-4 flex justify-end">
           {/* 🚀 V2: Indicador de processamento assíncrono */}

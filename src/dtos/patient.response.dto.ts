@@ -18,6 +18,9 @@ export interface PatientPackageDTO {
 
 export interface PatientNextAppointmentDTO {
     date?: string;
+    time?: string;
+    serviceType?: string;
+    doctorName?: string;
     doctor?: {
         name?: string;
         fullName?: string; // compatibilidade
@@ -182,6 +185,9 @@ function extractNextAppointment(raw: any): PatientNextAppointmentDTO | undefined
     const doctorName = apt.doctorName || apt.doctor?.fullName || apt.doctor?.name || apt.doctor?.nome || undefined;
     return {
         date: apt.date || undefined,
+        time: apt.time || undefined,
+        serviceType: apt.serviceType || undefined,
+        doctorName,
         doctor: (apt.doctor || apt.doctorName) ? {
             name: doctorName,
             fullName: doctorName,
