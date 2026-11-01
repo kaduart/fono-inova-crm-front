@@ -64,6 +64,7 @@ import {
 import { notifyApiError } from '../../../utils/notifyApiError';
 import { Chip as FinChip, KpiStrip, brl } from '../components/finUi';
 import { sessoes } from '../../../utils/plural';
+import BarList from '../../../components/ui/insight/BarList';
 
 // Configuração de categorias com cores e ícones
 //
@@ -415,7 +416,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
     : [];
 
   const viewSwitcher = (
-    <div className="inline-flex items-center gap-1 bg-gray-100 rounded-xl p-1 mb-4" role="tablist" aria-label="Visão de despesas">
+    <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-4" role="tablist" aria-label="Visão de despesas">
       {([
         { id: 'month', label: 'Do mês', icon: <Calendar size={15} /> },
         { id: 'fixed', label: 'Fixas', icon: <Repeat size={15} /> }
@@ -426,7 +427,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           aria-selected={view === t.id}
           onClick={() => setView(t.id)}
           className={`px-4 py-1.5 rounded-lg text-sm font-medium inline-flex items-center gap-2 transition-colors ${
-            view === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            view === t.id ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
           }`}
         >
           {t.icon}
@@ -477,14 +478,14 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             </div>
           ))}
         </div>
-        <div className="border border-gray-200 rounded-lg p-4 mb-4">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
           <div className="flex flex-wrap gap-2">
             {[150, 120, 130, 120].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={40} />)}
             <Skeleton variant="rounded" width={110} height={40} className="ml-auto" />
           </div>
         </div>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 p-2">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="bg-gray-50 dark:bg-gray-800/60 p-2">
             <div className="flex gap-2">
               {[24, 70, 140, 80, 90, 70, 75, 80, 56].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
             </div>
@@ -579,7 +580,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                 }
               }}
               disabled={generatingCommissions}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <RefreshCw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
               {generatingCommissions ? 'Gerando...' : 'Gerar Comissões'}
@@ -609,7 +610,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           </button>
       </div>
       {generatingCommissions && (
-        <p className="-mt-2 mb-3 text-xs text-gray-500 sm:text-right">
+        <p className="-mt-2 mb-3 text-xs text-gray-500 dark:text-gray-400 sm:text-right">
           Processando comissões em segundo plano. Isso pode levar alguns segundos...
         </p>
       )}
@@ -625,6 +626,22 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           { label: 'Vencidas', value: brl(totals.overdueTotal), sub: `${statusCounts.overdue} com data já passada`, danger: statusCounts.overdue > 0, onClick: () => setFilters({ ...filters, status: 'overdue' }) },
         ]}
       />
+
+      {/* Para onde vai o dinheiro: ranking por categoria (só quando a lista do mês veio inteira) */}
+      {pagination.pages <= 1 && visibleExpenses.length > 0 && (() => {
+        const map = new Map<string, number>();
+        visibleExpenses.forEach((e: any) => map.set(e.category || 'other', (map.get(e.category || 'other') || 0) + Number(e.amount || 0)));
+        const items = [...map.entries()].sort((a, b) => b[1] - a[1]).map(([cat, total]) => ({
+          key: cat, label: getCategoryConfig(cat)?.label || cat, value: total, display: brl(total),
+          onClick: () => setFilters({ ...filters, category: filters.category === cat ? '' : cat }),
+        }));
+        return items.length > 1 ? (
+          <details open className="mt-4 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+            <summary className="cursor-pointer text-sm font-semibold text-gray-800 dark:text-gray-200 dark:text-gray-100">Para onde vai o dinheiro (por categoria)</summary>
+            <div className="mt-2"><BarList items={items} color="bg-rose-500/80 dark:bg-rose-500/60" /></div>
+          </details>
+        ) : null;
+      })()}
 
       {/* Chips: status e origem, com contagem do back */}
       <div className="mt-4 mb-4 space-y-2">
@@ -651,7 +668,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             value={filters.category}
             onChange={(e) => setFilters({ ...filters, category: e.target.value })}
             aria-label="Categoria"
-            className="min-h-8 rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="min-h-8 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             <option value="">Todas as categorias</option>
             <option value="payroll">Folha</option>
@@ -662,33 +679,33 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             <option value="marketing">Marketing</option>
             <option value="other">Outro</option>
           </select>
-          <span className="ml-auto text-xs text-gray-500 tabular-nums">
+          <span className="ml-auto text-xs text-gray-500 dark:text-gray-400 tabular-nums">
             {pagination?.total ?? visibleExpenses.length} despesa{(pagination?.total ?? visibleExpenses.length) !== 1 ? 's' : ''}
           </span>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Por origem: Fixas {brl(byOrigin.fixed.total)} · Comissões {brl(byOrigin.commission.total)} · Avulsas {brl(byOrigin.manual.total)}
         </p>
       </div>
 
       {/* Tabela de Despesas */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 dark:bg-gray-800/60 border-b">
               <tr>
                 <th className="w-10 px-2 py-3 text-left"></th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Data</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Descrição</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Categoria</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Profissional</th>
-                <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600">Valor</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Método</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
-                <th className="px-3 py-3 text-center text-xs font-semibold text-gray-600">Ações</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Data</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Descrição</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Categoria</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Profissional</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">Valor</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Método</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                <th className="px-3 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {visibleExpenses.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-12">
@@ -696,12 +713,12 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                       <DollarSign className="w-12 h-12 text-gray-300 mb-2" />
                       {listError ? (
                         <>
-                          <p className="text-gray-700 font-medium">Não foi possível carregar as despesas</p>
-                          <button type="button" onClick={() => fetchExpenses(listParams)} className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Tentar de novo</button>
+                          <p className="text-gray-700 dark:text-gray-300 font-medium">Não foi possível carregar as despesas</p>
+                          <button type="button" onClick={() => fetchExpenses(listParams)} className="mt-2 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">Tentar de novo</button>
                         </>
                       ) : (
                         <>
-                          <p className="text-gray-500">Nenhuma despesa neste filtro</p>
+                          <p className="text-gray-500 dark:text-gray-400">Nenhuma despesa neste filtro</p>
                           <p className="text-xs text-gray-400">Troque o chip de status ou de origem, ou lance uma nova despesa</p>
                         </>
                       )}
@@ -720,7 +737,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   return (
                     <Fragment key={expense._id}>
                       <tr
-                        className={`transition-colors ${expense.status === 'canceled' ? 'bg-rose-50' : isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+                        className={`transition-colors ${expense.status === 'canceled' ? 'bg-rose-50' : isExpanded ? 'bg-gray-50 dark:bg-gray-800/60' : 'hover:bg-gray-50'}`}
                       >
                         <td className="px-2 py-2">
                           <button onClick={() => toggleRow(expense._id)} className="p-1 rounded hover:bg-gray-200">
@@ -854,11 +871,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                       {/* Linha expandida com detalhes */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={9} className="p-4 bg-gray-50">
+                          <td colSpan={9} className="p-4 bg-gray-50 dark:bg-gray-800/60">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {expense.category === 'commission' && notes && (
                                 <>
-                                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-900">
                                     <h4 className="font-semibold text-sm mb-2">Detalhamento da Comissão</h4>
                                     <div className="space-y-2">
                                       {notes.standardSessions && notes.standardSessions.count > 0 && (
@@ -883,7 +900,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                         const s = commissionSummaries[expense._id];
                                         if (typeof s !== 'object' || s.nonPayable === 0) return null;
                                         return (
-                                          <div className="flex justify-between text-sm text-gray-500">
+                                          <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
                                             <span>Sem repasse (cancelamento tardio)</span>
                                             <span className="font-medium">{s.nonPayable} {s.nonPayable === 1 ? 'atendimento' : 'atendimentos'} · R$ 0,00</span>
                                           </div>
@@ -929,7 +946,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                                   <span>{s.total}</span>
                                                 </div>
                                                 {s.nonPayableItems.map((item) => (
-                                                  <p key={item.sessionId} className="text-xs text-gray-500">
+                                                  <p key={item.sessionId} className="text-xs text-gray-500 dark:text-gray-400">
                                                     Sem repasse: {safeFormat(item.date, 'dd/MM')} {item.time || ''} · {item.patientName}
                                                     {item.nonPayableReason ? ` (${item.nonPayableReason})` : ''}
                                                   </p>
@@ -941,7 +958,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                       })()}
                                     </div>
                                   </div>
-                                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-900">
                                     <h4 className="font-semibold text-sm mb-2">Período de Trabalho</h4>
                                     <div className="space-y-2 text-sm">
                                       <div className="flex justify-between">
@@ -960,7 +977,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                         const s = commissionSummaries[expense._id];
                                         if (typeof s !== 'object' || s.nonPayable === 0) return null;
                                         return (
-                                          <p className="text-xs text-gray-500 text-right -mt-1">
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 text-right -mt-1">
                                             {s.payable} com repasse + {s.nonPayable} sem repasse
                                           </p>
                                         );
@@ -993,7 +1010,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           </table>
         </div>
         {(pagination?.pages ?? 0) > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-3 py-2 text-xs text-gray-600">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
             <span>
               {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
             </span>
@@ -1002,7 +1019,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                 type="button"
                 disabled={page <= 1 || loading}
                 onClick={() => setPage(p => Math.max(1, p - 1))}
-                className="rounded-md border border-gray-300 px-2.5 py-1 font-medium disabled:opacity-40"
+                className="rounded-md border border-gray-300 dark:border-gray-600 px-2.5 py-1 font-medium disabled:opacity-40"
               >
                 Anterior
               </button>
@@ -1011,7 +1028,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                 type="button"
                 disabled={page >= pagination.pages || loading}
                 onClick={() => setPage(p => p + 1)}
-                className="rounded-md border border-gray-300 px-2.5 py-1 font-medium disabled:opacity-40"
+                className="rounded-md border border-gray-300 dark:border-gray-600 px-2.5 py-1 font-medium disabled:opacity-40"
               >
                 Próxima
               </button>
@@ -1055,17 +1072,17 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
         const label = e.description || (e.relatedDoctor?.fullName ?? 'esta despesa');
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !rowActionBusy && setRowAction(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(ev) => ev.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(ev) => ev.stopPropagation()}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-lg"><Trash2 className="h-5 w-5 text-red-600" /></div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {isDelete ? 'Excluir despesa?' : 'Cancelar despesa?'}
                 </h3>
               </div>
-              <p className="text-sm text-gray-700 mb-1 font-medium">
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-1 font-medium">
                 {label} — R$ {e.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                 {isDelete
                   ? 'Despesa avulsa pendente: será removida definitivamente e não poderá ser recuperada.'
                   : origin === 'fixed'
@@ -1078,7 +1095,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                 <button
                   onClick={() => setRowAction(null)}
                   disabled={rowActionBusy}
-                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+                  className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
                 >
                   Voltar
                 </button>
@@ -1101,26 +1118,26 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => !generatingCommissions && setRegenerateConfirmOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-amber-100 rounded-lg">
                 <RotateCcw className="h-5 w-5 text-amber-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Regenerar comissões de {format(new Date(filters.year, filters.month - 1), 'MMMM/yyyy', { locale: ptBR })}?
               </h3>
             </div>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
               Comissões <strong>pendentes</strong> serão canceladas e recriadas com os dados atuais de sessões.
             </p>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               Comissões já <strong>pagas</strong> nunca são alteradas.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setRegenerateConfirmOpen(false)}
                 disabled={generatingCommissions}
-                className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -1160,15 +1177,15 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
         PaperProps={{ sx: { borderRadius: '20px' } }}
       >
         <DialogTitle sx={{ p: 0 }}>
-          <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#F59E0B' }}>
                 <TrendingDown className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-lg font-bold text-gray-900 leading-tight">Atendimentos da comissão</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">Atendimentos da comissão</h2>
                 {commissionSessionsData?.doctorName && (
-                  <p className="text-sm text-gray-500 truncate">{commissionSessionsData.doctorName}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{commissionSessionsData.doctorName}</p>
                 )}
               </div>
             </div>
@@ -1188,11 +1205,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             <>
               <div className="mb-4 flex flex-col gap-3 sm:flex-row">
                 <div className="sm:w-52">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de atendimento</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de atendimento</label>
                   <select
                     value={commissionSessionFilters.origin}
                     onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as any }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   >
                     <option value="all">Todos</option>
                     <option value="particular">Particular</option>
@@ -1201,13 +1218,13 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Paciente</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Paciente</label>
                   <input
                     type="text"
                     value={commissionSessionFilters.patient}
                     onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, patient: e.target.value }))}
                     placeholder="Buscar paciente..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
                 </div>
               </div>
@@ -1221,31 +1238,31 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                 const totalComissao = items.reduce((s, i) => s + (i.commissionValue || 0), 0);
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-                    <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div style={{ height: 3, backgroundColor: '#6B7280' }} />
-                      <div className="p-4 bg-white">
+                      <div className="p-4 bg-white dark:bg-gray-900">
                         <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
-                        <p className="text-2xl font-black text-gray-800">{items.length}</p>
+                        <p className="text-2xl font-black text-gray-800 dark:text-gray-200">{items.length}</p>
                         {(() => {
                           const semRepasse = items.filter(i => i.professionalPaymentStatus === 'non_payable').length;
                           return semRepasse > 0 ? (
-                            <p className="text-xs text-gray-500 mt-1">{items.length - semRepasse} com repasse + {semRepasse} sem repasse</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{items.length - semRepasse} com repasse + {semRepasse} sem repasse</p>
                           ) : null;
                         })()}
                       </div>
                     </div>
-                    <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div style={{ height: 3, backgroundColor: '#3B82F6' }} />
-                      <div className="p-4 bg-white">
+                      <div className="p-4 bg-white dark:bg-gray-900">
                         <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Valor total atendido</p>
                         <p className="text-2xl font-black text-blue-700">
                           R$ {totalAtendido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>
                       </div>
                     </div>
-                    <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div style={{ height: 3, backgroundColor: '#F59E0B' }} />
-                      <div className="p-4 bg-white">
+                      <div className="p-4 bg-white dark:bg-gray-900">
                         <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Comissão a repassar</p>
                         <p className="text-2xl font-black text-amber-700">
                           R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1258,11 +1275,11 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
               
               <div className="mb-4 flex flex-col gap-3 sm:flex-row">
                 <div className="sm:w-52">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de atendimento</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de atendimento</label>
                   <select
                     value={commissionSessionFilters.origin}
                     onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as any }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   >
                     <option value="all">Todos</option>
                     <option value="particular">Particular</option>
@@ -1271,13 +1288,13 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Paciente</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Paciente</label>
                   <input
                     type="text"
                     value={commissionSessionFilters.patient}
                     onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, patient: e.target.value }))}
                     placeholder="Buscar paciente..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
                 </div>
               </div>
@@ -1291,32 +1308,32 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
 
                 return (
                   <>
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b">
+                          <thead className="bg-gray-50 dark:bg-gray-800/60 border-b">
                             <tr>
-                              <th className="w-10 px-3 py-3 text-left text-xs font-semibold text-gray-600">#</th>
-                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Data</th>
-                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Hora</th>
-                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Paciente</th>
-                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Tipo</th>
-                              <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600">Valor atendido</th>
-                              <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600">Comissão</th>
+                              <th className="w-10 px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">#</th>
+                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Data</th>
+                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Hora</th>
+                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Paciente</th>
+                              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Tipo</th>
+                              <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">Valor atendido</th>
+                              <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">Comissão</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-gray-100">
+                          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {pageItems.map((item, idx) => (
                               <tr key={item.sessionId} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-3 py-2.5 text-gray-400">{startIdx + idx + 1}</td>
                                 <td className="px-3 py-2.5 whitespace-nowrap">{safeFormat(item.date, 'dd/MM/yyyy')}</td>
-                                <td className="px-3 py-2.5 text-gray-500">{item.time || '—'}</td>
+                                <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{item.time || '—'}</td>
                                 <td className="px-3 py-2.5">
                                   <div className="flex items-center gap-2">
                                     <Avatar sx={{ width: 22, height: 22, bgcolor: '#E5E7EB' }}>
                                       <User size={11} />
                                     </Avatar>
-                                    <span className="font-medium text-gray-800">{item.patientName}</span>
+                                    <span className="font-medium text-gray-800 dark:text-gray-200">{item.patientName}</span>
                                   </div>
                                 </td>
                                 <td className="px-3 py-2.5">
@@ -1340,14 +1357,14 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                     )}
                                     {item.professionalPaymentStatus === 'non_payable' && (
                                       <Tooltip title={item.nonPayableReason || 'Atendimento contado pela clínica, sem repasse ao profissional'}>
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium w-fit bg-gray-100 text-gray-600">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium w-fit bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                                           Sem repasse
                                         </span>
                                       </Tooltip>
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-3 py-2.5 text-right font-medium text-gray-700 whitespace-nowrap">
+                                <td className="px-3 py-2.5 text-right font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                   R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </td>
                                 <td className="px-3 py-2.5 text-right font-bold text-amber-700 whitespace-nowrap">
@@ -1361,10 +1378,10 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                     </div>
                     {totalPages > 1 && (
                       <div className="flex items-center justify-between mt-4">
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           Mostrando {startIdx + 1}–{Math.min(startIdx + COMMISSION_SESSIONS_PAGE_SIZE, items.length)} de {items.length}
                         </span>
-                        <div className="inline-flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full p-1">
+                        <div className="inline-flex items-center gap-1 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-full p-1">
                           <IconButton
                             size="small"
                             disabled={currentPage === 1}
@@ -1372,7 +1389,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                           >
                             <ChevronLeft size={16} />
                           </IconButton>
-                          <span className="text-xs font-semibold text-gray-700 px-1 min-w-[90px] text-center">
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 px-1 min-w-[90px] text-center">
                             Página {currentPage} de {totalPages}
                           </span>
                           <IconButton
