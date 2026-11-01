@@ -252,7 +252,14 @@ const FollowupPage = () => {
   const [showTimelineModal, setShowTimelineModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("leads");
+  // Novo design: lembra a última aba aberta (só conveniência local; some sem storage).
+  const [activeTab, setActiveTabRaw] = useState(() => {
+    try { return localStorage.getItem("fono-followup-tab") || "leads"; } catch { return "leads"; }
+  });
+  const setActiveTab = useCallback((t: string) => {
+    setActiveTabRaw(t);
+    try { localStorage.setItem("fono-followup-tab", t); } catch { /* sem storage */ }
+  }, []);
   const [viewMode, setViewMode] = useState<"marketing" | "operacional">(() => {
     const saved = localStorage.getItem("leads_view_mode");
     return (saved === "marketing" || saved === "operacional") ? saved : "operacional";
@@ -420,8 +427,8 @@ const FollowupPage = () => {
       {/* CABEÇALHO + PERÍODO (padrão finUi) */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-gray-900 md:text-2xl">Leads &amp; Follow-up</h1>
-          <p className="text-sm text-gray-600">Quem precisa de resposta, o próximo passo de cada lead e o funil do período.</p>
+          <h1 className="text-xl font-bold text-gray-900 md:text-2xl dark:text-gray-50">Leads &amp; Follow-up</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Quem precisa de resposta, o próximo passo de cada lead e o funil do período.</p>
         </div>
         <Button
           onClick={handleRefresh}
@@ -443,17 +450,20 @@ const FollowupPage = () => {
 
       {/* TABS */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+        <TabsList className="mb-4 inline-flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-[#161d1b]">
           <TabsTrigger
             value="leads"
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900 dark:text-slate-300 dark:data-[state=active]:bg-emerald-500/15 dark:data-[state=active]:text-emerald-100"
           >
             <Users size={16} />
             Fila de leads
+            {leadsWaiting.length > 0 && (
+              <span className="rounded-full bg-red-600 px-1.5 text-[11px] font-bold tabular-nums text-white" title={`${leadsWaiting.length} sem resposta há mais de 2h`}>{leadsWaiting.length}</span>
+            )}
           </TabsTrigger>
           <TabsTrigger
             value="metricas"
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-900 dark:text-slate-300 dark:data-[state=active]:bg-emerald-500/15 dark:data-[state=active]:text-emerald-100"
           >
             <BarChart3 size={16} />
             Métricas do funil
@@ -490,7 +500,7 @@ const FollowupPage = () => {
           <FollowupFilters onFilter={handleFilter} />
 
           {/* BARRA DE BUSCA */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-white/10 dark:bg-[#161d1b]">
             <div className="flex gap-3">
               <div className="flex-1 relative">
                 <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
@@ -499,12 +509,12 @@ const FollowupPage = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por nome ou telefone..."
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
+                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl dark:border-white/15 dark:bg-transparent dark:text-slate-100 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none transition-colors"
                 />
               </div>
               <button
                 onClick={() => refetchLeads()}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold transition-colors shadow-sm"
               >
                 <Search size={16} />
                 Buscar
@@ -513,9 +523,9 @@ const FollowupPage = () => {
           </div>
 
           {/* TABELA DE LEADS */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden dark:border-white/10 dark:bg-[#161d1b]">
             {/* CABEÇALHO DA TABELA */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-3 justify-between items-center dark:border-white/10 dark:bg-white/5">
               <div>
                 <span className="text-sm text-slate-600">
                   Total: <strong>{pagination.total}</strong> leads
@@ -531,16 +541,16 @@ const FollowupPage = () => {
                 <button
                   onClick={() => goToPage(1)}
                   disabled={pagination.page === 1}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                 >
-                  ⏮️ Primeira
+                  Primeira
                 </button>
                 <button
                   onClick={() => goToPage(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                 >
-                  ◀️ Anterior
+                  Anterior
                 </button>
                 <span className="px-3 py-1.5 text-sm text-slate-600">
                   Página {pagination.page} de {pagination.pages}
@@ -548,16 +558,16 @@ const FollowupPage = () => {
                 <button
                   onClick={() => goToPage(pagination.page + 1)}
                   disabled={pagination.page === pagination.pages}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                 >
-                  Próxima ▶️
+                  Próxima
                 </button>
                 <button
                   onClick={() => goToPage(pagination.pages)}
                   disabled={pagination.page === pagination.pages}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                 >
-                  Última ⏭️
+                  Última
                 </button>
               </div>
             </div>
@@ -763,14 +773,14 @@ const FollowupPage = () => {
                   <button
                     onClick={() => goToPage(1)}
                     disabled={pagination.page === 1}
-                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                   >
                     ⏮️
                   </button>
                   <button
                     onClick={() => goToPage(pagination.page - 1)}
                     disabled={pagination.page === 1}
-                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                   >
                     ◀️
                   </button>
@@ -797,14 +807,14 @@ const FollowupPage = () => {
                   <button
                     onClick={() => goToPage(pagination.page + 1)}
                     disabled={pagination.page === pagination.pages}
-                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                   >
                     ▶️
                   </button>
                   <button
                     onClick={() => goToPage(pagination.pages)}
                     disabled={pagination.page === pagination.pages}
-                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                   >
                     ⏭️
                   </button>

@@ -35,7 +35,7 @@ export const chipCls = (on: boolean) =>
 
 export const warnChipCls = (on: boolean) =>
     on ? chipCls(true)
-        : 'inline-flex min-h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+        : 'inline-flex min-h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20';
 
 export function Chip({ on, onClick, label, count, warn, disabled }: {
     on: boolean; onClick: () => void; label: string; count?: ReactNode; warn?: boolean; disabled?: boolean;
@@ -50,13 +50,13 @@ export function Chip({ on, onClick, label, count, warn, disabled }: {
 
 export type Tone = 'green' | 'amber' | 'red' | 'blue' | 'violet' | 'gray' | 'pink';
 const PILL: Record<Tone, string> = {
-    green: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-800 border-amber-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    violet: 'bg-violet-50 text-violet-700 border-violet-200',
-    gray: 'bg-gray-50 text-gray-600 border-gray-200',
-    pink: 'bg-pink-50 text-pink-700 border-pink-200',
+    green: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30',
+    amber: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
+    red: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30',
+    violet: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30',
+    gray: 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-white/5 dark:text-gray-300 dark:border-white/10',
+    pink: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-500/10 dark:text-pink-300 dark:border-pink-500/30',
 };
 export function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
     return <span className={`inline-flex whitespace-nowrap rounded-full border px-2 py-px text-xs font-semibold ${PILL[tone]}`}>{children}</span>;
@@ -65,16 +65,18 @@ export function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
 export interface KpiItem { label: string; value: ReactNode; sub?: ReactNode; hero?: boolean; danger?: boolean; onClick?: () => void }
 const KPI_COLS: Record<3 | 4 | 5, string> = { 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-3 xl:grid-cols-5' };
 export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loading?: boolean; cols?: 3 | 4 | 5 }) {
+    // Novo design: rótulo em caixa normal, número maior, "hero" com fio esmeralda no topo e "danger" com fio vermelho.
     return (
-        <div className={`grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200 bg-white ${KPI_COLS[cols]}`}>
+        <div className={`grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 shadow-sm dark:border-white/10 dark:bg-white/10 ${KPI_COLS[cols]}`}>
             {items.map((k) => {
                 const Tag = k.onClick ? 'button' : 'div';
+                const rule = k.danger ? 'before:bg-red-500' : k.hero ? 'before:bg-emerald-500' : 'before:bg-transparent';
                 return (
                     <Tag key={k.label} type={k.onClick ? 'button' : undefined} onClick={k.onClick}
-                        className={`min-w-0 border-b border-r border-gray-200 px-4 py-3 text-left ${k.onClick ? 'hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500' : ''}`}>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{k.label}</div>
-                        <div className={`mt-0.5 text-2xl font-bold tabular-nums ${loading ? 'animate-pulse text-gray-300' : k.danger ? 'text-red-700' : k.hero ? 'text-emerald-700' : 'text-gray-900'}`}>{k.value}</div>
-                        {k.sub && <div className="text-xs text-gray-500">{k.sub}</div>}
+                        className={`relative min-w-0 bg-white px-4 pb-3.5 pt-3 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${rule} dark:bg-[#161d1b] ${k.onClick ? 'transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-white/5' : ''}`}>
+                        <div className="truncate text-[13px] font-medium text-gray-500 dark:text-gray-400">{k.label}</div>
+                        <div className={`mt-1 text-[1.65rem] font-bold leading-none tracking-tight tabular-nums ${loading ? 'animate-pulse text-gray-300 dark:text-gray-600' : k.danger ? 'text-red-700 dark:text-red-400' : k.hero ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{k.value}</div>
+                        {k.sub && <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{k.sub}</div>}
                     </Tag>
                 );
             })}
@@ -123,12 +125,12 @@ export function PeriodBar({ value, month, year, onChange, keys = ['day', 'week',
     return (
         <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 text-xs font-semibold text-gray-500">Período</span>
+                <span className="mr-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Período</span>
                 {keys.map((k) => (
                     <button key={k} type="button" aria-pressed={value.key === k}
                         onClick={() => onChange(rangeFor(k, month, year, k === 'custom' ? { start: value.start, end: value.end } : undefined))}
                         className={value.key === k
-                            ? 'inline-flex min-h-8 items-center rounded-full border border-emerald-700 bg-emerald-700 px-3 text-sm font-semibold text-white'
+                            ? 'inline-flex min-h-8 items-center rounded-full border border-emerald-700 bg-emerald-700 px-3 text-sm font-semibold text-white shadow-sm dark:border-emerald-500 dark:bg-emerald-600'
                             : chipCls(false)}>
                         {k === 'month' ? rangeFor('month', month, year).label : names[k]}
                     </button>
@@ -137,14 +139,14 @@ export function PeriodBar({ value, month, year, onChange, keys = ['day', 'week',
                     <span className="flex flex-wrap items-center gap-1.5">
                         <input type="date" aria-label="De" value={value.start} max={value.end}
                             onChange={(e) => e.target.value && onChange({ ...value, start: e.target.value })}
-                            className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-sm" />
-                        <span className="text-xs text-gray-500">a</span>
+                            className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">a</span>
                         <input type="date" aria-label="Até" value={value.end} min={value.start}
                             onChange={(e) => e.target.value && onChange({ ...value, end: e.target.value })}
-                            className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-sm" />
+                            className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
                     </span>
                 )}
-                <span className="ml-1 text-xs text-gray-500">{describeRange(value)} · horário de Brasília</span>
+                <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">{describeRange(value)}, horário de Brasília</span>
             </div>
             {right}
         </div>
@@ -162,10 +164,10 @@ export function Pager({ page, pages, total, limit, onPage, busy }: {
             <span className="mr-2 tabular-nums">{from}–{to} de {total}</span>
             {pages > 1 && <>
                 <button type="button" disabled={page <= 1 || busy} onClick={() => onPage(page - 1)}
-                    className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium disabled:opacity-40">Anterior</button>
+                    className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:hover:bg-white/5">Anterior</button>
                 <span className="px-1 text-xs">Página {page} de {pages}</span>
                 <button type="button" disabled={page >= pages || busy} onClick={() => onPage(page + 1)}
-                    className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium disabled:opacity-40">Próxima</button>
+                    className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:hover:bg-white/5">Próxima</button>
             </>}
         </div>
     );

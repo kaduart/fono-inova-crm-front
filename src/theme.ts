@@ -17,6 +17,19 @@ export const theme = createTheme({
       contrastText: '#0F4037',
     },
   },
+  // Novo design: mesma fonte do Tailwind, sem CAIXA ALTA em botões/abas, cantos e sombras discretos.
+  typography: {
+    fontFamily: "'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    button: { textTransform: 'none', fontWeight: 600 },
+  },
+  shape: { borderRadius: 10 },
+  components: {
+    MuiTab: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
+    MuiButton: { defaultProps: { disableElevation: true } },
+    MuiPaper: { styleOverrides: { elevation1: { boxShadow: '0 1px 2px rgba(15, 64, 55, .06), 0 0 0 1px rgba(15, 64, 55, .06)' } } },
+    MuiCard: { styleOverrides: { root: { boxShadow: '0 1px 2px rgba(15, 64, 55, .06), 0 0 0 1px rgba(15, 64, 55, .06)' } } },
+    MuiTableCell: { styleOverrides: { head: { fontWeight: 600 } } },
+  },
 });
 
 export default theme;

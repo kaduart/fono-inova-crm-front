@@ -728,15 +728,23 @@ const FinancialDashboard = ({
             </div>
 
             {/* Tabs */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="border-b border-gray-100 px-3 py-2">
-                    <div role="tablist" aria-label="Módulos financeiros" className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
+            {/* Novo design: barra de abas fica presa no topo ao rolar e aceita ← → do teclado. */}
+            <div className="bg-white rounded-2xl shadow-sm dark:bg-[#161d1b]">
+                <div className="sticky top-16 z-20 rounded-t-2xl border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-white/10 dark:bg-[#161d1b]/95">
+                    <div role="tablist" aria-label="Módulos financeiros" className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-white/5"
+                        onKeyDown={(e) => {
+                            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                            e.preventDefault();
+                            const next = (currentTab + (e.key === 'ArrowRight' ? 1 : -1) + allTabs.length) % allTabs.length;
+                            handleTabChange({} as React.SyntheticEvent, next);
+                            (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+                        }}>
                         {allTabs.map((tab, index) => (
-                            <button key={tab.id} type="button" role="tab" aria-selected={currentTab === index} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+                            <button key={tab.id} type="button" role="tab" aria-selected={currentTab === index} tabIndex={currentTab === index ? 0 : -1} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                                     currentTab === index
-                                        ? 'bg-white text-gray-900 shadow-sm font-semibold'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                        ? 'bg-white text-gray-900 shadow-sm font-semibold dark:bg-white/10 dark:text-white'
+                                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                                 }`}>
                                 {tab.icon}
                                 <span>{tab.label}</span>
