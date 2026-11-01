@@ -33,15 +33,15 @@ import {
     Warning
 } from '@mui/icons-material';
 import api from '../../../services/api';
-import moment from 'moment-timezone';
+import { format } from 'date-fns';
+import { fmtDateSP, spMonthRangeISO } from '../../../utils/dateSP';
 
-const TIMEZONE = 'America/Sao_Paulo';
 
 const formatCurrency = (value: number) =>
     `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const formatDate = (date: string) =>
-    moment(date).tz(TIMEZONE).format('DD/MM/YYYY');
+    fmtDateSP(date);
 
 interface FinancialDetailsModalProps {
     open: boolean;
@@ -75,8 +75,8 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
         setError(null);
 
         try {
-            const startDate = moment.tz({ year: period.year, month: period.month, day: 1 }, TIMEZONE).toISOString();
-            const endDate = moment.tz({ year: period.year, month: period.month, day: 1 }, TIMEZONE).endOf('month').toISOString();
+            const startDate = spMonthRangeISO(period.year, period.month).start;
+            const endDate = spMonthRangeISO(period.year, period.month).end;
 
             let response;
             switch (type) {
@@ -104,8 +104,8 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                 case 'despesas':
                     response = await api.get('/expenses', {
                         params: {
-                            startDate: moment(startDate).format('YYYY-MM-DD'),
-                            endDate: moment(endDate).format('YYYY-MM-DD'),
+                            startDate: format(new Date(startDate), 'yyyy-MM-dd'),
+                            endDate: format(new Date(endDate), 'yyyy-MM-dd'),
                             limit: 1000
                         }
                     });
@@ -117,8 +117,8 @@ export const FinancialDetailsModal = ({ open, onClose, type, period, summaryData
                         api.get('/financial/v2/cash', { params: { startDate, endDate } }),
                         api.get('/expenses', {
                             params: {
-                                startDate: moment(startDate).format('YYYY-MM-DD'),
-                                endDate: moment(endDate).format('YYYY-MM-DD'),
+                                startDate: format(new Date(startDate), 'yyyy-MM-dd'),
+                                endDate: format(new Date(endDate), 'yyyy-MM-dd'),
                                 limit: 1000
                             }
                         })

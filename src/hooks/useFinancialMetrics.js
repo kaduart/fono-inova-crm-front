@@ -6,9 +6,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import moment from 'moment-timezone';
+import { format, subDays } from 'date-fns';
+import { monthEndYmd, monthStartYmd, nowSP, spDayEndISO, spDayStartISO } from '../utils/dateSP';
 
-const TIMEZONE = 'America/Sao_Paulo';
 
 /**
  * @param {string} startDate - ISO date string
@@ -59,8 +59,8 @@ export const useFinancialMetrics = (startDate, endDate, includeKPIs = false) => 
  * Hook com período padrão (mês atual)
  */
 export const useCurrentMonthMetrics = (includeKPIs = false) => {
-  const startDate = moment().tz(TIMEZONE).startOf('month').toISOString();
-  const endDate = moment().tz(TIMEZONE).endOf('month').toISOString();
+  const startDate = spDayStartISO(monthStartYmd());
+  const endDate = spDayEndISO(monthEndYmd());
   
   return useFinancialMetrics(startDate, endDate, includeKPIs);
 };
@@ -69,8 +69,8 @@ export const useCurrentMonthMetrics = (includeKPIs = false) => {
  * Hook com período padrão (últimos 30 dias)
  */
 export const useLast30DaysMetrics = (includeKPIs = false) => {
-  const startDate = moment().tz(TIMEZONE).subtract(29, 'days').startOf('day').toISOString();
-  const endDate = moment().tz(TIMEZONE).endOf('day').toISOString();
+  const startDate = spDayStartISO(format(subDays(nowSP(), 29), 'yyyy-MM-dd'));
+  const endDate = spDayEndISO(format(nowSP(), 'yyyy-MM-dd'));
   
   return useFinancialMetrics(startDate, endDate, includeKPIs);
 };

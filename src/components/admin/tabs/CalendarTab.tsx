@@ -12,7 +12,7 @@ import { usePatients } from '../../../hooks/usePatients';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import { toast } from '../../../utils/toast';
-import moment from 'moment-timezone';
+import { monthEndYmd, monthStartYmd } from '../../../utils/dateSP';
 import type { CancelExtras } from '../../calendar/CancelRequesterPicker';
 
 interface CalendarTabProps {
@@ -43,8 +43,8 @@ export const CalendarTab = ({
     
     // Range padrão: mês atual
     const [dateRange, setDateRange] = useState(() => {
-        const start = moment().startOf('month').format('YYYY-MM-DD');
-        const end = moment().endOf('month').format('YYYY-MM-DD');
+        const start = monthStartYmd();
+        const end = monthEndYmd();
         return { startDate: start, endDate: end };
     });
     const dateRangeRef = useRef(dateRange);
@@ -86,8 +86,8 @@ export const CalendarTab = ({
     const handleMonthChange = useCallback(async (startDate: Date, endDate: Date) => {
         const middleDate = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
         const newRange = {
-            startDate: moment(middleDate).startOf('month').format('YYYY-MM-DD'),
-            endDate: moment(middleDate).endOf('month').format('YYYY-MM-DD')
+            startDate: monthStartYmd(new Date(middleDate)),
+            endDate: monthEndYmd(new Date(middleDate))
         };
 
         // Ignora se o mês não mudou (evita segundo fetch no mount inicial do FullCalendar)

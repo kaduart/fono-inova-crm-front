@@ -1,7 +1,7 @@
 'use client';
 
 import { CardHeader } from '@mui/material';
-import dayjs from 'dayjs';
+import { format } from 'date-fns';
 import { useEffect, useState } from 'react';
 import appointmentService, { AvailableSlotsParams, SlotAvailability } from '../../services/appointmentService';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
@@ -27,7 +27,7 @@ interface IDoctorAgendaProps {
 
 const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, selectedDoctor, onSubmitSlotBooking, refreshSignal }: IDoctorAgendaProps) => {
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
-    const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [daySlots, setDaySlots] = useState<{ date: string; slots: (string | SlotAvailability)[] }[]>([]);
     const [selectedBooking, setSelectedBooking] = useState<{
         patientId: string;
@@ -50,20 +50,20 @@ const DoctorAgenda = ({ doctors = [], updateSlots, patients, onDaySlotsChange, s
 useEffect(() => {
     if (selectedDoctor && selectedDoctor._id) {
         setSelectedDoctorId(selectedDoctor._id);
-        const today = dayjs();
+        const today = new Date();
         setSelectedDate(today);
         // 🔄 Busca slots diretamente com o ID do selectedDoctor
-        fetchSlotsForDate(today.format('YYYY-MM-DD'), selectedDoctor._id);
+        fetchSlotsForDate(format(today, 'yyyy-MM-dd'), selectedDoctor._id);
     }
 }, [selectedDoctor]);
 
-    const onDateChange = (date: dayjs.Dayjs) => {
+    const onDateChange = (date: Date) => {
         setSelectedDate(date);
     };
 
     useEffect(() => {
         if (refreshSignal && selectedDate && selectedDoctorId) {
-            fetchSlotsForDate(selectedDate.format('YYYY-MM-DD'), selectedDoctorId);
+            fetchSlotsForDate(format(selectedDate, 'yyyy-MM-dd'), selectedDoctorId);
         }
     }, [refreshSignal]);
 

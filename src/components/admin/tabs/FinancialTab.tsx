@@ -15,7 +15,8 @@ import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { usePaymentsContext } from '../../../contexts/PaymentsContext';
 import { Skeleton } from '@mui/material';
 import { toast } from '../../../utils/toast';
-import moment from 'moment';
+import { format } from 'date-fns';
+import { nowSP } from '../../../utils/dateSP';
 
 // ============================================
 // TYPES
@@ -68,7 +69,7 @@ export const FinancialTab = ({
   
   const [isLoading, setIsLoading] = useState(true);
   const loading = isLoading || patientsLoading || doctorsLoading || paymentsLoading;
-  const currentMonth = moment().format('YYYY-MM');
+  const currentMonth = format(nowSP(), 'yyyy-MM');
 
   // 🎯 Só carrega quando a aba é ativada (o context gerencia o cache)
   useEffect(() => {

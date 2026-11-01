@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { weeklyAvailabilityService, WeeklyDay } from '../services/weeklyAvailabilityService';
 import { Calendar, ChevronLeft, ChevronRight, Clock, UserX } from 'lucide-react';
-import dayjs from 'dayjs';
+import { addDays, format, startOfWeek } from 'date-fns';
 
 interface Props {
   specialty: string;
 }
 
 export default function WeeklyAvailabilityCalendar({ specialty }: Props) {
-  const [weekStart, setWeekStart] = useState(dayjs().startOf('week').add(1, 'day')); // Segunda
+  const [weekStart, setWeekStart] = useState(() => addDays(startOfWeek(new Date()), 1)); // Segunda
   const [data, setData] = useState<WeeklyDay[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +17,7 @@ export default function WeeklyAvailabilityCalendar({ specialty }: Props) {
       setLoading(true);
       try {
         const res = await weeklyAvailabilityService.fetch({
-          startDate: weekStart.format('YYYY-MM-DD'),
+          startDate: format(weekStart, 'yyyy-MM-dd'),
           specialty,
           days: 5, // seg a sex
         });
@@ -31,8 +31,8 @@ export default function WeeklyAvailabilityCalendar({ specialty }: Props) {
     fetch();
   }, [weekStart, specialty]);
 
-  const handlePrev = () => setWeekStart(weekStart.subtract(7, 'day'));
-  const handleNext = () => setWeekStart(weekStart.add(7, 'day'));
+  const handlePrev = () => setWeekStart(addDays(weekStart, -7));
+  const handleNext = () => setWeekStart(addDays(weekStart, 7));
 
   return (
     <div className="p-4">
@@ -41,7 +41,7 @@ export default function WeeklyAvailabilityCalendar({ specialty }: Props) {
           <ChevronLeft size={20} />
         </button>
         <h2 className="text-lg font-semibold">
-          Disponibilidade — {weekStart.format('DD/MM')} a {weekStart.add(4, 'day').format('DD/MM')}
+          Disponibilidade — {format(weekStart, 'dd/MM')} a {format(addDays(weekStart, 4), 'dd/MM')}
         </h2>
         <button onClick={handleNext} className="p-2 rounded hover:bg-gray-100">
           <ChevronRight size={20} />
@@ -64,7 +64,7 @@ export default function WeeklyAvailabilityCalendar({ specialty }: Props) {
                   {day.dayLabel}
                 </span>
                 <span className="text-gray-400 text-sm">
-                  {dayjs(day.date).format('DD/MM')}
+                  {format(new Date(day.date), 'dd/MM')}
                 </span>
               </div>
 

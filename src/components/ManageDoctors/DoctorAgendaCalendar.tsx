@@ -2,7 +2,6 @@
 
 import { addDays, format, formatISO, isSameDay, parseISO, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import { Calendar, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -17,8 +16,8 @@ interface DoctorAgendaCalendarProps {
   daySlots?: { date: string; slots: (string | SlotAvailability)[] }[];
   selectedDoctorId?: string;
   patients?: IPatient[];
-  selectedDate?: dayjs.Dayjs | null;
-  onDateChange: (date: dayjs.Dayjs) => void;
+  selectedDate?: Date | null;
+  onDateChange: (date: Date) => void;
   onDaySelect: (date: string) => void;
   onSubmitSlotBooking?: (data: SlotBookingPayload) => void;
 }
@@ -64,7 +63,7 @@ const DoctorAgendaCalendar = ({
   const handleNextWeek = () => setWeekStart(addDays(weekStart, 7));
 
   const isSelected = (date: Date) =>
-    selectedDate && dayjs(date).isSame(selectedDate, 'day');
+    !!selectedDate && isSameDay(date, selectedDate);
 
   const handleDayClick = async (date: Date) => {
     console.log("Dia clicado:", date);
@@ -72,7 +71,7 @@ const DoctorAgendaCalendar = ({
 
     const formatted = format(date, 'yyyy-MM-dd');
     setLoadingDay(formatted); // inicia loading
-    onDateChange(dayjs(date));
+    onDateChange(date);
 
     try {
       await onDaySelect(formatted); // assume que onDaySelect retorna Promise
@@ -82,7 +81,7 @@ const DoctorAgendaCalendar = ({
   };
   useEffect(() => {
     if (!selectedDate) return;
-    const formatted = selectedDate.format('YYYY-MM-DD');
+    const formatted = format(selectedDate, 'yyyy-MM-dd');
 
     if (!Array.isArray(daySlots) || typeof daySlots[0] !== 'object') {
       console.warn('Formato inválido de daySlots:', daySlots);
@@ -274,7 +273,7 @@ const DoctorAgendaCalendar = ({
                   
                   <TimeMultiSelect
                     availableTimes={slots}
-                    selectedDate={selectedDate?.toDate() || null}
+                    selectedDate={selectedDate || null}
                     patients={patients}
                     selectedDoctorId={selectedDoctorId}
                     onChange={(times) =>
@@ -294,7 +293,7 @@ const DoctorAgendaCalendar = ({
 
       {/* Adicione esta verificação para quando não há slots na semana */}
       {daySlots.length === 0 && !expandedDate && (
-        <EmptyAgendaMessage selectedDate={selectedDate?.toDate()} hasAvailability={false} />
+        <EmptyAgendaMessage selectedDate={selectedDate || undefined} hasAvailability={false} />
       )}
     </div>
   );

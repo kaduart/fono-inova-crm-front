@@ -16,17 +16,6 @@ import {
     useTheme
 } from '@mui/material';
 import {
-    ArcElement,
-    BarElement,
-    CategoryScale,
-    Chart as ChartJS,
-    Legend,
-    LinearScale,
-    LineElement,
-    PointElement,
-    Tooltip
-} from 'chart.js';
-import {
     Activity,
     BarChart2,
     Calendar,
@@ -36,18 +25,8 @@ import {
     Users
 } from 'lucide-react';
 import { useState } from 'react';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { BarCompat, DoughnutCompat, LineCompat } from '../charts/ChartJsCompat';
 
-ChartJS.register(
-    ArcElement,
-    Tooltip,
-    Legend,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    PointElement
-);
 
 
 // Dados mock para demonstração
@@ -121,60 +100,7 @@ const mockReportsData = {
     }
 };
 
-// Opções dos gráficos
-const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            position: 'top' as const,
-            labels: {
-                boxWidth: 12,
-                padding: 15,
-                usePointStyle: true,
-            }
-        },
-        tooltip: {
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            titleColor: '#1f2937',
-            bodyColor: '#374151',
-            borderColor: '#e5e7eb',
-            borderWidth: 1,
-            padding: 12,
-            displayColors: true,
-            usePointStyle: true
-        }
-    },
-    scales: {
-        x: {
-            grid: {
-                display: false
-            }
-        },
-        y: {
-            beginAtZero: true,
-            grid: {
-                color: 'rgba(0, 0, 0, 0.05)'
-            }
-        }
-    }
-};
 
-const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            position: 'bottom' as const,
-            labels: {
-                boxWidth: 12,
-                padding: 15,
-                usePointStyle: true,
-            }
-        }
-    },
-    cutout: '65%'
-};
 
 export default function ReportsSection() {
     const theme = useTheme();
@@ -416,10 +342,7 @@ export default function ReportsSection() {
                             />
                             <CardContent>
                                 <Box sx={{ height: 300 }}>
-                                    <Line
-                                        data={mockReportsData.patientProgress}
-                                        options={chartOptions}
-                                    />
+                                    <LineCompat data={mockReportsData.patientProgress} />
                                 </Box>
                             </CardContent>
                         </Card>
@@ -449,10 +372,7 @@ export default function ReportsSection() {
                             />
                             <CardContent>
                                 <Box sx={{ height: 300 }}>
-                                    <Doughnut
-                                        data={mockReportsData.patientDistribution}
-                                        options={doughnutOptions}
-                                    />
+                                    <DoughnutCompat data={mockReportsData.patientDistribution} />
                                 </Box>
                             </CardContent>
                         </Card>
@@ -494,10 +414,7 @@ export default function ReportsSection() {
                             />
                             <CardContent>
                                 <Box sx={{ height: 300 }}>
-                                    <Bar
-                                        data={mockReportsData.sessionAttendance}
-                                        options={chartOptions}
-                                    />
+                                    <BarCompat data={mockReportsData.sessionAttendance} />
                                 </Box>
                             </CardContent>
                         </Card>

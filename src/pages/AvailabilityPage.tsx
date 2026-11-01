@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
-import dayjs from 'dayjs';
+import { format } from 'date-fns';
 import { useEffect, useState } from 'react';
 import ScheduleModal from '../components/calendar/ScheduleModal';
 import { BASE_URL } from '../constants/constants';
@@ -20,7 +20,7 @@ import { SlotAvailability } from '../services/appointmentService';
 export default function AvailabilityPage() {
     const [doctors, setDoctors] = useState([]);
     const [selectedDoctor, setSelectedDoctor] = useState('');
-    const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [availableSlots, setAvailableSlots] = useState<(string | SlotAvailability)[]>([]);
     const [loading, setLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
@@ -42,7 +42,7 @@ export default function AvailabilityPage() {
                 const response = await axios.get(`${BASE_URL}/v2/appointments/available-slots`, {
                     params: {
                         doctorId: selectedDoctor,
-                        date: selectedDate.format('YYYY-MM-DD'),
+                        date: format(selectedDate, 'yyyy-MM-dd'),
                     },
                 });
                 setAvailableSlots(response.data || []);
@@ -123,7 +123,7 @@ export default function AvailabilityPage() {
                     open={modalOpen}
                     onClose={() => setModalOpen(false)}
                     perfilData={{
-                        date: selectedDate?.format('YYYY-MM-DD'),
+                        date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined,
                         time: selectedSlot,
                         doctorId: selectedDoctor,
                     }}
