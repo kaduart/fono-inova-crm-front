@@ -1,8 +1,8 @@
 // Funil comercial por CANAL (atribuição). Fonte: GET /v2/analytics/roi/funnel-by-channel.
 // Enxuto: 4 indicadores + 1 tabela por canal. Clique na linha abre os contatos (nome/telefone/status).
 // Período vem do filtro do topo (startDate/endDate). Detalhe por LP fica na aba Analytics do Site.
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { Unlink, ChevronDown, ChevronRight, MessageCircle, Trophy } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Unlink, ChevronDown, ChevronRight, MessageCircle, Trophy, X } from "lucide-react";
 import API from "../../services/api";
 
 type Detalhe = { nome: string | null; telefone: string; status: "agendou" | "pre" | "contato" };
@@ -82,6 +82,19 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
   const soContato = Math.max(0, totals.contatos - totals.agendamentos - totals.preAgendamentos);
   const seg = (n: number) => (totals.contatos > 0 ? Math.min(100, (n / totals.contatos) * 100) : 0);
   const toggle = (c: string) => { setOpen(open === c ? null : c); setFiltro("todos"); };
+  // Contatos do canal abrem em modal (redesign/conversao); filtros por status e WhatsApp continuam.
+  const modalRow = open ? rows.find((r) => r.channel === open) || null : null;
+  const det = modalRow?.detalhes || [];
+  const cont = { todos: det.length, agendou: 0, pre: 0, contato: 0 } as Record<Filtro, number>;
+  det.forEach((d) => { cont[d.status] += 1; });
+  const vis = filtro === "todos" ? det : det.filter((d) => d.status === filtro);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -158,16 +171,12 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
                   {rows.map((r) => {
                     const isOpen = open === r.channel;
                     const det = r.detalhes || [];
-                    const cont = { todos: det.length, agendou: 0, pre: 0, contato: 0 } as Record<Filtro, number>;
-                    det.forEach((d) => { cont[d.status] += 1; });
-                    const vis = filtro === "todos" ? det : det.filter((d) => d.status === filtro);
                     return (
-                      <Fragment key={r.channel}>
-                        <tr onClick={() => det.length && toggle(r.channel)}
+                                              <tr key={r.channel} onClick={() => det.length && toggle(r.channel)}
                           className={`border-b border-slate-50 last:border-0 dark:border-slate-800 ${det.length ? "cursor-pointer" : ""} ${isOpen ? "bg-emerald-50/40 dark:bg-emerald-950/20" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"}`}>
                           <td className="py-2 pr-2">
                             <span className="inline-flex items-center gap-1.5 leading-tight text-slate-700 dark:text-slate-200">
-                              {det.length ? (isOpen ? <ChevronDown size={13} className="text-emerald-600" /> : <ChevronRight size={13} className="text-slate-400" />) : <span className="w-[13px]" />}
+                              {det.length ? <ChevronRight size={13} className={isOpen ? "text-emerald-600" : "text-slate-400"} /> : <span className="w-[13px]" />}
                               <span className={`h-2 w-2 rounded-full ${ch(r.channel).dot}`} />{ch(r.channel).label}
                             </span>
                           </td>
@@ -178,42 +187,6 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
                             <span className="inline-flex items-center gap-2"><MiniBar v={r.conversao} />{pct(r.conversao)}</span>
                           </td>
                         </tr>
-                        {isOpen && det.length > 0 && (
-                          <tr>
-                            <td colSpan={5} className="p-0">
-                              {/* 3. Contatos do canal */}
-                              <div className="my-2 overflow-hidden rounded-xl border border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-900">
-                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
-                                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">Contatos de {ch(r.channel).label} <span className="tabular-nums text-slate-400">({det.length})</span></span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {FILTROS.filter((f) => f.k === "todos" || cont[f.k] > 0).map((f) => (
-                                      <button key={f.k} type="button" onClick={(e) => { e.stopPropagation(); setFiltro(f.k); }}
-                                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${filtro === f.k ? "bg-emerald-600 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:ring-slate-700 dark:text-slate-300"}`}>
-                                        {f.label} <span className="tabular-nums opacity-70">{cont[f.k]}</span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                <ul className="max-h-72 divide-y divide-slate-50 overflow-auto dark:divide-slate-800">
-                                  {vis.map((d, i) => (
-                                    <li key={`${d.telefone}-${i}`} className="flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                      <span className={`h-2 w-2 shrink-0 rounded-full ${SDOT[d.status]}`} />
-                                      <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2.5">
-                                        <span className="truncate font-medium text-slate-700 dark:text-slate-200">{d.nome || "— sem nome —"}</span>
-                                        <a href={`https://wa.me/${(d.telefone || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" title="Abrir no WhatsApp"
-                                          onClick={(e) => e.stopPropagation()} className="inline-flex shrink-0 items-center gap-1 tabular-nums text-xs text-slate-400 hover:text-emerald-600">
-                                          <MessageCircle size={11} />{fone(d.telefone)}
-                                        </a>
-                                      </span>
-                                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ST[d.status].cls}`}>{ST[d.status].label}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -237,6 +210,44 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
             </p>
           )}
         </>
+      )}
+      {/* Modal de contatos do canal */}
+      {modalRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`Contatos de ${ch(modalRow.channel).label}`}>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setOpen(null)} />
+        <div className="relative flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">Contatos de {ch(modalRow.channel).label} <span className="tabular-nums text-slate-400">({det.length})</span></span>
+            <button type="button" onClick={() => setOpen(null)} aria-label="Fechar"
+              className="order-last -mr-1 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">
+              <X size={16} />
+            </button>
+            <div className="flex w-full flex-wrap gap-1">
+              {FILTROS.filter((f) => f.k === "todos" || cont[f.k] > 0).map((f) => (
+                <button key={f.k} type="button" onClick={(e) => { e.stopPropagation(); setFiltro(f.k); }}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${filtro === f.k ? "bg-emerald-600 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:ring-slate-700 dark:text-slate-300"}`}>
+                  {f.label} <span className="tabular-nums opacity-70">{cont[f.k]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <ul className="min-h-0 flex-1 divide-y divide-slate-50 overflow-auto dark:divide-slate-800">
+            {vis.map((d, i) => (
+              <li key={`${d.telefone}-${i}`} className="flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${SDOT[d.status]}`} />
+                <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2.5">
+                  <span className="truncate font-medium text-slate-700 dark:text-slate-200">{d.nome || "— sem nome —"}</span>
+                  <a href={`https://wa.me/${(d.telefone || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" title="Abrir no WhatsApp"
+                    onClick={(e) => e.stopPropagation()} className="inline-flex shrink-0 items-center gap-1 tabular-nums text-xs text-slate-400 hover:text-emerald-600">
+                    <MessageCircle size={11} />{fone(d.telefone)}
+                  </a>
+                </span>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ST[d.status].cls}`}>{ST[d.status].label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        </div>
       )}
     </div>
   );
