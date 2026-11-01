@@ -32,7 +32,7 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
         className={label ? `relative ${labeledClass} ${className}` : `relative p-2 rounded-lg transition-all duration-200 hover:bg-emerald-600 text-white ${className}`}
         title="WhatsApp"
       >
-        <MessageCircle className={label ? "hidden h-4 w-4 min-[1400px]:block" : "h-5 w-5"} aria-hidden={!!label} />
+        <MessageCircle className={label ? "hidden h-4 w-4 min-[1800px]:block" : "h-5 w-5"} aria-hidden={!!label} />
         {label && <span>{label}</span>}
       </button>
     );
@@ -85,7 +85,7 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
       `}
       title={totalUnread > 0 ? `${totalUnread} mensagem(ns) não lida(s)` : "WhatsApp"}
     >
-      <MessageCircle className={label ? "hidden h-4 w-4 min-[1400px]:block" : "h-5 w-5"} aria-hidden={!!label} />
+      <MessageCircle className={label ? "hidden h-4 w-4 min-[1800px]:block" : "h-5 w-5"} aria-hidden={!!label} />
       {label && <span>{label}</span>}
       
       {/* Badge de notificação */}

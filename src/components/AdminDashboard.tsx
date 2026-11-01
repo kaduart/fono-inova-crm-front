@@ -1246,11 +1246,14 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
+            case 'Caixa':
+            case 'Convenios':
             case 'Financeiro':
                 return (
-                    <TabErrorBoundary tabName="Financeiro">
+                    <TabErrorBoundary tabName={activeTab}>
                         <Suspense fallback={<TabSpinner />}>
-                            <FinancialDashboard {...financialProps} />
+                            <FinancialDashboard key={activeTab} {...financialProps}
+                                section={activeTab === 'Caixa' ? 'caixa' : activeTab === 'Convenios' ? 'convenios' : 'gestao'} />
                         </Suspense>
                     </TabErrorBoundary>
                 );

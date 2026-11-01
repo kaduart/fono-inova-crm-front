@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
+import { SECTION_MENU, SECTION_TABS, sectionOfTab, type FinancialSection } from './financialSections';
 import { PeriodKey, rangeFor, todaySP } from './components/finUi';
 import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
 
@@ -350,14 +351,24 @@ const YEAR_PARAM_KEY = 'financialYear';
 
 const allTabs = [
     { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
-    { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
+    { id: 'pagamentos', label: 'Recebimentos', icon: <DollarSign size={18} /> },
     { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
     { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
     { id: 'nfse', label: 'NFSe', icon: <FileText size={18} /> },
-    { id: 'dashboard', label: 'Indicadores', icon: <BarChart3 size={18} /> },
-    { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
+    { id: 'dashboard', label: 'Resultados', icon: <BarChart3 size={18} /> },
+    { id: 'profissionais', label: 'Repasse', icon: <User size={18} /> },
     { id: 'planejamento', label: 'Metas do ano', icon: <Calendar size={18} /> },
 ];
+
+// Novo design: o Financeiro virou 3 menus pelo tipo de trabalho (Caixa, Convênios, Financeiro/gestão).
+// Mesmas telas e chamadas; cada menu mostra só as suas abas. `tab` da URL = menu do AdminDashboard.
+const PERIOD_KEY = 'fono-fin-period';
+const readStoredPeriod = (): { month?: number; year?: number } => {
+    try { return JSON.parse(sessionStorage.getItem(PERIOD_KEY) || '{}'); } catch { return {}; }
+};
+const storePeriod = (month: number, year: number) => {
+    try { sessionStorage.setItem(PERIOD_KEY, JSON.stringify({ month, year })); } catch { /* sem storage */ }
+};
 
 // Título/subtítulo do card de topo, por aba — mesmo padrão usado nas demais
 // páginas do sistema (ícone + título + frase de propósito, ex: "Gestão de
@@ -371,7 +382,7 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
     },
     'pagamentos': {
         icon: <DollarSign {...HEADER_ICON_PROPS} />,
-        title: 'Pagamentos',
+        title: 'Recebimentos',
         subtitle: 'Lançamentos e recebimentos de sessões, pacotes e convênios.'
     },
     'convenios': {
@@ -391,12 +402,12 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
     },
     'dashboard': {
         icon: <BarChart3 {...HEADER_ICON_PROPS} />,
-        title: 'Indicadores Financeiros',
+        title: 'Resultados',
         subtitle: 'Métricas e análise estratégica do desempenho financeiro.'
     },
     'profissionais': {
         icon: <User {...HEADER_ICON_PROPS} />,
-        title: 'Financeiro por Profissional',
+        title: 'Repasse',
         subtitle: 'Produção, repasses e comissões de cada profissional.'
     },
     'planejamento': {
@@ -418,25 +429,41 @@ const FinancialDashboard = ({
     onMarkAsPaid,
     onMarkAsDebit,
     registerAppointmentAndPaymentFuture,
-    onCancelPayment
-}: FinancialDashboardProps) => {
+    onCancelPayment,
+    section,
+}: FinancialDashboardProps & { section?: FinancialSection }) => {
     const [searchParams, setSearchParams] = useSearchParams();
+    // Sem `section` (testes, rota antiga) mostra todas as abas, como antes.
+    const tabs = section ? allTabs.filter(t => SECTION_TABS[section].includes(t.id)) : allTabs;
+
+    // Link antigo (tab=Financeiro&financialTab=convenios etc.) → leva ao menu certo, mantendo os outros parâmetros.
+    useEffect(() => {
+        const raw = searchParams.get(TAB_PARAM_KEY);
+        if (!raw || !section) return;
+        const id = raw === 'configuracao-fiscal' ? 'nfse' : raw;
+        if (!allTabs.some(t => t.id === id)) return;
+        const owner = sectionOfTab(id);
+        if (owner !== section) {
+            setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('tab', SECTION_MENU[owner]); return next; }, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, section]);
 
     const resolveTabFromSearchParams = () => {
         const raw = searchParams.get(TAB_PARAM_KEY);
         if (!raw) return 0;
         // Config. fiscal virou a engrenagem dentro de NFSe; links antigos abrem NFSe.
         const tabId = raw === 'configuracao-fiscal' ? 'nfse' : raw;
-        const index = allTabs.findIndex((tab) => tab.id === tabId);
+        const index = tabs.findIndex((tab) => tab.id === tabId);
         return index >= 0 ? index : 0;
     };
 
     const resolveMonthFromSearchParams = () => {
-        const parsed = Number(searchParams.get(MONTH_PARAM_KEY));
+        const parsed = Number(searchParams.get(MONTH_PARAM_KEY) ?? readStoredPeriod().month);
         return parsed >= 1 && parsed <= 12 ? parsed : new Date().getMonth() + 1;
     };
     const resolveYearFromSearchParams = () => {
-        const parsed = Number(searchParams.get(YEAR_PARAM_KEY));
+        const parsed = Number(searchParams.get(YEAR_PARAM_KEY) ?? readStoredPeriod().year);
         return parsed >= 2020 && parsed <= 2100 ? parsed : new Date().getFullYear();
     };
 
@@ -445,6 +472,9 @@ const FinancialDashboard = ({
     // de geração de comissões) volta pro mês atual e perde o filtro que o usuário tinha.
     const [selectedMonth, setSelectedMonthState] = useState(resolveMonthFromSearchParams());
     const [selectedYear, setSelectedYearState] = useState(resolveYearFromSearchParams());
+
+    // Mês escolhido acompanha a troca entre Caixa, Convênios e Financeiro.
+    useEffect(() => { storePeriod(selectedMonth, selectedYear); }, [selectedMonth, selectedYear]);
 
     const setSelectedMonth = (month: number) => {
         setSelectedMonthState(month);
@@ -516,7 +546,7 @@ const FinancialDashboard = ({
     }, []);
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-        const newTabId = allTabs[newValue]?.id;
+        const newTabId = tabs[newValue]?.id;
         if (!newTabId) return;
 
         startTransition(() => {
@@ -541,7 +571,7 @@ const FinancialDashboard = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
-    const currentTabId = allTabs[currentTab]?.id;
+    const currentTabId = tabs[currentTab]?.id;
     const headerMeta = (currentTabId && TAB_HEADER_META[currentTabId]) || DEFAULT_HEADER_META;
 
     const renderActiveTab = () => {
@@ -730,16 +760,16 @@ const FinancialDashboard = ({
             {/* Tabs */}
             {/* Novo design: barra de abas fica presa no topo ao rolar e aceita ← → do teclado. */}
             <div className="bg-white rounded-2xl shadow-sm dark:bg-[#161d1b]">
-                <div className="sticky top-16 z-20 rounded-t-2xl border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-white/10 dark:bg-[#161d1b]/95">
+                <div hidden={tabs.length < 2} className="sticky top-16 z-20 rounded-t-2xl border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-white/10 dark:bg-[#161d1b]/95">
                     <div role="tablist" aria-label="Módulos financeiros" className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-white/5"
                         onKeyDown={(e) => {
                             if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
                             e.preventDefault();
-                            const next = (currentTab + (e.key === 'ArrowRight' ? 1 : -1) + allTabs.length) % allTabs.length;
+                            const next = (currentTab + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
                             handleTabChange({} as React.SyntheticEvent, next);
                             (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
                         }}>
-                        {allTabs.map((tab, index) => (
+                        {tabs.map((tab, index) => (
                             <button key={tab.id} type="button" role="tab" aria-selected={currentTab === index} tabIndex={currentTab === index ? 0 : -1} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                                     currentTab === index

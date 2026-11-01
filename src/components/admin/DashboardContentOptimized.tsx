@@ -636,7 +636,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         },
         {
             key: 'pay', count: stats?.pendingPayments || 0, tone: 'bad', title: 'Pagamentos em aberto',
-            detail: 'pendentes ou parciais', cta: 'Abrir financeiro', onClick: () => onNavigate?.('Financeiro'),
+            detail: 'pendentes ou parciais', cta: 'Abrir recebimentos', onClick: () => onNavigate?.('Caixa'),
         },
         {
             key: 'leads', count: opCounts.total || 0, tone: 'info', title: 'Leads para retornar',
@@ -805,7 +805,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem as canceladas" />
                         <StatTile label="Caixa hoje" value={formatCurrency(stats.todayRevenue)} detail="recebido hoje" />
                         <StatTile label="Caixa do mês" value={formatCurrency(stats.monthRevenue)} detail="recebido no mês (regra do caixa)" />
-                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Financeiro') : undefined} />
+                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Caixa') : undefined} />
                         <StatTile label="Leads do mês" value={stats.monthLeads} detail="novos interessados" onClick={onNavigate ? () => onNavigate('Leads') : undefined} />
                         <StatTile
                             label="Pacientes"

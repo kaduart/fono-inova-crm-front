@@ -17,8 +17,11 @@ import {
     Stethoscope,
     User,
     Users,
-    X
+    X,
+    Wallet,
+    ShieldCheck,
 } from "lucide-react";
+import { SECTION_MENU, sectionOfTab } from "../../pages/Financial/financialSections";
 import React, { useEffect, useRef, useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -94,7 +97,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [cmdkOpen, setCmdkOpen] = useState(false);
     const openCmdk = React.useCallback(() => setCmdkOpen(true), []);
     useCommandPaletteHotkey(openCmdk);
-    const goFin = (id: string) => navigate(`/admin?tab=Financeiro&financialTab=${id}`);
+    const goFin = (id: string) => navigate(`/admin?tab=${SECTION_MENU[sectionOfTab(id)]}&financialTab=${id}`);
     const cmdItems: CommandItem[] = [
         { id: 'dash', group: 'Principal', label: 'Dashboard', hint: 'Precisa de você hoje, aniversariantes e pacientes', icon: <Home size={16} />, run: () => handleTabChange('Dashboard') },
         { id: 'agenda', group: 'Principal', label: 'Agenda', hint: 'Calendário e pré-agendamentos', icon: <CalendarDays size={16} />, keywords: 'calendario horario encaixe', badge: retentionAlert.loading ? 0 : retentionAlert.total, run: () => handleTabChange('Calendário') },
@@ -105,13 +108,13 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         { id: 'roi', group: 'Marketing', label: 'ROI & Atribuição', hint: 'Receita por campanha e origem', icon: <DollarSign size={16} />, keywords: 'campanha anuncio retorno', run: () => handleTabChange('ROI') },
         { id: 'social', group: 'Marketing', label: 'Social Media', hint: 'GMB, Instagram, Facebook, vídeos', icon: <Activity size={16} />, keywords: 'post instagram gmb', run: () => handleTabChange('SocialMedia') },
         { id: 'analytics', group: 'Marketing', label: 'Analytics do Site', hint: 'Métricas GA4 e conversões', icon: <Activity size={16} />, keywords: 'ga4 site landing', run: () => handleTabChange('Analytics') },
-        { id: 'fin-caixa', group: 'Financeiro', label: 'Caixa & Fluxo', icon: <DollarSign size={16} />, keywords: 'caixa dia fluxo', run: () => goFin('caixa-unificado') },
-        { id: 'fin-pag', group: 'Financeiro', label: 'Pagamentos', icon: <DollarSign size={16} />, keywords: 'cobrar receber pix', run: () => goFin('pagamentos') },
-        { id: 'fin-conv', group: 'Financeiro', label: 'Convênios', icon: <DollarSign size={16} />, keywords: 'guia faturamento convenio', run: () => goFin('convenios') },
+        { id: 'fin-caixa', group: 'Caixa', label: 'Caixa & Fluxo', icon: <DollarSign size={16} />, keywords: 'caixa dia fluxo', run: () => goFin('caixa-unificado') },
+        { id: 'fin-pag', group: 'Caixa', label: 'Recebimentos', icon: <DollarSign size={16} />, keywords: 'cobrar receber pix', run: () => goFin('pagamentos') },
+        { id: 'fin-conv', group: 'Convênios', label: 'Convênios', icon: <DollarSign size={16} />, keywords: 'guia faturamento convenio', run: () => goFin('convenios') },
         { id: 'fin-desp', group: 'Financeiro', label: 'Despesas', icon: <DollarSign size={16} />, run: () => goFin('despesas') },
         { id: 'fin-nfse', group: 'Financeiro', label: 'NFSe', icon: <DollarSign size={16} />, keywords: 'nota fiscal', run: () => goFin('nfse') },
-        { id: 'fin-ind', group: 'Financeiro', label: 'Indicadores', icon: <DollarSign size={16} />, keywords: 'kpi producao', run: () => goFin('dashboard') },
-        { id: 'fin-prof', group: 'Financeiro', label: 'Profissionais (repasse)', icon: <DollarSign size={16} />, keywords: 'comissao repasse', run: () => goFin('profissionais') },
+        { id: 'fin-ind', group: 'Financeiro', label: 'Resultados', icon: <DollarSign size={16} />, keywords: 'kpi producao indicadores', run: () => goFin('dashboard') },
+        { id: 'fin-prof', group: 'Financeiro', label: 'Repasse', icon: <DollarSign size={16} />, keywords: 'comissao profissionais', run: () => goFin('profissionais') },
         { id: 'fin-metas', group: 'Financeiro', label: 'Metas do ano', icon: <DollarSign size={16} />, keywords: 'planejamento meta', run: () => goFin('planejamento') },
         { id: 'g-prof', group: 'Gestão', label: 'Profissionais', hint: 'Gerencie equipe', icon: <Stethoscope size={16} />, keywords: 'terapeuta doutor', run: () => handleTabChange('Add Profissional') },
         { id: 'g-pac', group: 'Gestão', label: 'Pacientes', hint: 'Cadastro e histórico', icon: <Users size={16} />, keywords: 'paciente cadastro', run: () => handleTabChange('Add Paciente') },
@@ -242,6 +245,22 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 : undefined}
                         >
                             Agenda
+                        </HeaderNavButton>
+
+                        <HeaderNavButton
+                            active={activeTab === "Caixa"}
+                            onClick={() => handleTabChange("Caixa")}
+                            icon={<Wallet />}
+                        >
+                            Caixa
+                        </HeaderNavButton>
+
+                        <HeaderNavButton
+                            active={activeTab === "Convenios"}
+                            onClick={() => handleTabChange("Convenios")}
+                            icon={<ShieldCheck />}
+                        >
+                            Convênios
                         </HeaderNavButton>
 
                         <HeaderNavButton
@@ -415,7 +434,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <button type="button" onClick={openCmdk} aria-label="Ir para uma tela (Ctrl + K)" title="Ir para… (Ctrl + K)"
                             className={`${HEADER_ICON_BUTTON_CLASS} xl:w-auto xl:gap-2 xl:px-3`}>
                             <Search size={18} />
-                            <span className="hidden text-sm font-medium xl:inline">Ir para…</span>
+                            <span className="hidden text-sm font-medium min-[1800px]:inline">Ir para…</span>
                             <kbd className="hidden rounded border border-white/25 px-1 text-[10px] font-sans text-white/80 xl:inline">Ctrl K</kbd>
                         </button>
                         <NotificationBellFixed />
@@ -535,6 +554,20 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 icon={<Clock size={18} className="text-amber-400" />}
                             >
                                 Agenda
+                            </MobileNavItem>
+                            <MobileNavItem
+                                active={activeTab === "Caixa"}
+                                onClick={() => handleMobileTabChange("Caixa")}
+                                icon={<Wallet size={18} className="text-green-400" />}
+                            >
+                                Caixa
+                            </MobileNavItem>
+                            <MobileNavItem
+                                active={activeTab === "Convenios"}
+                                onClick={() => handleMobileTabChange("Convenios")}
+                                icon={<ShieldCheck size={18} className="text-cyan-300" />}
+                            >
+                                Convênios
                             </MobileNavItem>
                             <MobileNavItem
                                 active={activeTab === "Financeiro"}
