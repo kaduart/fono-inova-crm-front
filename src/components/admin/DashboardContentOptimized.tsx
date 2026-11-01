@@ -649,7 +649,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             detail: (() => {
                 const list = commercial.packageEnding || [];
                 const last = list.filter(i => i.remaining <= 1).length;
-                return last ? `${last} na última sessão ou sem sessões · renovar` : '80% do pacote feito · gerar cobrança';
+                return last ? `${last} na última sessão ou sem sessões · renovar` : '80% do pacote feito · oferecer renovação';
             })(),
             cta: 'Ver e renovar', onClick: () => setQueueOpen('renewal'),
             error: commercial.queueErrors.packageEnding, onRetry: commercial.reloadQueues,

@@ -230,14 +230,14 @@ export const PackageEndingPanel: React.FC<{ items: PackageEndingItem[]; onClose:
     );
 };
 
-// Chip do estágio de renovação: amarelo = gerar cobrança do próximo mês; laranja = última sessão.
+// Chip do estágio de renovação: amarelo = oferecer a renovação; laranja = última sessão.
 const RenewalChip: React.FC<{ stage?: PackageEndingItem['stage']; remaining: number }> = ({ stage, remaining }) => {
     const s = stage || (remaining <= 1 ? 'ultima' : 'renovar');
     if (s === 'ok') return null;
     return s === 'ultima' ? (
         <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">Última sessão · falar hoje</span>
     ) : (
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Renovar · gerar cobrança</span>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Renovar · oferecer pacote</span>
     );
 };
 
