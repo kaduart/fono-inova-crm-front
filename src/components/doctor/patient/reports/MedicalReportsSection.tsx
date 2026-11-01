@@ -43,6 +43,7 @@ import reportsService from '../../../../services/reportsService';
 import SchoolReportModal from './SchoolReportModal';
 import MedicalReportModal from './MedicalReportModal';
 import AnamnesisModal from './AnamnesisModal';
+import { confirmDialog } from '../../../ui/ConfirmHost';
 
 // Interfaces baseadas nos modelos do backend
 interface Report {
@@ -354,7 +355,7 @@ export default function MedicalReportsSection({ patient, reportType = 'all' }: M
     const handleDelete = async () => {
         if (!selectedReport) return;
 
-        if (!window.confirm('Tem certeza que deseja excluir este relatório?')) {
+        if (!await confirmDialog('Tem certeza que deseja excluir este relatório?')) {
             handleMenuClose();
             return;
         }

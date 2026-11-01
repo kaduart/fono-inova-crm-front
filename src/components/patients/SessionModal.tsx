@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 // import ReactInputMask from 'react-input-mask';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';
 import { Button } from '../ui/Button';

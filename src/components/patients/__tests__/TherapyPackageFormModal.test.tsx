@@ -5,7 +5,7 @@ import TherapyPackageFormModal from '../TherapyPackageFormModal';
 import API from '../../../services/api';
 
 vi.mock('../../../services/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
-vi.mock('react-toastify', () => ({
+vi.mock('../../../utils/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 

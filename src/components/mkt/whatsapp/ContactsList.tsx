@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FiEdit2, FiMessageCircle, FiPhone, FiPlus, FiSearch, FiTrash2, FiUser } from 'react-icons/fi';
+import { confirmDialog } from '../../ui/ConfirmHost';
 
 export interface Contact {
     _id: string;
@@ -309,9 +310,9 @@ export default function ContactsList({
                         <FiEdit2 className="w-4 h-4" />
                     </button>
                     <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Deletar ${contact.name}?`)) {
+                            if (await confirmDialog(`Deletar ${contact.name}?`)) {
                                 onDelete(contact._id);
                             }
                         }}

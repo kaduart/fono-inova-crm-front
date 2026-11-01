@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { FiPaperclip, FiX, FiFile, FiImage, FiMusic, FiVideo, FiSend } from 'react-icons/fi';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { MediaType, sendWhatsAppMedia } from '../../../services/whatsappService';
 
 interface MediaUploadProps {

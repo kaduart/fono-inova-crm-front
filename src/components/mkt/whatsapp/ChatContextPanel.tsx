@@ -4,7 +4,7 @@
 import { CalendarPlus, Check } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { useContacts } from '../../../contexts/ContactsContext';
 import { commercialService } from '../../../services/commercialService';
 import { patientService } from '../../../services/patientService';

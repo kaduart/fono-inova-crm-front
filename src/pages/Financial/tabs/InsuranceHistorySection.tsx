@@ -28,7 +28,7 @@ import { TrendingUp, Download, ChevronRight, ChevronDown, SlidersHorizontal, X, 
 import InsurancePatientDrawer from '../components/InsurancePatientDrawer';
 import BreakdownDetailsModal, { BreakdownRow } from '../components/BreakdownDetailsModal';
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession, BILLING_MODEL, BillingModel } from '../../../services/paymentService';
 import appointmentService from '../../../services/appointmentService';
 import { getSpecialtyLabel } from '../../../constants/specialties';

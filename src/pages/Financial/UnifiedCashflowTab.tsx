@@ -38,7 +38,7 @@ import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Pencil, Trash2, Receipt, Banknote } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { confirmToast } from '../../utils/confirmToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';

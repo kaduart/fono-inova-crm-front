@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Typography, Skeleton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import { FileClock, Trash2, User, Calendar, Layers } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import {
     listBillingSubmissions,
     cancelBillingSubmission,

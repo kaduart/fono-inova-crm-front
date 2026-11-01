@@ -1,8 +1,9 @@
 import { AlertTriangle, KeyRound, Mail, Plus, Power, RotateCw, Search, UserRound, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { adminService } from '../../services/adminService';
 import AddAdminContent from './AddAdminContent';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 const apiErro = (e: unknown): string | undefined =>
   (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -42,7 +43,7 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
 
   const toggleActive = useCallback(async (secretary: Secretary) => {
     const willDeactivate = secretary.active !== false;
-    if (willDeactivate && !window.confirm(`Desativar o acesso de ${secretary.fullName}? Ela não entra mais no ERP nem na agenda.`)) return;
+    if (willDeactivate && !await confirmDialog(`Desativar o acesso de ${secretary.fullName}? Ela não entra mais no ERP nem na agenda.`)) return;
     setBusyId(secretary._id);
     try {
       await adminService.setSecretaryActive(secretary._id, !willDeactivate);

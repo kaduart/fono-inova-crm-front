@@ -1,6 +1,6 @@
 import { CreditCard, DollarSign, FileText, Landmark, QrCode, X } from 'lucide-react';
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from '../../utils/toast';
 import usePayment from "../../hooks/usePayment";
 import { Button } from "../ui/Button";
 import InputCurrency from '../ui/InputCurrency';

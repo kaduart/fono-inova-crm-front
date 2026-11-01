@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { FiMic, FiSend, FiTrash2, FiStopCircle } from 'react-icons/fi';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 
 interface AudioRecorderProps {
     onSend: (blob: Blob, duration: number) => Promise<void>;

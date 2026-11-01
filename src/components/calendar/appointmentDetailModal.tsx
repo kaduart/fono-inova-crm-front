@@ -12,7 +12,7 @@ import {
     TextField,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import type { CancelExtras } from './CancelRequesterPicker';
 import { validateAppointmentComplete, canAddToPatientBalance } from '../../utils/appointmentCompleteGuard';
 import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';

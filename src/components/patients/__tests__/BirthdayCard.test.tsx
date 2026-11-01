@@ -18,7 +18,7 @@ import { sendBirthdayMessage } from '../../../services/whatsappService';
 vi.mock('../../../services/whatsappService', () => ({
     sendBirthdayMessage: vi.fn(),
 }));
-vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+vi.mock('../../../utils/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const MARIA = { _id: 'maria', fullName: 'Maria Luiza Gomes Silva', dateOfBirth: '2023-09-22T00:00:00.000Z', phone: '' };
 const PEDRO = { _id: 'pedro', fullName: 'Pedro Henrique Silva', dateOfBirth: '2017-09-01T00:00:00.000Z', phone: '' };

@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { Building2, Plus, Check, Trash2, X, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import {
     createConvenio,

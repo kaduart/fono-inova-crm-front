@@ -2,12 +2,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TherapyPackageCard from '../TherapyPackageCard';
 import { packageService } from '../../../services/packageService';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 
 vi.mock('../../../services/packageService', () => ({ packageService: { inactivatePackage: vi.fn() } }));
 vi.mock('../../../services/appointmentService', () => ({ default: {} }));
 vi.mock('../../../services/financialSummaryService', () => ({ getPatientFinancialSummary: async () => ({ particularPaid: 910, sessionDebt: 0, completedSessions: 8 }) }));
-vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+vi.mock('../../../utils/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 vi.mock('../SessionListItem', () => ({ SessionListItem: () => null }));
 vi.mock('../SessionModal', () => ({ SessionModal: () => null }));
 vi.mock('../PatientMiniCalendar', () => ({ PatientMiniCalendar: () => null }));

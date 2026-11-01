@@ -1,7 +1,7 @@
 // hooks/useAdmin.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { adminService } from '../services/adminService';
 import { Appointment } from '../utils/types';
 import { AdminInfo } from '../utils/types/types';

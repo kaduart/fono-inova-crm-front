@@ -6,7 +6,7 @@ import { ptBR } from "date-fns/locale";
 import { Building2 } from 'lucide-react';
 import ReactInputMask from 'react-input-mask';
 import Modal from 'react-modal';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useConvenios } from '../../hooks/useConvenios';
 import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';

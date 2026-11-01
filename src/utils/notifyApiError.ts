@@ -5,7 +5,7 @@
  * preservando quebras de linha e dando mais tempo de leitura quando há ação a tomar.
  * Use no lugar de `toast.error(extractErrorMessage(...))` em fluxos onde o usuário precisa agir.
  */
-import { toast } from 'react-toastify';
+import { toast } from './toast';
 import { extractApiError, type ApiErrorInfo } from './errorUtils';
 
 export function notifyApiError(error: unknown, fallback: string = 'Não foi possível concluir a operação'): ApiErrorInfo {

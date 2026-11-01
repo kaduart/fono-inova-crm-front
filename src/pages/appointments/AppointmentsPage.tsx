@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { getStatusConfig, canComplete, canCancel } from '../../utils/appointmentStatus';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import { confirmDialog } from '../../components/ui/ConfirmHost';
 
 export default function AppointmentsPage() {
   const {
@@ -97,7 +98,7 @@ export default function AppointmentsPage() {
 
   // Handler para cancelar
   const handleCancel = async (id: string) => {
-    if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+    if (!await confirmDialog('Tem certeza que deseja cancelar este agendamento?')) return;
     
     await cancelAppointment(id, { reason: 'Cancelado pelo usuário' }, {
       onError: (err: any) => {

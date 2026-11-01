@@ -10,7 +10,7 @@ import {
   receivePayment,
   type FinancialSummary,
 } from '../../services/financialSummaryService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 
 import { ModalSpinner } from '../ui/LoadingSpinner';

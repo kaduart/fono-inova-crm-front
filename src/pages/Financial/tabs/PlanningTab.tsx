@@ -54,7 +54,7 @@ import { usePlanning } from '../../../hooks/usePlanning';
 import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
 import { planningService } from '../../../services/planningService';
 import AnnualGoals from './AnnualGoals';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface PlanningFormData {

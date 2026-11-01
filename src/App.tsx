@@ -1,6 +1,8 @@
 import React, { Suspense, useEffect, useRef } from "react";
 import { socketManager } from "./utils/socketManager";
-import { ToastContainer } from "react-toastify";
+import { Toaster } from "sonner";
+import ConfirmHost from "./components/ui/ConfirmHost";
+import { useThemeMode } from "./contexts/ThemeModeContext";
 
 import "./App.css";
 import AppRoutes from "./AppRoutes";
@@ -19,6 +21,25 @@ import { PaymentsProvider } from "./contexts/PaymentsContext";
 import { ChatNavigationProvider } from "./contexts/ChatNavigationContext";
 import { PreAgendamentoNotificationPopup } from "./components/patients/PreAgendamentoNotificationPopup";
 import { WhatsAppMessagePopup } from "./components/notifications/WhatsAppMessagePopup";
+
+// Avisos do app (Sonner): canto superior direito, cores por tipo, segue o tema claro/escuro.
+function AppToaster() {
+  const { mode } = useThemeMode();
+  return (
+    <Toaster
+      position="top-right"
+      theme={mode}
+      richColors
+      closeButton
+      expand={false}
+      visibleToasts={4}
+      duration={4000}
+      offset={20}
+      toastOptions={{ style: { fontFamily: 'inherit', borderRadius: 12 } }}
+      style={{ zIndex: 100000 }}
+    />
+  );
+}
 
 const App: React.FC = () => {
   const didInitSocket = useRef(false);
@@ -44,16 +65,8 @@ const App: React.FC = () => {
           </PatientsProvider>
         </DoctorsProvider>
 
-        <ToastContainer
-          position="top-right"
-          autoClose={4000}
-          newestOnTop
-          closeOnClick
-          draggable
-          pauseOnHover
-          theme="colored"
-          style={{ zIndex: 100000, top: 20, right: 20 }}
-        />
+        <AppToaster />
+        <ConfirmHost />
       </Suspense>
 
       <PixNotificationPopup />

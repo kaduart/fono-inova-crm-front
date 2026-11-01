@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Tooltip, Skeleton } from '@mui/material';
 import { Plus, Edit2, Trash2, Pause, Play, Repeat } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { fixedExpenseService, FixedExpense } from '../../../services/expenseService';
 
 import FixedExpenseModal from './FixedExpenseModal';

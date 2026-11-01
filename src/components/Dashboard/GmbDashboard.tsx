@@ -4,13 +4,14 @@
  */
 
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useGmb } from '../../hooks/useGmb';
 import API from '../../services/api';
 import { trackGmbPostView, openGmbWhatsApp } from '../../services/gmbAbTracking';
 import GmbAssistedPublishModal from './GmbAssistedPublishModal';
 import GmbIntelligencePanel from './GmbIntelligencePanel';
 import GmbConversionDashboard from './GmbConversionDashboard';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 // Ícones
 const RefreshIcon = () => (
@@ -147,7 +148,7 @@ const GmbDashboard = () => {
   };
 
   const handleGenerateWeek = async () => {
-    if (!confirm('Gerar posts para toda a semana?\n\n💚 Tudo gratuito!')) return;
+    if (!await confirmDialog('Gerar posts para toda a semana?\n\n💚 Tudo gratuito!')) return;
 
     setGeneratingCount(c => c + 1);
     try {
@@ -218,7 +219,7 @@ const GmbDashboard = () => {
   };
 
   const handleRepublish = async (postId: string, postTitle: string) => {
-    if (!confirm(`Reenviar o post "${postTitle || 'Sem título'}" ao Make para republicar no Google?`)) return;
+    if (!await confirmDialog(`Reenviar o post "${postTitle || 'Sem título'}" ao Make para republicar no Google?`)) return;
 
     setRepublishingId(postId);
     try {
@@ -235,7 +236,7 @@ const GmbDashboard = () => {
   const [fixingImages, setFixingImages] = useState(false);
 
   const handleFixMissingImages = async () => {
-    if (!confirm('Regenerar imagens dos posts sem imagem e publicar automaticamente?\n\nIsso pode levar alguns minutos.')) return;
+    if (!await confirmDialog('Regenerar imagens dos posts sem imagem e publicar automaticamente?\n\nIsso pode levar alguns minutos.')) return;
     setFixingImages(true);
     try {
       const response = await API.post('/gmb/admin/fix-missing-images');
@@ -257,7 +258,7 @@ const GmbDashboard = () => {
   };
 
   const handlePublishAllPending = async () => {
-    if (!confirm('Forçar publicação de todos os posts agendados vencidos?\n\nIsso enviará os posts ao Make imediatamente.')) return;
+    if (!await confirmDialog('Forçar publicação de todos os posts agendados vencidos?\n\nIsso enviará os posts ao Make imediatamente.')) return;
     setPublishingAll(true);
     try {
       const response = await API.post('/gmb/admin/trigger-publish');
@@ -288,7 +289,7 @@ const GmbDashboard = () => {
   };
 
   const handleDelete = async (postId: string, postTitle: string) => {
-    if (!confirm(`Deletar o post "${postTitle || 'Sem título'}"?\n\nEsta ação não pode ser desfeita.`)) return;
+    if (!await confirmDialog(`Deletar o post "${postTitle || 'Sem título'}"?\n\nEsta ação não pode ser desfeita.`)) return;
     
     setDeletingId(postId);
     try {

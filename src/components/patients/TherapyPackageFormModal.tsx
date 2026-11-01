@@ -16,7 +16,7 @@ import { addWeeks, format as fmtDate, getISODay, isBefore, parse as parseDate, s
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import ReactInputMask from 'react-input-mask';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 
 import appointmentService from '../../services/appointmentService';
 import packageService from '../../services/packageService';

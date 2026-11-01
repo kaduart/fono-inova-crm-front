@@ -49,7 +49,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Chip as FinChip, KpiStrip, brl } from '../components/finUi';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import GuidePendingBillingSection, { PendingGuide } from './GuidePendingBillingSection';

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useLandingPages, LandingPage } from '../../hooks/useLandingPages';
 import { Link2, Copy, ExternalLink, Sparkles, Check } from 'lucide-react';
 

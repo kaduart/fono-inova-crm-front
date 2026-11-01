@@ -8,7 +8,7 @@ import {
   SettlementItem,
   FinancialIssue,
 } from '../services/professionalResultsService';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 
 function getCurrentMonthRange() {
   const now = new Date();

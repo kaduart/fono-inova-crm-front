@@ -24,7 +24,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { ContractWithPlan } from '../../hooks/useLiminarContracts';
 import { appointmentService } from '../../services/appointmentService';
 import doctorService from '../../services/doctorService';

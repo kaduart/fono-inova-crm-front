@@ -11,7 +11,7 @@ import { FitSlotPanel, FitSlot } from '../commercial/CommercialParts';
 import { openWhatsApp as openWa, reactivationMessage, WA_TAB } from '../commercial/commercialCopy';
 import { commercialService } from '../../services/commercialService';
 import { patientService } from '../../services/patientService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 
 const STABILITY: Record<Stability, { label: string; dot: string }> = {
   estavel: { label: 'Fixo', dot: '#1baf7a' },

@@ -14,7 +14,7 @@ import {
   X,
   CheckCircle2
 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { useProfessionalResults, TabValue } from '../../hooks/useProfessionalResults';
 import { RankingProfissionais } from '../Financial/components/RankingProfissionais';

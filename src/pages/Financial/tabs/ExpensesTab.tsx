@@ -45,7 +45,7 @@ import {
   Repeat,
   Check
 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
 import FixedExpensesPanel from '../components/FixedExpensesPanel';

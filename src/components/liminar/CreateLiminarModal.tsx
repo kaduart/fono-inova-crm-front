@@ -1,6 +1,6 @@
 import { Scale, X, User, FileText, Building2, DollarSign } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import liminarContractService from '../../services/liminarContractService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';

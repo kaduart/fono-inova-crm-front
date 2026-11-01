@@ -1,7 +1,7 @@
 // src/pages/doctor/DoctorDashboard.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { Box, Card, CardContent, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';

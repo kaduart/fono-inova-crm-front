@@ -1,62 +1,51 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const base = vi.hoisted(() => {
-  const fn: any = vi.fn((..._a: any[]) => 'id-default');
-  fn.success = vi.fn(() => 'id-success');
-  fn.error = vi.fn(() => 'id-error');
-  fn.info = vi.fn(() => 'id-info');
-  fn.warning = vi.fn(() => 'id-warning');
-  fn.loading = vi.fn(() => 'id-loading');
-  fn.dismiss = vi.fn();
-  fn.update = vi.fn();
-  fn.isActive = vi.fn(() => false);
+  const fn: any = vi.fn();
+  fn.success = vi.fn(); fn.error = vi.fn(); fn.info = vi.fn(); fn.warning = vi.fn(); fn.loading = vi.fn();
+  fn.custom = vi.fn(); fn.dismiss = vi.fn();
   return fn;
 });
-vi.mock('react-toastify', () => ({ toast: base }));
+vi.mock('sonner', () => ({ toast: base }));
 
 import { toast } from '../toast';
 
-describe('toast (wrapper react-toastify)', () => {
-  beforeEach(() => { vi.clearAllMocks(); base.isActive.mockReturnValue(false); });
+describe('toast (wrapper Sonner)', () => {
+  beforeEach(() => vi.clearAllMocks());
 
-  it('traduz id → toastId e duration → autoClose', () => {
+  it('repassa id e duration', () => {
     toast.success('ok', { id: 'a', duration: 7000 });
-    expect(base.success).toHaveBeenCalledWith('ok', expect.objectContaining({ toastId: 'a', autoClose: 7000 }));
+    expect(base.success).toHaveBeenCalledWith('ok', expect.objectContaining({ id: 'a', duration: 7000 }));
   });
 
-  it('duration Infinity mantém o aviso aberto', () => {
-    toast.error('x', { duration: Infinity });
-    expect(base.error).toHaveBeenCalledWith('x', expect.objectContaining({ autoClose: false }));
+  it('aceita os aliases do react-toastify (toastId/autoClose)', () => {
+    toast.error('x', { toastId: 'b', autoClose: false });
+    expect(base.error).toHaveBeenCalledWith('x', expect.objectContaining({ id: 'b', duration: Infinity }));
   });
 
-  it('toast() neutro e toast.info/warn existem', () => {
+  it('toast() neutro, info e warn existem', () => {
     toast('oi', { icon: 'ℹ️' });
     expect(base).toHaveBeenCalledWith('oi', expect.objectContaining({ icon: 'ℹ️' }));
-    toast.info('i');
-    toast.warn('w');
+    toast.info('i'); toast.warn('w');
     expect(base.info).toHaveBeenCalled();
     expect(base.warning).toHaveBeenCalled();
   });
 
-  it('mesmo id ativo ATUALIZA em vez de empilhar', () => {
-    base.isActive.mockReturnValue(true);
-    const id = toast.error('de novo', { id: 'dup' });
-    expect(id).toBe('dup');
-    expect(base.update).toHaveBeenCalledWith('dup', expect.objectContaining({ render: 'de novo', type: 'error' }));
-    expect(base.error).not.toHaveBeenCalled();
+  it('mesmo id reaproveitado: Sonner atualiza o aviso existente', () => {
+    toast.error('1', { id: 'dup' }); toast.error('2', { id: 'dup' });
+    expect(base.error).toHaveBeenLastCalledWith('2', expect.objectContaining({ id: 'dup' }));
+    expect(toast.isActive('dup')).toBe(true);
   });
 
-  it('render por função recebe id/dismiss e não fecha ao clicar', () => {
+  it('render por função recebe id/dismiss', () => {
     const render = vi.fn(() => 'conteudo');
     toast(render as any);
-    const [content, opts] = base.mock.calls[0];
-    expect(opts.closeOnClick).toBe(false);
-    const closeToast = vi.fn();
-    content({ toastProps: { toastId: 't1' }, closeToast });
+    const [fn] = base.custom.mock.calls[0];
+    fn('t1');
     const handle = render.mock.calls[0][0] as any;
     expect(handle.id).toBe('t1');
     handle.dismiss();
-    expect(closeToast).toHaveBeenCalled();
+    expect(base.dismiss).toHaveBeenCalledWith('t1');
   });
 
   it('dismiss repassa o id', () => {

@@ -4,7 +4,7 @@
 // pagamento ("a cobrar"), com chips com contagem e paginação no servidor.
 // As ações por sessão (registrar, editar, cancelar) continuam na visão "Sessões do período".
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { getPaymentsLedger, LedgerItem, LedgerResponse, LedgerSituacao } from '../../../services/paymentService';
 import { useDoctorsContext } from '../../../contexts/DoctorsContext';
 import { brl, Chip, fmtDay, KpiStrip, Pager, PeriodBar, PeriodRange, Pill, rangeFor, Tone } from '../components/finUi';

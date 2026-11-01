@@ -30,6 +30,7 @@ import LiminarContractPanel from '../liminar/LiminarContractPanel';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { socketManager } from '../../utils/socketManager';
 import { subscribeToCacheInvalidation } from '../../utils/cacheManager';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -413,7 +414,7 @@ export default function PatientDashboard() {
 
 
   const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir esta avaliação?")) {
+    if (await confirmDialog("Tem certeza que deseja excluir esta avaliação?")) {
       try {
         await deleteEvaluation(`${id}`);
         toast.success("Avaliação excluída com sucesso!");

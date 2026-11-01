@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { BASE_URL } from '../constants/constants';
 import { useAuth } from '../contexts/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';

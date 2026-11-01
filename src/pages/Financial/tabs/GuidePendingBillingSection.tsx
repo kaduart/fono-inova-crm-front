@@ -36,7 +36,7 @@ import { getSpecialtyLabel } from '../../../constants/specialties';
 import { autoLinkOrphanSessions, createGuideFromOrphan, encerrarGuia, linkOrphanSessionsToGuide, previewAutoLinkOrphanSessions } from '../../../services/paymentService';
 import { updateGuide } from '../../../services/insuranceGuideApi';
 import type { Convenio } from '../../../services/insuranceService';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { sessoes } from '../../../utils/plural';
 
 export interface PendingGuideSession {

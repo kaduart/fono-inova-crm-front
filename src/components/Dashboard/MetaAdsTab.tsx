@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useMetaAds, SPECIALTIES, PERIODS } from '../../hooks/useMetaAds';
 import { Campaign, SpecialtyMetrics } from '../../services/metaAdsApi';
 

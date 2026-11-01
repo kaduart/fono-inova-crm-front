@@ -12,7 +12,7 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 
 import { notifyApiError } from '../../../utils/notifyApiError';
 import {

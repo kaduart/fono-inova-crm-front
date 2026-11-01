@@ -1,6 +1,6 @@
 // usePixSocket.ts
 import { useEffect, useRef } from "react";
-import { toast } from "react-toastify";
+import { toast } from '../utils/toast';
 import { useNotification } from "../contexts/NotificationContext";
 import { logger } from "../utils/logger";
 import { socketManager } from "../utils/socketManager";

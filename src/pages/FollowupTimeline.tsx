@@ -1,6 +1,6 @@
 // FollowupTimeline.tsx
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from '../utils/toast';
 import API from "../services/api";
 
 export const PRESET_FOLLOWUPS = [

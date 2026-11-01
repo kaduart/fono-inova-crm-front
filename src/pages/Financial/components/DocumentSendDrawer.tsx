@@ -20,7 +20,7 @@ import {
     Tab
 } from '@mui/material';
 import { X, Send, Upload, Clipboard, FileText, History, Info } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import {
     getCommunication,
     getPatientDocuments,

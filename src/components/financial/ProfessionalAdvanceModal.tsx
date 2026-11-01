@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { X, Wallet } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import api from '../../services/api';
 import InputCurrency from '../ui/InputCurrency';
 

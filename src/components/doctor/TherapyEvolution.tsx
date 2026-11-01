@@ -23,7 +23,7 @@ import {
     UserRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEvolution } from '../../hooks/useEvolution';
 import API from '../../services/api';

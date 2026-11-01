@@ -1,10 +1,11 @@
 // pages/ContactsPage.tsx
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from '../../../utils/toast';
 import { useContacts } from "../../../contexts/ContactsContext";
 import { usePatients } from '../../../hooks/usePatients';
 import { addContact, deleteContact, editContact } from "../../../services/whatsappService";
 import ContactsList, { Contact } from "./ContactsList";
+import { confirmDialog } from '../../ui/ConfirmHost';
 
 export default function ContactsPage() {
     const { listContacts, refreshContacts, markAsRead } = useContacts();
@@ -110,7 +111,7 @@ export default function ContactsPage() {
 
     // 🔹 Deletar contato
     const handleDelete = async (id: string) => {
-        if (!window.confirm("Tem certeza que deseja deletar este contato?")) return;
+        if (!await confirmDialog("Tem certeza que deseja deletar este contato?")) return;
         try {
             await deleteContact(id);
             await refreshContacts();

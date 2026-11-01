@@ -1,7 +1,7 @@
 // src/hooks/usePlanning.ts
 import { useState, useCallback } from 'react';
 import { planningService, Planning } from '../services/planningService';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 
 export const usePlanning = () => {
     const [plannings, setPlannings] = useState<Planning[]>([]);

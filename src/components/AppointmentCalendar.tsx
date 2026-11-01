@@ -3,8 +3,9 @@ import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import api from '../services/api';
+import { confirmDialog } from './ui/ConfirmHost';
 
 const AppointmentCalendar = () => {
     const [events, setEvents] = useState([]);
@@ -43,7 +44,7 @@ const AppointmentCalendar = () => {
     };
 
     const handleEventClick = async (clickInfo) => {
-        if (window.confirm(`Deseja excluir "${clickInfo.event.title}"?`)) {
+        if (await confirmDialog(`Deseja excluir "${clickInfo.event.title}"?`)) {
             try {
                 // 🚀 V2: Deleta via API V2
                 await api.delete(`/v2/appointments/${clickInfo.event.id}`);

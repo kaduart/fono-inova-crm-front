@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { FileText, FileCode, RefreshCw, Ban, RotateCcw, Settings, X } from 'lucide-react';
 import { fiscalService } from '../../services/fiscalService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Chip, KpiStrip, Pager, Pill, Tone, brl, fmtDay } from '../../pages/Financial/components/finUi';

@@ -5,7 +5,7 @@
 // A visão antiga (Resultado, Pacientes, Saúde) continua acessível pelo botão "Visão detalhada".
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import API from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -14,6 +14,7 @@ import {
 import { ProfessionalAdvanceModal } from '../../../components/financial/ProfessionalAdvanceModal';
 import { summarizeCommissionSessions, CommissionSessionItem } from './commissionSessionsSummary';
 import { Chip, KpiStrip, Pill, brl, fmtDay } from '../components/finUi';
+import { confirmDialog } from '../../../components/ui/ConfirmHost';
 
 const ProfessionalResultsPage = lazy(() => import('../../ProfessionalResults/ProfessionalResultsPage'));
 
@@ -279,7 +280,7 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
         } finally { setBusy(false); }
     };
     const cancelarAdiantamento = async (a: Advance) => {
-        if (!window.confirm(`Cancelar o lançamento de ${brl(a.amount)} de ${fmtDay(a.date)}?`)) return;
+        if (!await confirmDialog(`Cancelar o lançamento de ${brl(a.amount)} de ${fmtDay(a.date)}?`)) return;
         try {
             await API.patch(`/v2/professionals/${row.doctorId}/advances/${a._id}/cancel`);
             toast.success('Lançamento cancelado');

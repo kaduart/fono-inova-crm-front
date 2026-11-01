@@ -3,7 +3,7 @@ import { Dialog } from '@mui/material';
 import { TrendingDown } from 'lucide-react';
 import { Expense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
 import { useExpenses } from '../../../hooks/useExpenses';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from './formKit';
 
 type ExpenseModalProps = {

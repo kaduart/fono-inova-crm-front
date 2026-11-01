@@ -3,6 +3,7 @@
 // Aba "Por anúncio": o mesmo funil aberto por anúncio (ID do anúncio de WhatsApp ou campanha do link do site).
 import { useEffect, useState } from "react";
 import API from "../../services/api";
+import { confirmDialog } from '../ui/ConfirmHost';
 
 type Row = {
   source: string;
@@ -80,7 +81,7 @@ export default function AcquisitionByChannel({ startDate, endDate }: { startDate
     }
   };
   const undoSpend = async (adKey: string) => {
-    if (!window.confirm("Desfazer o último lançamento de gasto deste anúncio?")) return;
+    if (!await confirmDialog("Desfazer o último lançamento de gasto deste anúncio?")) return;
     try {
       await API.delete("/v2/analytics/roi/acquisition-by-ad/spend/last", { params: { adKey } });
       setReload((n) => n + 1);

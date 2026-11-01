@@ -1,6 +1,6 @@
 import { Info, Package, Plus, ChevronDown, Scale } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
