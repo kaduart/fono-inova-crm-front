@@ -32,7 +32,16 @@ import {
 } from 'recharts';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
-import type { EvolutionFormData } from './EvolutionForm';
+// Evolução como o back devolve (/v2/evolutions/patient/:id); só os campos usados aqui.
+type EvolutionFormData = {
+    _id?: string;
+    date: string;
+    evaluationTypes?: string[];
+    evaluationAreas?: { id: string; name?: string; score?: number }[];
+    treatmentStatus?: string;
+    observations?: string;
+    [key: string]: unknown;
+};
 import { toast } from '../../utils/toast';
 
 interface Metric {

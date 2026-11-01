@@ -1,5 +1,5 @@
 import CancelAppointmentDialog from '../calendar/CancelAppointmentDialog';
-import { Building2, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -534,12 +534,10 @@ export default function TherapyPackageCard({
     <div
       className="bg-white rounded-2xl border border-slate-200 border-t-[4px] border-t-emerald-500 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
     >
-      {/* Header com gradiente - verde para therapy, azul para convenio, âmbar para liminar */}
+      {/* Header: verde para particular, azul para convênio antigo */}
       <div className={`px-4 pt-3 pb-2.5 sm:px-5 sm:pt-4 sm:pb-3 ${
         pack.type === 'convenio'
           ? 'bg-blue-50/20'
-          : pack.type === 'liminar'
-          ? 'bg-emerald-50/20'
           : paymentState === 'paid'
           ? 'bg-emerald-50/20'
           : paymentState === 'reserved'
@@ -617,11 +615,6 @@ export default function TherapyPackageCard({
                     CONVÊNIO
                   </span>
                 )}
-                {pack.type === 'liminar' && (
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
-                    LIMINAR
-                  </span>
-                )}
               </div>
             );
           })()}
@@ -639,8 +632,6 @@ export default function TherapyPackageCard({
           <div className="flex items-center justify-center gap-1.5 mt-0.5 min-w-0">
             {pack.type === 'convenio' ? (
               <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-            ) : pack.type === 'liminar' ? (
-              <Gavel className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             ) : (
               <Sprout className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             )}
@@ -659,11 +650,6 @@ export default function TherapyPackageCard({
               {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
             </p>
           )}
-          {pack.type === 'liminar' && pack.liminarProcessNumber && (
-            <p className="text-xs text-emerald-600 font-medium mt-1">
-              Processo: {pack.liminarProcessNumber}
-            </p>
-          )}
         </div>
 
         {/* Barra de progresso clínico */}
@@ -674,8 +660,6 @@ export default function TherapyPackageCard({
               <span className={`text-xs font-bold ${
                 pack.type === 'convenio'
                   ? 'text-blue-600'
-                  : pack.type === 'liminar'
-                  ? 'text-emerald-600'
                   : 'text-emerald-600'
               }`}>
                 {completedSessions} de {pack.totalSessions}
@@ -688,8 +672,6 @@ export default function TherapyPackageCard({
               className={`h-2 rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
                 pack.type === 'convenio'
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-600'
-                  : pack.type === 'liminar'
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600'
                   : 'bg-gradient-to-r from-emerald-500 to-green-600'
               }`}
               style={{ width: `${((completedSessions || 0) / pack.totalSessions) * 100}%` }}
@@ -903,53 +885,6 @@ export default function TherapyPackageCard({
             </div>
           )}
         </div>
-
-        {/* ⚖️ Métricas de Crédito - Só para Liminar */}
-        {pack.type === 'liminar' && (
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
-            <div className="flex items-center gap-2 mb-3">
-              <Gavel className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-medium text-gray-700">Crédito da Liminar</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-xs text-gray-500">Total</span>
-                <div className="text-base font-bold text-emerald-900">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.liminarTotalCredit || 0)}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">Disponível</span>
-                <div className="text-base font-bold text-emerald-600">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.liminarCreditBalance || 0)}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">Reconhecido</span>
-                <div className="text-base font-bold text-green-600">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.recognizedRevenue || 0)}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">Executado</span>
-                <div className="text-base font-bold text-emerald-700">
-                  {pack.totalSessions > 0 
-                    ? Math.round(((pack.recognizedRevenue || 0) / (pack.liminarTotalCredit || 1)) * 100)
-                    : 0}%
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Detalhes Financeiros */}
         <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t border-gray-100">

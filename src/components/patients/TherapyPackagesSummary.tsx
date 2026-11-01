@@ -1,4 +1,4 @@
-import { Info, Package, Plus, ChevronDown, Scale } from 'lucide-react';
+import { Info, Package, Plus, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
@@ -65,7 +65,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                         ? responseData.packages
                         : responseData.data?.packages || []
             ).filter(pkg => pkg);
-            setPackages(packageData);
+            // Pacote do tipo liminar é modelo antigo: todos foram migrados para
+            // LiminarContract (aba Liminar). O saldo que sobrou nele é histórico e
+            // enganava; o paciente vê o liminar só na aba Liminar.
+            setPackages((packageData || []).filter((pkg: ITherapyPackage) => pkg.type !== 'liminar'));
             if (packageData.length === 0 && !loading) {
                 toast.info('Nenhum pacote contratado para este paciente', { icon: <Info className="text-blue-500" /> });
             }
@@ -225,18 +228,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const inactivePackages = packages.filter(pkg => pkg.status !== 'active');
     const displayedPackages = activeTab === 'active' ? activePackages : inactivePackages;
 
-    const liminarBySpecialty = activePackages
-        .filter(pkg => pkg.type === 'liminar')
-        .reduce<Record<string, { balance: number; totalCredit: number; sessionValue: number; count: number; packageId: string }>>((acc, pkg) => {
-            const key = pkg.specialty || pkg.sessionType || 'Geral';
-            if (!acc[key]) {
-                acc[key] = { balance: 0, totalCredit: 0, sessionValue: pkg.sessionValue || 0, count: 0, packageId: pkg.packageId || pkg._id };
-            }
-            acc[key].balance += pkg.liminarCreditBalance ?? 0;
-            acc[key].totalCredit += pkg.liminarTotalCredit ?? 0;
-            acc[key].count += 1;
-            return acc;
-        }, {});
 
 
     const handleEditPackage = () => {
@@ -281,45 +272,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                     </div>
                 </div>
             </div>
-
-            {/* Saldo Liminar */}
-            {Object.keys(liminarBySpecialty).length > 0 && (
-                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <Scale className="w-6 h-6 text-amber-600" />
-                        <h3 className="text-lg font-bold text-gray-900">Saldo Liminar</h3>
-                    </div>
-                    <p className="-mt-2 mb-4 text-xs text-amber-800">Pacote liminar do modelo antigo, só para consulta. Contratos e recargas de liminar ficam na aba Liminar.</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Object.entries(liminarBySpecialty).map(([specialty, data]) => {
-                            const sessoesPossiveis = data.sessionValue > 0 ? Math.floor(data.balance / data.sessionValue) : null;
-                            const pctUsado = data.totalCredit > 0 ? Math.round(((data.totalCredit - data.balance) / data.totalCredit) * 100) : 0;
-                            const corBarra = data.balance <= 0 ? 'bg-red-500' : pctUsado >= 75 ? 'bg-orange-400' : 'bg-amber-500';
-                            return (
-                                <div key={specialty} className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-sm font-semibold text-gray-700 capitalize">{specialty}</span>
-                                        <div className="flex items-center gap-2">
-                                            {data.count > 1 && (
-                                                <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">{data.count} pacotes</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-900 mb-1">R$ {data.balance.toFixed(2)}</div>
-                                    <div className="text-xs text-gray-500 mb-3">
-                                        de R$ {data.totalCredit.toFixed(2)} total
-                                        {sessoesPossiveis !== null && <span className="ml-2 text-amber-600 font-medium">· ~{sessoesPossiveis} {sessoesPossiveis === 1 ? 'sessão' : 'sessões'}</span>}
-                                    </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2">
-                                        <div className={`h-2 rounded-full transition-all ${corBarra}`} style={{ width: `${Math.min(100 - pctUsado, 100)}%` }} />
-                                    </div>
-                                    {data.balance <= 0 && <p className="text-xs text-red-600 mt-2 font-medium">Saldo esgotado.</p>}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
 
             {/* Accordion Pacotes do Paciente */}
             {!loading && packages.length > 0 && (
