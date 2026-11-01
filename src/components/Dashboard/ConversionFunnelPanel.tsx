@@ -1,8 +1,8 @@
 // Funil comercial por CANAL (atribuição). Fonte: GET /v2/analytics/roi/funnel-by-channel.
-// Enxuto: 4 indicadores + 1 tabela por canal. Clique na linha abre os contatos (nome/telefone/status).
-// Período vem do filtro do topo (startDate/endDate). Detalhe por LP fica na aba Analytics do Site.
+// Herói = conversão (estrela do comercial) + contexto; tabela por canal com mini-barra;
+// clicar num canal abre MODAL com os contatos (nome/telefone/status). Período do topo.
 import { useEffect, useState } from "react";
-import { Unlink, ChevronDown, ChevronRight } from "lucide-react";
+import { Unlink, ChevronDown, ChevronRight, X } from "lucide-react";
 import API from "../../services/api";
 
 type Detalhe = { nome: string | null; telefone: string; status: "agendou" | "pre" | "contato" };
@@ -19,6 +19,7 @@ const CH: Record<string, { label: string; dot: string }> = {
 };
 const ch = (c: string) => CH[c] || { label: c, dot: "bg-slate-400" };
 const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(0)}%`);
+const pctW = (v: number | null) => `${Math.round((v || 0) * 100)}%`;
 const convTone = (v: number | null) => (v == null ? "text-slate-400" : v >= 0.3 ? "text-emerald-700" : v >= 0.1 ? "text-amber-600" : "text-slate-500");
 const ST: Record<Detalhe["status"], { label: string; cls: string }> = {
   agendou: { label: "Agendou", cls: "bg-emerald-50 text-emerald-700" },
@@ -29,15 +30,6 @@ const SDOT: Record<Detalhe["status"], string> = { agendou: "bg-emerald-500", pre
 const fone = (p: string) => { const d = (p || "").replace(/\D/g, "").replace(/^55/, ""); return d.length >= 10 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : p; };
 const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || "";
 
-function Kpi({ label, value, tone = "text-slate-800" }: { label: string; value: string | number; tone?: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-      <div className={`text-xl font-bold leading-tight tabular-nums ${tone}`}>{value}</div>
-      <div className="text-[11px] text-slate-500 mt-0.5">{label}</div>
-    </div>
-  );
-}
-
 export default function ConversionFunnelPanel({ startDate, endDate }: { startDate: string; endDate: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [totals, setTotals] = useState<Totals>({ contatos: 0, preAgendamentos: 0, agendamentos: 0, conversao: null });
@@ -45,11 +37,11 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [openCh, setOpenCh] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true); setError(null); setOpen(null);
+    setLoading(true); setError(null); setOpenCh(null);
     API.get("/v2/analytics/roi/funnel-by-channel", { params: { startDate, endDate, details: 1 } })
       .then((r) => {
         if (!alive) return;
@@ -66,7 +58,16 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
     return () => { alive = false; };
   }, [startDate, endDate]);
 
+  useEffect(() => {
+    if (!openCh) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenCh(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openCh]);
+
   const orphan = semVinculo.agendamentos + semVinculo.preAgendamentos;
+  const modalRow = openCh ? rows.find((r) => r.channel === openCh) || null : null;
+  const modalDet = modalRow?.detalhes || [];
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -81,11 +82,22 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 break-all">Não carregou (erro, não “sem dados”): {error}</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <Kpi label="Contatos recebidos" value={totals.contatos} />
-            <Kpi label="Pré-agendaram" value={totals.preAgendamentos} tone="text-amber-600" />
-            <Kpi label="Agendaram" value={totals.agendamentos} tone="text-emerald-700" />
-            <Kpi label="Conversão" value={pct(totals.conversao)} tone={convTone(totals.conversao)} />
+          {/* Herói: conversão é a estrela do comercial */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-gradient-to-b from-emerald-50/70 to-white p-4">
+            <div className="shrink-0">
+              <div className={`text-[40px] font-extrabold leading-none tracking-tight tabular-nums ${convTone(totals.conversao)}`}>{pct(totals.conversao)}</div>
+              <div className="mt-1 text-[11px] font-semibold text-slate-500">Conversão</div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-slate-700"><span className="font-bold tabular-nums">{totals.agendamentos} de {totals.contatos}</span> contatos agendaram</div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: pctW(totals.conversao) }} />
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                <span><span className="font-bold tabular-nums text-amber-600">{totals.preAgendamentos}</span> pré-agendaram</span>
+                <span><span className="font-bold tabular-nums text-slate-700">{totals.contatos}</span> contatos recebidos</span>
+              </div>
+            </div>
           </div>
 
           {rows.length === 0 ? (
@@ -103,47 +115,28 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const isOpen = open === r.channel;
-                  const det = r.detalhes || [];
+                  const has = (r.detalhes || []).length > 0;
                   return (
-                    <>
-                      <tr key={r.channel} onClick={() => setOpen(isOpen ? null : r.channel)}
-                        className="border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50">
-                        <td className="py-1.5 pr-2">
-                          <span className="inline-flex items-center gap-1.5 text-slate-700">
-                            {det.length ? (isOpen ? <ChevronDown size={13} className="text-slate-400" /> : <ChevronRight size={13} className="text-slate-400" />) : <span className="w-[13px]" />}
-                            <span className={`h-2 w-2 rounded-full ${ch(r.channel).dot}`} />{ch(r.channel).label}
+                    <tr key={r.channel} onClick={() => has && setOpenCh(r.channel)}
+                      className={`border-b border-slate-50 last:border-0 ${has ? "cursor-pointer hover:bg-slate-50" : ""}`}>
+                      <td className="py-1.5 pr-2">
+                        <span className="inline-flex items-center gap-1.5 text-slate-700">
+                          {has ? <ChevronRight size={13} className="text-slate-300" /> : <span className="w-[13px]" />}
+                          <span className={`h-2 w-2 rounded-full ${ch(r.channel).dot}`} />{ch(r.channel).label}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-slate-600">{r.contatos}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-amber-600">{r.preAgendamentos}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums font-semibold text-emerald-700">{r.agendamentos}</td>
+                      <td className="py-1.5 pl-2">
+                        <span className="flex items-center justify-end gap-2">
+                          <span className="hidden h-1 w-8 overflow-hidden rounded-full bg-slate-200 sm:block">
+                            <span className="block h-full bg-emerald-500" style={{ width: pctW(r.conversao) }} />
                           </span>
-                        </td>
-                        <td className="py-1.5 px-2 text-right tabular-nums text-slate-600">{r.contatos}</td>
-                        <td className="py-1.5 px-2 text-right tabular-nums text-amber-600">{r.preAgendamentos}</td>
-                        <td className="py-1.5 px-2 text-right tabular-nums font-semibold text-emerald-700">{r.agendamentos}</td>
-                        <td className={`py-1.5 pl-2 text-right tabular-nums font-medium ${convTone(r.conversao)}`}>{pct(r.conversao)}</td>
-                      </tr>
-                      {isOpen && det.length > 0 && (
-                        <tr key={r.channel + "-det"} className="bg-slate-50/50">
-                          <td colSpan={5} className="p-0">
-                            <div className="mx-1.5 my-1.5 overflow-hidden rounded-lg border border-slate-200/70 bg-white">
-                              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-3 py-1.5">
-                                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Contatos · {ch(r.channel).label}</span>
-                                <span className="text-[10px] tabular-nums text-slate-400">{det.length}</span>
-                              </div>
-                              <ul className="max-h-64 divide-y divide-slate-50 overflow-auto">
-                                {det.map((d, i) => (
-                                  <li key={i} className="flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-slate-50">
-                                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${SDOT[d.status]}`} />
-                                    <span className="min-w-0 max-w-[48%] truncate text-slate-700">{d.nome || "— sem nome —"}</span>
-                                    <a href={`https://wa.me/${(d.telefone || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                                      onClick={(e) => e.stopPropagation()} className="shrink-0 tabular-nums text-xs text-slate-400 hover:text-teal-600">{fone(d.telefone)}</a>
-                                    <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${ST[d.status].cls}`}>{ST[d.status].label}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
+                          <span className={`tabular-nums font-medium ${convTone(r.conversao)}`}>{pct(r.conversao)}</span>
+                        </span>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
@@ -166,6 +159,42 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
             </p>
           )}
         </>
+      )}
+
+      {/* Modal de contatos do canal */}
+      {modalRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`Contatos de ${ch(modalRow.channel).label}`}>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setOpenCh(null)} />
+          <div className="relative flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ch(modalRow.channel).dot}`} />
+                <div className="min-w-0">
+                  <h4 className="truncate text-sm font-semibold text-slate-800">{ch(modalRow.channel).label}</h4>
+                  <p className="text-[11px] text-slate-400">
+                    {modalRow.contatos} contato(s) · <span className="font-medium text-emerald-700">{modalRow.agendamentos} agendaram</span>
+                    {modalRow.preAgendamentos > 0 && <> · <span className="text-amber-600">{modalRow.preAgendamentos} pré</span></>}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setOpenCh(null)} aria-label="Fechar"
+                className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            <ul className="divide-y divide-slate-50 overflow-auto">
+              {modalDet.map((d, i) => (
+                <li key={i} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${SDOT[d.status]}`} />
+                  <span className="min-w-0 flex-1 truncate text-slate-700">{d.nome || "— sem nome —"}</span>
+                  <a href={`https://wa.me/${(d.telefone || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
+                    className="shrink-0 tabular-nums text-xs text-slate-400 transition hover:text-teal-600">{fone(d.telefone)}</a>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${ST[d.status].cls}`}>{ST[d.status].label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
     </div>
   );
