@@ -56,8 +56,6 @@ import GuidePendingBillingSection, { PendingGuide } from './GuidePendingBillingS
 import InsuranceHistorySection from './InsuranceHistorySection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import BreakdownDetailsModal, { BreakdownRow, BreakdownTab } from '../components/BreakdownDetailsModal';
-import doctorService from '../../../services/doctorService';
-import { usePatients } from '../../../hooks/usePatients';
 import {
     createInsurancePayment,
     getInsuranceReceivables,
@@ -88,6 +86,7 @@ import { receiveInvoiceBatch } from '../../../services/insuranceBatchReceiptServ
 import { waitForCashflowLoad } from '../../../services/financialLoadCoordinator';
 import { GuideDetailLoadCache } from '../../../services/guideDetailLoadCache';
 import { notifyApiError } from '../../../utils/notifyApiError';
+import { sessoes } from '../../../utils/plural';
 
 /**
  * ReadView V2 → shape que GuidePendingBillingSection já consome.
@@ -331,7 +330,6 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     const [competenceBreakdown, setCompetenceBreakdown] = useState<CompetenceBreakdown | null>(null);
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
-    const [doctors, setDoctors] = useState<any[]>([]);
     const { convenios, isLoading: loadingConvenios } = useConvenios({ includeInactive: false });
     const [formData, setFormData] = useState({
         patientId: '',
@@ -522,9 +520,8 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
 
 
 
-    useEffect(() => {
-        loadDoctors();
-    }, []);
+    // 01/11: removida a carga de profissionais e da lista inteira de pacientes,
+    // usadas só por um modal de criação que nunca abre (audit Impeccable).
 
     // 🚨 FIX (2026-07-20): eram 2 efeitos separados (um por [selectedMonthYear], outro
     // por [subTab]) — ambos disparam no mount, então toda montagem/troca de mês fazia
@@ -733,16 +730,6 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     };
 
     // Hook para pacientes
-    const { patients } = usePatients();
-
-    const loadDoctors = async () => {
-        try {
-            const doctorsRes = await doctorService.getAllDoctors();
-            setDoctors(doctorsRes.data || []);
-        } catch (error) {
-            console.error('Erro ao carregar doutores:', error);
-        }
-    };
 
     const handleCreateInsurance = async () => {
         if (!formData.patientId || !formData.doctorId || !formData.insuranceProvider || !formData.grossAmount || !formData.paymentDate) {
@@ -1250,7 +1237,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             items={[
                                 {
                                     label: 'A faturar', value: ps ? brl(ps.pendingBilling.amount) : '—',
-                                    sub: ps ? `${n(ps.pendingBilling.sessions)} sessões · ${n(ps.pendingBilling.guides)} guias${prev?.value ? ` · ${brl(prev.value)} de meses anteriores` : ''}` : undefined,
+                                    sub: ps ? `${n(ps.pendingBilling.sessions)} sessões · ${n(ps.pendingBilling.guides)} guias${prev?.value ? ` · ${brl(prev.value)} de meses anteriores` : ''}${prev?.oldestCompetence ? ` · mais antiga: ${String(prev.oldestCompetence).slice(5, 7)}/${String(prev.oldestCompetence).slice(0, 4)}` : ''}` : undefined,
                                     onClick: () => setSubTab(0),
                                 },
                                 {
@@ -1260,7 +1247,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                 },
                                 {
                                     label: 'Faturado a receber', value: ps ? brl(ps.billed.amount) : '—',
-                                    sub: sm ? `${n(sm.openInvoices.count)} NFs abertas${sm.openInvoices.oldestDays != null ? ` · mais antiga há ${sm.openInvoices.oldestDays} dias` : ''}` : undefined,
+                                    sub: sm ? `${n(sm.openInvoices.count)} NFs abertas${sm.openInvoices.oldestDays != null ? ` · mais antiga há ${sm.openInvoices.oldestDays} dias` : ''}${(sm.openInvoices.oldestDays ?? 0) > 60 ? ' · cobrar o convênio' : ''}` : undefined,
                                     onClick: () => setSubTab(8),
                                 },
                                 {
@@ -1279,20 +1266,49 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                 <button type="button" onClick={() => loadSummary(selectedMonthYear)} className="font-semibold underline">Tentar de novo</button>
                             </div>
                         )}
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="mr-1 text-xs font-semibold text-gray-500">Precisa de ação</span>
-                            <FinChip on={false} warn={(aq?.orphanSessions ?? orphanSessionsCount) > 0} label="Sessões sem guia"
-                                count={aq ? `${n(aq.orphanSessions)}${aq.orphanSessionsValue ? ` · ${brl(aq.orphanSessionsValue)}` : ''}` : n(orphanSessionsCount)}
-                                onClick={() => { setSubTab(0); void loadOrphanSessions().catch(() => undefined); }} />
-                            <FinChip on={false} warn={paymentIntegrityConflictCount > 0} label="Conflito de pagamento" count={n(paymentIntegrityConflictCount)}
-                                onClick={() => { setSubTab(0); setShowPaymentIntegrityConflicts(true); }} />
-                            <FinChip on={false} warn={(aq?.draftSubmissions ?? draftSubmissionCount) > 0} label="Rascunhos travando sessões"
-                                count={n(aq?.draftSubmissions ?? draftSubmissionCount)} onClick={() => setSubTab(9)} />
-                            <FinChip on={false} warn={(aq?.guidesExpiringIn7Days ?? 0) > 0} label="Guias vencendo em 7 dias"
-                                count={aq ? n(aq.guidesExpiringIn7Days) : '—'} onClick={() => setSubTab(5)} />
-                            <FinChip on={false} warn={(prev?.sessions ?? 0) > 0} label="A faturar de meses anteriores"
-                                count={n(prev?.sessions)} onClick={() => setSubTab(0)} />
-                        </div>
+                        {(() => {
+                            // 01/11 (Impeccable quieter/harden): fila ordenada pelo valor parado,
+                            // cada linha com o próximo passo. Os mesmos 5 itens de antes, nenhum some.
+                            const avg = ps && ps.pendingBilling.sessions > 0 ? ps.pendingBilling.amount / ps.pendingBilling.sessions : 0;
+                            const orphanCount = aq?.orphanSessions ?? orphanSessionsCount;
+                            const draftCount = aq?.draftSubmissions ?? draftSubmissionCount;
+                            const rows = [
+                                { key: 'prev', count: prev?.sessions ?? 0, value: prev?.value ?? 0, estimate: false, tone: 'r', title: 'A faturar de meses anteriores', detail: 'Risco de glosa por prazo · faturar primeiro os convênios com sessão mais antiga', cta: 'Faturar agora', go: () => setSubTab(0) },
+                                { key: 'conf', count: paymentIntegrityConflictCount, value: paymentIntegrityConflictCount * avg, estimate: true, tone: 'r', title: 'Sessões fora do faturamento', detail: 'Sem lançamento de convênio ou com lançamento duplicado', cta: 'Ver e corrigir', go: () => { setSubTab(0); setShowPaymentIntegrityConflicts(true); } },
+                                { key: 'orph', count: orphanCount, value: aq?.orphanSessionsValue ?? 0, estimate: false, tone: 'a', title: 'Sessões sem guia', detail: 'Vincular a uma guia válida para poder faturar', cta: 'Vincular guia', go: () => { setSubTab(0); void loadOrphanSessions().catch(() => undefined); } },
+                                { key: 'exp', count: aq?.guidesExpiringIn7Days ?? 0, value: 0, estimate: false, tone: 'a', title: 'Guias vencendo em 7 dias', detail: 'Pedir nova autorização antes de vencer', cta: 'Ver guias', go: () => setSubTab(5) },
+                                { key: 'draft', count: draftCount, value: 0, estimate: false, tone: 'a', title: 'Rascunhos travando sessões', detail: 'Envio começado e não concluído: as sessões ficam presas até finalizar ou descartar', cta: 'Ver rascunhos', go: () => setSubTab(9) },
+                            ] as const;
+                            const active = rows.filter(r => r.count > 0).sort((a, b) => b.value - a.value || b.count - a.count);
+                            const idle = rows.filter(r => r.count === 0);
+                            const totalStuck = active.reduce((sum, r) => sum + r.value, 0);
+                            const hasEstimate = active.some(r => r.estimate && r.value > 0);
+                            const badge = { r: 'bg-red-50 text-red-700', a: 'bg-amber-50 text-amber-800' };
+                            return (
+                                <section aria-labelledby="ins-action-title" className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 px-4 py-2.5">
+                                        <h3 id="ins-action-title" className="text-sm font-semibold text-gray-900">Precisa de ação · por impacto</h3>
+                                        {totalStuck > 0 && <span className="text-xs text-gray-600">{hasEstimate ? '~' : ''}{brl(totalStuck)} parados{hasEstimate ? ' (inclui estimativa)' : ''}</span>}
+                                    </div>
+                                    {!aq && !insSummaryError && loadingGuides && <p role="status" className="px-4 py-3 text-sm text-gray-600">Consultando pendências…</p>}
+                                    {active.map((r, i) => (
+                                        <div key={r.key} className="grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-gray-100 px-4 py-2.5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto_9rem]">
+                                            <span className={`rounded-lg py-1 text-center font-bold tabular-nums ${badge[r.tone]}`}>{n(r.count)}</span>
+                                            <div className="min-w-0"><p className="text-sm font-semibold text-gray-900">{r.title}</p><p className="truncate text-xs text-gray-600" title={r.detail}>{r.detail}</p></div>
+                                            <span className="text-right text-sm font-bold tabular-nums text-gray-900">
+                                                {r.value > 0 ? `${r.estimate ? '~' : ''}${brl(r.value)}` : <span className="text-xs font-normal text-gray-600">sem valor</span>}
+                                                {r.estimate && r.value > 0 && <span className="block text-2xs font-normal text-gray-600">estimado pelo valor médio</span>}
+                                            </span>
+                                            <button type="button" onClick={r.go}
+                                                className={`col-start-3 min-h-10 rounded-lg border border-emerald-700 px-3 text-sm font-semibold sm:col-start-auto ${i === 0 ? 'bg-emerald-700 text-white hover:bg-emerald-800' : 'bg-white text-emerald-800 hover:bg-emerald-50'} focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1`}>
+                                                {r.cta}
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {idle.length > 0 && <p className="px-4 py-2 text-xs text-gray-600">{idle.map(r => `${r.title}: 0`).join(' · ')} · nada a fazer</p>}
+                                </section>
+                            );
+                        })()}
                     </div>
                 );
             })()}
@@ -1346,9 +1362,9 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                         >
                             <AlertCircle size={18} color="#C2410C" />
                             <Typography fontSize="0.75rem" lineHeight={1.5} color="#9A3412" fontWeight={600} sx={{ flex: 1 }}>
-                                {paymentIntegrityConflictCount} sessão{paymentIntegrityConflictCount !== 1 ? 'ões' : ''}
-                                {' '}não {paymentIntegrityConflictCount !== 1 ? 'foram listadas' : 'foi listada'} para faturamento
-                                porque não {paymentIntegrityConflictCount !== 1 ? 'possuem' : 'possui'} exatamente um Payment de convênio elegível.
+                                {paymentIntegrityConflictCount} {sessoes(paymentIntegrityConflictCount)}
+                                {' '}{paymentIntegrityConflictCount !== 1 ? 'ficaram' : 'ficou'} fora do faturamento: sem lançamento de convênio ou com lançamento duplicado.
+                                Corrija o lançamento de cada uma para ela entrar na lista.
                                 {' '}{showPaymentIntegrityConflicts ? 'Ocultar detalhes.' : 'Ver detalhes.'}
                             </Typography>
                             <ChevronDown size={16} color="#9A3412" style={{ transform: showPaymentIntegrityConflicts ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s', flexShrink: 0 }} />
@@ -1416,7 +1432,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                     <>
                                         <Typography variant="body2" fontWeight={600} color="#3B82F6">
                                             {isGuideMode
-                                                ? `${selectedGuideSummary.guides} guia${selectedGuideSummary.guides !== 1 ? 's' : ''} · ${selectedGuideSummary.sessions} sessão${selectedGuideSummary.sessions !== 1 ? 'ões' : ''} · ${selectedGuideSummary.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                                                ? `${selectedGuideSummary.guides} guia${selectedGuideSummary.guides !== 1 ? 's' : ''} · ${selectedGuideSummary.sessions} ${sessoes(selectedGuideSummary.sessions)} · ${selectedGuideSummary.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
                                                 : `${selectedPayments.size} atendimento${selectedPayments.size !== 1 ? 's' : ''}`}
                                         </Typography>
                                         <Button size="small" variant="text" onClick={isGuideMode ? clearGuideSelection : clearAllSelection} sx={{ fontSize: '0.75rem' }}>
@@ -1527,6 +1543,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             phase={subTab === 0 ? 'pendingBilling' : 'documentationSent'}
                             convenios={convenios}
                             loadingConvenios={loadingConvenios}
+                            onConfigureConvenios={() => setConvenioManagerOpen(true)}
                         />
                     ) : subTab === 2 || subTab === 3 ? (
                         // Faturados/Recebidos derivam da ReadView pelo bucket da fase.

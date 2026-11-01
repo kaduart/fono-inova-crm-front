@@ -55,3 +55,13 @@ Mock: https://claude.ai/artifact/R6NEhtTmWQm5ZwWR98r6dh · crítica Impeccable: 
 - Pacotes: última sessão primeiro, resumo por especialidade e WhatsApp com renovação (Valor → Preço). Sem próxima sessão cita os 3 primeiros nomes.
 - Chips em duas linhas (Agenda / Perfil); cards com "Ver … ›"; "caixa do mês" no Ticket; origem com uma forma só vira uma linha; card violeta trocado pelo padrão e usando o previsto do backend.
 - Performance: sem busca duplicada da agenda no clique; renovações com cache de 5 min; blocos de "Ver detalhes" só renderizam quando abertos; console.log removidos.
+
+## Convênios v2 (01/11/2026, mock aprovado)
+
+Mock: https://claude.ai/artifact/TCo6c4YXfJqnXW222cS3yK · Impeccable: critique 21/40, audit 10/20.
+- "Precisa de ação" virou fila ordenada pelo valor parado, com o próximo passo em cada linha (os 5 itens de antes continuam; zerados aparecem numa linha "nada a fazer"). Sessões fora do faturamento mostram valor estimado (nº × valor médio a faturar), marcado como estimativa.
+- Aviso das sessões sem lançamento elegível reescrito sem jargão ("Payment").
+- Tabela: coluna "Mais antiga" (vermelho acima de 60 dias), ordenação pela sessão mais antiga, "Prazo de envio" mostra "a configurar" e um aviso único com "Configurar prazos" (abre o cadastro de convênios). Botão "Preparar N" abre um painel com todas as guias do convênio.
+- Painel: guias por guia já vêm marcadas; nome do paciente no card quando o painel é do convênio; "Sessões de dd/mm a dd/mm"; alertas de dias sem faturar, guia acabando/esgotada e valor por sessão diferente.
+- Plural corrigido no sistema com `src/utils/plural.ts` ("sessãoões", "sessãos", "1 sessões").
+- Removida a carga de pacientes e profissionais que só servia a um modal que nunca abre.

@@ -23,6 +23,7 @@ import AlertsPanel from '../../components/doctor/AlertsPanel';
 import { ReceivablesCard } from './components/ReceivablesCard';
 import { ProfessionalResultsTable, Column } from './components/ProfessionalResultsTable';
 import { SettlementItem, SettlementPreview, professionalResultsService } from '../../services/professionalResultsService';
+import { sessoes } from '../../utils/plural';
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -651,7 +652,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                                 <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
                                   <span className="text-sm text-gray-700">{row.label}</span>
-                                  <span className="text-xs text-gray-400">({row.count} sessão{row.count !== 1 ? 'ões' : ''})</span>
+                                  <span className="text-xs text-gray-400">({row.count} {sessoes(row.count)})</span>
                                 </div>
                                 <span className="text-sm font-semibold text-gray-800">{formatCurrency(row.value)}</span>
                               </div>

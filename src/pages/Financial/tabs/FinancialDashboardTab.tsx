@@ -86,6 +86,7 @@ import { toast } from 'react-toastify';
 import { IAppointment } from '../../../utils/types/types';
 import { FEATURE_FLAGS } from '../../../config/featureFlags';
 import { ymdSP } from '../../../utils/dateFormat';
+import { sessoes } from '../../../utils/plural';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -1063,7 +1064,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                   <div className="min-w-0">
                     <p className="text-3xs font-black text-amber-800 uppercase tracking-wide leading-tight">Dívida de meses anteriores</p>
                     <p className="text-3xs text-amber-700/80 mt-0.5">
-                      {pendentes?.previousCompetenceDebt?.count || 0} sessão{(pendentes?.previousCompetenceDebt?.count || 0) !== 1 ? 'ões' : ''} de competência passada · {showPrevDebt ? 'ocultar' : 'ver quem deve'}
+                      {pendentes?.previousCompetenceDebt?.count || 0} {sessoes((pendentes?.previousCompetenceDebt?.count || 0))} de competência passada · {showPrevDebt ? 'ocultar' : 'ver quem deve'}
                     </p>
                   </div>
                   <span className="text-lg font-black text-amber-800 shrink-0 whitespace-nowrap">{formatCurrency(pendentes?.previousCompetenceDebt?.total || 0)}</span>

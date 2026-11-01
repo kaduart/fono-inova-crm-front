@@ -1,5 +1,6 @@
 import { AlertTriangle, Banknote, CheckCircle, ClipboardList, TrendingUp, Wallet } from 'lucide-react';
 import type { FinancialSummary } from '../../../services/financialSummaryService';
+import { sessoes } from '../../../utils/plural';
 
 interface Props {
   summary: FinancialSummary | null;
@@ -58,7 +59,7 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName, on
             )}
             {pendingCount > 0 && (
               <p className="text-2xs text-red-200 mt-1">
-                {pendingCount} sessão{pendingCount !== 1 ? 'ões' : ''} em aberto
+                {pendingCount} {sessoes(pendingCount)} em aberto
               </p>
             )}
             {sessionDebt > 0 && onOpenReceive && (

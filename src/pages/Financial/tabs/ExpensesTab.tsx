@@ -63,6 +63,7 @@ import {
 
 import { notifyApiError } from '../../../utils/notifyApiError';
 import { Chip as FinChip, KpiStrip, brl } from '../components/finUi';
+import { sessoes } from '../../../utils/plural';
 
 // Configuração de categorias com cores e ícones
 //
@@ -780,7 +781,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                           </div>
                           {expense.category === 'commission' && expense.workPeriod?.sessionsCount > 0 && (
                             <div className="text-xs text-gray-400">
-                              {expense.workPeriod.sessionsCount} sessõe{expense.workPeriod.sessionsCount > 1 ? 's' : ''}
+                              {expense.workPeriod.sessionsCount} {sessoes(expense.workPeriod.sessionsCount)}
                             </div>
                           )}
                         </td>

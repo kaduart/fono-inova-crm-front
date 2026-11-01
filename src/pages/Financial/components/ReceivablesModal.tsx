@@ -31,6 +31,7 @@ import {
     AccessTime,
     LocalHospital
 } from '@mui/icons-material';
+import { sessoes } from '../../../utils/plural';
 
 interface ReceivableItem {
     id: string;
@@ -114,7 +115,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                             A Receber - Convênios
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {formatDate(date)} • {data.count} sessão{data.count !== 1 ? 's' : ''} pendente{data.count !== 1 ? 's' : ''}
+                            {formatDate(date)} • {data.count} {sessoes(data.count)} pendente{data.count !== 1 ? 's' : ''}
                         </Typography>
                     </Box>
                 </Box>
