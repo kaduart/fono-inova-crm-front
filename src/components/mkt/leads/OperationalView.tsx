@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Skeleton from '../../ui/Skeleton';
 import { leadNextStep, waLink, WA_TAB } from '../../commercial/commercialCopy';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
+import { LeadsBoard, LeadSheet, type BoardLeadView } from './LeadsBoard';
 
 export interface NewFollowupPayload {
   name: string;
@@ -295,6 +296,12 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
   const [showNewModal, setShowNewModal] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<'all' | 'atrasado' | '7d' | 'hoje' | 'sem_acao'>('all');
   const [reasonFilter, setReasonFilter] = useState<string>('all');
+  // Lista | Quadro — lembra a escolha de quem opera.
+  const [mode, setModeState] = useState<'lista' | 'quadro'>(() => {
+    try { return localStorage.getItem('fono-leads-mode') === 'quadro' ? 'quadro' : 'lista'; } catch { return 'lista'; }
+  });
+  const setMode = (m: 'lista' | 'quadro') => { setModeState(m); try { localStorage.setItem('fono-leads-mode', m); } catch { /* sem storage */ } };
+  const [sheet, setSheet] = useState<BoardLeadView | null>(null);
 
   const safeleads = (leads || []).filter(l => !['virou_paciente', 'nao_fechou', 'agendado'].includes(l.operational?.pipeline));
 
@@ -363,12 +370,32 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
     return <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">👻 Sem ação</span>;
   };
 
+  const toView = (lead: any): BoardLeadView => {
+    const op = normalizeLeadOperational(lead);
+    const overdueDays = op.nextActionAt ? Math.floor((Date.now() - op.nextActionAt.getTime()) / 86_400_000) : 0;
+    const next = leadNextStep({ name: lead.name, reason: op.followupReason, pipeline: op.pipeline, overdueDays });
+    return {
+      lead, phone: op.phone, pipeline: op.pipeline, badge: urgencyBadge(lead), nextText: next.text,
+      waHref: op.phone ? (waLink(op.phone, next.message) || `https://wa.me/${op.phone.replace(/\D/g, '')}`) : null,
+      note: op.nextActionNote, reasonLabel: FOLLOWUP_REASON_LABELS[op.followupReason] ?? op.followupReason,
+      nextActionAt: op.nextActionAt, late: classifyLead(lead) === 'atrasado',
+    };
+  };
+  const moveStage = (lead: any, stage: string) => handleFieldUpdate(lead, 'pipeline', stage);
+
   return (
     <div className="space-y-5">
       <CommercialQuickReplies />
       {/* HEADER COM BOTÃO */}
       <div className="flex items-center justify-between">
-        <div /> {/* spacer */}
+        <div role="tablist" aria-label="Modo de visualização" className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          {(['lista', 'quadro'] as const).map(m => (
+            <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
+              className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${mode === m ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300'}`}>
+              {m === 'lista' ? 'Lista' : 'Quadro'}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => setShowNewModal(true)}
           className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg hover:shadow-xl transition-all"
@@ -495,8 +522,12 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
         )}
       </div>
 
+      {mode === 'quadro' && !loading && (
+        <LeadsBoard items={filtered.map(toView)} labels={PIPELINE_LABELS} onMove={moveStage} onOpen={setSheet} />
+      )}
+
       {/* TABELA OPERACIONAL */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div hidden={mode === 'quadro' && !loading} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -560,9 +591,10 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                     >
                       {/* NOME */}
                       <td className="px-4 py-3 min-w-[160px]">
-                        <div className="font-medium text-slate-800 truncate max-w-[160px]">
+                        <button type="button" onClick={() => setSheet(toView(lead))} title="Ver resumo do lead"
+                          className="block font-medium text-slate-800 truncate max-w-[160px] text-left hover:text-emerald-700 hover:underline">
                           {lead.name || 'Sem nome'}
-                        </div>
+                        </button>
                         {phone && (
                           <div className="text-xs text-slate-400 mt-0.5">{phone}</div>
                         )}
@@ -659,6 +691,8 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
           </table>
         </div>
       </div>
+
+      <LeadSheet v={sheet} onClose={() => setSheet(null)} labels={PIPELINE_LABELS} onMove={moveStage} onOpenTimeline={onOpenTimeline} />
 
       {showNewModal && (
         <NewFollowupModal
