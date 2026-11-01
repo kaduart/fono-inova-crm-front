@@ -311,7 +311,6 @@ export const packageService = {
   },
 
   listPackages: async (params: PaginationParams & { patientId?: string; doctorId?: string }) => {
-    console.log('[packageService] listPackages chamado:', params);
 
     const response = await API.get<IPaginatedPackageResponse>('/v2/packages', {
       params: {
@@ -326,10 +325,8 @@ export const packageService = {
       }
     });
     
-    console.log('[packageService] listPackages response:', response.data);
     
     const data = extractV2Data(response);
-    console.log('[packageService] listPackages extracted:', data);
     
     return data;
   },

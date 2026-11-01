@@ -1,6 +1,6 @@
 // src/pages/doctor/DoctorDashboard.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '../../utils/toast';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
@@ -98,17 +98,39 @@ const initialPatientState: IPatient = {
   lastAppointment: ''
 };
 
+
+const SLUG_FROM_TAB: Record<string, string> = {
+  overview: 'dashboard', patients: 'pacientes', therapy: 'evolucao', appointments: 'agenda', insights: 'insights', financial: 'financeiro',
+};
+const TAB_FROM_SLUG: Record<string, string> = Object.fromEntries(Object.entries(SLUG_FROM_TAB).map(([k, v]) => [v, k]));
+
 export default function DoctorDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  // Aba e paciente ficam na URL (?aba=pacientes&paciente=<id>): F5 e "voltar" não perdem o lugar.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => TAB_FROM_SLUG[urlParams.get('aba') || ''] || (urlParams.get('paciente') ? 'patients' : 'overview'));
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(() => {
+    const id = urlParams.get('paciente');
+    return id ? ({ _id: id, fullName: '' } as IPatient) : null;
+  });
+
   const [detailSection, setDetailSection] = useState<PatientSection | undefined>(undefined);
   const [createSignal, setCreateSignal] = useState(0);
   // Filtro da lista "Meus pacientes" vindo de um atalho (KPI "Sem próxima sessão").
   const [patientsFilter, setPatientsFilter] = useState<PatientsFilter>('');
   const [careSummary, setCareSummary] = useState<MyPatientsSummary | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>(() => (urlParams.get('paciente') ? 'detail' : 'list'));
+
+  useEffect(() => {
+    const next = new URLSearchParams(urlParams);
+    const slug = SLUG_FROM_TAB[activeTab];
+    if (slug && slug !== 'dashboard') next.set('aba', slug); else next.delete('aba');
+    if (activeTab === 'patients' && viewMode === 'detail' && selectedPatient?._id) next.set('paciente', selectedPatient._id);
+    else { next.delete('paciente'); next.delete('secao'); }
+    if (next.toString() !== urlParams.toString()) setUrlParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, viewMode, selectedPatient?._id]);
   const [isLoading, setIsLoading] = useState(false);
 
   // ── Insights: schedule modal ──────────────────────────────────────────────
@@ -556,25 +578,6 @@ export default function DoctorDashboard() {
           </div>
         );
 
-      case 'messages':
-        return (
-          <div className="p-6">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Mensagens</h2>
-              <p className="text-gray-600">Sistema de mensagens em desenvolvimento</p>
-            </div>
-          </div>
-        );
-
-      case 'profile':
-        return (
-          <div className="p-6">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Meu Perfil</h2>
-              <p className="text-gray-600">Página de perfil em desenvolvimento</p>
-            </div>
-          </div>
-        );
 
       default:
         return (
@@ -589,7 +592,7 @@ export default function DoctorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 text-left">
       <DashboardHeader
         doctorData={doctorData}
         activeTab={activeTab}

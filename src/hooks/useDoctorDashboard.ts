@@ -76,10 +76,9 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
 
   // Inicializa role e doctorId diretamente do AuthContext (sem chamada extra)
   useEffect(() => {
-    if (!authUser) { console.log('[Dashboard] authUser ainda null — aguardando AuthContext'); return; }
+    if (!authUser) return;
     const role = authUser.role as string;
     const id = (authUser as any)._id || (authUser as any).id;
-    console.log(`[Dashboard] authUser pronto → role=${role} id=${id}`);
     setUserRole(role);
     if (role === 'admin' || role === 'secretary') {
       // Staff escolhe o profissional no seletor "Ver painel de".
@@ -118,14 +117,12 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
 
   // 🎯 Carrega dados da aba Overview (KPIs, alertas, pacientes de hoje)
   const loadOverview = useCallback(async (force = false) => {
-    if (!doctorId) { console.log('[Overview] doctorId ausente — skip'); return; }
-    if (loadingTabsState.overview && !force) { console.log('[Overview] já carregando — skip'); return; }
+    if (!doctorId) return;
+    if (loadingTabsState.overview && !force) return;
 
-    console.log(`[Overview] iniciando fetch (doctorId=${doctorId} force=${force})`);
     setLoadingTabsState(prev => ({ ...prev, overview: true }));
 
     try {
-      const t0 = Date.now();
       const [patientsRes, appointmentsRes, statsRes, futureRes, pendingRes] = await Promise.all([
         fetchPatients({ limit: 200 }),
         fetchTodaysAppointments(doctorId),
@@ -135,7 +132,6 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
         fetchPendingEvolutions(doctorId).then(r => { setPendingEvolutionsError(false); return r; }).catch(() => { setPendingEvolutionsError(true); return [] as PendingEvolution[]; })
       ]);
       setPendingEvolutions(pendingRes || []);
-      console.log(`[Overview] ✅ dados carregados em ${Date.now() - t0}ms — pacientes=${patientsRes?.length ?? (patientsRes as any)?.data?.length ?? 0} consultas=${(appointmentsRes as any[])?.length ?? 0}`);
 
       const patientList = patientsRes || [];
       setOverviewData({

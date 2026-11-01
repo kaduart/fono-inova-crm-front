@@ -4,6 +4,9 @@
 import { Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { doctorService } from '../../services/doctorService';
+import { specialtyText } from '../commercial/commercialCopy';
+
+const specialtyLabel = (s: string) => { const t = specialtyText(s) || s; return t.charAt(0).toUpperCase() + t.slice(1); };
 
 type Doc = { _id: string; fullName?: string; specialty?: string };
 
@@ -35,7 +38,7 @@ export default function DoctorViewPicker({ value, onChange, prominent = false }:
             className="min-h-11 min-w-[16rem] rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         >
             <option value="">{error ? 'Erro ao carregar profissionais' : 'Escolha o profissional…'}</option>
-            {docs.map((d) => <option key={d._id} value={d._id}>{d.fullName}{d.specialty ? ` · ${d.specialty}` : ''}</option>)}
+            {docs.map((d) => <option key={d._id} value={d._id}>{d.fullName}{d.specialty ? ` · ${specialtyLabel(d.specialty)}` : ''}</option>)}
         </select>
     );
 

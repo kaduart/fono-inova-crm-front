@@ -10,9 +10,7 @@ import {
     Home,
     LogOut,
     Menu,
-    MessageCircle,
     Stethoscope,
-    User,
     Users,
     X
 } from "lucide-react";
@@ -160,13 +158,6 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             </HeaderNavButton>
                         )}
 
-                        <HeaderNavButton
-                            active={activeTab === "messages"}
-                            onClick={() => handleTabChange("messages")}
-                            icon={<MessageCircle />}
-                        >
-                            Mensagens
-                        </HeaderNavButton>
                     </nav>
 
                     {/* Tema + Perfil + Hamburguer */}
@@ -210,28 +201,18 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                             <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-3 z-50 border border-emerald-200">
                                 <div className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-t-xl">
                                     <p className="text-sm font-semibold">
-                                        Dr(a). {doctorInfo?.fullName || "Médico"}
+                                        {doctorInfo?.fullName || "Terapeuta"}
                                     </p>
                                     <p className="text-xs text-white truncate mt-1">
-                                        {doctorInfo?.specialty || "Especialidade"}
+                                        {SPECIALTY_LABEL[doctorInfo?.specialty] || doctorInfo?.specialty || "Terapeuta"}
                                     </p>
                                 </div>
 
                                 <div className="p-2">
-                                    <button
-                                        onClick={() => {
-                                            handleTabChange("profile");
-                                            setIsProfileDropdownOpen(false);
-                                        }}
-                                        className="flex items-center w-full px-3 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-900 rounded-lg transition-colors duration-150"
-                                    >
-                                        <User className="h-4 w-4 mr-3 text-emerald-600" />
-                                        <span>Meu Perfil</span>
-                                    </button>
 
                                     <button
                                         onClick={handleLogout}
-                                        className="flex items-center w-full px-3 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150 mt-1"
+                                        className="flex items-center w-full px-3 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150"
                                     >
                                         <LogOut className="h-4 w-4 mr-3" />
                                         <span className="font-medium">Sair do Sistema</span>
@@ -266,13 +247,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                                 <DollarSign size={18} className="text-amber-400" /> Financeiro
                             </button>
                         )}
-                        <button onClick={() => handleMobileTabChange("messages")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "messages" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                            <MessageCircle size={18} className="text-emerald-400" /> Mensagens
-                        </button>
                         <div className="border-t border-emerald-600 mt-2 pt-2">
-                            <button onClick={() => { handleMobileTabChange("profile"); }} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white hover:bg-emerald-700 transition-colors">
-                                <User size={18} className="text-emerald-300" /> Meu Perfil
-                            </button>
                             <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors">
                                 <LogOut size={18} /> Sair do Sistema
                             </button>

@@ -583,7 +583,7 @@ export function NewEvaluationModal({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="group">
                                 <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
-                                    📅 Data da Avaliação
+                                    📅 Data da sessão
                                 </label>
                                 <DatePicker
                                     selected={date ? toLocalDate(date) : null}
@@ -757,7 +757,6 @@ export function NewEvaluationModal({
                                     <select
                                         value={selectedProtocolCode ?? ''}
                                         onChange={(e) => {
-                                            console.log('🎯 PROTOCOLO SELECIONADO:', e.target.value);
                                             onSelectProtocol?.(e.target.value || '');
                                         }}
                                         className="w-full p-4 text-base font-medium border-2 border-emerald-400 rounded-xl focus:ring-4 focus:ring-emerald-200 focus:border-emerald-500 bg-white"
