@@ -27,6 +27,7 @@ const chip = {
     bad: 'border-red-200 bg-red-50 text-red-800',
     info: 'border-blue-200 bg-blue-50 text-blue-800',
     pur: 'border-purple-200 bg-purple-50 text-purple-800',
+    lim: 'border-orange-300 bg-orange-100 text-orange-800',
     neu: 'border-gray-300 bg-gray-50 text-gray-700',
 };
 
