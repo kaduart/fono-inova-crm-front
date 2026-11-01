@@ -91,6 +91,14 @@ export function billingChip(p: Patient) {
     return p.insuranceProvider ? <Chip tone="info">{p.insuranceProvider}</Chip> : null;
 }
 
+// Plano terapêutico (da evolução mais recente): avisa quando a revisão venceu ou vence em até 7 dias.
+export function planReviewChip(reviewDate?: string | null) {
+    if (!reviewDate) return null;
+    const days = Math.floor((new Date(reviewDate).getTime() - Date.now()) / 86_400_000);
+    if (Number.isNaN(days) || days > 7) return null;
+    return <Chip tone="warn">{days < 0 ? 'Revisar plano · vencido' : days === 0 ? 'Revisar plano · hoje' : `Revisar plano · ${days}d`}</Chip>;
+}
+
 function careChip(p: Patient) {
     if (p.careStatus === 'active') return <Chip tone="ok">Em atendimento</Chip>;
     if (p.careStatus === 'no_next') return <Chip tone="warn">Sem próxima sessão</Chip>;
@@ -200,6 +208,7 @@ export default function MyPatientsPanel({
                 const left = p.activePackage.totalSessions - (p.activePackage.sessionsDone || 0);
                 return <Chip tone={left <= 2 ? 'warn' : 'neu'}>Pacote {Math.min(p.activePackage.sessionsDone || 0, p.activePackage.totalSessions)}/{p.activePackage.totalSessions}</Chip>;
             })()}
+            {planReviewChip(p.planReviewDate)}
             {p.birthdayThisMonth && <Chip tone="ok">Aniversário {birthdayLabel(p.dateOfBirth)}</Chip>}
         </div>
     );
