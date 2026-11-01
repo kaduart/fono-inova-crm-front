@@ -46,19 +46,28 @@ describe('GuidePendingBillingSection — seleção no bucket billed', () => {
     });
 
     it('deixa a seleção de faturamento somente dentro do drawer do paciente', () => {
+        const onToggleGuide = vi.fn();
         render(
             <GuidePendingBillingSection
                 {...baseProps}
-                onToggleGuide={vi.fn()}
+                onToggleGuide={onToggleGuide}
                 drawerAction="send_documents"
                 phase="pendingBilling"
                 onDrawerAction={vi.fn()}
             />
         );
 
-        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        const guideBoxes = () => screen.queryAllByRole('checkbox').filter(el => !/preparar junto/i.test(el.getAttribute('aria-label') || ''));
+        expect(guideBoxes()).toHaveLength(0);
         fireEvent.click(screen.getByText('Unimed Anápolis'));
-        expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        expect(guideBoxes()).toHaveLength(0);
+        // Na lista só existe o marcador de paciente (preparar vários juntos);
+        // ele não seleciona guia: a seleção de guias continua no drawer.
+        const marker = screen.getByRole('checkbox', { name: /preparar junto/i });
+        fireEvent.click(marker);
+        expect(onToggleGuide).not.toHaveBeenCalled();
+        expect(screen.getByText(/Preparar 1 pac\./)).toBeInTheDocument();
+        fireEvent.click(marker);
         fireEvent.click(screen.getByText('Paciente Teste'));
         expect(screen.getAllByRole('checkbox')).toHaveLength(2);
     });

@@ -1184,7 +1184,15 @@ const GuidePendingBillingSection = ({
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
-    const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[]; all?: boolean } | null>(null);
+    const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[]; all?: boolean; names?: string[] } | null>(null);
+    // 01/11 (item 16): marcar vários pacientes do mesmo convênio na lista e preparar todos num painel só.
+    // Um convênio por vez: o lote de faturamento é sempre por convênio.
+    const [picked, setPicked] = useState<{ provider: string; names: string[] } | null>(null);
+    const togglePicked = (provider: string, name: string) => setPicked(prev => {
+        const base = prev && prev.provider === provider ? prev.names : [];
+        const names = base.includes(name) ? base.filter(n => n !== name) : [...base, name];
+        return names.length ? { provider, names } : null;
+    });
     const [linking, setLinking]                                 = useState(false);
     const [createModal, setCreateModal]                         = useState<OrphanSession | null>(null);
     const [createIsAba, setCreateIsAba]                         = useState(false);
@@ -1219,7 +1227,7 @@ const GuidePendingBillingSection = ({
         setExpandedOrphanProviders(prev => ({ ...prev, [p]: !prev[p] }));
     };
 
-    const openDrawer = async (name: string, provider: string, patientGuides: PendingGuide[], all = false) => {
+    const openDrawer = async (name: string, provider: string, patientGuides: PendingGuide[], all = false, names?: string[]) => {
         if (detailsLoading) return;
         if (onLoadGuideDetails && patientGuides.some(guide => (guide.sessions || []).length === 0)) {
             try {
@@ -1248,7 +1256,8 @@ const GuidePendingBillingSection = ({
             toast.info('Nenhuma sessão pendente encontrada para este paciente');
             return;
         }
-        setDrawerPatient({ name, provider, guides: patientGuides, all });
+        setDrawerPatient({ name, provider, guides: patientGuides, all, names });
+        if (names) setPicked(null);
     };
 
     // Mantém o drawer sincronizado após uma baixa/refresh. Se todas as guias
@@ -1257,7 +1266,9 @@ const GuidePendingBillingSection = ({
         if (!drawerPatient) return;
         const currentGuides = guides.filter(g =>
             (g.insurance || 'outros') === drawerPatient.provider &&
-            (drawerPatient.all || (g.patient?.fullName || 'Paciente não identificado') === drawerPatient.name)
+            (drawerPatient.all || (drawerPatient.names
+                ? drawerPatient.names.includes(g.patient?.fullName || 'Paciente não identificado')
+                : (g.patient?.fullName || 'Paciente não identificado') === drawerPatient.name))
         );
         if (currentGuides.length === 0 || currentGuides.every(guide => (guide.sessions || []).length === 0)) {
             setDrawerPatient(null);
@@ -1576,12 +1587,27 @@ const GuidePendingBillingSection = ({
                                             {selectionInsideDrawer && !readOnly && (
                                                 <Box sx={{ width: 120, display: 'flex', justifyContent: 'flex-end' }}>
                                                     {/* 01/11: preparar o convênio inteiro num painel só (antes, um painel por paciente) */}
+                                                    {picked?.provider === provider ? (
+                                                        <button type="button" disabled={detailsLoading}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                const names = picked.names;
+                                                                const subset = allGuides.filter(g => names.includes(g.patient?.fullName || 'Paciente não identificado'));
+                                                                void openDrawer(`${names.length} paciente(s) selecionado(s)`, provider, subset, false, names);
+                                                            }}
+                                                            onKeyDown={(event) => event.stopPropagation()}
+                                                            title="Preparar só os pacientes marcados"
+                                                            className="min-h-9 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-xs font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50">
+                                                            Preparar {picked.names.length} pac.
+                                                        </button>
+                                                    ) : (
                                                     <button type="button" disabled={detailsLoading}
                                                         onClick={(event) => { event.stopPropagation(); void openDrawer(`Todos os pacientes · ${patients}`, provider, allGuides, true); }}
                                                         onKeyDown={(event) => event.stopPropagation()}
                                                         className="min-h-9 rounded-lg border border-emerald-700 bg-white dark:bg-gray-900 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50">
                                                         Preparar {sessions}
                                                     </button>
+                                                    )}
                                                 </Box>
                                             )}
                                             <Box sx={{ width: 30, ml: 1, color: '#94A3B8', display: 'flex', justifyContent: 'flex-end', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
@@ -1595,7 +1621,7 @@ const GuidePendingBillingSection = ({
                                             <Box sx={{ bgcolor: '#F1F5F9', px: 2.5, pt: 1, pb: 1.5, minWidth: { xs: 0, lg: 1080 }, borderBottom: idx < sortedProviders.length - 1 ? '1px solid #E2E8F0' : 'none' }}>
                                             <Box sx={{ ml: { xs: 0, sm: 4.5 }, bgcolor: 'white', border: '1px solid #E2E8F0', borderLeft: `3px solid ${rowAccent}`, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                                                 <Box sx={{ px: 2, py: 0.8, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
-                                                    {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
+                                                    {!readOnly && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                                     <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase' }}>Paciente</Typography>
                                                     <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 56, textAlign: 'center', textTransform: 'uppercase' }}>Guias</Typography>
                                                     <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 64, textAlign: 'center', textTransform: 'uppercase' }}>Sessões</Typography>
@@ -1611,12 +1637,19 @@ const GuidePendingBillingSection = ({
                                                     const oldest = patientGuides.map(guide => guide.firstSessionDate).filter(Boolean).sort()[0];
                                                     const initials = patientName.split(' ').slice(0, 2).map((name: string) => name[0]).join('').toUpperCase();
                                                     return (
-                                                        <Box key={`${provider}__${patientName}`} onClick={() => openDrawer(patientName, provider, patientGuides)} sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', cursor: 'pointer', borderBottom: patientIndex < sortedPatients.length - 1 ? '1px solid #F1F5F9' : 'none', bgcolor: (allPatientSelected || somePatientSelected) ? '#E0F2FE' : 'transparent', '&:hover': { bgcolor: '#F0F9FF' } }}>
+                                                        <Box key={`${provider}__${patientName}`} onClick={() => openDrawer(patientName, provider, patientGuides)} sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', cursor: 'pointer', borderBottom: patientIndex < sortedPatients.length - 1 ? '1px solid #F1F5F9' : 'none', bgcolor: (allPatientSelected || somePatientSelected || (picked?.provider === provider && picked.names.includes(patientName))) ? '#E0F2FE' : 'transparent', '&:hover': { bgcolor: '#F0F9FF' } }}>
                                                             {!readOnly && !selectionInsideDrawer && (
                                                                 <Checkbox checked={allPatientSelected} indeterminate={somePatientSelected} onChange={() => {
                                                                     const targets = allPatientSelected ? patientGuides : patientGuides.filter(guide => !selectedGuides.has(guide.guideId));
                                                                     targets.forEach(guide => onToggleGuide(guide.guideId));
                                                                 }} onClick={event => event.stopPropagation()} size="small" sx={{ p: 0.5, mr: 0.75 }} />
+                                                            )}
+                                                            {!readOnly && selectionInsideDrawer && (
+                                                                <Checkbox checked={picked?.provider === provider && picked.names.includes(patientName)}
+                                                                    onChange={() => togglePicked(provider, patientName)}
+                                                                    onClick={event => event.stopPropagation()}
+                                                                    inputProps={{ 'aria-label': `Marcar ${patientName} para preparar junto` }}
+                                                                    size="small" sx={{ p: 0.5, mr: 0.75 }} />
                                                             )}
                                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
                                                                 <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: isPerGuide ? '#ECFDF5' : '#EFF6FF', border: `1px solid ${isPerGuide ? '#6EE7B7' : '#BFDBFE'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
