@@ -98,7 +98,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
       return;
     }
     setLoadingPlan(true);
-    API.get(`/api/v2/insurance-plans/guide/${guide._id}`)
+    API.get(`/v2/insurance-plans/guide/${guide._id}`)
       .then(res => {
         if (res.data?.data) {
           setExistingPlan(res.data.data);

@@ -13,7 +13,6 @@ import Grid from '@mui/material/Grid';
 
 import { Activity, CalendarDays, FileText, Stethoscope, UserRound } from 'lucide-react';
 import API from '../../services/api';
-import { getEvaluationsByPatient } from '../../services/evaluationService';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -33,7 +32,8 @@ import {
 } from 'recharts';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
-import EvolutionForm, { EvolutionFormData } from './EvolutionForm';
+import type { EvolutionFormData } from './EvolutionForm';
+import { toast } from '../../utils/toast';
 
 interface Metric {
     _id: string;
@@ -73,14 +73,13 @@ interface PatientEvolutionProps {
     initialEvolutions: EvolutionFormData[];
 }
 
-const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientName, initialEvolutions }) => {
+const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientName, initialEvolutions }) => {
     const [evolutions, setEvolutions] = useState<EvolutionFormData[]>([]);
     const [metrics, setMetrics] = useState<Metric[]>([]);
     const [selectedType, setSelectedType] = useState('all');
     const [selectedMetric, setSelectedMetric] = useState('all');
     const [chartData, setChartData] = useState<ChartDataItem[]>([]);
     const [tabValue, setTabValue] = useState(0);
-    const [showForm, setShowForm] = useState(false);
     const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7f50', '#8dd1e1', '#a4de6c', '#d0ed57'];
 
     const getLineColor = (index: any) => colors[index % colors.length];
@@ -175,39 +174,25 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
         setTabValue(newValue);
     };
 
-    const handleFormSubmit = async (formData: any) => {
-        try {
-            await API.post('/v2/evolutions', {
-                ...formData,
-                patientId
-            });
-
-            // Recarregar evoluções (V2)
-            const evolutionsRes = await getEvaluationsByPatient(patientId);
-            setEvolutions(evolutionsRes);
-            setMetrics(deriveMetrics(evolutionsRes));
-
-            setShowForm(false);
-        } catch (error) {
-            console.error('Erro ao salvar evolução:', error);
-        }
-    };
-
     const generatePDF = async () => {
         try {
-            const response = await API.get(`/reports/patient/${patientId}`, {
+            const latest = [...evolutions].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] as any;
+            if (!latest?._id) return;
+            const response = await API.get(`/v2/evolutions/${latest._id}/pdf`, {
                 responseType: 'blob'
             });
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Relatório_${patientName.replace(/\s+/g, '_')}.pdf`);
+            link.setAttribute('download', `Evolucao_${patientName.replace(/\s+/g, '_')}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
+            window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Erro ao gerar PDF:', error);
+            toast.error('Não foi possível gerar o PDF da evolução.');
         }
     };
 
@@ -237,7 +222,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                     Evolução de {patientName}
                                 </Typography>
                                 <Typography fontSize="0.82rem" color="#64748B" mt={0.35}>
-                                    Histórico clínico, indicadores e progresso terapêutico do paciente.
+                                    Histórico clínico, indicadores e progresso terapêutico do paciente. As evoluções são registradas pelo terapeuta no painel dele.
                                 </Typography>
                             </Box>
 
@@ -248,15 +233,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                                     onClick={generatePDF}
                                     disabled={evolutions.length === 0}
                                 >
-                                    Gerar Relatório
-                                </Button>
-
-                                <Button
-                                    variant="contained"
-                                    onClick={() => setShowForm(true)}
-                                    sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}
-                                >
-                                    Nova evolução
+                                    PDF da última evolução
                                 </Button>
                             </Box>
                         </Box>
@@ -498,21 +475,8 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientId, patientN
                         )}
                     </Paper>
 
-                    {showForm && (
-                        <Paper elevation={3} sx={{ p: 3 }}>
-                            <Typography variant="h6" gutterBottom>
-                                Nova Avaliação
-                            </Typography>
-
-                            <EvolutionForm
-                                metrics={metrics}
-                                onSubmit={handleFormSubmit}
-                                onCancel={() => setShowForm(false)}
-                            />
-                        </Paper>
-                    )}
                 </Box>
-            )};
+            )}
         </div>
     );
 };

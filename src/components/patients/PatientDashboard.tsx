@@ -6,16 +6,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatients } from '../../hooks/usePatients';
-import { CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import patientService from '../../services/patientService';
 import { mapPatientResponseDTO } from '../../dtos/patient.response.dto';
 import doctorService from '../../services/doctorService';
 import { bookingService } from '../../services/bookingService';
-import { IAppointment, IDoctors, IPatient } from '../../utils/types/types';
+import { IAppointment, IDoctors, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import PatientHeader from '../admin/PatientHeader';
 import AppointmentHistoryModal from '../AppointmentHistoryModal';
-import ScheduleModal from '../AppointmentPage';
+import ScheduleAppointmentModal from './ScheduleAppointmentModal';
+import { mapToCreateAppointmentDTO } from '../../dtos/appointment.dto';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
 import { FutureSessionsCard } from './FutureSessionsCard';
@@ -146,28 +146,32 @@ export default function PatientDashboard() {
   useEffect(() => {
     loadAllAppointments();
   }, [patientId, fetchAppointmentsByPatient, activeTab]);
-  const handleNewAppointment = async (appointmentData: IAppointment) => {
+  // "Novo" do header: mesmo modal e mesmo payload da Agenda principal (AdminDashboard).
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [closeScheduleSignal, setCloseScheduleSignal] = useState(0);
+  const handleNewAppointment = async (appointmentData: ScheduleAppointment) => {
+    const specialty = appointmentData.specialty || appointmentData.sessionType;
+    const payload = mapToCreateAppointmentDTO({
+      ...appointmentData,
+      specialty,
+      sessionType: specialty,
+      clinicalStatus: 'pending',
+      operationalStatus: 'scheduled',
+    } as any);
+    setScheduleSaving(true);
+    setScheduleError(null);
     try {
-      const payload: CreateAppointmentParams = {
-        patientId: appointmentData.patientId,
-        doctorId: appointmentData.doctorId,
-        date: appointmentData.date,
-        time: appointmentData.time,
-        reason: appointmentData.reason,
-        specialty: appointmentData.sessionType,
-        clinicalStatus: 'pending',
-        operationalStatus: 'scheduled'
-      };
-
-      await createAppointment(payload);
+      await createAppointment(payload as any);
       toast.success('Agendamento criado com sucesso!');
-      fetchAppointments();
-
+      setCloseScheduleSignal((n) => n + 1);
       setOpenSchedule(false);
-
-    } catch (error) {
+      loadAllAppointments();
+    } catch (error: any) {
       notifyApiError(error, 'Erro ao criar agendamento');
-      console.error(error);
+      setScheduleError(error?.response?.data?.message || error?.message || 'Erro ao criar agendamento');
+    } finally {
+      setScheduleSaving(false);
     }
   };
 
@@ -268,25 +272,6 @@ export default function PatientDashboard() {
     }
   };
 
-  const handlePayloadToSlots = async (data: { doctorId: string; date: string }) => {
-    setFormData(prev => ({ ...prev, ...data }));
-    if (data.doctorId && data.date) {
-      const slots = await handleFetchAvailableSlots(data);
-      setAvailableSlots(slots);
-    }
-  };
-
-  const handleFetchAvailableSlots = async (payload: AvailableSlotsParams): Promise<string[]> => {
-    try {
-
-      const slots = await getAvailableSlots(payload);
-      return slots;
-    } catch (error) {
-      toast.error('Erro ao buscar horários disponíveis');
-      console.error(error);
-      return [];
-    }
-  };
   // Data de hoje no formato YYYY-MM-DD
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -1136,10 +1121,11 @@ export default function PatientDashboard() {
 
           <button
             onClick={() => setShowBalanceModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
+            title="Sessões em aberto e baixa de pagamento"
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
           >
             <CreditCard size={18} />
-            Fechar Atendimento
+            Receber
           </button>
         </div>
 
@@ -1172,16 +1158,16 @@ export default function PatientDashboard() {
         </div>
       </main>
 
-      <ScheduleModal
-        open={openSchedule}
-        onClose={() => setOpenSchedule(false)}
+      <ScheduleAppointmentModal
+        isOpen={openSchedule}
+        onClose={() => { setOpenSchedule(false); setScheduleError(null); }}
         onSave={handleNewAppointment}
-        patients={patients}
-        doctors={doctors}
-        initialData={appointmentData}
-        payloadToSlots={handlePayloadToSlots}
-        availableSlots={availableSlots}
-        mode={mode}
+        patients={patientInfo?._id ? [patientInfo, ...patients.filter((p) => p._id !== patientInfo._id)] : patients}
+        doctors={doctors as any}
+        initialData={{ patientId: patientInfo?._id || patientId || '', doctorId: '', date: toDateString(new Date()), time: '', sessionType: '', specialty: '', notes: '' } as any}
+        isLoading={scheduleSaving}
+        erroMessage={scheduleError}
+        closeModalSignal={closeScheduleSignal}
       />
 
       <PatientBalanceModal

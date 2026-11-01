@@ -31,10 +31,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const realPatientId = patient?.patientId || patient?._id;
     const hasFetchedInitialRef = useRef<string | null>(null);
 
-    const [creditModal, setCreditModal] = useState<{ open: boolean; packageId: string; specialty: string }>({ open: false, packageId: '', specialty: '' });
-    const [creditAmount, setCreditAmount] = useState('');
-    const [creditReason, setCreditReason] = useState('');
-    const [creditLoading, setCreditLoading] = useState(false);
 
     useEffect(() => {
         if (realPatientId && hasFetchedInitialRef.current !== realPatientId) {
@@ -242,26 +238,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
             return acc;
         }, {});
 
-    const handleAddLiminarCredit = async () => {
-        const amount = parseFloat(creditAmount.replace(',', '.'));
-        if (!amount || amount <= 0) {
-            toast.error('Informe um valor válido');
-            return;
-        }
-        setCreditLoading(true);
-        try {
-            await packageService.addLiminarCredit(creditModal.packageId, amount, creditReason || 'Recarga de crédito liminar');
-            toast.success(`Crédito de R$ ${amount.toFixed(2)} adicionado ao pacote de ${creditModal.specialty}!`);
-            setCreditModal({ open: false, packageId: '', specialty: '' });
-            setCreditAmount('');
-            setCreditReason('');
-            await fetchBasicPackages();
-        } catch (err: any) {
-            toast.error(err.response?.data?.error || err.message || 'Erro ao adicionar crédito');
-        } finally {
-            setCreditLoading(false);
-        }
-    };
 
     const handleEditPackage = () => {
         setShowEditModal(true);
@@ -313,6 +289,7 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                         <Scale className="w-6 h-6 text-amber-600" />
                         <h3 className="text-lg font-bold text-gray-900">Saldo Liminar</h3>
                     </div>
+                    <p className="-mt-2 mb-4 text-xs text-amber-800">Pacote liminar do modelo antigo, só para consulta. Contratos e recargas de liminar ficam na aba Liminar.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {Object.entries(liminarBySpecialty).map(([specialty, data]) => {
                             const sessoesPossiveis = data.sessionValue > 0 ? Math.floor(data.balance / data.sessionValue) : null;
@@ -326,9 +303,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                                             {data.count > 1 && (
                                                 <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">{data.count} pacotes</span>
                                             )}
-                                            <button onClick={() => setCreditModal({ open: true, packageId: data.packageId, specialty })} className="p-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors" title="Adicionar crédito">
-                                                <Plus className="w-4 h-4" />
-                                            </button>
                                         </div>
                                     </div>
                                     <div className="text-2xl font-bold text-gray-900 mb-1">R$ {data.balance.toFixed(2)}</div>
@@ -339,37 +313,10 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                                     <div className="w-full bg-gray-100 rounded-full h-2">
                                         <div className={`h-2 rounded-full transition-all ${corBarra}`} style={{ width: `${Math.min(100 - pctUsado, 100)}%` }} />
                                     </div>
-                                    {data.balance <= 0 && <p className="text-xs text-red-600 mt-2 font-medium">Saldo esgotado — adicione crédito para continuar.</p>}
+                                    {data.balance <= 0 && <p className="text-xs text-red-600 mt-2 font-medium">Saldo esgotado.</p>}
                                 </div>
                             );
                         })}
-                    </div>
-                </div>
-            )}
-
-            {/* Modal recarga liminar */}
-            {creditModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setCreditModal({ open: false, packageId: '', specialty: '' })}>
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <Scale className="w-5 h-5 text-amber-600" />
-                            <h4 className="text-lg font-bold text-gray-900">Adicionar Crédito</h4>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4 capitalize">Especialidade: <span className="font-semibold">{creditModal.specialty}</span></p>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Valor (R$)</label>
-                                <input type="number" min="0.01" step="0.01" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} placeholder="0,00" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Motivo (opcional)</label>
-                                <input type="text" value={creditReason} onChange={e => setCreditReason(e.target.value)} placeholder="Ex: Recarga mensal" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            </div>
-                        </div>
-                        <div className="flex gap-3 mt-5">
-                            <button onClick={() => { setCreditModal({ open: false, packageId: '', specialty: '' }); setCreditAmount(''); setCreditReason(''); }} className="flex-1 px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors" disabled={creditLoading}>Cancelar</button>
-                            <button onClick={handleAddLiminarCredit} disabled={creditLoading || !creditAmount} className="flex-1 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium transition-colors disabled:opacity-50">{creditLoading ? 'Salvando...' : 'Confirmar'}</button>
-                        </div>
                     </div>
                 </div>
             )}
