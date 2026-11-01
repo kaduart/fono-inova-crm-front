@@ -5,7 +5,7 @@ import { createSharedPoll, PollState } from '../../utils/sharedPoll';
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    commercialService, ContactKind, EvaluationQueue, FitLead, NextDayItem, NextDayQueue, PackageEndingItem, QueuePatient, WaitingLead,
+    ChurnItem, commercialService, ContactKind, EvaluationQueue, FitLead, NextDayItem, NextDayQueue, PackageEndingItem, QueuePatient, WaitingLead,
 } from '../../services/commercialService';
 import {
     confirmationNudgeMessage, daysText, evaluationMessage, fitLeadMessage, fitPatientMessage, genericWhen, leadReplyMessage, openWhatsApp,
@@ -43,10 +43,10 @@ export const SidePanel: React.FC<{ title: string; kicker?: string; subtitle?: Re
 
 export const useContact = () => {
     const [done, setDone] = useState<Record<string, 'saving' | 'ok' | 'err'>>({});
-    const mark = useCallback(async (targetType: 'patient' | 'lead', targetId: string, kind: ContactKind, note?: string) => {
+    const mark = useCallback(async (targetType: 'patient' | 'lead', targetId: string, kind: ContactKind, note?: string, until?: string) => {
         setDone(d => ({ ...d, [targetId]: 'saving' }));
         try {
-            await commercialService.registerContact({ targetType, targetId, kind, note });
+            await commercialService.registerContact({ targetType, targetId, kind, note, ...(until ? { until } : {}) });
             setDone(d => ({ ...d, [targetId]: 'ok' }));
             return true;
         } catch (e) {
@@ -210,7 +210,7 @@ export const PackageEndingPanel: React.FC<{ items: PackageEndingItem[]; onClose:
     const { done, mark } = useContact();
     return (
         <SidePanel kicker="Precisa de você" title="Pacote acabando"
-            subtitle="Pacientes com 2 sessões ou menos no pacote ativo. A mensagem explica o valor antes do preço (R$ 180 por sessão no pacote semanal)."
+            subtitle="Pacotes com 80% ou mais das sessões feitas (10 de 12, 3 de 4). A mensagem explica o valor antes do preço (R$ 180 por sessão no pacote semanal)."
             onClose={onClose}>
             <ListState loading={false} error={null} empty={items.length === 0} onRetry={onChanged} emptyText="Nenhum pacote no fim agora." />
             <ul className="flex flex-col gap-2">
@@ -222,7 +222,57 @@ export const PackageEndingPanel: React.FC<{ items: PackageEndingItem[]; onClose:
                         ]}
                         phone={i.phone} state={done[i.patientId]} contactedBefore={i.lastContactAt}
                         message={renewalMessage({ name: i.name, specialty: i.specialty, remaining: i.remaining })}
+                        extra={<RenewalChip stage={i.stage} remaining={i.remaining} />}
                         onContacted={async () => { if (await mark('patient', i.patientId, 'renewal')) onChanged(); }} />
+                ))}
+            </ul>
+        </SidePanel>
+    );
+};
+
+// Chip do estágio de renovação: amarelo = gerar cobrança do próximo mês; laranja = última sessão.
+const RenewalChip: React.FC<{ stage?: PackageEndingItem['stage']; remaining: number }> = ({ stage, remaining }) => {
+    const s = stage || (remaining <= 1 ? 'ultima' : 'renovar');
+    if (s === 'ok') return null;
+    return s === 'ultima' ? (
+        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">Última sessão · falar hoje</span>
+    ) : (
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Renovar · gerar cobrança</span>
+    );
+};
+
+const PAUSE_OPTIONS = [15, 30, 60];
+const pauseUntil = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+
+export const ChurnPanel: React.FC<{ items: ChurnItem[]; onClose: () => void; onChanged: () => void }> = ({ items, onClose, onChanged }) => {
+    const { done, mark } = useContact();
+    return (
+        <SidePanel kicker="Precisa de você" title="Risco de evasão"
+            subtitle="Pacientes ativos sem nada marcado há 14 dias ou mais (21 no quinzenal). Quem avisou que ia faltar ou está em pausa combinada não aparece."
+            onClose={onClose}>
+            <ListState loading={false} error={null} empty={items.length === 0} onRetry={onChanged} emptyText="Nenhum paciente em risco agora." />
+            <ul className="flex flex-col gap-2">
+                {items.map(p => (
+                    <QueueRow key={p.patientId} title={p.name}
+                        lines={[`Sem agendamento há ${p.daysSince} dias${p.specialty ? ` · ${specialtyText(p.specialty)}` : ''}${p.doctorName ? ` com ${p.doctorName}` : ''}`]}
+                        phone={p.phone} state={done[p.patientId]} contactedBefore={p.lastContactAt}
+                        message={p.message}
+                        onContacted={async () => { if (await mark('patient', p.patientId, 'churn')) onChanged(); }}
+                        extra={done[p.patientId] === 'ok' ? null : (
+                            <label className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                                <span className="sr-only">Pausar alerta</span>
+                                <select defaultValue="" aria-label={`Pausar alerta de ${p.name}`}
+                                    onChange={async e => {
+                                        const days = Number(e.target.value);
+                                        if (!days) return;
+                                        if (await mark('patient', p.patientId, 'churn_pause', `Pausa de ${days} dias`, pauseUntil(days))) onChanged();
+                                    }}
+                                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900">
+                                    <option value="" disabled>Pausar…</option>
+                                    {PAUSE_OPTIONS.map(d => <option key={d} value={d}>{d} dias (férias, saúde)</option>)}
+                                </select>
+                            </label>
+                        )} />
                 ))}
             </ul>
         </SidePanel>
@@ -489,10 +539,11 @@ const leadsWaitingPoll = createSharedPoll<WaitingLead[]>(() => commercialService
 export function useCommercialQueues() {
     const [packageEnding, setPackageEnding] = useState<PackageEndingItem[] | null>(null);
     const [reactivation, setReactivation] = useState<QueuePatient[] | null>(null);
+    const [churn, setChurn] = useState<ChurnItem[] | null>(null);
     // Erro ≠ zero: o "Precisa de você" mostra "não carregou" em vez de esconder a fila.
     const [evaluation, setEvaluation] = useState<EvaluationQueue | null>(null);
     const [nextDay, setNextDay] = useState<NextDayQueue | null>(null);
-    const [queueErrors, setQueueErrors] = useState<{ packageEnding: boolean; reactivation: boolean; evaluation: boolean; nextDay: boolean }>({ packageEnding: false, reactivation: false, evaluation: false, nextDay: false });
+    const [queueErrors, setQueueErrors] = useState<{ packageEnding: boolean; reactivation: boolean; churn: boolean; evaluation: boolean; nextDay: boolean }>({ packageEnding: false, reactivation: false, churn: false, evaluation: false, nextDay: false });
     const [leadsState, setLeadsState] = useState<PollState<WaitingLead[]>>(leadsWaitingPoll.getState());
 
     const loadQueues = useCallback(() => {
@@ -502,6 +553,9 @@ export function useCommercialQueues() {
         commercialService.reactivation()
             .then(d => { setReactivation(d); setQueueErrors(e => ({ ...e, reactivation: false })); })
             .catch(e => { console.error('[commercial] reativação', e); setReactivation([]); setQueueErrors(x => ({ ...x, reactivation: true })); });
+        commercialService.churnRisk()
+            .then(d => { setChurn(d); setQueueErrors(e => ({ ...e, churn: false })); })
+            .catch(e => { console.error('[commercial] risco de evasão', e); setChurn([]); setQueueErrors(x => ({ ...x, churn: true })); });
         commercialService.evaluationNoPackage()
             .then(d => { setEvaluation(d); setQueueErrors(e => ({ ...e, evaluation: false })); })
             .catch(e => { console.error('[commercial] avaliação sem pacote', e); setQueueErrors(x => ({ ...x, evaluation: true })); });
@@ -515,5 +569,11 @@ export function useCommercialQueues() {
     useEffect(() => leadsWaitingPoll.subscribe(setLeadsState), []);
 
     const reload = useCallback(() => { loadQueues(); loadLeads(); }, [loadQueues, loadLeads]);
-    return { packageEnding, reactivation, evaluation, nextDay, leadsWaiting: leadsState.data || [], queueErrors, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
+    // Quem está no risco de evasão não aparece de novo em "Sem próxima sessão" (um card por paciente).
+    const reactivationOnly = React.useMemo(() => {
+        if (!reactivation || !churn?.length) return reactivation;
+        const inChurn = new Set(churn.map(c => c.patientId));
+        return reactivation.filter(r => !inChurn.has(r.patientId));
+    }, [reactivation, churn]);
+    return { packageEnding, reactivation: reactivationOnly, churn, evaluation, nextDay, leadsWaiting: leadsState.data || [], queueErrors, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
 }
