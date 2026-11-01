@@ -53,10 +53,9 @@ export default function LiminarContractPanel({ patientId, doctors, createTrigger
         </h2>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full text-white transition-all hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #B45309 0%, #D97706 100%)' }}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
         >
-          <Plus className="w-3.5 h-3.5" /> Nova Liminar
+          <Plus className="w-4 h-4" /> Nova liminar
         </button>
       </div>
 

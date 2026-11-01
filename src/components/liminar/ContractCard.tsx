@@ -1,4 +1,5 @@
 import dayGridPlugin from '@fullcalendar/daygrid';
+import AnimatedValue from '../ui/insight/AnimatedValue';
 import { AppointmentOrigin } from '../patients/AppointmentOrigin';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
@@ -7,7 +8,6 @@ import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle,
   Calendar,
-  CheckCircle,
   ChevronDown,
   Clock,
   DollarSign,
@@ -106,9 +106,10 @@ export async function completeLiminarAppointment(
   onSuccess();
 }
 
-export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props) {
+export default function ContractCard({ data, onRefresh }: Props) {
   const { contract, plan, planError, committed } = data;
-  const palette = PALETTES[colorIndex % PALETTES.length];
+  // Liminar é sempre roxo (identidade do tipo de cobertura em todo o painel do paciente).
+  const palette = PALETTES[2];
 
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false });
@@ -158,7 +159,9 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
   const balancePct = contract.totalCredit > 0
     ? Math.max(0, Math.min(100, (available / contract.totalCredit) * 100))
     : 0;
-  const barColor = palette.bar;
+  // Cor da barra pela saúde do saldo, não pela ordem do card.
+  const balanceHealth: 'ok' | 'mid' | 'low' = balancePct >= 50 ? 'ok' : balancePct >= 25 ? 'mid' : 'low';
+  const barColor = balanceHealth === 'ok' ? '#7C3AED' : balanceHealth === 'mid' ? '#D97706' : '#DC2626';
 
   const handleInactivate = async () => {
     setIsInactivating(true);
@@ -176,11 +179,6 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
   const statusLabel = contract.status === 'active' ? 'Ativo'
     : contract.status === 'exhausted' ? 'Esgotado' : 'Cancelado';
-  const statusColor = contract.status === 'active'
-    ? { text: '#2E7A5E', bg: '#EFF9F6', border: '#C6E6DA' }
-    : contract.status === 'exhausted'
-      ? { text: '#C75146', bg: '#FDECEA', border: '#F5C6C2' }
-      : { text: '#8A99B0', bg: '#F1F5F9', border: '#DDE4EE' };
 
   async function openConfirm(weeks: number) {
     if (!plan) return;
@@ -368,19 +366,18 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden border border-slate-200 border-t-4 transition-shadow duration-200 hover:shadow-md"
-      style={{ background: '#FFFFFF', borderTopColor: palette.to, boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}
+      className="relative overflow-hidden rounded-xl border border-l-4 border-slate-200 border-l-violet-600 bg-white text-left shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-slate-700 dark:border-l-violet-500 dark:bg-slate-900"
     >
       {/* ══ Camada 1: Header — identidade do contrato ══ */}
       <div
-        className="px-4 sm:px-5 pt-3 pb-2.5 relative bg-white"
+        className="relative px-4 pb-2.5 pt-3 sm:px-5"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: palette.badge }}>
               <Scale className="w-4 h-4 flex-shrink-0" style={{ color: palette.to }} />
             </div>
-            <span className="font-bold text-sm text-slate-900">Contrato Liminar</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Contrato liminar</span>
             {contract.processNumber && (
               <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: palette.badgeText, background: palette.badge, border: `1px solid ${palette.badgeBorder}` }}>
                 Proc.: {lastDigits(contract.processNumber)}
@@ -393,26 +390,17 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {contract.status === 'active' ? (
-              <button
-                type="button"
-                onClick={() => setShowInactivateModal(true)}
-                title="Clique para inativar este contrato"
-                className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
-                style={{ color: '#047857', background: '#ECFDF5', border: '1px solid #A7F3D0' }}
-              >
-                {statusLabel}
-              </button>
-            ) : (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-slate-600 bg-slate-100 border border-slate-200">
-                {statusLabel}
-              </span>
-            )}
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${contract.status === 'active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' : 'bg-slate-100 text-slate-600 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'}`}>
+              {statusLabel}
+            </span>
             <div className="relative" ref={menuRef}>
               <button
+                type="button"
+                aria-label="Mais ações do contrato"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(v => !v)}
-                className="p-1 rounded-full transition-colors hover:bg-white/15"
-                style={{ color: '#64748B' }}
+                className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -435,6 +423,15 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
                   >
                     <RefreshCw className="w-3.5 h-3.5" style={{ color: '#5B6E8C' }} /> Atualizar
                   </button>
+                  {contract.status === 'active' && (
+                    <button
+                      role="menuitem"
+                      onClick={() => { setMenuOpen(false); setShowInactivateModal(true); }}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      Inativar contrato…
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -442,33 +439,53 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         </div>
       </div>
 
-      {/* ══ Camada 2: Summary — financeiro do contrato ══ */}
-      <div className="px-4 sm:px-5 pb-4 pt-1 bg-white">
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="rounded-xl p-3 border" style={{ background: palette.badge, borderColor: palette.badgeBorder }}>
-            <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Disponível</span>
-            <span className="font-bold text-base" style={{ color: available >= 0 ? '#2E7A5E' : '#C75146' }}>R$ {fmt(available)}</span>
+      {/* ══ Camada 2: Summary — saldo do contrato (valores do back, só reorganizados) ══ */}
+      <div className="space-y-3 px-4 pb-4 pt-1 sm:px-5">
+        <dl className="grid grid-cols-3 gap-2">
+          {[
+            { k: 'Disponível', v: `R$ ${fmt(available)}`, c: available >= 0 ? (balanceHealth === 'low' ? 'text-red-600 dark:text-red-400' : 'text-violet-700 dark:text-violet-300') : 'text-red-600' },
+            { k: 'Agendado', v: `R$ ${fmt(committed?.committed ?? 0)}`, c: 'text-amber-700 dark:text-amber-300' },
+            { k: 'Utilizado', v: `R$ ${fmt(contract.usedCredit)}`, c: 'text-slate-900 dark:text-slate-100' },
+          ].map(f => (
+            <div key={f.k} className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
+              <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{f.k}</dt>
+              <dd className={`mt-0.5 text-sm font-semibold tabular-nums ${f.c}`}><AnimatedValue value={f.v} /></dd>
+            </div>
+          ))}
+        </dl>
+        <div>
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(balancePct)} aria-label="Saldo disponível do contrato">
+            <div style={{ width: `${balancePct}%`, height: '100%', background: barColor, borderRadius: 9999, transition: 'width 0.5s' }} />
           </div>
-          <div className="rounded-xl p-3 border border-slate-200 bg-slate-50">
-            <span className="block text-xs font-medium mb-1" style={{ color: '#5B6E8C' }}>Total</span>
-            <span className="font-bold text-base" style={{ color: '#1A2C3E' }}>R$ {fmt(contract.totalCredit)}</span>
-          </div>
+          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+            {balancePct.toFixed(0)}% disponível de R$ {fmt(contract.totalCredit)}
+          </p>
         </div>
-
-        <div className="flex justify-between text-xs mb-3" style={{ color: '#8A99B0' }}>
-          <span>Utilizado: <b style={{ color: '#1A2C3E' }}>R$ {fmt(contract.usedCredit)}</b></span>
-          <span>Comprom.: <b style={{ color: '#ED6C02' }}>R$ {fmt(committed?.committed ?? 0)}</b></span>
-        </div>
-
-        <div className="relative w-full rounded-full overflow-hidden" style={{ height: 10, background: '#E9EEF2' }}>
-          <div style={{ width: `${balancePct}%`, height: '100%', background: barColor, borderRadius: 9999, transition: 'width 0.5s' }} />
-          <span
-            className="sr-only"
-          >
-            {balancePct.toFixed(0)}% disponível
-          </span>
-        </div>
-
+        {contract.status === 'active' && balanceHealth === 'low' && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
+            Saldo baixo: avise a família e o jurídico para pedir novo crédito antes de acabar.
+          </p>
+        )}
+        {(() => {
+          const steps = [
+            { k: 'Contrato', state: contract.status === 'active' ? 'done' : 'warn', sub: contract.processNumber ? `proc. ${lastDigits(contract.processNumber)}` : statusLabel.toLowerCase() },
+            { k: 'Plano', state: plan ? 'done' : contract.status === 'active' ? 'current' : 'todo', sub: plan ? 'ativo' : 'falta criar' },
+            { k: 'Sessões', state: (committed?.committed ?? 0) > 0 ? 'done' : plan ? 'current' : 'todo', sub: (committed?.committed ?? 0) > 0 ? 'agendadas' : plan ? 'gerar' : '—' },
+            { k: 'Consumo', state: balanceHealth === 'low' ? 'warn' : 'current', sub: `${(100 - balancePct).toFixed(0)}% usado` },
+          ];
+          const dot: Record<string, string> = { done: 'bg-violet-600 text-white', current: 'bg-white text-violet-700 ring-2 ring-violet-600 dark:bg-slate-900 dark:text-violet-300', warn: 'bg-amber-500 text-white', todo: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
+          return (
+            <ol className="grid grid-cols-4 gap-1" aria-label="Etapas do contrato">
+              {steps.map((st, i) => (
+                <li key={st.k} className="flex min-w-0 flex-col items-center text-center">
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full text-3xs font-bold ${dot[st.state]}`}>{st.state === 'done' ? '✓' : i + 1}</span>
+                  <span className="mt-1 truncate text-2xs font-semibold text-slate-700 dark:text-slate-200">{st.k}</span>
+                  <span className="truncate text-3xs text-slate-500 dark:text-slate-400">{st.sub}</span>
+                </li>
+              ))}
+            </ol>
+          );
+        })()}
       </div>
 
       {/* ══ Camada 2b: Previsão — painel de decisão, separado do saldo atual ══ */}
@@ -491,7 +508,7 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         const roundedRemaining = Math.round(proj.remainingSessions);
 
         return (
-          <div className="px-5 py-4 border-t" style={{ borderColor: '#EDF2F7', background: '#FAFBFD' }}>
+          <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4 dark:border-slate-800 dark:bg-slate-800/30">
             <span className="block text-xs font-semibold mb-2" style={{ color: '#5B6E8C' }}>Previsão de término</span>
 
             <div className="flex items-end justify-between mb-3">
@@ -542,20 +559,30 @@ export default function ContractCard({ data, colorIndex = 0, onRefresh }: Props)
         );
       })()}
 
-      {/* ── Gatilho do accordion: dentro do card, na borda entre Summary e Breakdown ── */}
-      <button
-        onClick={() => setPlanExpanded(v => !v)}
-        className="w-full flex items-center justify-center gap-1.5 py-2 border-b transition-colors hover:bg-slate-50"
-        style={{ borderColor: '#EDF2F7', color: '#5B6E8C' }}
-      >
-        <span className="text-xs font-semibold">
-          {planExpanded ? 'Ocultar plano terapêutico' : 'Ver plano terapêutico'}
-        </span>
-        <ChevronDown
-          className="w-3.5 h-3.5 transition-transform duration-200"
-          style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        />
-      </button>
+      {/* ── Ações: a principal é o próximo passo do contrato ── */}
+      {(() => {
+        const isActive = contract.status === 'active';
+        const primary = !isActive ? null
+          : !plan ? { label: 'Criar plano terapêutico', onClick: () => setShowCreatePlan(true) }
+          : balanceHealth === 'low' ? { label: 'Adicionar crédito', onClick: () => setShowRecharge(true) }
+          : (committed?.committed ?? 0) <= 0 ? { label: generating ? 'Gerando…' : 'Gerar sessões', onClick: () => openConfirm(generateWeeks) }
+          : null;
+        return (
+          <div className="flex items-center gap-2 border-b border-slate-100 px-4 pb-3.5 pt-1 sm:px-5 dark:border-slate-800">
+            {primary && (
+              <button type="button" onClick={primary.onClick} disabled={generating}
+                className="flex-1 truncate rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">
+                {primary.label}
+              </button>
+            )}
+            <button type="button" onClick={() => setPlanExpanded(v => !v)} aria-expanded={planExpanded}
+              className={`flex shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1'}`}>
+              {planExpanded ? 'Ocultar plano' : 'Plano terapêutico'}
+              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200" style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ══ Camada 3: Breakdown — plano terapêutico por especialidade (accordion, controlado pelo header) ══ */}
       {planExpanded && (

@@ -70,6 +70,7 @@ import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
 import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
+import AnimatedValue from '../../ui/insight/AnimatedValue';
 import InactivateEntityModal from '../../common/InactivateEntityModal';
 import AppointmentDetailModal from '../../calendar/appointmentDetailModal';
 
@@ -362,136 +363,68 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
   }
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2 }, bgcolor: '#F8FAFE', minHeight: '100%' }}>
-      {/* Header premium */}
-      <Box sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        mb: 4,
-        gap: 2
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.01em' }}>
-            Guias de convênio
-          </Typography>
+    <Box sx={{ p: { xs: 1, sm: 2 }, minHeight: '100%' }} className="text-left">
+      {/* Barra de ferramentas: título, filtro único de situação e nova guia */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Guias de convênio</h2>
+          <div role="tablist" aria-label="Situação das guias" className="inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+            {[
+              { v: 'all', l: 'Ativas', n: activeCount },
+              { v: 'inactive', l: 'Inativas', n: inactiveCount },
+              { v: 'cancelled', l: 'Canceladas', n: cancelledCount },
+            ].map(t => (
+              <button key={t.v} type="button" role="tab" aria-selected={selectedStatus === t.v} onClick={() => setSelectedStatus(t.v)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${selectedStatus === t.v ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-900 dark:text-blue-300' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'}`}>
+                {t.l} <span className="tabular-nums text-slate-400">{t.n}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <button type="button" onClick={() => setIsFormOpen(true)} className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          <Plus size={16} /> Nova guia
+        </button>
+      </div>
 
-          {specialties.length > 0 && (
-            <Tabs
-              value={selectedSpecialty}
-              onChange={(e, newValue) => setSelectedSpecialty(newValue)}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                minHeight: 'auto',
-                '& .MuiTab-root': {
-                  textTransform: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  minHeight: '36px',
-                  py: 0.5,
-                  px: 2,
-                  color: '#5B6E8C',
-                  borderRadius: '40px',
-                  transition: 'all 0.2s',
-                  '&.Mui-selected': {
-                    color: '#FFFFFF',
-                    backgroundColor: '#2E7A5E',
-                    fontWeight: 600
-                  }
-                },
-                '& .MuiTabs-indicator': { display: 'none' }
-              }}
-            >
-              <Tab label={`Todas (${presentations.length})`} value="all" />
-              {specialties.map(specialty => {
-                const count = presentations.filter(p => p.specialty === specialty).length;
-                const label = specialty.replace(/_/g, ' ');
-                return (
-                  <Tab
-                    key={specialty}
-                    label={`${label.charAt(0).toUpperCase() + label.slice(1)} (${count})`}
-                    value={specialty}
-                  />
-                );
-              })}
-            </Tabs>
-          )}
-        </Box>
-
-        <Button
-          variant="contained"
-          startIcon={<Plus size={16} />}
-          onClick={() => setIsFormOpen(true)}
-          sx={{
-            textTransform: 'none',
-            borderRadius: '40px',
-            px: 2.5,
-            py: 0.8,
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
-            boxShadow: '0 2px 8px rgba(27,77,110,0.15)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #123F5A 0%, #246653 100%)',
-              boxShadow: '0 4px 12px rgba(27,77,110,0.25)'
-            }
-          }}
-        >
-          Nova guia
-        </Button>
-      </Box>
-
-      {/* Alerta agregado — guias vencendo em breve não devem ficar escondidas card a card */}
-      {expiringSoonPresentations.length > 0 && (
-        <Alert
-          severity="warning"
-          sx={{
-            mb: 3,
-            borderRadius: '16px',
-            fontSize: '0.8125rem',
-            alignItems: 'center',
-            '& .MuiAlert-message': { width: '100%' }
-          }}
-        >
-          <strong>{expiringSoonPresentations.length} guia{expiringSoonPresentations.length !== 1 ? 's' : ''} vencendo em breve:</strong>{' '}
-          {expiringSoonPresentations
-            .map(p => `${p.specialtyLabel} (${p.daysUntilExpiration === 0 ? 'hoje' : `${p.daysUntilExpiration}d`})`)
-            .join(', ')}
-          {' — considere renovar antes do vencimento.'}
-        </Alert>
+      {specialties.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-1.5" aria-label="Filtrar por especialidade">
+          {['all', ...specialties].map(sp => {
+            const count = sp === 'all' ? presentations.length : presentations.filter(p => p.specialty === sp).length;
+            const label = sp === 'all' ? 'Todas' : sp.replace(/_/g, ' ');
+            const on = selectedSpecialty === sp;
+            return (
+              <button key={sp} type="button" aria-pressed={on} onClick={() => setSelectedSpecialty(sp)}
+                className={`rounded-full px-3 py-1 text-xs font-medium capitalize ring-1 ring-inset transition-colors ${on ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700'}`}>
+                {label} <span className={on ? 'text-blue-100' : 'text-slate-400'}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
 
-      {/* Filtro de status: Todas (ativas) / Inativas */}
-      <Tabs
-        value={selectedStatus}
-        onChange={(e, v) => setSelectedStatus(v)}
-        sx={{
-          mb: 3,
-          minHeight: 'auto',
-          '& .MuiTab-root': {
-            textTransform: 'none',
-            fontSize: '0.8125rem',
-            fontWeight: 500,
-            minHeight: '32px',
-            py: 0.5,
-            px: 2,
-            color: '#5B6E8C',
-            borderRadius: '40px',
-            transition: 'all 0.2s',
-            '&.Mui-selected': { color: '#FFFFFF', fontWeight: 600 }
-          },
-          '& .MuiTabs-indicator': { display: 'none' }
-        }}
-      >
-        <Tab label={`Todas (${activeCount})`} value="all"
-          sx={{ '&.Mui-selected': { backgroundColor: '#2E7A5E' } }} />
-        <Tab label={`Inativas (${inactiveCount})`} value="inactive"
-          sx={{ '&.Mui-selected': { backgroundColor: '#C75146' } }} />
-        <Tab label={`Canceladas (${cancelledCount})`} value="cancelled"
-          sx={{ '&.Mui-selected': { backgroundColor: '#A0AABF' } }} />
-      </Tabs>
+      {/* Resumo: o que o comercial precisa ver antes de abrir os cards */}
+      {presentations.length > 0 && (() => {
+        const usable = presentations.filter(p => p.isUsable);
+        const remainingSum = usable.reduce((acc, p) => acc + (Number(p.remaining) || 0), 0);
+        const lowOnes = usable.filter(p => Number(p.remaining) > 0 && Number(p.remaining) <= 2);
+        return (
+          <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div><dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">Guias ativas</dt><dd className="mt-0.5 text-lg font-semibold tabular-nums text-slate-900 dark:text-slate-100"><AnimatedValue value={usable.length} /></dd></div>
+              <div><dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">Sessões autorizadas restantes</dt><dd className="mt-0.5 text-lg font-semibold tabular-nums text-blue-700 dark:text-blue-300"><AnimatedValue value={remainingSum} /></dd></div>
+              <div><dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">Vencendo em breve</dt><dd className={`mt-0.5 text-lg font-semibold tabular-nums ${expiringSoonPresentations.length ? 'text-amber-700 dark:text-amber-300' : 'text-slate-400'}`}><AnimatedValue value={expiringSoonPresentations.length} /></dd></div>
+              <div><dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">Quase sem saldo</dt><dd className={`mt-0.5 text-lg font-semibold tabular-nums ${lowOnes.length ? 'text-amber-700 dark:text-amber-300' : 'text-slate-400'}`}><AnimatedValue value={lowOnes.length} /></dd></div>
+            </dl>
+            {(expiringSoonPresentations.length > 0 || lowOnes.length > 0) && (
+              <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-amber-800 dark:border-slate-800 dark:text-amber-300">
+                {expiringSoonPresentations.length > 0 && <>Vencem logo: {expiringSoonPresentations.map(p => `${p.specialtyLabel} (${p.daysUntilExpiration === 0 ? 'hoje' : `${p.daysUntilExpiration}d`})`).join(', ')}. </>}
+                {lowOnes.length > 0 && <>Restam 2 ou menos: {lowOnes.map(p => `${p.specialtyLabel} #${p.number}`).join(', ')}. </>}
+                Peça a renovação ao convênio antes de acabar.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Saldo agregado por especialidade (apenas quando filtrado) */}
       {balance && selectedSpecialty !== 'all' && (
@@ -946,18 +879,16 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
       style={{ height: '100%', width: '100%', maxWidth: 380 }}
     >
       <div
-        className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col h-full"
-        style={{ opacity: isUsable ? 1 : 0.75 }}
+        className={`flex h-full flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white text-left shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 ${isUsable ? 'border-l-blue-500' : 'border-l-slate-300 dark:border-l-slate-600'}`}
+        style={{ opacity: isUsable ? 1 : 0.8 }}
       >
-        {/* ── Faixa de identidade: cor entra como accent fino, não como bloco dominante ── */}
-        <div className="h-1" style={{ background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }} />
 
         {/* ── Header compacto ── */}
         <div className="px-4 pt-3 pb-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="text-2xs font-mono text-gray-400 mb-0.5">#{presentation.number}</div>
-              <h3 className="font-bold text-[0.95rem] text-gray-900 leading-tight truncate">{presentation.specialtyLabel}</h3>
+              <h3 className="truncate text-[0.95rem] font-bold leading-tight text-slate-900 dark:text-slate-100">{presentation.specialtyLabel}</h3>
             </div>
             <div className="flex items-center gap-0.5 shrink-0 -mr-1.5 -mt-1">
               {!plan && onOpenDetails && (
@@ -998,18 +929,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
           {/* Badge de status sólido — ponto colorido reforça a severidade */}
           <div className="mt-2">
-            {!isCancelled && onInactivate ? (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onInactivate(presentation); }}
-                title="Clique para inativar esta guia"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color, '--tw-ring-color': theme.to }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
-                {statusLabel}
-              </button>
-            ) : (
+            {(
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wide"
                 style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
@@ -1021,53 +941,54 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
         </div>
 
-        {/* ── Progresso: bloco compacto e contido, cor só como accent ── */}
-        <div className="mx-4 mb-2.5 px-3.5 py-3 rounded-xl border" style={{ backgroundColor: theme.light, borderColor: theme.border }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-600">Progresso clínico</span>
-            <span className="text-xs font-bold" style={{ color: theme.text }}>{usedSessions} / {totalSessions}</span>
+        {/* ── Números da guia + trilha Guia → Plano → Sessões → Faturamento ── */}
+        <div className="mx-4 mb-3 space-y-3">
+          <dl className="grid grid-cols-3 gap-2">
+            {[
+              { k: 'Autorizadas', v: totalSessions, c: 'text-slate-900 dark:text-slate-100' },
+              { k: 'Usadas', v: usedSessions, c: 'text-blue-700 dark:text-blue-300' },
+              { k: 'Restam', v: remaining, c: isUsable && remaining <= 2 ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-slate-100' },
+            ].map(f => (
+              <div key={f.k} className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
+                <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{f.k}</dt>
+                <dd className={`mt-0.5 text-sm font-semibold tabular-nums ${f.c}`}><AnimatedValue value={Number(f.v) || 0} /></dd>
+              </div>
+            ))}
+          </dl>
+          <div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={totalSessions} aria-valuenow={usedSessions} aria-label="Sessões usadas da guia">
+              <div className={`h-full rounded-full transition-[width] duration-700 ${isUsable && remaining <= 2 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${progressPct}%` }} />
+            </div>
+            <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+              {[
+                guide.scheduledCount > 0 ? `${guide.scheduledCount} agendada${guide.scheduledCount !== 1 ? 's' : ''}` : null,
+                guide.canceledCount > 0 ? `${guide.canceledCount} cancelada${guide.canceledCount !== 1 ? 's' : ''}` : null,
+                isUsable && remaining > 0 && remaining <= 2 ? 'hora de pedir renovação' : null,
+              ].filter(Boolean).join(' · ') || `${usedSessions} de ${totalSessions} usadas`}
+            </p>
           </div>
-
-          <div className="w-full bg-white/70 rounded-full h-2 overflow-hidden mb-2.5">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }}
-            />
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1.5 text-2xs font-semibold" style={{ color: theme.text }}>
-              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: theme.to }} />
-              {usedSessions} concluída{usedSessions !== 1 ? 's' : ''}
-            </span>
-            {(guide.canceledCount > 0) && (
-              <span className="flex items-center gap-1.5 text-2xs font-semibold text-red-500">
-                <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-                {guide.canceledCount} cancelada{guide.canceledCount !== 1 ? 's' : ''}
-              </span>
-            )}
-            {(guide.scheduledCount > 0) && (
-              <span className="flex items-center gap-1.5 text-2xs font-semibold text-indigo-600">
-                <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" />
-                {guide.scheduledCount} agendada{guide.scheduledCount !== 1 ? 's' : ''}
-              </span>
-            )}
-            <span className="text-2xs text-gray-400 ml-auto">/{totalSessions}</span>
-          </div>
+          {(() => {
+            const sessionsDone = totalSessions > 0 && usedSessions >= totalSessions;
+            const steps = [
+              { k: 'Guia', state: presentation.isExpired ? 'warn' : 'done', sub: guide.expiresAt ? `vence ${formatGuideExpiryBR(guide.expiresAt)}` : 'ok' },
+              { k: 'Plano', state: plan ? 'done' : (isUsable ? 'current' : 'todo'), sub: plan ? (plan.sessionsPerWeek ? `${plan.sessionsPerWeek}×/sem` : 'criado') : (planLoading ? '…' : 'falta criar') },
+              { k: 'Sessões', state: sessionsDone ? 'done' : plan ? 'current' : 'todo', sub: `${usedSessions}/${totalSessions}` },
+              { k: 'Faturamento', state: usedSessions > 0 && presentation.canBill ? 'current' : 'todo', sub: usedSessions > 0 ? 'pelo Financeiro' : '—' },
+            ];
+            const dot = { done: 'bg-blue-600 text-white', current: 'bg-white text-blue-700 ring-2 ring-blue-600 dark:bg-slate-900 dark:text-blue-300', warn: 'bg-amber-500 text-white', todo: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
+            return (
+              <ol className="grid grid-cols-4 gap-1" aria-label="Etapas da guia">
+                {steps.map((st, i) => (
+                  <li key={st.k} className="flex min-w-0 flex-col items-center text-center">
+                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-3xs font-bold ${dot[st.state]}`}>{st.state === 'done' ? '✓' : i + 1}</span>
+                    <span className="mt-1 truncate text-2xs font-semibold text-slate-700 dark:text-slate-200">{st.k}</span>
+                    <span className="truncate text-3xs text-slate-500 dark:text-slate-400">{st.sub}</span>
+                  </li>
+                ))}
+              </ol>
+            );
+          })()}
         </div>
-
-        {/* ── Gatilho do accordion: controle discreto integrado, sem linha estrutural pesada ── */}
-        <button
-          onClick={() => setDetailsExpanded(v => !v)}
-          className="mx-4 mb-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-          style={{ color: theme.text, '--tw-ring-color': theme.to }}
-        >
-          {detailsExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
-          <ChevronDown
-            size={14}
-            style={{ transition: 'transform 0.2s', transform: detailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-          />
-        </button>
 
         {detailsExpanded && (
         <>
@@ -1276,31 +1197,38 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           </div>
         )}
 
-        {/* ── Action buttons ── */}
-        {isUsable && onCreatePlan && (
-          <div className="px-4 pt-1 pb-3.5 flex items-center gap-2">
-            {plan && remaining > 0 && (
-              <button
-                onClick={() => handleGenerateSessions(plan._id)}
-                disabled={generating}
-                title={`${remaining} sessão(ões) restante(s)`}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:scale-[0.97] shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-                style={{ borderColor: theme.to, color: theme.to, background: 'transparent', '--tw-ring-color': theme.to }}
-              >
-                <Zap size={13} />
-                {generating ? 'Gerando...' : `Gerar (${remaining})`}
+        {/* ── Ações: a principal é sempre o próximo passo da guia ── */}
+        {(() => {
+          const toGenerate = Math.max((Number(remaining) || 0) - (Number(guide.scheduledCount) || 0), 0);
+          let primary = null;
+          if (isUsable && onCreatePlan) {
+            if (!plan && !planLoading) primary = { label: 'Criar plano e agendar', onClick: () => onCreatePlan(presentation, null) };
+            else if (plan && plan.needsSessionRegeneration) primary = { label: generating ? 'Gerando…' : 'Sincronizar sessões', onClick: () => handleGenerateSessions(plan._id), disabled: generating };
+            else if (plan && toGenerate > 0) primary = { label: generating ? 'Gerando…' : (toGenerate === 1 ? 'Gerar 1 sessão' : `Gerar ${toGenerate} sessões`), onClick: () => handleGenerateSessions(plan._id), disabled: generating };
+            else if (plan) primary = { label: 'Ver e editar sessões', onClick: () => onCreatePlan(presentation, plan) };
+          }
+          return (
+            <div className="mt-auto flex items-center gap-2 px-4 pb-3.5 pt-1">
+              {primary && (
+                <button type="button" onClick={primary.onClick} disabled={primary.disabled}
+                  className="flex-1 truncate rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                  {primary.label}
+                </button>
+              )}
+              {isUsable && onCreatePlan && plan && primary?.label !== 'Ver e editar sessões' && (
+                <button type="button" onClick={() => onCreatePlan(presentation, plan)} title="Ver e editar sessões do plano"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                  <Calendar size={15} /> Sessões
+                </button>
+              )}
+              <button type="button" onClick={() => setDetailsExpanded(v => !v)} aria-expanded={detailsExpanded}
+                className={`flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1 justify-center'}`}>
+                Detalhes
+                <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: detailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
               </button>
-            )}
-            <button
-              onClick={() => onCreatePlan(presentation, plan || null)}
-              className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-              style={{ background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`, boxShadow: `0 4px 10px -2px ${theme.from}50`, '--tw-ring-color': theme.to }}
-            >
-              <Calendar size={14} />
-              {plan ? 'Ver e editar sessões' : 'Agendar com guia'}
-            </button>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Confirmar retroativas — modal central listando as datas (substitui o toast do canto) */}

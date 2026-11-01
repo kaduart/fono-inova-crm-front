@@ -50,20 +50,32 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
             appt,
         }
     }));
+
+    // Abre no mês que interessa: a próxima sessão; sem futuras, a última realizada.
+    const smartInitialDate = (() => {
+        if (initialDate) return initialDate;
+        const now = Date.now();
+        const times = events.map(e => new Date(e.start as string).getTime()).filter(Number.isFinite);
+        if (!times.length) return undefined;
+        const future = times.filter(t => t >= now).sort((a, b) => a - b);
+        if (future.length) return new Date(future[0]);
+        return new Date(Math.max(...times));
+    })();
+
     return (
         // Estilo do FullCalendar aqui é 100% escopado a esta div (via CSS vars +
         // seletores descendentes [&_.fc-...]) — nunca toca `.fc` global, então não
         // afeta a agenda principal (EnhancedCalendar/CalendarView).
         <div
-            className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 shadow-sm
+            className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-3 sm:p-4
                 [&_.fc]:font-sans
                 [&_.fc-toolbar]:flex [&_.fc-toolbar]:flex-wrap [&_.fc-toolbar]:items-center [&_.fc-toolbar]:gap-2 [&_.fc-toolbar]:mb-3
-                [&_.fc-toolbar-title]:text-[0.95rem] [&_.fc-toolbar-title]:sm:text-lg [&_.fc-toolbar-title]:font-bold [&_.fc-toolbar-title]:text-gray-800
+                [&_.fc-toolbar-title]:text-[0.95rem] [&_.fc-toolbar-title]:sm:text-lg [&_.fc-toolbar-title]:font-semibold [&_.fc-toolbar-title]:capitalize [&_.fc-toolbar-title]:text-gray-800 dark:[&_.fc-toolbar-title]:text-slate-100
                 [&_.fc-button]:!rounded-lg [&_.fc-button]:!shadow-none [&_.fc-button]:!border-gray-200 [&_.fc-button]:!bg-white [&_.fc-button]:!text-gray-600 [&_.fc-button]:!text-xs [&_.fc-button]:!font-semibold [&_.fc-button]:!px-2.5 [&_.fc-button]:!py-1.5 [&_.fc-button]:!capitalize
-                [&_.fc-button:hover]:!bg-gray-50
+                [&_.fc-button:hover]:!bg-gray-50 dark:[&_.fc-button]:!bg-slate-800 dark:[&_.fc-button]:!border-slate-700 dark:[&_.fc-button]:!text-slate-200
                 [&_.fc-button:focus]:!shadow-none
-                [&_.fc-button-active]:!bg-gray-800 [&_.fc-button-active]:!border-gray-800 [&_.fc-button-active]:!text-white
-                [&_.fc-daygrid-day-frame]:min-h-[92px]
+                [&_.fc-button-active]:!bg-emerald-600 [&_.fc-button-active]:!border-emerald-600 [&_.fc-button-active]:!text-white
+                [&_.fc-daygrid-day-frame]:min-h-[76px] dark:[&_.fc-theme-standard_td]:!border-slate-700 dark:[&_.fc-theme-standard_th]:!border-slate-700 dark:[&_.fc-scrollgrid]:!border-slate-700 dark:[&_.fc-day-today]:!bg-emerald-500/10 [&_.fc-day-today]:!bg-emerald-50/60 [&_.fc-daygrid-more-link]:text-xs [&_.fc-daygrid-more-link]:font-semibold [&_.fc-daygrid-more-link]:text-emerald-700
                 [&_.fc-col-header-cell-cushion]:py-2 [&_.fc-col-header-cell-cushion]:text-gray-500
                 [&_.fc-scrollgrid]:!rounded-lg [&_.fc-scrollgrid]:!border-gray-200
                 [&_.fc-event]:!border-0"
@@ -75,11 +87,13 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                 headerToolbar={{
                     left: "prev,next today",
                     center: "title",
-                    right: "dayGridMonth,timeGridWeek,timeGridDay",
+                    right: "dayGridMonth,timeGridWeek",
                 }}
                 locale={ptBrLocale}
                 initialView="dayGridMonth"
-                initialDate={initialDate}
+                initialDate={smartInitialDate}
+                dayMaxEvents={2}
+                buttonText={{ today: 'Hoje', month: 'Mês', week: 'Semana' }}
                 weekends
                 events={events}
                 eventClick={onEventClick ? (arg) => onEventClick(arg.event.extendedProps.appt) : undefined}
@@ -122,13 +136,13 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                     );
                 }}
                 dayHeaderContent={(arg) => (
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                         {arg.text.substring(0, 3)}
                     </span>
                 )}
                 dayCellContent={(arg) => (
                     <div className="flex justify-end p-1.5">
-                        <span className={`text-sm ${arg.isToday ? 'font-bold text-blue-600' : 'text-gray-700'}`}>
+                        <span className={`text-sm ${arg.isToday ? 'font-bold text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-slate-300'}`}>
                             {arg.dayNumberText}
                         </span>
                     </div>
