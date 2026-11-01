@@ -37,6 +37,13 @@ const STAGE_DOT: Record<string, string> = {
   retornar_depois: 'bg-purple-400', agendado: 'bg-teal-500', virou_paciente: 'bg-green-600', nao_fechou: 'bg-red-500',
 };
 
+const fmtPhone = (p: string | null) => {
+  const d = (p || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return p;
+};
+
 function useIsDesktop() {
   const q = '(min-width: 768px)';
   const [d, setD] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
@@ -57,7 +64,7 @@ function CardBody({ v, dragging }: { v: BoardLeadView; dragging?: boolean }) {
         <GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{v.lead.name || 'Sem nome'}</div>
-          {v.phone && <div className="text-[11px] text-slate-400">{v.phone}</div>}
+          {v.phone && <div className="text-[11px] text-slate-400">{fmtPhone(v.phone)}</div>}
         </div>
       </div>
       <div className="mt-2">{v.badge}</div>
@@ -94,7 +101,7 @@ function Column({ id, label, items, onOpen }: { id: string; label: string; items
     >
       <header className="flex items-center gap-2 px-1.5 pb-2 pt-1">
         <span className={`h-2 w-2 rounded-full ${STAGE_DOT[id] ?? 'bg-slate-400'}`} />
-        <h3 className="flex-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{label}</h3>
+        <h3 className="flex-1 truncate text-left text-xs font-semibold text-slate-700 dark:text-slate-200">{label}</h3>
         {late > 0 && <span className="rounded-full bg-red-100 px-1.5 text-[10px] font-bold text-red-700" title="Atrasados nesta etapa">{late}</span>}
         <span className="rounded-full bg-white px-1.5 text-[11px] font-semibold text-slate-500 dark:bg-slate-800">{items.length}</span>
       </header>
@@ -150,7 +157,7 @@ export function LeadSheet({
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <Drawer.Title className="truncate text-lg font-bold text-slate-800 dark:text-slate-100">{v.lead.name || 'Sem nome'}</Drawer.Title>
-                  <Drawer.Description className="text-sm text-slate-500">{v.phone || 'Sem telefone'}</Drawer.Description>
+                  <Drawer.Description className="text-sm text-slate-500">{fmtPhone(v.phone) || 'Sem telefone'}</Drawer.Description>
                 </div>
                 <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Fechar"><X size={18} /></button>
               </div>

@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, LayoutGrid, List, Mail, Pencil, Phone, Search, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getCoreRowModel, useReactTable, type RowSelectionState, type Updater } from '@tanstack/react-table';
 import { toast } from '../../utils/toast';
 import patientService from '../../services/patientService';
 import { getSpecialtyLabel } from '../../constants/specialties';
@@ -119,7 +120,7 @@ const PatientCard: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ pat
 
 // ─── Linha da lista ───────────────────────────────────────────────────────────
 
-const PatientRow: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ patient, onEdit }) => {
+const PatientRow: React.FC<{ patient: any; onEdit: (p: any) => void; selected: boolean; onToggle: () => void }> = ({ patient, onEdit, selected, onToggle }) => {
     const navigate = useNavigate();
     const name = patient.fullName || patient.name || '';
     const id = patient._id || patient.patientId;
@@ -133,7 +134,9 @@ const PatientRow: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ pati
     const prof = patient.doctorName || patient.nextAppointment?.doctorName || patient.lastAppointment?.doctorName;
 
     return (
-        <li className="grid gap-x-4 gap-y-2 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-800 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_auto] md:items-center">
+        <li className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-800 md:grid-cols-[auto_minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_auto] md:items-center ${selected ? 'bg-emerald-50/60 dark:bg-emerald-500/10' : ''}`}>
+            <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Selecionar ${name}`}
+                className="row-span-5 h-4 w-4 self-start rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 md:row-span-1 md:self-center" />
             <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{getInitials(name)}</span>
                 <div className="min-w-0">
@@ -141,20 +144,20 @@ const PatientRow: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ pati
                     <p className="text-xs text-gray-600 dark:text-gray-400">{[age, phone].filter(Boolean).join(' · ') || '—'}</p>
                 </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="col-start-2 flex flex-wrap items-center gap-1.5 md:col-start-auto">
                 <span className={`rounded-full border px-2 py-px text-xs font-semibold ${t.cls}`}>{t.label}</span>
                 {debt > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-2 py-px text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">deve {brl(debt)}</span>}
             </div>
-            <div className="min-w-0 text-sm text-gray-700 dark:text-gray-300">
+            <div className="col-start-2 min-w-0 md:col-start-auto text-sm text-gray-700 dark:text-gray-300">
                 <p className="truncate">{prof || <span className="text-gray-500">sem profissional</span>}</p>
                 {patient.specialty && <p className="truncate text-xs text-gray-600 dark:text-gray-400">{getSpecialtyLabel(patient.specialty)}</p>}
             </div>
-            <div className="text-sm text-gray-700 dark:text-gray-300">
+            <div className="col-start-2 text-sm text-gray-700 dark:text-gray-300 md:col-start-auto">
                 {next ? <p>Próxima: <b className="font-semibold text-gray-900 dark:text-gray-100">{next}</b></p>
                     : <p><span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-px text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200">sem próxima</span></p>}
                 <p className="text-xs text-gray-600 dark:text-gray-400">{last ? `Última: ${last}` : 'Nenhuma sessão ainda'}</p>
             </div>
-            <div className="flex gap-1.5 md:justify-end">
+            <div className="col-start-2 flex gap-1.5 md:col-start-auto md:justify-end">
                 <button type="button" onClick={() => navigate(`/patients/${id}`)} className={btnGhost}><ExternalLink size={14} aria-hidden />Ficha</button>
                 <button type="button" onClick={() => onEdit(patient)} className={btnGhost} aria-label={`Editar ${name}`}><Pencil size={14} aria-hidden />Editar</button>
             </div>
@@ -182,6 +185,14 @@ const PAGE_SIZE = 10;
 // status do PatientsView no back (o "lead" da tela é o "prospect" de lá)
 const VIEW_STATUS: Record<TabType, string> = { active: 'active', inactive: 'inactive', lead: 'prospect' };
 const VIEW_KEY = 'gestao.pacientes.view';
+const SORT_KEY = 'gestao.pacientes.sort';
+// Ordenação feita no back (PatientsView aceita sortBy, sempre decrescente).
+const SORTS = [
+    { key: '', label: 'Última sessão' },
+    { key: 'stats.totalPendingParticularNet', label: 'Maior saldo devedor' },
+];
+// A tabela só controla a seleção; as células continuam no PatientRow.
+const TABLE_COLUMNS = [{ id: 'select' }];
 
 const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) => {
     const [patients, setPatients] = useState<any[]>([]);
@@ -196,6 +207,43 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
     const [view, setView] = useState<ViewMode>(() => {
         try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'list'; } catch { return 'list'; }
     });
+    const [sortBy, setSortBy] = useState<string>(() => {
+        try { return localStorage.getItem(SORT_KEY) || ''; } catch { return ''; }
+    });
+    const changeSort = (v: string) => { setSortBy(v); setPage(0); try { localStorage.setItem(SORT_KEY, v); } catch { /* ignore */ } };
+    // Seleção em lote (TanStack Table): vale entre páginas e filtros, para montar uma lista de contato.
+    const [picked, setPicked] = useState<Record<string, any>>({});
+    const rowId = (p: any) => String(p._id || p.patientId);
+    const rowSelection: RowSelectionState = Object.fromEntries(Object.keys(picked).map(k => [k, true]));
+    const onRowSelectionChange = (u: Updater<RowSelectionState>) => {
+        const next = typeof u === 'function' ? u(rowSelection) : u;
+        setPicked(prev => {
+            const out = { ...prev };
+            patients.forEach(p => { const id = rowId(p); if (next[id]) out[id] = p; else delete out[id]; });
+            return out;
+        });
+    };
+    const table = useReactTable({
+        data: patients, columns: TABLE_COLUMNS, getRowId: rowId, getCoreRowModel: getCoreRowModel(),
+        state: { rowSelection }, onRowSelectionChange, enableRowSelection: true,
+    });
+    const pickedList = Object.values(picked);
+    const copyPhones = async () => {
+        const phones = pickedList.map(p => formatPhone(p.phone)).filter(Boolean);
+        if (!phones.length) { toast.info('Nenhum dos selecionados tem telefone'); return; }
+        try { await navigator.clipboard.writeText(phones.join('\n')); toast.success(`${phones.length} telefone(s) copiados`); }
+        catch { toast.error('Não consegui copiar. Tente de novo.'); }
+    };
+    const downloadCsv = () => {
+        const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const rows = [['Nome', 'Telefone', 'E-mail', 'Tipo', 'Saldo devedor', 'Profissional'].map(esc).join(';'),
+            ...pickedList.map(p => [p.fullName || p.name, formatPhone(p.phone) || '', p.email || '', typeOf(p).label,
+                debtOf(p).toFixed(2).replace('.', ','), p.doctorName || p.nextAppointment?.doctorName || p.lastAppointment?.doctorName || ''].map(esc).join(';'))];
+        const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = `pacientes-selecionados-${pickedList.length}.csv`; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
     const changeView = (v: ViewMode) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
 
     // Busca no servidor depois de uma pausa na digitação. Antes a tela pedia 500 pacientes de uma
@@ -214,6 +262,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                 skip: page * PAGE_SIZE,
                 status: VIEW_STATUS[activeTab],
                 hasDebt: onlyDebt,
+                ...(sortBy ? { sortBy } : {}),
                 ...(query ? { search: query } : {}),
             });
             setPatients(result.patients || []);
@@ -223,7 +272,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
         } finally {
             setLoading(false);
         }
-    }, [page, activeTab, onlyDebt, query]);
+    }, [page, activeTab, onlyDebt, query, sortBy]);
 
     useEffect(() => {
         load();
@@ -271,12 +320,27 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                         <input type="search" placeholder="Nome, telefone ou CPF" value={search} onChange={e => setSearch(e.target.value)}
                             className="min-h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
                     </label>
+                    <label className="sr-only" htmlFor="pac-sort">Ordenar por</label>
+                    <select id="pac-sort" value={sortBy} onChange={e => changeSort(e.target.value)}
+                        className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-800 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        {SORTS.map(o => <option key={o.key} value={o.key}>Ordenar: {o.label}</option>)}
+                    </select>
                     <div className="inline-flex overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600" role="group" aria-label="Vista">
                         <button type="button" aria-pressed={view === 'list'} onClick={() => changeView('list')} className={segCls(view === 'list')}><List size={15} aria-hidden />Lista</button>
                         <button type="button" aria-pressed={view === 'cards'} onClick={() => changeView('cards')} className={`${segCls(view === 'cards')} border-l border-gray-300 dark:border-gray-600`}><LayoutGrid size={15} aria-hidden />Cartões</button>
                     </div>
                 </div>
             </div>
+
+            {pickedList.length > 0 && (
+                <div className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-900/40 dark:text-emerald-100">
+                    <b className="tabular-nums">{pickedList.length} selecionado(s)</b>
+                    <span className="flex-1" />
+                    <button type="button" onClick={copyPhones} className={btnGhost}><Phone size={14} aria-hidden />Copiar telefones</button>
+                    <button type="button" onClick={downloadCsv} className={btnGhost}>Baixar planilha</button>
+                    <button type="button" onClick={() => setPicked({})} className="px-2 text-sm underline">Limpar</button>
+                </div>
+            )}
 
             {loading && patients.length === 0 ? (
                 <p className="rounded-xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">Carregando pacientes...</p>
@@ -290,10 +354,13 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                 </div>
             ) : view === 'list' ? (
                 <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 ${loading ? 'opacity-60' : ''}`}>
-                    <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_auto] gap-x-4 border-b border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:text-gray-400 md:grid">
+                    <div className="hidden grid-cols-[auto_minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_auto] gap-x-4 border-b border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:text-gray-400 md:grid">
+                        <input type="checkbox" aria-label="Selecionar todos desta página" checked={table.getIsAllRowsSelected()}
+                            ref={el => { if (el) el.indeterminate = table.getIsSomeRowsSelected(); }}
+                            onChange={table.getToggleAllRowsSelectedHandler()} className="h-4 w-4 self-center rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
                         <span>Paciente</span><span>Tipo</span><span>Profissional</span><span>Sessões</span><span className="w-[164px]" />
                     </div>
-                    <ul>{patients.map(p => <PatientRow key={p._id || p.patientId} patient={p} onEdit={onEdit} />)}</ul>
+                    <ul>{table.getRowModel().rows.map(r => <PatientRow key={r.id} patient={r.original} onEdit={onEdit} selected={r.getIsSelected()} onToggle={r.getToggleSelectedHandler() as () => void} />)}</ul>
                 </div>
             ) : (
                 <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${loading ? 'opacity-60' : ''}`}>
