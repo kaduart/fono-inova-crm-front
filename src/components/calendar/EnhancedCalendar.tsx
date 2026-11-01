@@ -2025,6 +2025,27 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     );
 
     // Abre o agendamento já com profissional, dia e hora (e paciente, quando vem do encaixe)
+    // Atalhos da Agenda: T = hoje, ← → = anterior/próximo, N = novo agendamento.
+    // Não dispara digitando em campo nem com janela aberta.
+    const shortcutRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+    shortcutRef.current = (e: KeyboardEvent) => {
+        if (calendarView !== 'agenda' || e.ctrlKey || e.metaKey || e.altKey) return;
+        const t = e.target as HTMLElement | null;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        const api = calendarRef.current?.getApi();
+        if (!api) return;
+        if (e.key === 't' || e.key === 'T') { api.today(); e.preventDefault(); }
+        else if (e.key === 'ArrowLeft') { api.prev(); e.preventDefault(); }
+        else if (e.key === 'ArrowRight') { api.next(); e.preventDefault(); }
+        else if ((e.key === 'n' || e.key === 'N') && permissions.canCreate) { handleOpenSchedule(null, 'create'); e.preventDefault(); }
+    };
+    useEffect(() => {
+        const on = (e: KeyboardEvent) => shortcutRef.current?.(e);
+        window.addEventListener('keydown', on);
+        return () => window.removeEventListener('keydown', on);
+    }, []);
+
     const openScheduleAt = (seed: { doctorId: string; date: string; time: string; specialty?: string; patientId?: string }) => {
         const doc: any = (doctors as any[])?.find(d => String(d._id || d.id) === seed.doctorId);
         const specialty = seed.specialty || doc?.specialty || 'fonoaudiologia';
@@ -2203,6 +2224,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         >
                             <Plus size={14} />
                             Novo Agendamento
+                            <kbd className="ml-1 hidden rounded border border-white/40 px-1 text-[10px] font-medium lg:inline" title="Atalhos: N novo · T hoje · ← → navegar">N</kbd>
                         </button>
                     )}
                 </div>

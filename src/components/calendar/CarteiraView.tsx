@@ -7,6 +7,19 @@ import { useDoctorsContext } from '../../contexts/DoctorsContext';
 import { IDoctor } from '../../utils/types/types';
 import { Chip } from './agenda/AgendaParts';
 import { WA_TAB } from '../commercial/commercialCopy';
+import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type RowSelectionState, type SortingState } from '@tanstack/react-table';
+import { BatchBar, SortHeader, checkboxCls, copyPhones, downloadCsv } from '../ui/table/batch';
+
+// Colunas ordenáveis (TanStack). As células continuam no PatientRow.
+const COLS: ColumnDef<RetentionPatient>[] = [
+  { id: 'patientName', accessorKey: 'patientName' },
+  { id: 'lifecycle', accessorKey: 'lifecycle' },
+  { id: 'attendanceRate', accessorKey: 'attendanceRate' },
+  { id: 'absencesMonth', accessorKey: 'absencesMonth' },
+  { id: 'daysSinceLastSession', accessorFn: p => p.daysSinceLastSession ?? -1 },
+  { id: 'nextSessionAt', accessorFn: p => p.nextSessionAt ?? '9999' },
+  { id: 'packageRemaining', accessorKey: 'packageRemaining' },
+];
 
 const LIFECYCLE: Record<RetentionLifecycle, { label: string; plural: string; dot: string }> = {
   engajado: { label: 'Engajado', plural: 'Engajados', dot: '#1baf7a' },
@@ -47,13 +60,14 @@ function AttendanceBar({ rate }: { rate: number }) {
   );
 }
 
-function PatientRow({ p }: { p: RetentionPatient }) {
+function PatientRow({ p, selected, onToggle }: { p: RetentionPatient; selected: boolean; onToggle: () => void }) {
   const cfg = LIFECYCLE[p.lifecycle] || LIFECYCLE.novo;
   const orphan = !p.nextSessionAt && p.lifecycle !== 'novo' && p.totalSessions > 0;
   const last = p.daysSinceLastSession === null ? '—' : p.daysSinceLastSession === 0 ? 'hoje' : `há ${p.daysSinceLastSession} d`;
   return (
-    <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-      <td className="py-2 pl-3 pr-2">
+    <tr className={`border-b border-gray-100 last:border-0 hover:bg-gray-50 ${selected ? 'bg-emerald-50/60' : ''}`}>
+      <td className="py-2 pl-3"><input type="checkbox" className={checkboxCls} checked={selected} onChange={onToggle} aria-label={`Selecionar ${p.patientName}`} /></td>
+      <td className="py-2 pl-1 pr-2">
         <span className="block text-sm font-semibold text-gray-900">{p.patientName}</span>
         <span className="text-xs text-gray-500">{p.sessionsMonth} {p.sessionsMonth === 1 ? 'sessão' : 'sessões'} no mês</span>
       </td>
@@ -114,6 +128,19 @@ export default function CarteiraView({ doctors: doctorsProp, currentMonth: curre
     // Quem pede atenção primeiro, depois por nome
     return [...list].sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention) || a.patientName.localeCompare(b.patientName));
   }, [patients, lifecycleFilter, orphanPatients]);
+
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const table = useReactTable({
+    data: filteredPatients, columns: COLS, getRowId: p => p.patientId,
+    state: { sorting, rowSelection }, onSortingChange: setSorting, onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), enableRowSelection: true,
+  });
+  const picked = patients.filter(p => rowSelection[p.patientId]);
+  const sh = (id: string, label: string) => {
+    const c = table.getColumn(id)!;
+    return <SortHeader label={label} sorted={c.getIsSorted()} onToggle={c.getToggleSortingHandler()} />;
+  };
 
   const monthLabel = currentMonth
     ? new Date(`${currentMonth}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
@@ -189,6 +216,10 @@ export default function CarteiraView({ doctors: doctorsProp, currentMonth: curre
             </div>
           </div>
 
+          <BatchBar count={picked.length} onClear={() => setRowSelection({})}
+            onCopyPhones={() => copyPhones(picked.map(p => p.phone))}
+            onCsv={() => downloadCsv(`acompanhamento-${currentMonth}`, ['Paciente', 'Telefone', 'Situação', 'Presença %', 'Faltas no mês', 'Dias desde a última', 'Próxima', 'Pacote restante'],
+              picked.map(p => [p.patientName, p.phone, LIFECYCLE[p.lifecycle]?.label, Math.round(p.attendanceRate * 100), p.absencesMonth, p.daysSinceLastSession ?? '', p.nextSessionAt ? fmtDay(p.nextSessionAt) : 'sem próxima', p.packageRemaining]))} />
           {filteredPatients.length === 0 ? (
             <p className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">Nenhum paciente nesta categoria no período.</p>
           ) : (
@@ -196,18 +227,22 @@ export default function CarteiraView({ doctors: doctorsProp, currentMonth: curre
               <table className="w-full min-w-[820px] text-left">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <th scope="col" className="py-2 pl-3 pr-2">Paciente</th>
-                    <th scope="col" className="px-2 py-2">Situação</th>
-                    <th scope="col" className="px-2 py-2">Presença</th>
-                    <th scope="col" className="px-2 py-2">Faltas</th>
-                    <th scope="col" className="px-2 py-2">Última</th>
-                    <th scope="col" className="px-2 py-2">Próxima</th>
-                    <th scope="col" className="px-2 py-2">Pacote</th>
+                    <th scope="col" className="w-8 py-2 pl-3">
+                      <input type="checkbox" className={checkboxCls} aria-label="Selecionar todos" checked={table.getIsAllRowsSelected()}
+                        ref={el => { if (el) el.indeterminate = table.getIsSomeRowsSelected(); }} onChange={table.getToggleAllRowsSelectedHandler()} />
+                    </th>
+                    <th scope="col" className="py-2 pl-1 pr-2">{sh('patientName', 'Paciente')}</th>
+                    <th scope="col" className="px-2 py-2">{sh('lifecycle', 'Situação')}</th>
+                    <th scope="col" className="px-2 py-2">{sh('attendanceRate', 'Presença')}</th>
+                    <th scope="col" className="px-2 py-2">{sh('absencesMonth', 'Faltas')}</th>
+                    <th scope="col" className="px-2 py-2">{sh('daysSinceLastSession', 'Última')}</th>
+                    <th scope="col" className="px-2 py-2">{sh('nextSessionAt', 'Próxima')}</th>
+                    <th scope="col" className="px-2 py-2">{sh('packageRemaining', 'Pacote')}</th>
                     <th scope="col" className="py-2 pl-2 pr-3 text-right"><span className="sr-only">Contato</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPatients.map(p => <PatientRow key={p.patientId} p={p} />)}
+                  {table.getRowModel().rows.map(r => <PatientRow key={r.id} p={r.original} selected={r.getIsSelected()} onToggle={r.getToggleSelectedHandler() as () => void} />)}
                 </tbody>
               </table>
             </div>
