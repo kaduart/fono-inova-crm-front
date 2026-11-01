@@ -17,6 +17,15 @@ interface Props {
     onProfile?: (title: string, items: any[]) => void;
 }
 const link = 'min-h-10 rounded-md px-2 text-left text-sm text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950';
+const tone = { g: 'text-emerald-700 dark:text-emerald-300', a: 'text-amber-700 dark:text-amber-300', r: 'text-red-700 dark:text-red-400' };
+const chipCls = 'inline-flex min-h-9 items-baseline gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
+function Chip({ label, value, t, detail, onClick }: { label: string; value?: number; t?: 'g' | 'a' | 'r'; detail?: string; onClick?: () => void }) {
+    const inner = <><b className={`text-base font-bold tabular-nums ${t ? tone[t] : 'text-gray-900 dark:text-gray-100'}`}>{value ?? '—'}</b>{label}{detail && <span className="text-xs text-gray-600 dark:text-gray-300">({detail})</span>}</>;
+    return onClick && value
+        ? <button type="button" onClick={onClick} aria-label={`Ver ${label}: ${value}`} className={`${chipCls} hover:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600`}>{inner}</button>
+        : <span className={chipCls}>{inner}</span>;
+}
+
 export default function CashflowAgendaSummary(p: Props) {
     const period = p.startDate === p.endDate ? 'do dia' : 'do período';
     // A API de perfil também inclui registros criados no intervalo para datas futuras.
@@ -45,22 +54,22 @@ export default function CashflowAgendaSummary(p: Props) {
         { label: 'aguardando', value: attendance?.faltantes, tone: 'a', onClick: () => p.onAgenda('scheduled') },
         { label: 'faltas/cancel.', value: p.data.agenda?.faltasOuCancelados, tone: 'r', onClick: () => p.onAgenda('canceled') },
     ];
-    const tone = { g: 'text-emerald-700 dark:text-emerald-300', a: 'text-amber-700 dark:text-amber-300', r: 'text-red-700 dark:text-red-400' };
-    const chipCls = 'inline-flex min-h-9 items-baseline gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
-    const Chip = ({ label, value, t, detail, onClick }: { label: string; value?: number; t?: 'g' | 'a' | 'r'; detail?: string; onClick?: () => void }) => {
-        const inner = <><b className={`text-base font-bold tabular-nums ${t ? tone[t] : 'text-gray-900 dark:text-gray-100'}`}>{value ?? '—'}</b>{label}{detail && <span className="text-xs text-gray-500 dark:text-gray-400">({detail})</span>}</>;
-        return onClick && value
-            ? <button type="button" onClick={onClick} aria-label={`Ver ${label}: ${value}`} className={`${chipCls} hover:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600`}>{inner}</button>
-            : <span className={chipCls}>{inner}</span>;
-    };
-    return <section aria-labelledby="cashflow-agenda-title" className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left dark:border-gray-700 dark:bg-gray-900">
-        <h3 id="cashflow-agenda-title" className="mr-1 text-sm font-semibold text-gray-900 dark:text-gray-100">Agenda {period}</h3>
-        {chips.map(c => <Chip key={c.label} label={c.label} value={c.value} t={c.tone} onClick={c.onClick} />)}
-        <span aria-hidden className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-gray-700" />
-        {p.loading ? <span role="status" className="text-sm text-gray-500">Consultando perfil…</span>
-            : p.error || !p.analytics ? <span role="status" className="text-sm text-gray-500">Perfil da agenda indisponível. Atualize para tentar novamente.</span>
-            : profile.map(item => <Chip key={item.label} label={item.label.charAt(0).toLowerCase() + item.label.slice(1)} value={item.count} detail={item.detail} onClick={item.action} />)}
-        <Chip label="criados no período" value={p.createdLoading || p.createdError ? undefined : p.createdTotal} detail={p.createdLoading ? 'consultando…' : p.createdError ? 'indisponível' : 'inclui datas futuras'} />
-        <button type="button" className={`${link} ml-auto`} onClick={() => p.onAgenda()}>Ver agenda e atendimentos</button>
+    // Duas linhas rotuladas (01/11): Agenda e Perfil. Nenhum chip saiu.
+    const row = 'flex flex-wrap items-center gap-2';
+    const rowLabel = 'w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300';
+    return <section aria-labelledby="cashflow-agenda-title" className="space-y-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left dark:border-gray-700 dark:bg-gray-900">
+        <h3 id="cashflow-agenda-title" className="sr-only">Agenda {period}</h3>
+        <div className={row}>
+            <span className={rowLabel}>Agenda</span>
+            {chips.map(c => <Chip key={c.label} label={c.label} value={c.value} t={c.tone} onClick={c.onClick} />)}
+            <Chip label="criados no período" value={p.createdLoading || p.createdError ? undefined : p.createdTotal} detail={p.createdLoading ? 'consultando…' : p.createdError ? 'indisponível' : 'inclui datas futuras'} />
+            <button type="button" className={`${link} ml-auto`} onClick={() => p.onAgenda()}>Ver agenda e atendimentos</button>
+        </div>
+        <div className={row}>
+            <span className={rowLabel}>Perfil</span>
+            {p.loading ? <span role="status" className="text-sm text-gray-600 dark:text-gray-300">Consultando perfil…</span>
+                : p.error || !p.analytics ? <span role="status" className="text-sm text-gray-600 dark:text-gray-300">Perfil da agenda indisponível. Atualize para tentar novamente.</span>
+                : profile.map(item => <Chip key={item.label} label={item.label.charAt(0).toLowerCase() + item.label.slice(1)} value={item.count} detail={item.detail} onClick={item.action} />)}
+        </div>
     </section>;
 }

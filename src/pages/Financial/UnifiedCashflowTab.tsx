@@ -13,6 +13,8 @@ import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import CashflowOverview from './components/CashflowOverview';
 import CashflowAgendaSummary from './components/CashflowAgendaSummary';
 import CashflowMonthChart from './components/CashflowMonthChart';
+import CashflowDrawer, { DrawerContent } from './components/CashflowDrawer';
+import { collectMessage, rescheduleMessage } from '../../components/commercial/commercialCopy';
 import { cashflowService, CashflowV2Response } from '../../services/cashflowService';
 import { beginCashflowLoad } from '../../services/financialLoadCoordinator';
 import { operationalService } from '../../services/operationalService';
@@ -182,8 +184,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
 
     // Abre direto no WhatsApp Web, reusando a mesma aba (pedido do comercial
     // 31/10 — opção B). Antes levava para a tela interna de Conversas.
-    const handleOpenWhatsApp = (phone: string) => {
-        openWhatsApp(phone);
+    const handleOpenWhatsApp = (phone: string, text?: string) => {
+        openWhatsApp(phone, text);
     };
 
     const handleDeletePayment = async (paymentId: string, label: string) => {
@@ -241,10 +243,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     const openDetailTab = (tab: number, agendaStatus?: string) => {
         setActiveTab(tab);
         if (agendaStatus) setAppointmentFilter(agendaStatus);
-        if (tab === 3 && dayAppointments.length === 0) loadDayAppointments();
         requestAnimationFrame(() => document.getElementById('cashflow-detail-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     };
     const [newSpecialtyModalOpen, setNewSpecialtyModalOpen] = useState(false);
+    // Guarda só QUAL lista está aberta; o conteúdo é montado a cada render, então
+    // a lista se atualiza sozinha quando a agenda termina de carregar.
+    const [drawer, setDrawer] = useState<{ kind: 'agenda' | 'collect' | 'receipts' | 'bill'; status?: string } | null>(null);
+    const closeDrawer = useCallback(() => setDrawer(null), []);
 
     const fetchAnalyticsForPeriod = useCallback(async () => {
         const period = !manualDateOverride && dateRange ? dateRange : { startDate: selectedDate, endDate: selectedDate };
@@ -373,12 +378,10 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         try {
             const start = dateRange && !manualDateOverride ? dateRange.startDate : selectedDate;
             const end = dateRange && !manualDateOverride ? dateRange.endDate : selectedDate;
-            console.log('[UnifiedCashflowTab] Buscando agendamentos para:', start, 'a', end);
             const res = await API.get<{ success: boolean; data: { appointments: any[]; pagination: any } }>('/v2/appointments', {
                 params: { startDate: start, endDate: end, limit: 500 }
             });
             if (!guard.active) return;
-            console.log('[UnifiedCashflowTab] Resposta:', res.data);
             // Legacy GET /appointments retorna array puro; v2 pode retornar { data: { appointments: [] } }
             const raw = res.data as any;
             setDayAppointments(Array.isArray(raw) ? raw : raw?.data?.appointments || raw?.appointments || []);
@@ -425,6 +428,86 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     // 🏥 Dados de retenção para o card "Grade em risco"
     const retentionCritical = retentionData?.summary?.criticalSlots || 0;
     const retentionLoss = retentionData?.summary?.potentialLossMonthly || 0;
+
+    // ===== Painel lateral (01/11): listas abrem aqui, sem rolar a página =====
+    const aptName = (a: any) => a.patientInfo?.fullName || a.patient?.fullName || a.patientName || 'Nome não informado';
+    const aptPhone = (a: any) => a.patientInfo?.phone || a.patient?.phone || null;
+    const aptLine = (a: any) => [a.time, a.specialty, a.doctor?.fullName || a.professionalName].filter(Boolean).join(' · ');
+    const attendedIdSet = useMemo(() => new Set<string>([
+        ...(data?.pacotesAtendidos || []), ...(data?.conveniosAtendidos || []),
+        ...(data?.liminaresAtendidos || []), ...((data as any)?.transacoesProducao || []),
+    ].map((i: any) => String(i?.id || i?._id || '')).filter(Boolean)), [data]);
+    // Mesma regra da aba Agenda do Dia (ver getEffectiveStatus lá embaixo).
+    const effectiveStatus = (a: any) => a.operationalStatus === 'canceled' ? 'canceled'
+        : (a.operationalStatus === 'completed' || attendedIdSet.has(String(a.id || a._id || ''))) ? 'completed' : a.operationalStatus;
+    const STATUS_TITLE: Record<string, string> = { all: 'Agendados', completed: 'Atendidos', scheduled: 'Aguardando', canceled: 'Faltas e cancelamentos' };
+
+    const buildAgendaDrawer = (status = 'all'): DrawerContent => {
+        const items = dayAppointments
+            .filter((a: any) => a.operationalStatus !== 'converted' && (status === 'all' || effectiveStatus(a) === status))
+            .sort((x: any, y: any) => String(x.time || '').localeCompare(String(y.time || '')));
+        const missed = status === 'canceled';
+        return {
+            title: `${STATUS_TITLE[status] || 'Agenda'} ${periodTitle.toLowerCase()}`,
+            subtitle: missed ? 'Remarcar ainda esta semana recupera a sessão' : `${items.length} ${items.length === 1 ? 'atendimento' : 'atendimentos'}`,
+            total: missed ? data?.agenda?.perdido : status === 'all' ? data?.agenda?.previsto : undefined,
+            tone: missed ? 'r' : 'n',
+            loading: loadingAppointments && dayAppointments.length === 0,
+            items: items.map((a: any, i: number) => ({
+                key: String(a._id || a.id || i), name: aptName(a), line: aptLine(a),
+                value: a.sessionValue || a.package?.sessionValue || undefined,
+                badge: a.operationalStatus === 'pre_agendado' ? 'pré-agendado' : undefined,
+                ...(missed ? { phone: aptPhone(a), message: rescheduleMessage({ name: aptName(a), specialty: a.specialty }), actionLabel: 'Oferecer remarcação' } : {}),
+            })),
+            empty: 'Ninguém nesta lista.',
+            tabLabel: 'Agenda do Dia', onOpenTab: () => openDetailTab(3, status),
+        };
+    };
+    const buildCollectDrawer = (): DrawerContent => {
+        const groups = new Map<string, { name: string; phone: string; total: number; lines: string[] }>();
+        (data?.pendentesCobranca || []).forEach(item => {
+            const k = item.telefone || item.paciente;
+            const g = groups.get(k) || { name: item.paciente, phone: item.telefone, total: 0, lines: [] };
+            g.total += item.valor || 0;
+            g.lines.push([item.horario, item.especialidade, item.professional].filter(Boolean).join(' '));
+            groups.set(k, g);
+        });
+        const list = [...groups.values()].sort((a, b) => b.total - a.total);
+        return {
+            title: `A receber ${periodTitle.toLowerCase()}`, tone: 'r',
+            total: list.reduce((s, g) => s + g.total, 0),
+            subtitle: `${data?.pendentesCobranca?.length || 0} atendimentos · ${list.length} ${list.length === 1 ? 'paciente' : 'pacientes'}`,
+            items: list.map((g, i) => ({ key: `${g.phone}-${i}`, name: g.name, line: g.lines.join(' · '), value: g.total, phone: g.phone || null, message: collectMessage({ name: g.name, total: g.total }) })),
+            empty: 'Nenhum atendimento sem pagamento.', tabLabel: 'Pendentes', onOpenTab: () => openDetailTab(1),
+        };
+    };
+    const buildReceiptsDrawer = (): DrawerContent => {
+        const tx = [...(data?.transacoes || [])].sort((a, b) => String(a.hora || '').localeCompare(String(b.hora || '')));
+        return {
+            title: `Caixa recebido ${periodTitle.toLowerCase()}`, tone: 'g', total: data?.caixa.total,
+            subtitle: `${tx.length} recebimentos · ticket médio ${formatCurrency(data?.estatisticas.ticketMedio || 0)}`,
+            items: tx.map((t, i) => ({ key: String(t.id || i), name: t.paciente, line: [t.hora, t.metodo, t.servico, t.profissional].filter(Boolean).join(' · '), value: t.valor })),
+            empty: 'Nenhum recebimento.', tabLabel: 'Recebimentos', onOpenTab: () => openDetailTab(0),
+        };
+    };
+    const buildBillDrawer = (): DrawerContent => {
+        const list = data?.conveniosAtendidos || [];
+        return {
+            title: 'Convênio para faturar', total: list.reduce((s, i) => s + (i.valor || 0), 0),
+            subtitle: `${list.length} atendimentos · confira as guias`,
+            items: list.map((c, i) => ({ key: String(c.id || i), name: c.paciente, line: [c.horario, c.convenio, c.especialidade, c.professional].filter(Boolean).join(' · '), value: c.valor })),
+            empty: 'Nada para faturar.', tabLabel: 'A Faturar', onOpenTab: () => { setFaturarSubFilter('convenios'); openDetailTab(2); },
+        };
+    };
+
+    const openAgendaDrawer = (status = 'all') => setDrawer({ kind: 'agenda', status });
+    const openCollectDrawer = () => setDrawer({ kind: 'collect' });
+    const openReceiptsDrawer = () => setDrawer({ kind: 'receipts' });
+    const openBillDrawer = () => setDrawer({ kind: 'bill' });
+    const drawerContent: DrawerContent | null = !drawer || !data ? null
+        : drawer.kind === 'agenda' ? buildAgendaDrawer(drawer.status)
+        : drawer.kind === 'collect' ? buildCollectDrawer()
+        : drawer.kind === 'receipts' ? buildReceiptsDrawer() : buildBillDrawer();
 
     // Agrupar dados do mês por semana para visualização
     const weeksData = useMemo(() => {
@@ -514,15 +597,16 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     <CashflowOverview data={data} periodLabel={periodTitle} patientsWithoutNext={patientsWithoutNext}
                         patientsLoading={patientsWithoutNextLoading} patientsError={patientsWithoutNextError} patientsImpact={patientsWithoutNextImpact}
                         recurrent={patientsWithoutNextRecurrent} onSchedule={() => setSemProximaModalOpen(true)}
-                        onCollect={() => openDetailTab(1)} onBill={() => { setFaturarSubFilter('convenios'); openDetailTab(2); }}
-                        onMetric={(k) => openDetailTab(k === 'previsto' ? 3 : k === 'receber' ? 1 : 0)}
+                        onCollect={openCollectDrawer} onBill={openBillDrawer} onMissed={() => openAgendaDrawer('canceled')}
+                        patientsTop={patientsWithoutNextList}
+                        onMetric={(k) => k === 'previsto' ? openAgendaDrawer('all') : k === 'receber' ? openCollectDrawer() : openReceiptsDrawer()}
                         slotsAtRisk={retentionCritical} slotImpact={retentionLoss} onFit={() => navigate('/retention')}
                         agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData}
                             loading={analyticsLoading} error={!!analyticsError} createdTotal={analyticsCreatedSummary?.total}
                             createdLoading={analyticsCreatedLoading} createdError={!!analyticsCreatedError}
                             startDate={dateRange && !manualDateOverride ? dateRange.startDate : selectedDate}
                             endDate={dateRange && !manualDateOverride ? dateRange.endDate : selectedDate}
-                            onAgenda={(status) => openDetailTab(3, status || 'all')} onNewSpecialty={() => setNewSpecialtyModalOpen(true)}
+                            onAgenda={(status) => status ? openAgendaDrawer(status) : openDetailTab(3, 'all')} onNewSpecialty={() => setNewSpecialtyModalOpen(true)}
                             onProfile={(title, items) => setProfileList({ title, items })} />}
                         onContact={handleOpenWhatsApp} />
                     <button type="button" onClick={() => setDashboardOpen(open => !open)} aria-expanded={dashboardOpen}
@@ -530,19 +614,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         {dashboardOpen ? 'Ocultar detalhes' : 'Ver detalhes'} {periodTitle.toLowerCase()}
                         <ExpandMoreIcon className={dashboardOpen ? 'rotate-180' : ''} />
                     </button>
-                    <div id="cashflow-day-details" hidden={!dashboardOpen}>
+                    <div id="cashflow-day-details" hidden={!dashboardOpen}>{dashboardOpen && <>
                     {/* ========== RECEITA PREVISTA vs REALIZADA ========== */}
                     {(() => {
                         const sessaoApts = dayAppointments.filter((a: any) => !['canceled', 'pre_agendado', 'converted'].includes(a.operationalStatus));
-                        const previsto = sessaoApts.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
+                        // Mesmo previsto do topo (regra do banco); o cálculo local fica só de reserva.
+                        const previsto = data.agenda?.previsto ?? sessaoApts.reduce((s: number, a: any) => s + (a.sessionValue || a.package?.sessionValue || 0), 0);
                         const recebido = data.caixa.total;
                         const gap = previsto - recebido;
                         const pct = previsto > 0 ? Math.min(100, Math.round((recebido / previsto) * 100)) : 100;
                         const isLoadingApts = loadingAppointments && dayAppointments.length === 0;
                         if (!isLoadingApts && previsto === 0) return null;
                         return (
-                            <div className="mb-4 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#6366F1', backgroundColor: '#F5F3FF' }}>
-                                <div className="mb-4 text-3xs font-semibold uppercase tracking-wide text-violet-700">Receita Prevista × Realizada</div>
+                            <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+                                <div className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Receita Prevista × Realizada</div>
                                 <div className="grid grid-cols-3 gap-4 mb-4">
                                     <div>
                                         <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">Previsto</div>
@@ -976,7 +1061,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
-                    </div>
+                    </>}</div>
+                    <CashflowDrawer content={drawerContent} onClose={closeDrawer} />
                     {/* Modal: lista de um grupo do perfil da agenda (nome, horário, profissional, WhatsApp) */}
                     {profileList && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setProfileList(null)}>
@@ -1189,7 +1275,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
                     )}
 
-                    <div hidden={!dashboardOpen}>
+                    <div hidden={!dashboardOpen}>{dashboardOpen && <>
                     {/* ========== KPIs Executivos ========== */}
                     {dayAppointments.length > 0 && (() => {
                         const allApts = dayAppointments.filter((a: any) => !['converted', 'pre_agendado'].includes(a.operationalStatus));
@@ -1223,7 +1309,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             </div>
                         );
                     })()}
-                    </div>
+                    </>}</div>
 
                     {/* Tabs de Detalhes */}
                     <div className="mb-3 scroll-mt-24" id="cashflow-detail-tabs">
@@ -1252,6 +1338,8 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 </button>
                             ))}
                         </div>
+                        <button type="button" onClick={() => document.getElementById('cashflow-overview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                            className="mt-1 min-h-9 rounded-md px-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10">↑ Voltar ao resumo</button>
                     </div>
 
                     {/* Tab 0: Transações */}

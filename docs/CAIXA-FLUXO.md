@@ -44,3 +44,14 @@ Mock: https://claude.ai/artifact/MofvBUst4aP3nUUB3Vx11G
 - Caixa em destaque (número grande, barra de quanto do previsto entrou, variação vs ontem).
 - Agenda e perfil numa linha de chips clicáveis (mesmos cliques de antes).
 - Ações com número colorido pela urgência; origem do caixa em barra empilhada com %.
+
+## Versão 2 (01/11/2026, mock aprovado)
+
+Mock: https://claude.ai/artifact/R6NEhtTmWQm5ZwWR98r6dh · crítica Impeccable: critique 26/40, audit 14/20.
+- Bug "clico no card e a tela desce": cards e chips não rolam mais até as sub-abas. Abrem o painel lateral `CashflowDrawer` (Esc fecha, a página fica parada); "Abrir na aba …" leva à sub-aba completa. Sub-abas ganharam "↑ Voltar ao resumo".
+- A receber: agrupado por paciente, valor por atendimento e WhatsApp com mensagem pronta (`collectMessage`). Nada é enviado sozinho.
+- Novo "Do previsto ao caixa": caixa + atendido sem pagamento + convênio a faturar; o resto aparece como "pacote pago antes, liminar ou sem lançamento". Só números do backend.
+- Nova ação "Faltas para remarcar" com `agenda.perdido` (backend) e mensagem `rescheduleMessage`.
+- Pacotes: última sessão primeiro, resumo por especialidade e WhatsApp com renovação (Valor → Preço). Sem próxima sessão cita os 3 primeiros nomes.
+- Chips em duas linhas (Agenda / Perfil); cards com "Ver … ›"; "caixa do mês" no Ticket; origem com uma forma só vira uma linha; card violeta trocado pelo padrão e usando o previsto do backend.
+- Performance: sem busca duplicada da agenda no clique; renovações com cache de 5 min; blocos de "Ver detalhes" só renderizam quando abertos; console.log removidos.

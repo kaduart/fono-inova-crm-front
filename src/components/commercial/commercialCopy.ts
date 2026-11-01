@@ -80,6 +80,20 @@ export const reactivationMessage = (p: { name?: string | null; specialty?: strin
     return `Oi! Aqui é da Clínica Fono Inova. Sentimos falta de ${n || 'vocês'} nas sessões${spec}. Retomar logo ajuda a manter o que já foi conquistado. Posso ver um horário para vocês ainda nesta semana? 💚`;
 };
 
+/** Cobrança gentil de sessão atendida e ainda sem pagamento (Caixa & Fluxo, 01/11). */
+export const collectMessage = (p: { name?: string | null; total: number }) => {
+    const n = firstName(p.name);
+    const v = p.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return `Oi! Aqui é da Clínica Fono Inova. Passando para combinar o acerto ${n ? `das sessões de ${n}` : 'das sessões'} (${v}). Posso te mandar a chave Pix? 💚`;
+};
+
+/** Falta ou cancelamento: oferece remarcar com horário genérico. */
+export const rescheduleMessage = (p: { name?: string | null; specialty?: string | null }) => {
+    const n = firstName(p.name);
+    const spec = p.specialty ? ` de ${specialtyText(p.specialty)}` : '';
+    return `Oi! Aqui é da Clínica Fono Inova. Sentimos falta de ${n || 'vocês'} na sessão${spec}. Manter a sequência ajuda a não perder a evolução. Quer que eu veja um horário ainda nesta semana, de manhã ou à tarde? 💚`;
+};
+
 export const leadReplyMessage = (p: { name?: string | null }) => {
     const n = firstName(p.name);
     return `Oi${n ? `, ${n}` : ''}! Aqui é da Clínica Fono Inova, desculpe a demora. Vi sua mensagem e já vou te ajudar. Me conta um pouco do que vocês estão buscando? 💚`;
