@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '../../utils/toast';
-import { Box, Card, CardContent, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
@@ -24,53 +23,32 @@ import DayBar from '../../components/doctor/overview/DayBar';
 import DoctorViewPicker from '../../components/doctor/DoctorViewPicker';
 import TodayAgendaPanel from '../../components/doctor/overview/TodayAgendaPanel';
 import PatientQuickSearch from '../../components/doctor/overview/PatientQuickSearch';
-import { MonthPanel, PendingPanel, TomorrowPanel } from '../../components/doctor/overview/OverviewSidePanels';
+import { TomorrowPanel } from '../../components/doctor/overview/OverviewSidePanels';
+import DoctorNeedsYou from '../../components/doctor/overview/DoctorNeedsYou';
+import DoctorOverviewInsights from '../../components/doctor/overview/DoctorOverviewInsights';
 import { aptDateTime, isCanceled, isOpen, patientOf, todayLocal } from '../../components/doctor/overview/agendaUtils';
 
 const quickBtn = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 import { notifyApiError } from '../../utils/notifyApiError';
 
-// Skeleton para KPI
-const KPICardSkeleton = () => (
-  <Card className="rounded-2xl border border-gray-200 shadow-sm">
-    <CardContent className="p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <Skeleton variant="text" width={120} height={20} className="mb-2" />
-          <Skeleton variant="text" width={60} height={48} />
-        </div>
-        <Skeleton variant="circular" width={48} height={48} />
-      </div>
-    </CardContent>
-  </Card>
-);
-
-// Skeleton para o Dashboard completo
+// Skeleton do painel (sem MUI): cabeçalho + 4 indicadores
 const DashboardSkeleton = () => (
-  <div className="min-h-screen bg-gray-50">
-    <div className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Skeleton variant="circular" width={48} height={48} />
-            <div>
-              <Skeleton variant="text" width={250} height={32} />
-              <Skeleton variant="text" width={180} height={20} />
-            </div>
+  <div className="min-h-screen bg-gray-50" aria-busy="true">
+    <div className="border-b border-gray-200 bg-white">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 animate-pulse rounded-full bg-gray-100" />
+          <div className="space-y-2">
+            <div className="h-6 w-60 animate-pulse rounded bg-gray-100" />
+            <div className="h-4 w-44 animate-pulse rounded bg-gray-100" />
           </div>
-          <Skeleton variant="rectangular" width={120} height={40} className="rounded-full" />
         </div>
+        <div className="h-10 w-28 animate-pulse rounded-full bg-gray-100" />
       </div>
     </div>
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-        <Grid container spacing={3} className="mb-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Grid item xs={12} sm={6} lg={3} key={i}>
-              <KPICardSkeleton />
-            </Grid>
-          ))}
-        </Grid>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-gray-100" />)}
       </div>
     </div>
   </div>
@@ -166,6 +144,7 @@ export default function DoctorDashboard() {
     switch (activeTab) {
       case 'overview':
         loadOverview();
+        doctorInsights.refresh(); // pacientes em risco do "Precisa de você"
         break;
       case 'patients':
         loadPatients();
@@ -424,27 +403,29 @@ export default function DoctorDashboard() {
                   <RefreshCw className={`h-4 w-4 ${loading.overview ? 'animate-spin' : ''}`} aria-hidden />{loading.overview ? 'Carregando…' : 'Tentar de novo'}
                 </button>
               </div>
-            ) : loading.overview && !stats ? (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true">
-                {[1, 2, 3, 4].map(i => <div key={i} className="h-[76px] animate-pulse rounded-xl bg-gray-100" />)}
-              </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {overviewKpis.map(k => {
-                  const body = (
-                    <>
-                      <span className="text-xs font-medium text-gray-600">{k.label}</span>
-                      <span className="text-2xl font-bold leading-tight tabular-nums text-gray-900">{k.value}</span>
-                      {k.hint && <span className="text-xs text-gray-600">{k.hint}</span>}
-                    </>
-                  );
-                  return k.onClick ? (
-                    <button key={k.label} type="button" onClick={k.onClick} className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-left hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">{body}</button>
-                  ) : (
-                    <div key={k.label} className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-2.5">{body}</div>
-                  );
-                })}
-              </div>
+              <>
+                <DoctorNeedsYou
+                  pendingEvolutions={pendingEvolutions}
+                  todayAppointments={todayAppointments}
+                  birthdayPatients={birthdayPatients}
+                  riskPatients={doctorInsights.insights?.riskPatients ?? []}
+                  riskLoading={doctorInsights.loading}
+                  specialty={doctorData?.specialty}
+                  canRegisterContact={isStaffViewer}
+                  onRegisterEvolution={handleGoToEvolution}
+                  onOpenPatient={openPatient}
+                  onSchedule={handleScheduleRiskPatient}
+                />
+                <DoctorOverviewInsights
+                  stats={stats}
+                  loading={loading.overview && !stats}
+                  insights={doctorInsights.insights}
+                  nextLabel={overviewKpis[3]}
+                  onOpenPatients={() => handleTabChange('patients')}
+                  onOpenInsights={() => handleTabChange('insights')}
+                />
+              </>
             )}
 
             {!overviewError && <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -456,18 +437,7 @@ export default function DoctorDashboard() {
                 onRegisterEvolution={handleGoToEvolution}
                 onOpenPatient={openPatient}
               />
-              <div className="flex flex-col gap-4">
-                <PendingPanel
-                  pendingEvolutions={pendingEvolutions}
-                  todayAppointments={todayAppointments}
-                  birthdayPatients={birthdayPatients}
-                  onRegisterEvolution={handleGoToEvolution}
-                  onOpenPatient={openPatient}
-                  onSeeAgenda={() => handleTabChange('appointments')}
-                />
-                <TomorrowPanel futureAppointments={futureAppointments ?? []} />
-                <MonthPanel stats={stats} />
-              </div>
+              <TomorrowPanel futureAppointments={futureAppointments ?? []} />
             </div>}
           </div>
         );

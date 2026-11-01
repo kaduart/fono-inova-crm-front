@@ -41,7 +41,7 @@ export const SidePanel: React.FC<{ title: string; kicker?: string; subtitle?: Re
 
 // ── Linha de fila com WhatsApp + "Contatado" ───────────────────────────────
 
-const useContact = () => {
+export const useContact = () => {
     const [done, setDone] = useState<Record<string, 'saving' | 'ok' | 'err'>>({});
     const mark = useCallback(async (targetType: 'patient' | 'lead', targetId: string, kind: ContactKind, note?: string) => {
         setDone(d => ({ ...d, [targetId]: 'saving' }));
@@ -58,7 +58,7 @@ const useContact = () => {
     return { done, mark };
 };
 
-const QueueRow: React.FC<{
+export const QueueRow: React.FC<{
     title: string;
     lines: React.ReactNode[];
     phone?: string | null;
@@ -66,7 +66,8 @@ const QueueRow: React.FC<{
     contactLabel?: string;
     state?: 'saving' | 'ok' | 'err';
     contactedBefore?: string | null;
-    onContacted: () => void;
+    /** Sem onContacted o botão "Contatado" não aparece (ex.: perfil sem permissão de registrar). */
+    onContacted?: () => void;
     extra?: React.ReactNode;
 }> = ({ title, lines, phone, message, contactLabel = 'Contatado', state, contactedBefore, onContacted, extra }) => {
     const hasPhone = !!waLink(phone);
@@ -83,7 +84,7 @@ const QueueRow: React.FC<{
                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700">
                     <MessageCircle size={14} aria-hidden /> {hasPhone ? 'WhatsApp' : 'Sem telefone'}
                 </button>
-                {state === 'ok' ? (
+                {!onContacted ? null : state === 'ok' ? (
                     <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={14} aria-hidden /> Registrado</span>
                 ) : (
                     <button type="button" onClick={onContacted} disabled={state === 'saving'}

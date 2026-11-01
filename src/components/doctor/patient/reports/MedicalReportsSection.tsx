@@ -1,31 +1,4 @@
 import {
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Grid,
-    IconButton,
-    LinearProgress,
-    Menu,
-    MenuItem,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Typography,
-    useTheme
-} from '@mui/material';
-import {
     Download,
     Edit,
     FileText,
@@ -69,7 +42,6 @@ interface MedicalReportsSectionProps {
 }
 
 export default function MedicalReportsSection({ patient, reportType = 'all' }: MedicalReportsSectionProps) {
-    const theme = useTheme();
     const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -424,14 +396,12 @@ export default function MedicalReportsSection({ patient, reportType = 'all' }: M
 
     if (loading && reports.length === 0) {
         return (
-            <Card>
-                <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                    <LinearProgress />
-                    <Typography variant="body2" sx={{ mt: 2, color: 'grey.600' }}>
-                        Carregando relatórios...
-                    </Typography>
-                </CardContent>
-            </Card>
+            <div className="rounded-2xl border border-gray-200 bg-white px-6 py-8 text-center" aria-busy="true">
+                <div className="mx-auto h-1 max-w-md overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-full w-1/3 animate-pulse rounded-full bg-emerald-600" />
+                </div>
+                <p className="mt-4 text-sm text-gray-600">Carregando relatórios...</p>
+            </div>
         );
     }
 
