@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import moment from 'moment-timezone';
+import { monthEndYmd, monthStartYmd } from '../../../utils/dateSP';
 import { toast } from '../../../utils/toast';
 import EnhancedCalendar from '../../calendar/EnhancedCalendar';
 import DoctorAgendaPanel, { type AgendaMode } from './DoctorAgendaPanel';
@@ -63,8 +63,8 @@ export const DoctorCalendarTab = ({ doctorId, pendingEvolutionIds, onRegisterEvo
 
   // Range padrão: mês atual
   const [dateRange, setDateRange] = useState(() => {
-    const start = moment().startOf('month').format('YYYY-MM-DD');
-    const end = moment().endOf('month').format('YYYY-MM-DD');
+    const start = monthStartYmd();
+    const end = monthEndYmd();
     return { startDate: start, endDate: end };
   });
 
@@ -118,8 +118,8 @@ export const DoctorCalendarTab = ({ doctorId, pendingEvolutionIds, onRegisterEvo
         startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2
       );
       const newRange = {
-        startDate: moment(middleDate).startOf('month').format('YYYY-MM-DD'),
-        endDate: moment(middleDate).endOf('month').format('YYYY-MM-DD'),
+        startDate: monthStartYmd(new Date(middleDate)),
+        endDate: monthEndYmd(new Date(middleDate)),
       };
 
       setDateRange(newRange);

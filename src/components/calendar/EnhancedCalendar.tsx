@@ -37,6 +37,7 @@ import {
     getDefaultFeatureFlags,
 } from '../../types/calendarCapabilities';
 import { ymdSP } from '../../utils/dateFormat';
+import { toast } from '../../utils/toast';
 /** yyyy-mm-dd na data local (as datas do FullCalendar chegam em horário local) */
 // "09:00 - 09:40" do FullCalendar; cai para o horário salvo se vier vazio
 const fmtSlimTime = (timeText?: string, fallback?: string) => (timeText || fallback || '').replace(/(\d{2}:\d{2}):\d{2}/g, '$1').trim();
@@ -927,12 +928,34 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         data: { date: string; time: string; reason?: string }
     ) => {
         if (!onRescheduleAppointment) throw new Error('Remarcação indisponível neste calendário.');
+        // Guarda onde estava, para o "Desfazer" do aviso (mesma rota de remarcar, sem campo novo).
+        const before = appointments.find((a: any) => (a._id || a.id) === id);
+        const prev = before ? { date: toDateOnly(before.date), time: before.time || '' } : null;
         await onRescheduleAppointment(id, data); // lança em erro → o diálogo mostra a mensagem inline
+        if (prev?.date && prev.time && (prev.date !== data.date || prev.time !== data.time)) {
+            const [, m, d] = data.date.split('-');
+            toast.success(`Remarcado para ${d}/${m} às ${data.time}`, {
+                duration: 10000,
+                action: {
+                    label: 'Desfazer',
+                    onClick: async () => {
+                        try {
+                            await onRescheduleAppointment(id, { date: prev.date, time: prev.time, reason: 'Desfeito pela secretária' });
+                            calendarRef.current?.getApi().gotoDate(prev.date);
+                            toast.info('Remarcação desfeita');
+                        } catch (e: any) {
+                            toast.error(e?.message || 'Não consegui desfazer. Remarque manualmente.');
+                        }
+                    },
+                },
+            });
+        }
         dragRevertRef.current = null; // gravou: o card fica onde foi solto (refetch já reposicionou)
         setDayModalOpen(false); // snapshot do dia antigo ficou desatualizado
         setPendingFocus({ id, date: data.date });
         calendarRef.current?.getApi().gotoDate(data.date); // pula para o dia/mês novo
-    }, [onRescheduleAppointment]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onRescheduleAppointment, appointments]);
 
     // Quando o agendamento remarcado aparece no dia novo (após o refetch), abre o dia com ele
     useEffect(() => {
@@ -1350,15 +1373,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             : totalSessions ? <p className="mt-2 text-xs">Total do pacote: {totalSessions} sessões</p> : null)}
                         {hasPackage && sessionsRemaining !== null && <p className="mt-1 text-xs">{sessionsRemaining} sessões restantes</p>}
                         {guidePct !== null && renderBar(guidePct, `${guideUsed} / ${guideTotal} sessões`, 'Sessões utilizadas da guia')}
-                        {liminarPct !== null && <p className="mt-2 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
+                        {permissions.canSeeFinancial && liminarPct !== null && <p className="mt-2 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
                         {!hasPackage && !isConvenio && reason && <p className="mt-2 break-words text-xs leading-relaxed">{reason}</p>}
-                        <div className="mt-2 grid grid-cols-2 gap-3 text-xs leading-relaxed">
+                        {permissions.canSeeFinancial && <div className="mt-2 grid grid-cols-2 gap-3 text-xs leading-relaxed">
                             <div><span className="block">{isLiminar && liminarCreditBalance !== null ? 'Crédito disponível' : isConvenio ? 'Valor tabela' : hasPackage ? 'Valor da sessão' : 'Valor do atendimento'}</span>
                                 <strong className="mt-1 block text-[15px] tabular-nums text-slate-900">{fmtBRL(isLiminar && liminarCreditBalance !== null ? Number(liminarCreditBalance) : isConvenio ? Number(appointment.insuranceValue || 0) : Number(effectiveSessionValue))}</strong>
                             </div>
                             <div><span className="block">Situação financeira</span><strong className="mt-1 block text-[13px]">{financialLabel}</strong></div>
-                        </div>
-                        {patientHasDebt && <p className="mt-2 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
+                        </div>}
+                        {permissions.canSeeFinancial && patientHasDebt && <p className="mt-2 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
                     </div>
                     <div className="mt-2 border-t border-black/10 pt-1 [&>div]:mt-1 [&>div]:flex-wrap">
                         {operationalStatus === 'completed'
@@ -2002,6 +2025,27 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     );
 
     // Abre o agendamento já com profissional, dia e hora (e paciente, quando vem do encaixe)
+    // Atalhos da Agenda: T = hoje, ← → = anterior/próximo, N = novo agendamento.
+    // Não dispara digitando em campo nem com janela aberta.
+    const shortcutRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+    shortcutRef.current = (e: KeyboardEvent) => {
+        if (calendarView !== 'agenda' || e.ctrlKey || e.metaKey || e.altKey) return;
+        const t = e.target as HTMLElement | null;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        const api = calendarRef.current?.getApi();
+        if (!api) return;
+        if (e.key === 't' || e.key === 'T') { api.today(); e.preventDefault(); }
+        else if (e.key === 'ArrowLeft') { api.prev(); e.preventDefault(); }
+        else if (e.key === 'ArrowRight') { api.next(); e.preventDefault(); }
+        else if ((e.key === 'n' || e.key === 'N') && permissions.canCreate) { handleOpenSchedule(null, 'create'); e.preventDefault(); }
+    };
+    useEffect(() => {
+        const on = (e: KeyboardEvent) => shortcutRef.current?.(e);
+        window.addEventListener('keydown', on);
+        return () => window.removeEventListener('keydown', on);
+    }, []);
+
     const openScheduleAt = (seed: { doctorId: string; date: string; time: string; specialty?: string; patientId?: string }) => {
         const doc: any = (doctors as any[])?.find(d => String(d._id || d.id) === seed.doctorId);
         const specialty = seed.specialty || doc?.specialty || 'fonoaudiologia';
@@ -2155,7 +2199,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </h1>
                         {currentViewDate && (
                             <p className="mt-0.5 text-sm text-gray-600">
-                                Visualizando: {currentViewDate}
+                                Visualizando: {/^\d{4}-\d{2}$/.test(currentViewDate) ? new Date(Number(currentViewDate.slice(0, 4)), Number(currentViewDate.slice(5, 7)) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : currentViewDate}
                             </p>
                         )}
                     </div>
@@ -2180,6 +2224,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         >
                             <Plus size={14} />
                             Novo Agendamento
+                            <kbd className="ml-1 hidden rounded border border-white/40 px-1 text-[10px] font-medium lg:inline" title="Atalhos: N novo · T hoje · ← → navegar">N</kbd>
                         </button>
                     )}
                 </div>

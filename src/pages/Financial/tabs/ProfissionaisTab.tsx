@@ -5,7 +5,7 @@
 // A visão antiga (Resultado, Pacientes, Saúde) continua acessível pelo botão "Visão detalhada".
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import API from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -14,6 +14,9 @@ import {
 import { ProfessionalAdvanceModal } from '../../../components/financial/ProfessionalAdvanceModal';
 import { summarizeCommissionSessions, CommissionSessionItem } from './commissionSessionsSummary';
 import { Chip, KpiStrip, Pill, brl, fmtDay } from '../components/finUi';
+import BarList from '../../../components/ui/insight/BarList';
+import { confirmDialog } from '../../../components/ui/ConfirmHost';
+import { checkboxCls } from '../../../components/ui/table/batch';
 
 const ProfessionalResultsPage = lazy(() => import('../../ProfessionalResults/ProfessionalResultsPage'));
 
@@ -57,6 +60,9 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
     const [busca, setBusca] = useState('');
     const [openId, setOpenId] = useState<string | null>(null);
     const [detalhada, setDetalhada] = useState(false);
+    // Fechamento em lote: só quem tem regra, não está fechado e não tem pendência. Usa a mesma prévia + fechamento do painel.
+    const [lote, setLote] = useState<Set<string>>(new Set());
+    const [fechandoLote, setFechandoLote] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -81,11 +87,35 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
         return rows.filter(r => matches(filtro, r) && (!q || r.doctorName.toLowerCase().includes(q)));
     }, [rows, filtro, busca]);
     const aberto = rows.find(r => r.doctorId === openId) || null;
+    const elegivel = (r: Row) => isAdmin && !noRule(r) && !isClosed(r) && !hasIssue(r);
+    const toggleLote = (id: string) => setLote(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    const fecharLote = async () => {
+        const alvo = rows.filter(r => lote.has(r.doctorId) && elegivel(r));
+        if (!alvo.length) return;
+        const total = alvo.reduce((s2, r) => s2 + Number(r.balance || 0), 0);
+        if (!await confirmDialog(`Fechar o mês de ${alvo.length} profissional(is), somando ${brl(total)} de saldo? Quem tiver pendência na prévia fica de fora.`,
+            { title: 'Fechar mês em lote', confirmText: 'Fechar mês' })) return;
+        setFechandoLote(true);
+        const ok: string[] = []; const pulados: string[] = [];
+        for (const r of alvo) {
+            try {
+                const pv = await professionalResultsService.previewSettlement(r.doctorId, month, year);
+                if (pv?.hasFinancialIssues) { pulados.push(r.doctorName); continue; }
+                await professionalResultsService.closeSettlement(r.doctorId, month, year, { force: false });
+                ok.push(r.doctorName);
+            } catch { pulados.push(r.doctorName); }
+        }
+        setFechandoLote(false);
+        setLote(new Set());
+        if (ok.length) toast.success(`Mês fechado para ${ok.length} profissional(is)`);
+        if (pulados.length) toast.info(`Ficaram de fora (abra cada um para conferir): ${pulados.join(', ')}`, { duration: 12000 });
+        void load();
+    };
 
     if (detalhada) {
         return (
             <div className="space-y-3">
-                <button type="button" onClick={() => setDetalhada(false)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <button type="button" onClick={() => setDetalhada(false)} className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
                     ← Voltar para a lista
                 </button>
                 <Suspense fallback={<div className="py-16 text-center text-gray-400">Carregando...</div>}>
@@ -104,10 +134,10 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
         <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900">Profissionais · {monthLabel}</h2>
-                    <p className="text-sm text-gray-500">Comissão, adiantamentos e fechamento de cada profissional. O mês é o do topo da página.</p>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Profissionais · {monthLabel}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Comissão, adiantamentos e fechamento de cada profissional. O mês é o do topo da página.</p>
                 </div>
-                <button type="button" onClick={() => setDetalhada(true)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <button type="button" onClick={() => setDetalhada(true)} className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
                     Visão detalhada (resultado, pacientes, saúde)
                 </button>
             </div>
@@ -119,8 +149,21 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                 { label: 'A receber', value: t ? brl(t.receivables) : '—', sub: 'sem pacote pré-pago' },
             ]} />
 
-            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            {/* Novo design (Tremor): quem mais tem saldo a pagar, num relance. Clique abre o detalhe. */}
+            {rows.some(r => (r.balance ?? 0) > 0) && (
+                <details className="group rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 dark:border-white/10 dark:bg-[#161d1b]" open>
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
+                        Saldo a pagar por profissional <span className="font-normal text-gray-400">· maiores primeiro</span>
+                    </summary>
+                    <div className="mt-2">
+                        <BarList items={[...rows].filter(r => (r.balance ?? 0) > 0).sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0)).slice(0, 8)
+                            .map(r => ({ key: r.doctorId, label: r.doctorName, value: r.balance ?? 0, display: brl(r.balance), onClick: () => setOpenId(r.doctorId) }))} />
+                    </div>
+                </details>
+            )}
+
+            <section className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <div className="flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-wrap items-center gap-1.5">
                         {chip('todos', 'Todos')}
                         {chip('a_fechar', 'A fechar')}
@@ -130,9 +173,19 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                     </div>
                     <input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar profissional"
                         aria-label="Buscar profissional"
-                        className="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm lg:w-64" />
+                        className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 text-sm lg:w-64" />
                 </div>
 
+                {lote.size > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-900/40 dark:text-emerald-100">
+                        <b>{lote.size} selecionado(s)</b> · saldo {brl(rows.filter(r => lote.has(r.doctorId)).reduce((s2, r) => s2 + Number(r.balance || 0), 0))}
+                        <span className="flex-1" />
+                        <button type="button" disabled={fechandoLote} onClick={() => void fecharLote()} className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">
+                            {fechandoLote ? 'Fechando…' : 'Fechar mês dos selecionados'}
+                        </button>
+                        <button type="button" onClick={() => setLote(new Set())} className="px-2 underline">Limpar</button>
+                    </div>
+                )}
                 {error ? (
                     <div role="alert" className="flex flex-wrap items-center gap-2 px-4 py-6 text-sm text-red-700">
                         Não foi possível carregar os profissionais.
@@ -141,8 +194,9 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <thead className="bg-gray-50 dark:bg-gray-800/60 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 <tr>
+                                    {isAdmin && <th className="w-8 py-2 pl-4"><span className="sr-only">Selecionar</span></th>}
                                     <th className="px-4 py-2">Profissional</th>
                                     <th className="hidden px-3 py-2 text-right sm:table-cell">Sessões</th>
                                     <th className="hidden px-3 py-2 text-right md:table-cell">Produção</th>
@@ -152,19 +206,25 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                                     <th className="px-3 py-2">Fechamento</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading && rows.length === 0 && Array.from({ length: 5 }).map((_, i) => (
-                                    <tr key={i}><td colSpan={7} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-100" /></td></tr>
+                                    <tr key={i}><td colSpan={isAdmin ? 8 : 7} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /></td></tr>
                                 ))}
                                 {!loading && visiveis.length === 0 && (
-                                    <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-500">Nenhum profissional neste filtro.</td></tr>
+                                    <tr><td colSpan={isAdmin ? 8 : 7} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">Nenhum profissional neste filtro.</td></tr>
                                 )}
                                 {visiveis.map(r => (
                                     <tr key={r.doctorId} onClick={() => setOpenId(r.doctorId)} className="cursor-pointer hover:bg-gray-50"
                                         tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setOpenId(r.doctorId); }}>
+                                        {isAdmin && (
+                                            <td className="py-2.5 pl-4" onClick={e => e.stopPropagation()}>
+                                                <input type="checkbox" className={checkboxCls} disabled={!elegivel(r)} checked={lote.has(r.doctorId)} onChange={() => toggleLote(r.doctorId)}
+                                                    aria-label={`Selecionar ${r.doctorName} para fechar o mês`} title={elegivel(r) ? 'Selecionar para fechar em lote' : 'Fechado, sem regra ou com pendência: abra o profissional'} />
+                                            </td>
+                                        )}
                                         <td className="px-4 py-2.5">
-                                            <div className="font-semibold text-gray-900">{r.doctorName}</div>
-                                            <div className="text-xs text-gray-500">{r.specialty || '—'}</div>
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{r.doctorName}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{r.specialty || '—'}</div>
                                         </td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">{r.sessions?.completed ?? '—'}</td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{brl(r.production?.total)}</td>
@@ -181,15 +241,16 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                                 ))}
                             </tbody>
                             {t && (
-                                <tfoot className="bg-gray-50 font-semibold">
+                                <tfoot className="bg-gray-50 dark:bg-gray-800/60 font-semibold">
                                     <tr>
+                                        {isAdmin && <td />}
                                         <td className="px-4 py-2.5">Total · {rows.length} profissionais</td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">{t.sessions}</td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{brl(t.production)}</td>
                                         <td className="px-3 py-2.5 text-right tabular-nums">{brl(t.commission)}</td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{brl(t.advances)}</td>
                                         <td className="px-3 py-2.5 text-right tabular-nums">{brl(t.balance)}</td>
-                                        <td className="px-3 py-2.5 text-xs font-normal text-gray-500">clique na linha para abrir</td>
+                                        <td className="px-3 py-2.5 text-xs font-normal text-gray-500 dark:text-gray-400">clique na linha para abrir</td>
                                     </tr>
                                 </tfoot>
                             )}
@@ -279,7 +340,7 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
         } finally { setBusy(false); }
     };
     const cancelarAdiantamento = async (a: Advance) => {
-        if (!window.confirm(`Cancelar o lançamento de ${brl(a.amount)} de ${fmtDay(a.date)}?`)) return;
+        if (!await confirmDialog(`Cancelar o lançamento de ${brl(a.amount)} de ${fmtDay(a.date)}?`)) return;
         try {
             await API.patch(`/v2/professionals/${row.doctorId}/advances/${a._id}/cancel`);
             toast.success('Lançamento cancelado');
@@ -295,23 +356,23 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
     return (
         <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={`Detalhe de ${row.doctorName}`}>
             <button type="button" aria-label="Fechar" className="absolute inset-0 bg-black/30" onClick={onClose} />
-            <aside className="relative flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-xl">
-                <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-100 bg-white px-5 py-4">
+            <aside className="relative flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white dark:bg-gray-900 shadow-xl">
+                <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900">{row.doctorName}</h3>
-                        <p className="text-sm text-gray-500">{row.specialty || '—'}</p>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{row.doctorName}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{row.specialty || '—'}</p>
                     </div>
-                    <button type="button" onClick={onClose} aria-label="Fechar painel" className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"><X size={18} /></button>
+                    <button type="button" onClick={onClose} aria-label="Fechar painel" className="rounded-lg p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
                 </header>
 
                 <div className="space-y-5 px-5 py-4">
                     <section>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Saldo a pagar</div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Saldo a pagar</div>
                         <div className="text-3xl font-bold tabular-nums text-emerald-700">{semRegra ? '—' : brl(row.balance)}</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                             {semRegra ? 'Sem regra de comissão cadastrada.' : `comissão ${brl(row.commission)} − adiantamentos do mês ${brl(row.advances)}`}
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Produção {brl(row.production?.total)} · Recebido {brl(row.received?.total)} · A receber {brl(row.receivables?.total)} · pela sessão de cada pagamento
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -320,13 +381,13 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
                                     className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">Fechar o mês</button>
                             )}
                             <button type="button" onClick={() => setAdvanceOpen(true)}
-                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">+ Adiantamento</button>
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">+ Adiantamento</button>
                         </div>
                     </section>
 
                     <section>
-                        <h4 className="mb-2 text-sm font-semibold text-gray-900">Sessões do mês</h4>
-                        {!resumo ? <div className="h-8 animate-pulse rounded bg-gray-100" /> : (
+                        <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Sessões do mês</h4>
+                        {!resumo ? <div className="h-8 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /> : (
                             <div className="flex flex-wrap gap-1.5">
                                 <Pill tone="green">Remuneradas {resumo.payable}</Pill>
                                 <Pill tone={resumo.nonPayable ? 'amber' : 'gray'}>Sem repasse {resumo.nonPayable}</Pill>
@@ -338,11 +399,11 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
                     </section>
 
                     <section>
-                        <h4 className="mb-2 text-sm font-semibold text-gray-900">Adiantamentos do mês</h4>
-                        {!advances ? <div className="h-8 animate-pulse rounded bg-gray-100" /> : advances.length === 0 ? (
-                            <p className="text-sm text-gray-500">Nenhum lançamento neste mês.</p>
+                        <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Adiantamentos do mês</h4>
+                        {!advances ? <div className="h-8 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /> : advances.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum lançamento neste mês.</p>
                         ) : (
-                            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                            <ul className="divide-y divide-gray-100 dark:divide-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                 {advances.map(a => (
                                     <li key={a._id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                                         <span>{fmtDay(a.date)} · {a.type === 'bonus' ? 'Bonificação' : a.type === 'adjustment' ? 'Ajuste' : 'Adiantamento'}{a.notes ? ` · ${a.notes}` : ''}</span>
@@ -357,11 +418,11 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
                     </section>
 
                     <section>
-                        <h4 className="mb-2 text-sm font-semibold text-gray-900">Fechamentos</h4>
-                        {!settlements ? <div className="h-8 animate-pulse rounded bg-gray-100" /> : settlements.length === 0 ? (
-                            <p className="text-sm text-gray-500">Nenhum fechamento ainda.</p>
+                        <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Fechamentos</h4>
+                        {!settlements ? <div className="h-8 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /> : settlements.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum fechamento ainda.</p>
                         ) : (
-                            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                            <ul className="divide-y divide-gray-100 dark:divide-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                 {settlements.map(s => (
                                     <li key={s._id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
                                         <span>
@@ -381,9 +442,9 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
                 </div>
 
                 {preview && (
-                    <div className="sticky bottom-0 border-t border-gray-200 bg-white px-5 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-                        <h4 className="font-semibold text-gray-900">Fechar {pad(month)}/{year}?</h4>
-                        <p className="mt-1 text-sm text-gray-600">
+                    <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Fechar {pad(month)}/{year}?</h4>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                             Comissão {brl(preview.preview?.commission)} − adiantamentos {brl(preview.preview?.advances)} = saldo {brl(preview.preview?.balance)}.
                         </p>
                         {preview.alreadyClosed && <p className="mt-1 text-sm text-amber-800">Este mês já está fechado. Para refazer, cancele o fechamento na lista acima.</p>}
@@ -393,7 +454,7 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
                             </p>
                         )}
                         <div className="mt-3 flex justify-end gap-2">
-                            <button type="button" onClick={() => setPreview(null)} disabled={busy} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Voltar</button>
+                            <button type="button" onClick={() => setPreview(null)} disabled={busy} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100">Voltar</button>
                             <button type="button" onClick={confirmarFechamento} disabled={busy || preview.alreadyClosed || !preview.canClose && !preview.hasFinancialIssues}
                                 className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">Confirmar fechamento</button>
                         </div>
@@ -401,14 +462,14 @@ function ProfDrawer({ row, month, year, start, end, isAdmin, onClose, onChanged 
                 )}
 
                 {cancelling && (
-                    <div className="sticky bottom-0 border-t border-gray-200 bg-white px-5 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-                        <h4 className="font-semibold text-gray-900">Cancelar o fechamento de {pad(cancelling.periodMonth)}/{cancelling.periodYear}?</h4>
-                        <p className="mt-1 text-sm text-gray-600">Os adiantamentos vinculados voltam a ficar em aberto e o mês pode ser fechado de novo.</p>
-                        <label className="mt-2 block text-xs font-semibold text-gray-700" htmlFor="cancel-reason">Motivo</label>
+                    <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Cancelar o fechamento de {pad(cancelling.periodMonth)}/{cancelling.periodYear}?</h4>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Os adiantamentos vinculados voltam a ficar em aberto e o mês pode ser fechado de novo.</p>
+                        <label className="mt-2 block text-xs font-semibold text-gray-700 dark:text-gray-300" htmlFor="cancel-reason">Motivo</label>
                         <textarea id="cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={2}
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
                         <div className="mt-3 flex justify-end gap-2">
-                            <button type="button" onClick={() => setCancelling(null)} disabled={busy} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Voltar</button>
+                            <button type="button" onClick={() => setCancelling(null)} disabled={busy} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100">Voltar</button>
                             <button type="button" onClick={confirmarCancelamento} disabled={busy || cancelReason.trim().length < 5}
                                 className="rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50">Cancelar fechamento</button>
                         </div>

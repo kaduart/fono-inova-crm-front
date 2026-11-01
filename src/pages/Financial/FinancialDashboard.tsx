@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
+import { MERGED_INTO, SECTION_MENU, SECTION_TABS, sectionOfTab, type FinancialSection } from './financialSections';
 import { PeriodKey, rangeFor, todaySP } from './components/finUi';
 import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
 
@@ -350,14 +351,24 @@ const YEAR_PARAM_KEY = 'financialYear';
 
 const allTabs = [
     { id: 'caixa-unificado', label: 'Caixa & Fluxo', icon: <LayoutDashboard size={18} /> },
-    { id: 'pagamentos', label: 'Pagamentos', icon: <DollarSign size={18} /> },
+    { id: 'pagamentos', label: 'Recebimentos', icon: <DollarSign size={18} /> },
     { id: 'convenios', label: 'Convênios', icon: <CreditCard size={18} /> },
     { id: 'despesas', label: 'Despesas', icon: <Receipt size={18} /> },
     { id: 'nfse', label: 'NFSe', icon: <FileText size={18} /> },
-    { id: 'dashboard', label: 'Indicadores', icon: <BarChart3 size={18} /> },
-    { id: 'profissionais', label: 'Profissionais', icon: <User size={18} /> },
+    { id: 'dashboard', label: 'Resultados', icon: <BarChart3 size={18} /> },
+    { id: 'profissionais', label: 'Repasse', icon: <User size={18} /> },
     { id: 'planejamento', label: 'Metas do ano', icon: <Calendar size={18} /> },
 ];
+
+// Novo design: o Financeiro virou 3 menus pelo tipo de trabalho (Caixa, Convênios, Financeiro/gestão).
+// Mesmas telas e chamadas; cada menu mostra só as suas abas. `tab` da URL = menu do AdminDashboard.
+const PERIOD_KEY = 'fono-fin-period';
+const readStoredPeriod = (): { month?: number; year?: number } => {
+    try { return JSON.parse(sessionStorage.getItem(PERIOD_KEY) || '{}'); } catch { return {}; }
+};
+const storePeriod = (month: number, year: number) => {
+    try { sessionStorage.setItem(PERIOD_KEY, JSON.stringify({ month, year })); } catch { /* sem storage */ }
+};
 
 // Título/subtítulo do card de topo, por aba — mesmo padrão usado nas demais
 // páginas do sistema (ícone + título + frase de propósito, ex: "Gestão de
@@ -371,13 +382,13 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
     },
     'pagamentos': {
         icon: <DollarSign {...HEADER_ICON_PROPS} />,
-        title: 'Pagamentos',
+        title: 'Recebimentos',
         subtitle: 'Lançamentos e recebimentos de sessões, pacotes e convênios.'
     },
     'convenios': {
         icon: <CreditCard {...HEADER_ICON_PROPS} />,
-        title: 'Gestão de Convênios',
-        subtitle: 'Faturamento, guias e recebimentos por convênio.'
+        title: 'Convênios',
+        subtitle: 'Escolha o mês de competência; as guias e o faturamento ficam logo abaixo.'
     },
     'despesas': {
         icon: <Receipt {...HEADER_ICON_PROPS} />,
@@ -391,12 +402,12 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
     },
     'dashboard': {
         icon: <BarChart3 {...HEADER_ICON_PROPS} />,
-        title: 'Indicadores Financeiros',
+        title: 'Resultados',
         subtitle: 'Métricas e análise estratégica do desempenho financeiro.'
     },
     'profissionais': {
         icon: <User {...HEADER_ICON_PROPS} />,
-        title: 'Financeiro por Profissional',
+        title: 'Repasse',
         subtitle: 'Produção, repasses e comissões de cada profissional.'
     },
     'planejamento': {
@@ -418,25 +429,42 @@ const FinancialDashboard = ({
     onMarkAsPaid,
     onMarkAsDebit,
     registerAppointmentAndPaymentFuture,
-    onCancelPayment
-}: FinancialDashboardProps) => {
+    onCancelPayment,
+    section,
+}: FinancialDashboardProps & { section?: FinancialSection }) => {
     const [searchParams, setSearchParams] = useSearchParams();
+    // Sem `section` (testes, rota antiga) mostra todas as abas, como antes.
+    const tabs = section ? allTabs.filter(t => SECTION_TABS[section].includes(t.id)) : allTabs;
+
+    // Link antigo (tab=Financeiro&financialTab=convenios etc.) → leva ao menu certo, mantendo os outros parâmetros.
+    useEffect(() => {
+        const raw = searchParams.get(TAB_PARAM_KEY);
+        if (!raw || !section) return;
+        const id = raw === 'configuracao-fiscal' ? 'nfse' : raw;
+        if (!allTabs.some(t => t.id === id)) return;
+        const owner = sectionOfTab(id);
+        if (owner !== section) {
+            setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('tab', SECTION_MENU[owner]); return next; }, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, section]);
 
     const resolveTabFromSearchParams = () => {
         const raw = searchParams.get(TAB_PARAM_KEY);
         if (!raw) return 0;
         // Config. fiscal virou a engrenagem dentro de NFSe; links antigos abrem NFSe.
-        const tabId = raw === 'configuracao-fiscal' ? 'nfse' : raw;
-        const index = allTabs.findIndex((tab) => tab.id === tabId);
+        const base = raw === 'configuracao-fiscal' ? 'nfse' : raw;
+        const tabId = section ? (MERGED_INTO[base] || base) : base;
+        const index = tabs.findIndex((tab) => tab.id === tabId);
         return index >= 0 ? index : 0;
     };
 
     const resolveMonthFromSearchParams = () => {
-        const parsed = Number(searchParams.get(MONTH_PARAM_KEY));
+        const parsed = Number(searchParams.get(MONTH_PARAM_KEY) ?? readStoredPeriod().month);
         return parsed >= 1 && parsed <= 12 ? parsed : new Date().getMonth() + 1;
     };
     const resolveYearFromSearchParams = () => {
-        const parsed = Number(searchParams.get(YEAR_PARAM_KEY));
+        const parsed = Number(searchParams.get(YEAR_PARAM_KEY) ?? readStoredPeriod().year);
         return parsed >= 2020 && parsed <= 2100 ? parsed : new Date().getFullYear();
     };
 
@@ -445,6 +473,9 @@ const FinancialDashboard = ({
     // de geração de comissões) volta pro mês atual e perde o filtro que o usuário tinha.
     const [selectedMonth, setSelectedMonthState] = useState(resolveMonthFromSearchParams());
     const [selectedYear, setSelectedYearState] = useState(resolveYearFromSearchParams());
+
+    // Mês escolhido acompanha a troca entre Caixa, Convênios e Financeiro.
+    useEffect(() => { storePeriod(selectedMonth, selectedYear); }, [selectedMonth, selectedYear]);
 
     const setSelectedMonth = (month: number) => {
         setSelectedMonthState(month);
@@ -516,7 +547,7 @@ const FinancialDashboard = ({
     }, []);
 
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-        const newTabId = allTabs[newValue]?.id;
+        const newTabId = tabs[newValue]?.id;
         if (!newTabId) return;
 
         startTransition(() => {
@@ -541,7 +572,7 @@ const FinancialDashboard = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
-    const currentTabId = allTabs[currentTab]?.id;
+    const currentTabId = tabs[currentTab]?.id;
     const headerMeta = (currentTabId && TAB_HEADER_META[currentTabId]) || DEFAULT_HEADER_META;
 
     const renderActiveTab = () => {
@@ -650,12 +681,36 @@ const FinancialDashboard = ({
                 );
             case 'nfse':
                 return <FiscalInvoiceHistory month={selectedMonth} year={selectedYear} />;
-            case 'dashboard':
+            case 'dashboard': {
+                // Resultados = Indicadores + Metas do ano (no menu Financeiro). Sem `section`, Metas segue em aba própria.
+                const showMetas = !!section && (searchParams.get('resultados') === 'metas' || searchParams.get(TAB_PARAM_KEY) === 'planejamento');
+                const pick = (v: 'indicadores' | 'metas') => setSearchParams(prev => {
+                    const next = new URLSearchParams(prev);
+                    next.set(TAB_PARAM_KEY, 'dashboard'); next.set('resultados', v);
+                    return next;
+                }, { replace: true });
                 return (
-                    <Suspense fallback={<DashboardV3Skeleton />}>
-                        <IndicadoresTab month={selectedMonth} year={selectedYear} />
-                    </Suspense>
+                    <>
+                        {section && (
+                            <div role="tablist" aria-label="Resultados" className="mb-3 inline-flex rounded-xl border border-gray-200 bg-white p-0.5 text-sm dark:border-white/10 dark:bg-white/5">
+                                {([['indicadores', 'Indicadores do mês'], ['metas', 'Metas do ano']] as const).map(([v, l]) => (
+                                    <button key={v} type="button" role="tab" aria-selected={(v === 'metas') === showMetas} onClick={() => pick(v)}
+                                        className={`rounded-lg px-3 py-1.5 font-medium ${(v === 'metas') === showMetas ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300'}`}>{l}</button>
+                                ))}
+                            </div>
+                        )}
+                        {showMetas ? (
+                            <Suspense fallback={<PlanningSkeleton />}>
+                                <PlanningTab month={selectedMonth} year={selectedYear} />
+                            </Suspense>
+                        ) : (
+                            <Suspense fallback={<DashboardV3Skeleton />}>
+                                <IndicadoresTab month={selectedMonth} year={selectedYear} />
+                            </Suspense>
+                        )}
+                    </>
                 );
+            }
             case 'profissionais':
                 return (
                     <Suspense fallback={<div className="min-h-[400px] flex items-center justify-center text-gray-400">Carregando...</div>}>
@@ -728,15 +783,23 @@ const FinancialDashboard = ({
             </div>
 
             {/* Tabs */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="border-b border-gray-100 px-3 py-2">
-                    <div role="tablist" aria-label="Módulos financeiros" className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
-                        {allTabs.map((tab, index) => (
-                            <button key={tab.id} type="button" role="tab" aria-selected={currentTab === index} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
+            {/* Novo design: barra de abas fica presa no topo ao rolar e aceita ← → do teclado. */}
+            <div className="bg-white rounded-2xl shadow-sm dark:bg-[#161d1b]">
+                <div hidden={tabs.length < 2} className="sticky top-16 z-20 rounded-t-2xl border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-white/10 dark:bg-[#161d1b]/95">
+                    <div role="tablist" aria-label="Módulos financeiros" className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-white/5"
+                        onKeyDown={(e) => {
+                            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                            e.preventDefault();
+                            const next = (currentTab + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+                            handleTabChange({} as React.SyntheticEvent, next);
+                            (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+                        }}>
+                        {tabs.map((tab, index) => (
+                            <button key={tab.id} type="button" role="tab" aria-selected={currentTab === index} tabIndex={currentTab === index ? 0 : -1} onClick={() => handleTabChange({} as React.SyntheticEvent, index)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                                     currentTab === index
-                                        ? 'bg-white text-gray-900 shadow-sm font-semibold'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                        ? 'bg-white text-gray-900 shadow-sm font-semibold dark:bg-white/10 dark:text-white'
+                                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                                 }`}>
                                 {tab.icon}
                                 <span>{tab.label}</span>

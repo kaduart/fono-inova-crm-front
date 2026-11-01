@@ -3,7 +3,7 @@
 // das 10h: o back só manda no dia do aniversário e uma vez por ano (409 = já enviado).
 import { Cake, Check, MessageCircle } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { sendBirthdayMessage } from '../../services/whatsappService';
 
 export interface BirthdayRow {

@@ -12,7 +12,7 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 
 import { notifyApiError } from '../../../utils/notifyApiError';
 import {
@@ -230,7 +230,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
         return (
             <div className="space-y-3">
                 <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
-                {[0, 1, 2].map(item => <div key={item} className="h-36 animate-pulse rounded-2xl border border-slate-100 bg-white" />)}
+                {[0, 1, 2].map(item => <div key={item} className="h-36 animate-pulse rounded-2xl border border-slate-100 bg-white dark:bg-gray-900" />)}
             </div>
         );
     }
@@ -248,7 +248,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                    <div className="inline-flex rounded-lg border border-slate-200 bg-white dark:bg-gray-900 p-1 shadow-sm">
                         <button type="button" onClick={() => setView('pending')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${view === 'pending' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>
                             Pendentes <span className="ml-1 opacity-80">{pendingInvoices.length}</span>
                         </button>
@@ -342,7 +342,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                         {isExpanded && (
                             <div className="border-t border-slate-200 bg-slate-50/70 px-4 pb-2 pt-3 sm:px-5">
                                 <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
-                                    <span className="rounded-lg bg-white px-3 py-1.5 text-xs text-slate-500 ring-1 ring-slate-200">Bruto <strong className="ml-1 text-slate-800">{money(invoice.totalGross)}</strong></span>
+                                    <span className="rounded-lg bg-white dark:bg-gray-900 px-3 py-1.5 text-xs text-slate-500 ring-1 ring-slate-200">Bruto <strong className="ml-1 text-slate-800">{money(invoice.totalGross)}</strong></span>
                                     <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs text-emerald-600">Recebido <strong className="ml-1 text-emerald-700">{money(invoice.receivedAmount)}</strong></span>
                                     <div className="mx-1 h-1.5 min-w-24 flex-1 overflow-hidden rounded-full bg-slate-200">
                                         <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
@@ -358,7 +358,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                                     <div key={guide.guideId || guide.number} className="flex flex-col gap-2 border-b border-slate-200/70 py-3 last:border-0 sm:flex-row sm:items-center sm:justify-between">
                                         <div className="flex min-w-0 items-center gap-3">
                                             <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-                                                guide.status === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 ring-1 ring-slate-200'
+                                                guide.status === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-white dark:bg-gray-900 text-slate-500 ring-1 ring-slate-200'
                                             }`}>
                                                 {guide.status === 'received' ? <Check size={15} /> : <CircleDollarSign size={15} />}
                                             </div>
@@ -378,7 +378,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                                                 {guide.status === 'received' ? 'Recebida' : guide.status === 'partial' ? 'Parcial' : `${guide.pendingSessions} pendente(s)`}
                                             </span>
                                             {view === 'pending' && guide.status !== 'received' && guide.guideId && (
-                                                <button type="button" onClick={() => { setReceivedDate(""); setTarget({ invoice, guide }); }} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50">
+                                                <button type="button" onClick={() => { setReceivedDate(""); setTarget({ invoice, guide }); }} className="rounded-lg border border-emerald-200 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50">
                                                     Baixar guia
                                                 </button>
                                             )}
@@ -392,7 +392,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
             })}
 
             {totalPages > 1 && (
-                <nav className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3" aria-label="Paginação das notas fiscais">
+                <nav className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white dark:bg-gray-900 px-4 py-3" aria-label="Paginação das notas fiscais">
                     <p className="text-xs font-semibold text-slate-500">
                         {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filteredInvoices.length)} de {filteredInvoices.length} nota{filteredInvoices.length !== 1 ? 's' : ''}
                     </p>
@@ -434,7 +434,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
 
             {editingInvoice && (
                 <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="edit-invoice-title">
-                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/20 bg-white dark:bg-gray-900 shadow-2xl">
                         <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                             <div className="flex gap-3">
                                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><Pencil size={19} /></div>
@@ -448,7 +448,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                         <div className="space-y-4 px-5 py-5">
                             <div>
                                 <label htmlFor="invoice-number-edit" className="mb-1.5 block text-xs font-bold text-slate-700">Número da nota fiscal</label>
-                                <input id="invoice-number-edit" type="text" value={editInvoiceNumber} onChange={event => setEditInvoiceNumber(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" placeholder="Digite o número da NF" />
+                                <input id="invoice-number-edit" type="text" value={editInvoiceNumber} onChange={event => setEditInvoiceNumber(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white dark:bg-gray-900 px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" placeholder="Digite o número da NF" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3.5">
@@ -464,7 +464,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
 
             {target && (
                 <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
-                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/20 bg-white dark:bg-gray-900 shadow-2xl">
                         <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                             <div className="flex gap-3">
                                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><WalletCards size={19} /></div>
@@ -481,7 +481,7 @@ export default function InvoiceReceivablesSection({ onCountChange, onChanged, nf
                             </div>
                             <div>
                                 <label htmlFor="invoice-received-date" className="mb-1.5 block text-xs font-bold text-slate-700">Data do recebimento</label>
-                                <input id="invoice-received-date" type="date" max={todaySP} value={receivedDate} onChange={event => setReceivedDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
+                                <input id="invoice-received-date" type="date" max={todaySP} value={receivedDate} onChange={event => setReceivedDate(event.target.value)} className="h-11 w-full rounded-xl border border-slate-300 bg-white dark:bg-gray-900 px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3.5">

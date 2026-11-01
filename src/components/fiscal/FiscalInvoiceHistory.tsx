@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { FileText, FileCode, RefreshCw, Ban, RotateCcw, Settings, X } from 'lucide-react';
 import { fiscalService } from '../../services/fiscalService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Chip, KpiStrip, Pager, Pill, Tone, brl, fmtDay } from '../../pages/Financial/components/finUi';
@@ -173,13 +173,13 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Notas fiscais · {monthLabel}</h2>
-          <p className="text-sm text-gray-500">Pela data de emissão. A emissão é feita no Caixa, a partir do pagamento.</p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Notas fiscais · {monthLabel}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Pela data de emissão. A emissão é feita no Caixa, a partir do pagamento.</p>
         </div>
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => void load()} className={btn} aria-label="Atualizar"><RefreshCw size={16} /></button>
           {isAdmin && (
-            <button type="button" onClick={() => setConfigOpen(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <button type="button" onClick={() => setConfigOpen(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
               <Settings size={15} /> Configuração fiscal
             </button>
           )}
@@ -192,8 +192,8 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
         { label: 'Com problema', value: String(problemas), sub: 'falha no envio ou rejeitada', danger: problemas > 0, onClick: () => setStatus(statusCounts.pending_submission ? 'pending_submission' : 'rejected') },
       ]} />
 
-      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <div className="flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
             {CHIPS.map(c => (
               <Chip key={c.key || 'todas'} on={status === c.key} onClick={() => setStatus(c.key)} label={c.label}
@@ -202,7 +202,7 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
             ))}
           </div>
           <input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Paciente, nº ou chave"
-            aria-label="Buscar nota" className="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm lg:w-64" />
+            aria-label="Buscar nota" className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 text-sm lg:w-64" />
         </div>
 
         {error ? (
@@ -213,7 +213,7 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <thead className="bg-gray-50 dark:bg-gray-800/60 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-2">Nº</th>
                   <th className="px-3 py-2">Paciente</th>
@@ -223,12 +223,12 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
                   <th className="px-4 py-2 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {loading && invoices.length === 0 && Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i}><td colSpan={6} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-100" /></td></tr>
+                  <tr key={i}><td colSpan={6} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /></td></tr>
                 ))}
                 {!loading && invoices.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500">
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
                     {status || q ? 'Nenhuma nota neste filtro.' : 'Nenhuma nota fiscal neste mês.'}
                   </td></tr>
                 )}
@@ -237,7 +237,7 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
                   return (
                     <tr key={invoice._id}>
                       <td className="px-4 py-2.5 tabular-nums">{invoice.nNFSe || '—'}</td>
-                      <td className="px-3 py-2.5 font-medium text-gray-900">{patientName(invoice.patient)}</td>
+                      <td className="px-3 py-2.5 font-medium text-gray-900 dark:text-gray-100">{patientName(invoice.patient)}</td>
                       <td className="hidden px-3 py-2.5 tabular-nums sm:table-cell">{fmtDay(invoice.dhEmi || invoice.createdAt)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{invoice.valorServico != null ? brl(invoice.valorServico) : '—'}</td>
                       <td className="px-3 py-2.5"><Pill tone={st.tone}>{st.label}</Pill></td>
@@ -268,7 +268,7 @@ export function FiscalInvoiceHistory({ month, year }: Props) {
             </table>
           </div>
         )}
-        <div className="flex justify-end border-t border-gray-100 px-4 py-2.5 text-sm text-gray-600">
+        <div className="flex justify-end border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400">
           <Pager page={page} pages={pagination.pages} total={pagination.total} limit={LIMIT} onPage={setPage} busy={loading} />
         </div>
       </section>

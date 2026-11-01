@@ -97,7 +97,7 @@ describe('FinancialDashboard - persistência de tab via URL', () => {
         await waitFor(() => {
             expect(screen.getByTestId('tab-dashboard')).toBeInTheDocument();
         }, { timeout: 3000 });
-        expect(screen.getByRole('tab', { name: /indicadores/i })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('tab', { name: /resultados/i })).toHaveAttribute('aria-selected', 'true');
     });
 
     it('deve restaurar a tab a partir do query param ?financialTab=despesas', async () => {
@@ -125,7 +125,7 @@ describe('FinancialDashboard - persistência de tab via URL', () => {
             expect(screen.getByTestId('tab-caixa-unificado')).toBeInTheDocument();
         });
 
-        const dashboardButton = screen.getByRole('tab', { name: /indicadores/i });
+        const dashboardButton = screen.getByRole('tab', { name: /resultados/i });
         await act(async () => { fireEvent.click(dashboardButton); });
 
         await waitFor(() => {

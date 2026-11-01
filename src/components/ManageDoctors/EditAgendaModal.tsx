@@ -1,5 +1,5 @@
 /* import { Dialog, DialogContent, DialogTitle } from '@mui/material';
-import dayjs from 'dayjs';
+import { format } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/Button';
 import { CardFooter, CardHeader } from '../ui/Card';
@@ -22,7 +22,7 @@ interface EditAgendaModalProps {
 
 const EditAgendaModal = ({ open, onClose, doctor,selectedDoctorId, selectedDate, availability, onSave }: EditAgendaModalProps) => {
     const [formData, setFormData] = useState({});
-    const selectedDateKey = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : '';
+    const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : '';
 
     // Atualiza o formData sempre que availability mudar (ex: modal reaberto com outro doutor)
     useEffect(() => {
@@ -53,7 +53,7 @@ const EditAgendaModal = ({ open, onClose, doctor,selectedDoctorId, selectedDate,
 
                 <div className="space-y-4">
                     <h4 className="font-semibold mb-1">
-                        Horários disponíveis para {selectedDate ? dayjs(selectedDate).format("DD/MM/YYYY") : ''}
+                        Horários disponíveis para {selectedDate ? format(selectedDate, "dd/MM/yyyy") : ''}
                     </h4>
 
                     <TimeMultiSelect

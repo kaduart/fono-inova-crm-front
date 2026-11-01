@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import {
     CartesianGrid,
     Cell,

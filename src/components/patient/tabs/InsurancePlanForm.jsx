@@ -1,23 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Box,
-  Typography,
-  Alert,
-  CircularProgress,
-  IconButton,
-  Paper
-} from '@mui/material';
 import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays, AlertTriangle, GripVertical } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import API from '../../../services/api';
 import { toast } from '../../../utils/toast';
+import { ModalShell, Spinner } from '../../ui/TailwindParts';
 
 import { SPECIALTY_VALUES } from '../../../constants/specialties';
 
@@ -98,7 +84,7 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
       return;
     }
     setLoadingPlan(true);
-    API.get(`/api/v2/insurance-plans/guide/${guide._id}`)
+    API.get(`/v2/insurance-plans/guide/${guide._id}`)
       .then(res => {
         if (res.data?.data) {
           setExistingPlan(res.data.data);
@@ -318,110 +304,59 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
 
   if (!guide) return null;
 
-  return (
-    <Dialog
-      open={open}
-      onClose={() => onClose(false)}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '24px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          overflow: 'hidden',
-          bgcolor: '#ffffff'
-        }
-      }}
-    >
-      {/* HEADER PREMIUM */}
-      <DialogTitle sx={{ px: 3, py: 3, borderBottom: '1px solid', borderColor: '#f0f2f5', bgcolor: '#fafcff' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '16px',
-                background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 8px 14px -6px rgba(27,77,110,0.2)'
-              }}
-            >
-              <CalendarDays size={20} color="#ffffff" />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1A2C3E', letterSpacing: '-0.01em' }}>
-                {mode === 'replace' ? 'Editar Plano de Atendimento' : 'Novo Plano de Atendimento'}
-              </Typography>
-              {patientName && (
-                <Typography variant="body2" sx={{ color: '#2E7A5E', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <User size={12} /> {patientName}
-                </Typography>
-              )}
-              <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, mt: 0.2, display: 'block' }}>
-                Guia #{guide.number} • {guide.specialty.replace('_', ' ')} • {guide.totalSessions} sessões autorizadas
-              </Typography>
-            </Box>
-          </Box>
-          <IconButton
-            onClick={() => onClose(false)}
-            sx={{ color: '#7E8B9E', '&:hover': { bgcolor: '#F0F4F9', color: '#1A2C3E' } }}
-          >
-            <X size={18} />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+  const fieldCls = 'h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100';
+  const labelCls = 'mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300';
+  const helpCls = 'mt-1 block text-[0.7rem] text-slate-500 dark:text-slate-400';
 
-      <DialogContent sx={{ px: 3, py: 3.5, bgcolor: '#ffffff' }}>
+  return (
+    <ModalShell open={open} onClose={() => onClose(false)} labelledBy="plan-form-title" className="max-h-[94vh] w-full max-w-xl sm:rounded-3xl">
+      {/* Cabeçalho */}
+      <div className="shrink-0 border-b border-slate-100 bg-slate-50/70 px-6 py-5 dark:border-slate-800 dark:bg-slate-800/40">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-white">
+              <CalendarDays size={20} aria-hidden />
+            </div>
+            <div>
+              <h2 id="plan-form-title" className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">
+                {mode === 'replace' ? 'Editar Plano de Atendimento' : 'Novo Plano de Atendimento'}
+              </h2>
+              {patientName && (
+                <p className="flex items-center gap-1 text-[0.8rem] font-bold text-emerald-700 dark:text-emerald-400">
+                  <User size={12} aria-hidden /> {patientName}
+                </p>
+              )}
+              <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                Guia #{guide.number} • {guide.specialty.replace('_', ' ')} • {guide.totalSessions} sessões autorizadas
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={() => onClose(false)} aria-label="Fechar"
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <X size={18} aria-hidden />
+          </button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         {mode === 'create' && (
-          <Alert
-            severity="info"
-            icon={<Clock size={16} />}
-            sx={{
-              mb: 3,
-              borderRadius: '20px',
-              bgcolor: '#EFF9F6',
-              color: '#1C6E4A',
-              border: '1px solid #C6E6DA',
-              '& .MuiAlert-message': { fontSize: '0.8125rem', fontWeight: 500 },
-              '& .MuiAlert-icon': { color: '#2E7A5E' }
-            }}
-          >
-            O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
-            e criar os pagamentos como <strong>pendentes</strong> do convênio.
-          </Alert>
+          <div className="mb-5 flex gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[0.8125rem] font-medium text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+            <Clock size={16} className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
+            <p>
+              O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
+              e criar os pagamentos como <strong>pendentes</strong> do convênio.
+            </p>
+          </div>
         )}
 
         {loadingPlan && (
-          <Alert
-            severity="info"
-            sx={{
-              mb: 3,
-              borderRadius: '20px',
-              bgcolor: '#F0F4F9',
-              color: '#5B6E8C',
-              border: '1px solid #D6DFEA',
-              '& .MuiAlert-message': { fontSize: '0.8125rem', fontWeight: 500 }
-            }}
-          >
-            <CircularProgress size={12} sx={{ mr: 1 }} /> Verificando plano existente...
-          </Alert>
+          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[0.8125rem] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+            <Spinner size={12} /> Verificando plano existente...
+          </div>
         )}
 
         {existingPlan && !loadingPlan && (
-          <Alert
-            severity="warning"
-            sx={{
-              mb: 3,
-              borderRadius: '20px',
-              bgcolor: '#FFF8E6',
-              color: '#8A6D1F',
-              border: '1px solid #F0E0B0',
-              '& .MuiAlert-message': { fontSize: '0.8125rem', fontWeight: 500 }
-            }}
-          >
+          <div role="alert" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[0.8125rem] font-medium text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             <strong>⚠️ Edição de plano ativo.</strong><br />
             As alterações serão aplicadas apenas às <strong>sessões futuras</strong> (a partir de hoje). Sessões já realizadas não serão alteradas.
             {existingPlan.generatedAppointments?.length > 0 && (
@@ -430,325 +365,164 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                 Sessões geradas no plano: <strong>{existingPlan.generatedAppointments.length}</strong>
               </>
             )}
-          </Alert>
+          </div>
         )}
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* Row 1: Profissional + Data início */}
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <TextField
-                select
-                label="Profissional responsável *"
-                value={form.doctorId}
-                onChange={(e) => setForm(prev => ({ ...prev, doctorId: e.target.value }))}
-                fullWidth
-                size="small"
-                disabled={loadingDoctors}
-                InputProps={{
-                  startAdornment: <User size={16} style={{ marginRight: 8, color: '#7890A7' }} />,
-                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#E2E8F0', transition: '0.2s' },
-                    '&:hover fieldset': { borderColor: '#9BB4C8' },
-                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E', borderWidth: 1.5 }
-                  }
-                }}
-              >
-                {loadingDoctors ? (
-                  <MenuItem disabled sx={{ justifyContent: 'center' }}>
-                    <CircularProgress size={16} sx={{ mr: 1 }} /> Carregando...
-                  </MenuItem>
-                ) : (
-                  doctors.map(doc => (
-                    <MenuItem key={doc._id} value={doc._id} sx={{ fontSize: '0.85rem' }}>
-                      {doc.fullName} {doc.specialty ? `(${doc.specialty})` : ''}
-                    </MenuItem>
-                  ))
-                )}
-              </TextField>
-            </Box>
-            <Box sx={{ width: '38%', minWidth: 150 }}>
-              <TextField
-                label="Início *"
-                type="date"
-                value={form.startDate}
-                onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-                fullWidth
-                size="small"
-                helperText={mode === 'replace' ? 'Sessões antes desta data não são geradas' : ''}
-                InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#E2E8F0' },
-                    '&:hover fieldset': { borderColor: '#9BB4C8' },
-                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
-                  }
-                }}
-              />
-            </Box>
-          </Box>
+        <div className="flex flex-col gap-5">
+          {/* Linha 1: Profissional + Data início */}
+          <div className="flex gap-3">
+            <label className="min-w-0 flex-1">
+              <span className={labelCls}>Profissional responsável *</span>
+              <span className="relative block">
+                <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+                <select value={form.doctorId} onChange={(e) => setForm(prev => ({ ...prev, doctorId: e.target.value }))}
+                  disabled={loadingDoctors} className={`${fieldCls} pl-9`}>
+                  {loadingDoctors ? (
+                    <option value={form.doctorId}>Carregando...</option>
+                  ) : (
+                    <>
+                      <option value="" disabled>Selecione</option>
+                      {doctors.map(doc => (
+                        <option key={doc._id} value={doc._id}>
+                          {doc.fullName} {doc.specialty ? `(${doc.specialty})` : ''}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+              </span>
+            </label>
+            <label className="w-[38%] min-w-[150px]">
+              <span className={labelCls}>Início *</span>
+              <input type="date" value={form.startDate} onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))} className={fieldCls} />
+              {mode === 'replace' && <span className={helpCls}>Sessões antes desta data não são geradas</span>}
+            </label>
+          </div>
 
-          {/* Row 2: Frequência semanal (derivada dos horários, 50%) + Valor por sessão (50%) */}
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Box sx={{ flex: 1 }}>
-              <TextField
-                label="Frequência semanal"
-                value={`${form.slots.length}x por semana`}
-                fullWidth
-                size="small"
-                disabled
-                helperText="Definida pela quantidade de horários abaixo"
-                InputProps={{
-                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#E2E8F0' },
-                    '&:hover fieldset': { borderColor: '#9BB4C8' },
-                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
-                  }
-                }}
-              />
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <TextField
-                label="Valor/sessão"
-                type="number"
-                value={form.sessionValue}
-                onChange={(e) => setForm(prev => ({ ...prev, sessionValue: e.target.value }))}
-                fullWidth
-                size="small"
-                InputProps={{
-                  startAdornment: <DollarSign size={14} style={{ marginRight: 6, color: '#7890A7' }} />,
-                  sx: { borderRadius: '14px', bgcolor: '#F9FBFD' }
-                }}
-                inputProps={{ min: 0, step: 0.01 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#E2E8F0' },
-                    '&:hover fieldset': { borderColor: '#9BB4C8' },
-                    '&.Mui-focused fieldset': { borderColor: '#2E7A5E' }
-                  }
-                }}
-              />
-            </Box>
-          </Box>
+          {/* Linha 2: Frequência semanal (derivada dos horários) + Valor por sessão */}
+          <div className="flex gap-3">
+            <label className="flex-1">
+              <span className={labelCls}>Frequência semanal</span>
+              <input type="text" value={`${form.slots.length}x por semana`} disabled className={fieldCls} />
+              <span className={helpCls}>Definida pela quantidade de horários abaixo</span>
+            </label>
+            <label className="flex-1">
+              <span className={labelCls}>Valor/sessão</span>
+              <span className="relative block">
+                <DollarSign size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+                <input type="number" min={0} step={0.01} value={form.sessionValue}
+                  onChange={(e) => setForm(prev => ({ ...prev, sessionValue: e.target.value }))} className={`${fieldCls} pl-8`} />
+              </span>
+            </label>
+          </div>
 
-          {/* Slots - Dias e horários */}
-          <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: '#2C3E50', mb: 0.3, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Clock size={14} /> Dias e horários da semana *
-            </Typography>
+          {/* Dias e horários */}
+          <div>
+            <p className="mb-0.5 flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
+              <Clock size={14} aria-hidden /> Dias e horários da semana *
+            </p>
             {form.slots.length > 1 && (
-              <Typography variant="caption" sx={{ color: '#7E8B9E', mb: 1.2, display: 'block' }}>
-                Arraste para definir a ordem de prioridade na geração das sessões
-              </Typography>
+              <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Arraste para definir a ordem de prioridade na geração das sessões</p>
             )}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <div className="flex flex-col gap-3">
               {form.slots.map((slot, idx) => (
-                <Paper
+                <div
                   key={idx}
-                  elevation={0}
                   draggable={form.slots.length > 1}
                   onDragStart={handleDragStart(idx)}
                   onDragOver={handleDragOver(idx)}
                   onDrop={handleDrop(idx)}
                   onDragEnd={handleDragEnd}
-                  sx={{
-                    p: 1.2,
-                    display: 'flex',
-                    gap: 1.5,
-                    alignItems: 'center',
-                    bgcolor: '#F9FBFD',
-                    borderRadius: '18px',
-                    border: '1px solid',
-                    borderColor: dragOverIdx === idx && draggedIdx !== idx ? '#2E7A5E' : '#EDF2F7',
-                    opacity: draggedIdx === idx ? 0.4 : 1,
-                    transition: '0.2s',
-                    '&:hover': { borderColor: '#Cbd5E1', bgcolor: '#FFFFFF' }
-                  }}
+                  className={`flex items-center gap-3 rounded-2xl border bg-slate-50 p-2.5 transition hover:border-slate-300 hover:bg-white dark:bg-slate-800/50 dark:hover:bg-slate-800 ${dragOverIdx === idx && draggedIdx !== idx ? 'border-emerald-600' : 'border-slate-100 dark:border-slate-700'} ${draggedIdx === idx ? 'opacity-40' : ''}`}
                 >
                   {form.slots.length > 1 && (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        color: '#AEB9C7',
-                        cursor: 'grab',
-                        '&:active': { cursor: 'grabbing' }
-                      }}
-                    >
+                    <span className="flex cursor-grab items-center text-slate-400 active:cursor-grabbing" aria-hidden>
                       <GripVertical size={16} />
-                    </Box>
+                    </span>
                   )}
-                  <TextField
-                    select
-                    size="small"
-                    value={slot.dayOfWeek}
-                    onChange={(e) => handleSlotChange(idx, 'dayOfWeek', e.target.value)}
-                    sx={{ flex: 1 }}
-                    InputProps={{ sx: { borderRadius: '12px', bgcolor: '#FFFFFF' } }}
-                  >
+                  <select aria-label={`Dia do horário ${idx + 1}`} value={slot.dayOfWeek}
+                    onChange={(e) => handleSlotChange(idx, 'dayOfWeek', Number(e.target.value))} className={`${fieldCls} flex-1 bg-white`}>
                     {DAYS.map(d => (
-                      <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
+                      <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
-                  </TextField>
-                  <TextField
-                    type="time"
-                    size="small"
-                    value={slot.time}
-                    onChange={(e) => handleSlotChange(idx, 'time', e.target.value)}
-                    sx={{ flex: 1 }}
-                    InputProps={{ sx: { borderRadius: '12px', bgcolor: '#FFFFFF' } }}
-                  />
+                  </select>
+                  <input type="time" aria-label={`Hora do horário ${idx + 1}`} value={slot.time}
+                    onChange={(e) => handleSlotChange(idx, 'time', e.target.value)} className={`${fieldCls} flex-1 bg-white`} />
                   {form.slots.length > 1 && (
-                    <IconButton
-                      size="small"
-                      onClick={() => removeSlot(idx)}
-                      sx={{ color: '#C75146', '&:hover': { bgcolor: '#FFE5E3' } }}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
+                    <button type="button" onClick={() => removeSlot(idx)} aria-label={`Remover horário ${idx + 1}`}
+                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
+                      <Trash2 size={16} aria-hidden />
+                    </button>
                   )}
-                </Paper>
+                </div>
               ))}
               {form.slots.length < 5 && (
-                <Button
-                  size="small"
-                  onClick={addSlot}
-                  startIcon={<Plus size={14} />}
-                  sx={{
-                    textTransform: 'none',
-                    width: 'fit-content',
-                    color: '#2E7A5E',
-                    fontWeight: 600,
-                    '&:hover': { bgcolor: '#EFF9F6' },
-                    borderRadius: '40px',
-                    px: 2,
-                    mt: 0.5
-                  }}
-                >
-                  Adicionar horário
-                </Button>
+                <button type="button" onClick={addSlot}
+                  className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
+                  <Plus size={14} aria-hidden /> Adicionar horário
+                </button>
               )}
-            </Box>
-          </Box>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        </Box>
-      </DialogContent>
-
-      <DialogActions sx={{ px: 3, py: 2.5, borderTop: '1px solid #F0F2F5', bgcolor: '#FAFCFF', gap: 1.5 }}>
-        <Button
-          onClick={() => onClose(false)}
-          disabled={saving}
-          startIcon={<X size={16} />}
-          sx={{
-            textTransform: 'none',
-            borderRadius: '40px',
-            px: 2.5,
-            fontWeight: 600,
-            color: '#5B6E8C',
-            '&:hover': { bgcolor: '#F0F4F9' }
-          }}
-        >
-          Cancelar
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={saving}
-          startIcon={saving ? <CircularProgress size={16} sx={{ color: '#ffffff' }} /> : <Save size={16} />}
-          sx={{
-            textTransform: 'none',
-            borderRadius: '40px',
-            px: 3,
-            py: 0.9,
-            fontWeight: 700,
-            background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
-            boxShadow: '0 4px 12px rgba(27,77,110,0.25)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #123F5A 0%, #246653 100%)',
-              boxShadow: '0 6px 14px rgba(27,77,110,0.35)'
-            }
-          }}
-        >
+      <div className="flex shrink-0 justify-end gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/40">
+        <button type="button" onClick={() => onClose(false)} disabled={saving}
+          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
+          <X size={16} aria-hidden /> Cancelar
+        </button>
+        <button type="button" onClick={handleSubmit} disabled={saving}
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
+          {saving ? <Spinner size={16} light /> : <Save size={16} aria-hidden />}
           {saving
             ? (existingPlan ? 'Substituindo plano...' : 'Gerando plano...')
             : (existingPlan ? 'Salvar alterações' : 'Criar plano')}
-        </Button>
-      </DialogActions>
+        </button>
+      </div>
 
-      <Dialog
-        open={confirmReplaceOpen}
-        onClose={() => setConfirmReplaceOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', overflow: 'hidden' } }}
-      >
-        <DialogContent sx={{ pt: 3.5, pb: 1 }}>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-            <Box sx={{
-              flexShrink: 0, width: 36, height: 36, borderRadius: '12px',
-              bgcolor: '#FFF4E5', color: '#C77B1E',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <AlertTriangle size={18} />
-            </Box>
-            <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#2C3E50', mb: 0.5 }}>
-                Confirmar edição do plano ativo
-              </Typography>
+      <ModalShell open={confirmReplaceOpen} onClose={() => setConfirmReplaceOpen(false)} labelledBy="plan-confirm-title" className="w-full max-w-sm rounded-2xl">
+        <div className="flex items-start gap-3 px-6 pb-2 pt-6">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            <AlertTriangle size={18} aria-hidden />
+          </div>
+          <div>
+            <h3 id="plan-confirm-title" className="mb-1 text-[0.95rem] font-bold text-slate-800 dark:text-slate-100">Confirmar edição do plano ativo</h3>
 
-              {loadingPreview && (
-                <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={14} /> Calculando impacto da mudança...
-                </Typography>
-              )}
+            {loadingPreview && (
+              <p className="flex items-center gap-2 text-[0.825rem] text-slate-600 dark:text-slate-300">
+                <Spinner size={14} /> Calculando impacto da mudança...
+              </p>
+            )}
 
-              {!loadingPreview && (
-                <Typography sx={{ fontSize: '0.825rem', color: '#5B6E8C', lineHeight: 1.6 }}>
-                  Este plano já tem <strong>{existingPlan?.generatedAppointments?.length || 0} agendamento(s)</strong> gerado(s).
-                  As alterações serão aplicadas apenas às <strong>sessões futuras</strong> (a partir de hoje). Sessões já realizadas não serão alteradas.
-                  {replanPreview?.slotsChanged && (
-                    <> A frequência/horário mudou: sincronize a agenda pelo botão <strong>"Gerar sessões"</strong> no card.</>
-                  )}
-                  {replanPreview?.eligible === false && (
-                    <Box component="span" sx={{ display: 'block', color: '#C75146', fontWeight: 700, mt: 0.5 }}>
-                      ⚠ {replanPreview.eligibilityMessage || 'Guia pode não estar elegível para gerar novas sessões.'}
-                    </Box>
-                  )}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button
-            onClick={() => setConfirmReplaceOpen(false)}
-            sx={{ textTransform: 'none', borderRadius: '40px', px: 2, fontWeight: 600, color: '#5B6E8C' }}
-          >
+            {!loadingPreview && (
+              <p className="text-[0.825rem] leading-relaxed text-slate-600 dark:text-slate-300">
+                Este plano já tem <strong>{existingPlan?.generatedAppointments?.length || 0} agendamento(s)</strong> gerado(s).
+                As alterações serão aplicadas apenas às <strong>sessões futuras</strong> (a partir de hoje). Sessões já realizadas não serão alteradas.
+                {replanPreview?.slotsChanged && (
+                  <> A frequência/horário mudou: sincronize a agenda pelo botão <strong>"Gerar sessões"</strong> no card.</>
+                )}
+                {replanPreview?.eligible === false && (
+                  <span className="mt-1 block font-bold text-red-700 dark:text-red-400">
+                    ⚠ {replanPreview.eligibilityMessage || 'Guia pode não estar elegível para gerar novas sessões.'}
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-6 pb-5 pt-3">
+          <button type="button" onClick={() => setConfirmReplaceOpen(false)}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
             Cancelar
-          </Button>
-          <Button
-            onClick={performSave}
-            variant="contained"
-            disabled={loadingPreview}
-            sx={{
-              textTransform: 'none', borderRadius: '40px', px: 2.5, fontWeight: 700,
-              background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)'
-            }}
-          >
+          </button>
+          <button type="button" onClick={performSave} disabled={loadingPreview}
+            className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
             Confirmar e salvar
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Dialog>
+          </button>
+        </div>
+      </ModalShell>
+    </ModalShell>
   );
 };
 

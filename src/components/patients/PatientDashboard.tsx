@@ -1,4 +1,4 @@
-import { Activity, Calendar, ChevronDown, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, Clock, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,16 +6,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toDateString } from '../../utils/dateUtils';
 import { useAppointments } from '../../hooks/useAppointments';
 import { usePatients } from '../../hooks/usePatients';
-import { CreateAppointmentParams } from '../../services/appointmentService';
 import { createEvaluation, deleteEvaluation, getEvaluationsByPatient, updateEvaluation } from '../../services/evaluationService';
 import patientService from '../../services/patientService';
 import { mapPatientResponseDTO } from '../../dtos/patient.response.dto';
 import doctorService from '../../services/doctorService';
 import { bookingService } from '../../services/bookingService';
-import { IAppointment, IDoctors, IPatient } from '../../utils/types/types';
+import { IAppointment, IDoctors, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import PatientHeader from '../admin/PatientHeader';
 import AppointmentHistoryModal from '../AppointmentHistoryModal';
-import ScheduleModal from '../AppointmentPage';
+import ScheduleAppointmentModal from './ScheduleAppointmentModal';
+import { mapToCreateAppointmentDTO } from '../../dtos/appointment.dto';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
 import { FutureSessionsCard } from './FutureSessionsCard';
@@ -26,10 +26,14 @@ import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
+import AnimatedValue from '../ui/insight/AnimatedValue';
+import { PatientNextActions, PatientSituationStrip, findNextSession, usePatientSituation } from './PatientSituation';
+import PatientInsights, { FoldSection } from './PatientInsights';
 import LiminarContractPanel from '../liminar/LiminarContractPanel';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { socketManager } from '../../utils/socketManager';
 import { subscribeToCacheInvalidation } from '../../utils/cacheManager';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 const initialPatientState: IPatient = {
   fullName: '',
@@ -85,7 +89,7 @@ export default function PatientDashboard() {
     time: '',
     reason: ''
   });
-  const [availableSlots, setAvailableSlots] = useState([]);
+  const [, setAvailableSlots] = useState([]);
   //const [appointments, setAppointments] = useState<ScheduleAppointment[]>([]);
   const [careTeam, setCareTeam] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
@@ -98,18 +102,13 @@ export default function PatientDashboard() {
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [liminarCreateTrigger, setLiminarCreateTrigger] = useState(0);
 
-  const [formData, setFormData] = useState({
-    patientId: '',
-    doctorId: '',
-    date: '',
-    time: '',
-    reason: '',
-    status: 'agendado'
-  });
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [, setMode] = useState<'create' | 'edit'>('create');
   const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
+  const piLoose = patientInfo as unknown as { patientId?: string; nextAppointment?: Parameters<typeof findNextSession>[1] };
+  const situation = usePatientSituation(piLoose?.patientId || patientId);
+  const nextSession = findNextSession(patientAppointments as unknown as Parameters<typeof findNextSession>[0], piLoose?.nextAppointment);
 
   // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
   const { patients } = usePatients();
@@ -117,7 +116,6 @@ export default function PatientDashboard() {
   const {
     appointments,
     loading: appointmentsLoading,
-    fetchAppointments,
     fetchAppointmentsByPatient,
     createAppointment,
     getAvailableSlots,
@@ -145,28 +143,32 @@ export default function PatientDashboard() {
   useEffect(() => {
     loadAllAppointments();
   }, [patientId, fetchAppointmentsByPatient, activeTab]);
-  const handleNewAppointment = async (appointmentData: IAppointment) => {
+  // "Novo" do header: mesmo modal e mesmo payload da Agenda principal (AdminDashboard).
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [closeScheduleSignal, setCloseScheduleSignal] = useState(0);
+  const handleNewAppointment = async (appointmentData: ScheduleAppointment) => {
+    const specialty = appointmentData.specialty || appointmentData.sessionType;
+    const payload = mapToCreateAppointmentDTO({
+      ...appointmentData,
+      specialty,
+      sessionType: specialty,
+      clinicalStatus: 'pending',
+      operationalStatus: 'scheduled',
+    } as any);
+    setScheduleSaving(true);
+    setScheduleError(null);
     try {
-      const payload: CreateAppointmentParams = {
-        patientId: appointmentData.patientId,
-        doctorId: appointmentData.doctorId,
-        date: appointmentData.date,
-        time: appointmentData.time,
-        reason: appointmentData.reason,
-        specialty: appointmentData.sessionType,
-        clinicalStatus: 'pending',
-        operationalStatus: 'scheduled'
-      };
-
-      await createAppointment(payload);
+      await createAppointment(payload as any);
       toast.success('Agendamento criado com sucesso!');
-      fetchAppointments();
-
+      setCloseScheduleSignal((n) => n + 1);
       setOpenSchedule(false);
-
-    } catch (error) {
+      loadAllAppointments();
+    } catch (error: any) {
       notifyApiError(error, 'Erro ao criar agendamento');
-      console.error(error);
+      setScheduleError(error?.response?.data?.message || error?.message || 'Erro ao criar agendamento');
+    } finally {
+      setScheduleSaving(false);
     }
   };
 
@@ -267,25 +269,6 @@ export default function PatientDashboard() {
     }
   };
 
-  const handlePayloadToSlots = async (data: { doctorId: string; date: string }) => {
-    setFormData(prev => ({ ...prev, ...data }));
-    if (data.doctorId && data.date) {
-      const slots = await handleFetchAvailableSlots(data);
-      setAvailableSlots(slots);
-    }
-  };
-
-  const handleFetchAvailableSlots = async (payload: AvailableSlotsParams): Promise<string[]> => {
-    try {
-
-      const slots = await getAvailableSlots(payload);
-      return slots;
-    } catch (error) {
-      toast.error('Erro ao buscar horários disponíveis');
-      console.error(error);
-      return [];
-    }
-  };
   // Data de hoje no formato YYYY-MM-DD
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -413,7 +396,7 @@ export default function PatientDashboard() {
 
 
   const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir esta avaliação?")) {
+    if (await confirmDialog("Tem certeza que deseja excluir esta avaliação?")) {
       try {
         await deleteEvaluation(`${id}`);
         toast.success("Avaliação excluída com sucesso!");
@@ -520,21 +503,40 @@ export default function PatientDashboard() {
     const formatBalance = (value: number) => value.toLocaleString('pt-BR', {
       style: 'currency', currency: 'BRL',
     });
-    const nextApt       = pi.nextAppointment;
-    const nextAptDate   = nextApt?.date ? new Date(nextApt.date) : null;
-    const ptTags: string[] = pi.tags || [];
+    // Próxima sessão real (com horário e profissional) vinda da agenda do paciente.
+    const nextApt       = nextSession;
+    const nextAptDate   = nextApt?.date ? new Date(nextApt.date + 'T12:00:00') : null;
 
     return (
     <>
+      <PatientNextActions
+        patient={patientInfo}
+        situation={situation}
+        nextSession={nextSession}
+        totalAppointments={totalApts}
+        patientId={piLoose?.patientId || patientId}
+        appointments={allAppointmentsById as unknown as React.ComponentProps<typeof PatientNextActions>['appointments']}
+        onReceive={() => setShowBalanceModal(true)}
+        onSchedule={() => setOpenSchedule(true)}
+        onGoTab={setActiveTab}
+      />
+
+      <PatientInsights appointments={allAppointmentsById} />
+
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 auto-rows-fr mb-5">
+      <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3 sm:auto-rows-fr mb-5">
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500" />
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Atendimentos</p>
-              <p className="mt-1 text-2xl font-extrabold text-slate-900">{totalApts}</p>
+              <p className="mt-1 text-2xl font-extrabold text-slate-900"><AnimatedValue value={totalApts} /></p>
               <p className="mt-0.5 text-2xs text-slate-500">{totalDone} concluídos</p>
+              {totalApts > 0 && (
+                <div className="mt-2 h-1.5 w-40 max-w-full overflow-hidden rounded-full bg-slate-100" title={`${Math.round((totalDone / totalApts) * 100)}% concluídos`}>
+                  <div className="h-full rounded-full bg-blue-500 transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, Math.round((totalDone / totalApts) * 100))}%` }} />
+                </div>
+              )}
             </div>
             <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Activity size={18} /></div>
           </div>
@@ -545,7 +547,7 @@ export default function PatientDashboard() {
             <div>
               <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
               <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
-                {formatBalance(totalPending)}
+                <AnimatedValue value={formatBalance(totalPending)} />
               </p>
               {appliedCredit > 0 && (
                 <div className="mt-2 space-y-1 text-xs text-slate-600 text-left">
@@ -600,30 +602,17 @@ export default function PatientDashboard() {
                 {nextAptDate ? nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Sem agenda'}
               </p>
               <p className="mt-0.5 truncate text-2xs text-slate-500">
-                {nextAptDate ? `${nextApt.time || 'Horário pendente'} · ${nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}` : 'Nenhuma sessão futura'}
+                {nextAptDate ? [nextApt?.time || 'Horário pendente', nextApt?.serviceType === 'evaluation' ? 'Avaliação' : (nextApt?.specialty || 'Sessão'), nextApt?.doctorName].filter(Boolean).join(' · ') : 'Nenhuma sessão futura'}
               </p>
             </div>
             <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Calendar size={18} /></div>
           </div>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-violet-500" />
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Classificações</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {ptTags.length > 0 ? ptTags.map((tag: string) => (
-                  <span key={tag} className={`rounded-full px-2 py-1 text-3xs font-bold uppercase ${tag === 'debito' ? 'bg-red-100 text-red-700' : tag === 'vip' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
-                )) : <span className="text-sm font-bold text-emerald-700">Regular</span>}
-              </div>
-              <p className="mt-1.5 text-2xs text-slate-500">situação atual do paciente</p>
-            </div>
-            <div className="rounded-xl bg-violet-50 p-2.5 text-violet-600"><ShieldCheck size={18} /></div>
-          </div>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 mb-8">
+      <FoldSection icon={<Clock size={16} />} title="Hoje e atividades recentes"
+        meta={`${todaysAppointments?.length || 0} ${todaysAppointments?.length === 1 ? 'agendamento' : 'agendamentos'} hoje · ${recentActivities.length} ${recentActivities.length === 1 ? 'atividade recente' : 'atividades recentes'}`}>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         {/* Card Agendamentos para Hoje */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -696,11 +685,11 @@ export default function PatientDashboard() {
                     <p className="text-3xs font-bold uppercase tracking-widest text-blue-400 mb-1">Próxima sessão</p>
                     <p className="text-sm font-bold text-blue-800">
                       {nextAptDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      {nextApt.time && ` às ${nextApt.time}`}
+                      {nextApt?.time && ` às ${nextApt?.time}`}
                     </p>
                     <p className="text-xs text-blue-600 mt-0.5">
-                      {nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.serviceType || 'Sessão'}
-                      {(nextApt.doctorName || nextApt.doctor?.fullName || nextApt.doctor?.name) && ` · ${nextApt.doctorName || nextApt.doctor?.fullName || nextApt.doctor?.name}`}
+                      {nextApt?.serviceType === 'evaluation' ? 'Avaliação' : nextApt?.specialty || 'Sessão'}
+                      {nextApt?.doctorName && ` · ${nextApt?.doctorName}`}
                     </p>
                   </div>
                 ) : (
@@ -806,14 +795,21 @@ export default function PatientDashboard() {
         </div>
       </div>
 
+      </FoldSection>
+
       {/* Tabela de todos os atendimentos com filtros por mês/dia */}
       <div className="mb-8">
         <PatientAppointmentsTable appointments={allAppointmentsById} patientId={patientId} onMoved={loadAllAppointments} />
       </div>
 
       {/* O restante do conteúdo permanece igual */}
-      {patientInfo?._id && <FutureSessionsCard patientId={patientInfo._id} />}
-      <div className="grid grid-cols-1 md:grid-cols-1 mb-5 gap-6">
+      {patientInfo?._id && (
+        <FoldSection icon={<Calendar size={16} />} title="Sessões futuras pagas" meta="Sessões adquiridas antecipadamente">
+          <FutureSessionsCard patientId={patientInfo._id} />
+        </FoldSection>
+      )}
+      <FoldSection icon={<FileText size={16} />} title="Avaliações" meta={`${evaluations.length} ${evaluations.length === 1 ? 'avaliação registrada' : 'avaliações registradas'}`}>
+      <div className="grid grid-cols-1 gap-6">
         <PatientAvailablesCard
           doctors={doctors}
           evaluations={evaluations}
@@ -824,6 +820,7 @@ export default function PatientDashboard() {
           onDelete={handleDelete}
         />
       </div>
+      </FoldSection>
 
       {prescriptions.length > 0 && <Card>
         <CardHeader icon={FileText}>
@@ -1084,7 +1081,7 @@ export default function PatientDashboard() {
             }
           }
         );
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error booking appointment:', error);
         toast.error('Erro ao criar agendamento. Tente novamente.');
       }
@@ -1116,32 +1113,15 @@ export default function PatientDashboard() {
 
 
       <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
-        {/* 🔹 Cabeçalho institucional */}
-        <div className="relative mb-5 flex flex-col items-start justify-between gap-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500" />
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600">
-              <Calendar size={22} />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
-                {patientInfo?.fullName || 'Paciente'}
-              </h1>
-              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                Visão consolidada do acompanhamento clínico e financeiro.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowBalanceModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
-          >
-            <CreditCard size={18} />
-            Fechar Atendimento
-          </button>
-        </div>
-
+        {/* Faixa de situação: quem é, cobertura, quanto deve e próxima sessão (todas as abas) */}
+        <PatientSituationStrip
+          patient={patientInfo}
+          situation={situation}
+          nextSession={nextSession}
+          onReceive={() => setShowBalanceModal(true)}
+          onSchedule={() => setOpenSchedule(true)}
+          onGoTab={setActiveTab}
+        />
 
         {(pollingState.isPolling || isLoading) && <div className="mb-4 flex justify-end">
           {/* 🚀 V2: Indicador de processamento assíncrono */}
@@ -1171,16 +1151,16 @@ export default function PatientDashboard() {
         </div>
       </main>
 
-      <ScheduleModal
-        open={openSchedule}
-        onClose={() => setOpenSchedule(false)}
+      <ScheduleAppointmentModal
+        isOpen={openSchedule}
+        onClose={() => { setOpenSchedule(false); setScheduleError(null); }}
         onSave={handleNewAppointment}
-        patients={patients}
-        doctors={doctors}
-        initialData={appointmentData}
-        payloadToSlots={handlePayloadToSlots}
-        availableSlots={availableSlots}
-        mode={mode}
+        patients={patientInfo?._id ? [patientInfo, ...patients.filter((p) => p._id !== patientInfo._id)] : patients}
+        doctors={doctors as unknown as React.ComponentProps<typeof ScheduleAppointmentModal>['doctors']}
+        initialData={{ patientId: patientInfo?._id || patientId || '', doctorId: '', date: toDateString(new Date()), time: '', sessionType: '', specialty: '', notes: '' } as unknown as ScheduleAppointment}
+        isLoading={scheduleSaving}
+        erroMessage={scheduleError}
+        closeModalSignal={closeScheduleSignal}
       />
 
       <PatientBalanceModal

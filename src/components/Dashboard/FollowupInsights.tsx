@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Brain, Calendar, Clock, MessageCircle, Target, TrendingUp, Users } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from '../../utils/toast';
 import API from "../../services/api";
 
 interface FollowupAnalytics {

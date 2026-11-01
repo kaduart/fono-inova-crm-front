@@ -4,7 +4,7 @@
  */
 
 import { useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { socketManager } from '../utils/socketManager';
 
 interface MessageFailedPayload {

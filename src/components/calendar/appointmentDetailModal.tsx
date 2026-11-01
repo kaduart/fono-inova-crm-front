@@ -12,7 +12,7 @@ import {
     TextField,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import type { CancelExtras } from './CancelRequesterPicker';
 import { validateAppointmentComplete, canAddToPatientBalance } from '../../utils/appointmentCompleteGuard';
 import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
@@ -21,7 +21,7 @@ import LiminarBillingFields from '../ui/LiminarBillingFields';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import ReactInputMask from 'react-input-mask';
+import ReactInputMask from '../ui/MaskedInput';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { useConvenios } from '../../hooks/useConvenios';
 import liminarContractService from '../../services/liminarContractService';

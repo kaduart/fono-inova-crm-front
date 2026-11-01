@@ -1,7 +1,7 @@
 // src/components/whatsapp/ChatWindow.tsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FiSend, FiUser, FiMoreVertical, FiMessageCircle, FiCalendar, FiCheckCircle, FiClock } from 'react-icons/fi';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { updateContactApi, MediaType } from '../../../services/whatsappService';
 import { socketManager } from '../../../utils/socketManager';
 import { logger } from '../../../utils/logger';

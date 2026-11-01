@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 
 interface Props {

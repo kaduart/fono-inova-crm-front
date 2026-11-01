@@ -8,7 +8,7 @@ import { packageService } from '../../../services/packageService';
 vi.mock('../../../services/packageService', () => ({
   packageService: { inactivatePackage: vi.fn(), deletePackage: vi.fn() },
 }));
-vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('../../../utils/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const makePackage = (paymentType: string, status = 'active') => ({
   _id: `${paymentType}-id`, patient: 'patient-id', professional: 'doctor-id',

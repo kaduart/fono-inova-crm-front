@@ -1,6 +1,6 @@
 import { Stethoscope, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import type { SelectedEvent } from '../../utils/types/types';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { resolveAppointmentFinancialAmounts } from '../../utils/appointmentFinancialAmounts';

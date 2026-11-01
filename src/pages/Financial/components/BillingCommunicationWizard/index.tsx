@@ -23,7 +23,7 @@ import {
     Typography
 } from '@mui/material';
 import { AlertCircle, CheckCircle, FileText, Mail, Send, Upload, X } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../../utils/toast';
 import { DocumentSendDrawer } from '../DocumentSendDrawer';
 import {
     createCommunication,

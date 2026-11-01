@@ -15,6 +15,7 @@ import {
     X
 } from 'lucide-react';
 import { useState } from 'react';
+import { useReportDraft } from './useReportDraft';
 
 interface AnamnesisModalProps {
     open: boolean;
@@ -22,6 +23,8 @@ interface AnamnesisModalProps {
     onSave: (data: any) => void;
     patient: any;
     loading?: boolean;
+    /** Relatório salvo, quando é edição (abre já preenchido). */
+    initialData?: any;
 }
 
 type Step = {
@@ -42,7 +45,7 @@ const steps: Step[] = [
     { label: "Conclusões", icon: FileText, textColor: "text-gray-600", bgColor: "bg-gray-50" },
 ];
 
-export default function AnamnesisModal({ open, onClose, onSave, patient, loading = false }: AnamnesisModalProps) {
+export default function AnamnesisModal({ open, onClose, onSave, patient, loading = false, initialData }: AnamnesisModalProps) {
     const [activeStep, setActiveStep] = useState(0);
     const [completed, setCompleted] = useState<{ [k: number]: boolean }>({});
 
@@ -121,6 +124,12 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
             observations: '',
             nextAppointment: ''
         }
+    });
+
+    const { requestClose, isEdit } = useReportDraft({
+        open, onClose, formData, setFormData: setFormData as any, editData: initialData,
+        draftKey: `fono-report-draft:anamnesis:${patient?._id || 'sem-paciente'}`,
+        onOpen: () => { setActiveStep(0); setCompleted({}); },
     });
 
     const handleNext = () => {
@@ -421,7 +430,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
         <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                 {/* Background overlay */}
-                <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
+                <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={requestClose}></div>
 
                 {/* Modal panel */}
                 <div className="relative inline-block w-full max-w-6xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-2xl shadow-xl">
@@ -430,14 +439,14 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">
-                                    Nova Anamnese
+                                    {isEdit ? 'Editar Anamnese' : 'Nova Anamnese'}
                                 </h2>
                                 <p className="text-sm text-gray-600 mt-1">
                                     {patient.fullName} • {new Date().toLocaleDateString('pt-BR')}
                                 </p>
                             </div>
                             <button
-                                onClick={onClose}
+                                onClick={requestClose}
                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5" />
@@ -528,7 +537,7 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
 
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={onClose}
+                                        onClick={requestClose}
                                         className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
                                         Cancelar

@@ -1,5 +1,5 @@
 // src/hooks/useDoctorDashboard.ts
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from '../utils/toast';
 import doctorService, {
   fetchFutureAppointments,
@@ -7,7 +7,8 @@ import doctorService, {
   fetchStats,
   fetchTherapySessions,
   fetchTodaysAppointments,
-  updateClinicalStatus
+  updateClinicalStatus,
+  setViewAsDoctor
 } from '../services/doctorService';
 import { fetchPendingEvolutions, PendingEvolution } from '../services/evolutionService';
 import { Appointment } from '../utils/types';
@@ -53,6 +54,8 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   // Pacientes atendidos sem evolução (calculado no backend)
   const [pendingEvolutions, setPendingEvolutions] = useState<PendingEvolution[]>([]);
+  // Falha ao buscar pendências não pode virar "tudo em dia".
+  const [pendingEvolutionsError, setPendingEvolutionsError] = useState(false);
   const [therapySessions, setTherapySessions] = useState<any[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -73,37 +76,62 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
 
   // Inicializa role e doctorId diretamente do AuthContext (sem chamada extra)
   useEffect(() => {
-    if (!authUser) { console.log('[Dashboard] authUser ainda null — aguardando AuthContext'); return; }
+    if (!authUser) return;
     const role = authUser.role as string;
     const id = (authUser as any)._id || (authUser as any).id;
-    console.log(`[Dashboard] authUser pronto → role=${role} id=${id}`);
     setUserRole(role);
+    if (role === 'admin' || role === 'secretary') {
+      // Staff escolhe o profissional no seletor "Ver painel de".
+      let saved: { id: string; fullName?: string; specialty?: string } | null = null;
+      try { saved = JSON.parse(localStorage.getItem('fono-doctor-view') || 'null'); } catch { saved = null; }
+      if (saved?.id) {
+        setViewAsDoctor(saved.id);
+        setDoctorId(saved.id);
+        setDoctorData({ _id: saved.id, fullName: saved.fullName, specialty: saved.specialty });
+      } else {
+        setViewAsDoctor(null);
+        setDoctorId(null);
+        setDoctorData(null);
+      }
+      return;
+    }
+    setViewAsDoctor(null);
     if (id) setDoctorId(id);
     setDoctorData(authUser);
   }, [authUser]);
+
+  /** Staff: trocar o profissional cujo painel está sendo visto. */
+  const selectViewDoctor = useCallback((doc: { _id: string; fullName?: string; specialty?: string } | null) => {
+    if (!doc?._id) {
+      setViewAsDoctor(null); setDoctorId(null); setDoctorData(null);
+      try { localStorage.removeItem('fono-doctor-view'); } catch { /* sem storage */ }
+      return;
+    }
+    setViewAsDoctor(doc._id);
+    setDoctorId(doc._id);
+    setDoctorData(doc);
+    try { localStorage.setItem('fono-doctor-view', JSON.stringify({ id: doc._id, fullName: doc.fullName, specialty: doc.specialty })); } catch { /* sem storage */ }
+  }, []);
 
   // AuthContext já fez /users/me — não chamar de novo para evitar 304→res.data=null→skeleton
 
   // 🎯 Carrega dados da aba Overview (KPIs, alertas, pacientes de hoje)
   const loadOverview = useCallback(async (force = false) => {
-    if (!doctorId) { console.log('[Overview] doctorId ausente — skip'); return; }
-    if (loadingTabsState.overview && !force) { console.log('[Overview] já carregando — skip'); return; }
+    if (!doctorId) return;
+    if (loadingTabsState.overview && !force) return;
 
-    console.log(`[Overview] iniciando fetch (doctorId=${doctorId} force=${force})`);
     setLoadingTabsState(prev => ({ ...prev, overview: true }));
 
     try {
-      const t0 = Date.now();
       const [patientsRes, appointmentsRes, statsRes, futureRes, pendingRes] = await Promise.all([
         fetchPatients({ limit: 200 }),
         fetchTodaysAppointments(doctorId),
         fetchStats(doctorId),
         fetchFutureAppointments(doctorId),
         // Falha aqui não deve derrubar o overview — só esconde o alerta
-        fetchPendingEvolutions(doctorId).catch(() => [] as PendingEvolution[])
+        fetchPendingEvolutions(doctorId).then(r => { setPendingEvolutionsError(false); return r; }).catch(() => { setPendingEvolutionsError(true); return [] as PendingEvolution[]; })
       ]);
       setPendingEvolutions(pendingRes || []);
-      console.log(`[Overview] ✅ dados carregados em ${Date.now() - t0}ms — pacientes=${patientsRes?.length ?? (patientsRes as any)?.data?.length ?? 0} consultas=${(appointmentsRes as any[])?.length ?? 0}`);
 
       const patientList = patientsRes || [];
       setOverviewData({
@@ -348,6 +376,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     doctorId,
     userRole,
     isDoctor,
+    selectViewDoctor,
     
     // Dados por aba
     patients: overviewData.patients,  // lista paginada (aba Pacientes)
@@ -357,6 +386,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     futureAppointments: overviewData.futureAppointments,
     calendarEvents,
     pendingEvolutions,
+    pendingEvolutionsError,
     therapySessions,
     attendanceSummary,
 

@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Building2, Check, CheckCircle2, FileDown, FileText, Receipt, UserRound, UsersRound } from 'lucide-react';
 import { fiscalService, FiscalServiceOption, FiscalTakerPayload } from '../../services/fiscalService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 
 interface PaymentData {

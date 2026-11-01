@@ -1,6 +1,6 @@
 import { Plus, Trash2, X, Clock, DollarSign, Calendar, FileText, UserCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import liminarContractService from '../../services/liminarContractService';
 import doctorService from '../../services/doctorService';
 import { Button } from '../ui/Button';

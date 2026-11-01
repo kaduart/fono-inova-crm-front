@@ -38,7 +38,7 @@ import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Pencil, Trash2, Receipt, Banknote } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { confirmToast } from '../../utils/confirmToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminEditPaymentModal } from '../../components/financial/AdminEditPaymentModal';
@@ -194,15 +194,36 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
             { title: 'Remover pagamento?', confirmText: 'Remover', confirmColor: 'red' }
         );
         if (!confirmed) return;
-        try {
-            await API.delete(`/v2/payments/${paymentId}`);
-            toast.success('Pagamento removido');
-            setGroupDetailItems(null);
-            loadDayData();
-        } catch (err: any) {
-            toast.error(err?.response?.data?.error || 'Erro ao remover pagamento');
-        }
+        // Novo design: a remoção só vai para o back depois de 8s. Até lá, "Desfazer" cancela e nada é apagado.
+        // (A rota apaga de verdade, então não dá para desfazer depois; por isso o atraso.)
+        setGroupDetailItems(null);
+        const run = async () => {
+            pendingDeletes.current.delete(paymentId);
+            try {
+                await API.delete(`/v2/payments/${paymentId}`);
+                loadDayData();
+            } catch (err: any) {
+                toast.error(err?.response?.data?.error || 'Erro ao remover pagamento');
+            }
+        };
+        const timer = setTimeout(run, 8000);
+        pendingDeletes.current.set(paymentId, { timer, run });
+        toast.success('Pagamento removido', {
+            duration: 8000,
+            action: {
+                label: 'Desfazer',
+                onClick: () => {
+                    const p = pendingDeletes.current.get(paymentId);
+                    if (p) { clearTimeout(p.timer); pendingDeletes.current.delete(paymentId); toast.info('Remoção desfeita'); }
+                },
+            },
+        });
     };
+    // Saiu da tela com remoção pendente: executa agora (o que foi confirmado não se perde).
+    const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => Promise<void> }>());
+    useEffect(() => () => {
+        pendingDeletes.current.forEach(p => { clearTimeout(p.timer); void p.run(); });
+    }, []);
 
     const handleRegisterDebit = async (paymentId: string, label: string) => {
         const confirmed = await confirmToast(

@@ -73,7 +73,7 @@ export default function DoctorAgendaPanel({ doctorId, mode, onModeChange, refres
         setError(false);
         try {
             const res: any = await appointmentService.list({ startDate: monthStart(), endDate: addDays(7), doctorId, limit: 500 });
-            const data = res?.data?.data?.appointments || res?.data?.appointments || res?.data?.data || [];
+            const data = Array.isArray(res?.data) ? res.data : (res?.data?.data?.appointments || res?.data?.appointments || res?.data?.data || []);
             const mine = (Array.isArray(data) ? data : []).filter((a: any) => {
                 const d = a.doctor?._id || a.doctor?.id || a.doctorId || a.doctor;
                 return !d || String(d) === String(doctorId);

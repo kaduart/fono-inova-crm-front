@@ -1,6 +1,6 @@
 import { Building2, Check, Edit2, Inbox, Info, Landmark, Mail, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 
 import { activateConvenio, Convenio, deactivateConvenio, getConvenios } from '../../../services/insuranceService';
 import ConvenioFormModal from './ConvenioFormModal';

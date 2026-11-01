@@ -2,7 +2,7 @@ import { ClipboardList, Eye, EyeOff, Shield, Stethoscope, User } from 'lucide-re
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { BASE_URL } from '../constants/constants';
 import { useAuthNavigation } from '../hooks/useAuthNavigation';
 import { extractErrorMessage } from '../utils/errorUtils';

@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import React, { useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from '../../utils/toast';
 
 // ✅ IMPORTS DOS SERVICES
 import { amandaService } from "../../services/amandaService";

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog } from '@mui/material';
 import { Repeat, Info } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { fixedExpenseService, FixedExpense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
 
 import { Field, ModalHeader, ModalFooter, Switch, MoneyInput, inputClass } from './formKit';

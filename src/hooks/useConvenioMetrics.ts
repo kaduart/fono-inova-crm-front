@@ -2,7 +2,7 @@
 // Hook para buscar métricas de convênio - SEPARA receita realizada de caixa
 
 import { useState, useCallback, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 
 // Tipos baseados no retorno do backend
 export interface ReceitaRealizada {

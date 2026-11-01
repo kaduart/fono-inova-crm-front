@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import type { Post, PublishTarget, CampaignConfig } from '../../hooks/useMarketing';
 
 interface PublishModalProps {

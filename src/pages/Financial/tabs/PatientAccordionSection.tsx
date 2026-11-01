@@ -383,14 +383,14 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
 
     const subtitle = (
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-            <span className="text-xs text-gray-500">{patient.payments?.length || 0} atendimento(s)</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{patient.payments?.length || 0} atendimento(s)</span>
             <span className="text-xs text-blue-600 font-semibold">{specialties.length} especialidade(s)</span>
             {guidesLabel && (
                 <span className="text-xs text-amber-700 font-medium" title={patientGuides.join(', ')}>
                     {guidesLabel}
                 </span>
             )}
-            <span className="text-xs font-bold text-gray-800">
+            <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
                 R$ {(patient.total || 0).toLocaleString('pt-BR')}
             </span>
         </Box>
@@ -433,7 +433,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                         sx={{ bgcolor: '#E5E7EB', width: 40, height: 40 }}
                         onClick={(e) => { e.stopPropagation(); onOpen360(patient.patientId); }}
                     >
-                        <User className="w-5 h-5 text-gray-600" />
+                        <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     </Avatar>
                     <Box>
                         <Typography

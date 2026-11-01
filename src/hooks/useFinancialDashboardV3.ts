@@ -6,10 +6,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
-import moment from 'moment-timezone';
+import { monthSP, yearSP } from '../utils/dateSP';
 import { subscribeToCacheInvalidation } from '../utils/cacheManager';
 
-const TIMEZONE = 'America/Sao_Paulo';
 
 // Cache de módulo: compartilhado entre todas as instâncias do hook (evita fetch duplicado)
 const MODULE_CACHE_TTL = 10 * 1000; // 10s — balanceamento entre performance e near real-time
@@ -376,8 +375,8 @@ export const useFinancialDashboardV3 = () => {
   }, []);
 
   const fetchDashboard = useCallback(async (month?: number, year?: number) => {
-    const mes = month || moment().tz(TIMEZONE).month() + 1;
-    const ano = year || moment().tz(TIMEZONE).year();
+    const mes = month || monthSP();
+    const ano = year || yearSP();
     const cacheKey = `${mes}-${ano}`;
 
     // Cache hit: sem request
@@ -422,8 +421,8 @@ export const useFinancialDashboardV3 = () => {
 };
 
 export const useCurrentMonthDashboardV3 = () => {
-  const month = moment().tz(TIMEZONE).month() + 1;
-  const year = moment().tz(TIMEZONE).year();
+  const month = monthSP();
+  const year = yearSP();
   const hook = useFinancialDashboardV3();
   const fetched = useRef(false);
 

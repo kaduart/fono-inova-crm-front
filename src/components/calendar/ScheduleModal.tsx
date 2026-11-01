@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { mergeDateAndTime } from '../../utils/dateFormat';
 import { IAppointment, STATUS_OPTIONS, TherapyType } from '../../utils/types/types';
 import { SlotAvailability } from '../../services/appointmentService';

@@ -13,11 +13,15 @@ import {
     LogOut,
     Menu,
     MessageCircle,
+    Search,
     Stethoscope,
     User,
     Users,
-    X
+    X,
+    Wallet,
+    ShieldCheck,
 } from "lucide-react";
+import { SECTION_MENU, sectionOfTab } from "../../pages/Financial/financialSections";
 import React, { useEffect, useRef, useState } from "react";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -26,6 +30,7 @@ import { useOperationalCounts } from "../../hooks/useOperationalCounts";
 import { useRetentionAlert } from "../../hooks/useRetentionAlert";
 import HeaderNavButton, { HeaderBrand, HeaderCount, HEADER_ICON_BUTTON_CLASS, HEADER_SHELL_CLASS } from "../ui/HeaderNavButton";
 import NavDropdownItem from "../ui/NavDropdownItem";
+import CommandPalette, { useCommandPaletteHotkey, type CommandItem } from "../ui/CommandPalette";
 import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
 import { WhatsAppNotificationButton } from "../notifications/WhatsAppNotificationButton";
 
@@ -88,6 +93,36 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const opCounts       = useOperationalCounts();
     const retentionAlert = useRetentionAlert();
+
+    const [cmdkOpen, setCmdkOpen] = useState(false);
+    const openCmdk = React.useCallback(() => setCmdkOpen(true), []);
+    useCommandPaletteHotkey(openCmdk);
+    const goFin = (id: string) => navigate(`/admin?tab=${SECTION_MENU[sectionOfTab(id)]}&financialTab=${id}`);
+    const cmdItems: CommandItem[] = [
+        { id: 'dash', group: 'Principal', label: 'Dashboard', hint: 'Precisa de você hoje, aniversariantes e pacientes', icon: <Home size={16} />, run: () => handleTabChange('Dashboard') },
+        { id: 'agenda', group: 'Principal', label: 'Agenda', hint: 'Calendário e pré-agendamentos', icon: <CalendarDays size={16} />, keywords: 'calendario horario encaixe', badge: retentionAlert.loading ? 0 : retentionAlert.total, run: () => handleTabChange('Calendário') },
+        { id: 'conversas', group: 'Principal', label: 'Conversas', hint: 'WhatsApp com as famílias', icon: <MessageCircle size={16} />, keywords: 'mensagens whatsapp chat', run: () => handleTabChange('Mensagens') },
+        { id: 'leads', group: 'Vendas', label: 'Leads & Follow-up', hint: 'Fila operacional da secretária', icon: <Users size={16} />, keywords: 'retorno followup comercial', badge: opCounts.total, hot: opCounts.overdue > 0, run: () => handleTabChange('Leads') },
+        { id: 'interesse', group: 'Vendas', label: 'Interesse em convênios', icon: <ClipboardList size={16} />, keywords: 'convenio plano lista espera', run: () => handleTabChange('InteresseConvenios') },
+        { id: 'conversao', group: 'Marketing', label: 'Inteligência de Conversão', hint: 'Do contato ao agendamento, por canal', icon: <Gauge size={16} />, keywords: 'funil canal pixel', run: () => handleTabChange('Conversao') },
+        { id: 'roi', group: 'Marketing', label: 'ROI & Atribuição', hint: 'Receita por campanha e origem', icon: <DollarSign size={16} />, keywords: 'campanha anuncio retorno', run: () => handleTabChange('ROI') },
+        { id: 'social', group: 'Marketing', label: 'Social Media', hint: 'GMB, Instagram, Facebook, vídeos', icon: <Activity size={16} />, keywords: 'post instagram gmb', run: () => handleTabChange('SocialMedia') },
+        { id: 'analytics', group: 'Marketing', label: 'Analytics do Site', hint: 'Métricas GA4 e conversões', icon: <Activity size={16} />, keywords: 'ga4 site landing', run: () => handleTabChange('Analytics') },
+        { id: 'fin-caixa', group: 'Caixa', label: 'Caixa & Fluxo', icon: <DollarSign size={16} />, keywords: 'caixa dia fluxo', run: () => goFin('caixa-unificado') },
+        { id: 'fin-pag', group: 'Caixa', label: 'Recebimentos', icon: <DollarSign size={16} />, keywords: 'cobrar receber pix', run: () => goFin('pagamentos') },
+        { id: 'fin-conv', group: 'Convênios', label: 'Convênios', icon: <DollarSign size={16} />, keywords: 'guia faturamento convenio', run: () => goFin('convenios') },
+        { id: 'fin-desp', group: 'Financeiro', label: 'Despesas', icon: <DollarSign size={16} />, run: () => goFin('despesas') },
+        { id: 'fin-nfse', group: 'Financeiro', label: 'NFSe', icon: <DollarSign size={16} />, keywords: 'nota fiscal', run: () => goFin('nfse') },
+        { id: 'fin-ind', group: 'Financeiro', label: 'Resultados', icon: <DollarSign size={16} />, keywords: 'kpi producao indicadores', run: () => goFin('dashboard') },
+        { id: 'fin-prof', group: 'Financeiro', label: 'Repasse', icon: <DollarSign size={16} />, keywords: 'comissao profissionais', run: () => goFin('profissionais') },
+        { id: 'fin-metas', group: 'Financeiro', label: 'Metas do ano', icon: <DollarSign size={16} />, keywords: 'planejamento meta', run: () => goFin('planejamento') },
+        { id: 'g-prof', group: 'Gestão', label: 'Profissionais', hint: 'Gerencie equipe', icon: <Stethoscope size={16} />, keywords: 'terapeuta doutor', run: () => handleTabChange('Add Profissional') },
+        { id: 'g-pac', group: 'Gestão', label: 'Pacientes', hint: 'Cadastro e histórico', icon: <Users size={16} />, keywords: 'paciente cadastro', run: () => handleTabChange('Add Paciente') },
+        ...(isAdmin ? [{ id: 'g-sec', group: 'Gestão', label: 'Secretárias', hint: 'Cadastro e acesso', icon: <User size={16} />, run: () => handleTabChange('Add Secretária') }] : []),
+        { id: 'sis', group: 'Sistema', label: 'Sistema', hint: 'Observabilidade, eventos e health', icon: <Activity size={16} />, run: () => handleTabChange('Sistema') },
+        { id: 'amanda', group: 'Sistema', label: 'Amanda AI', icon: <Activity size={16} />, run: () => handleTabChange('AmandaMetrics') },
+        { id: 'wpp', group: 'Sistema', label: 'WhatsApp Conexão', hint: 'QR code, status e reconexão', icon: <MessageCircle size={16} />, run: () => handleTabChange('WhatsApp') },
+    ];
 
     const gestaoRef = useRef<HTMLDivElement>(null);
     const vendasRef = useRef<HTMLDivElement>(null);
@@ -164,15 +199,15 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 Gestão
                             </HeaderNavButton>
                             {openMenu === "gestao" && (
-                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                                <div className="absolute z-10 mt-2 w-56 rounded-xl shadow-xl bg-white border border-gray-200 py-2 dark:border-white/10 dark:bg-[#161d1b]">
                                     <NavDropdownItem
                                         active={activeTab === "Add Profissional"}
                                         onClick={() => handleTabChange("Add Profissional")}
                                         icon={<Stethoscope className="h-4 w-4 text-purple-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Profissionais</span>
-                                            <span className="text-xs text-gray-500">Gerencie equipe</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Profissionais</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Gerencie equipe</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -181,8 +216,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<Users className="h-4 w-4 text-blue-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Pacientes</span>
-                                            <span className="text-xs text-gray-500">Cadastro e histórico</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Pacientes</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Cadastro e histórico</span>
                                         </div>
                                     </NavDropdownItem>
                                     {isAdmin && (
@@ -192,8 +227,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<User className="h-4 w-4 text-emerald-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Secretárias</span>
-                                            <span className="text-xs text-gray-500">Cadastro e acesso</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Secretárias</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Cadastro e acesso</span>
                                         </div>
                                     </NavDropdownItem>
                                     )}
@@ -210,6 +245,22 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 : undefined}
                         >
                             Agenda
+                        </HeaderNavButton>
+
+                        <HeaderNavButton
+                            active={activeTab === "Caixa"}
+                            onClick={() => handleTabChange("Caixa")}
+                            icon={<Wallet />}
+                        >
+                            Caixa
+                        </HeaderNavButton>
+
+                        <HeaderNavButton
+                            active={activeTab === "Convenios"}
+                            onClick={() => handleTabChange("Convenios")}
+                            icon={<ShieldCheck />}
+                        >
+                            Convênios
                         </HeaderNavButton>
 
                         <HeaderNavButton
@@ -232,7 +283,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 Vendas & Marketing
                             </HeaderNavButton>
                             {openMenu === "vendas-marketing" && (
-                                <div className="absolute z-10 mt-2 w-64 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                                <div className="absolute z-10 mt-2 w-64 rounded-xl shadow-xl bg-white border border-gray-200 py-2 dark:border-white/10 dark:bg-[#161d1b]">
                                     {/* SEÇÃO VENDAS */}
                                     <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                                         Vendas
@@ -244,8 +295,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     >
                                         <div className="flex items-center justify-between w-full gap-3">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-medium text-gray-800">Leads & Follow-up</span>
-                                                <span className="text-xs text-gray-500">Fila operacional da secretária</span>
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Leads & Follow-up</span>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">Fila operacional da secretária</span>
                                             </div>
                                             {(opCounts.overdue > 0 || opCounts.today > 0) && (
                                                 <div className="flex flex-col gap-0.5 items-end flex-shrink-0">
@@ -269,8 +320,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<ClipboardList className="h-4 w-4 text-emerald-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Interesse em Convênios</span>
-                                            <span className="text-xs text-gray-500">GEAP, IPASGO e Bradesco em credenciamento</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Interesse em Convênios</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">GEAP, IPASGO e Bradesco em credenciamento</span>
                                         </div>
                                     </NavDropdownItem>
 
@@ -286,8 +337,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<Activity className="h-4 w-4 text-pink-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Social Media</span>
-                                            <span className="text-xs text-gray-500">GMB, Instagram, Facebook, Vídeos</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Social Media</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">GMB, Instagram, Facebook, Vídeos</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -296,8 +347,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<Activity className="h-4 w-4 text-indigo-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Analytics do Site</span>
-                                            <span className="text-xs text-gray-500">Métricas GA4 e conversões</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Analytics do Site</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Métricas GA4 e conversões</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -306,8 +357,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<DollarSign className="h-4 w-4 text-green-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">ROI & Atribuição</span>
-                                            <span className="text-xs text-gray-500">Receita por campanha e origem</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">ROI & Atribuição</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Receita por campanha e origem</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -316,8 +367,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<Gauge className="h-4 w-4 text-teal-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Inteligência de Conversão</span>
-                                            <span className="text-xs text-gray-500">Funil: conversa → agendamento por origem</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Inteligência de Conversão</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Funil: conversa → agendamento por origem</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
@@ -342,15 +393,15 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 Sistema
                             </HeaderNavButton>
                             {openMenu === "sistema" && (
-                                <div className="absolute z-10 mt-2 w-56 rounded-lg shadow-xl bg-white border border-emerald-200 py-2">
+                                <div className="absolute z-10 mt-2 w-56 rounded-xl shadow-xl bg-white border border-gray-200 py-2 dark:border-white/10 dark:bg-[#161d1b]">
                                     <NavDropdownItem
                                         active={activeTab === "Sistema"}
                                         onClick={() => handleTabChange("Sistema")}
                                         icon={<Activity className="h-4 w-4 text-orange-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Sistema</span>
-                                            <span className="text-xs text-gray-500">Observabilidade, eventos e health</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Sistema</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Observabilidade, eventos e health</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -359,8 +410,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<MessageCircle className="h-4 w-4 text-emerald-500" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">Amanda AI</span>
-                                            <span className="text-xs text-gray-500">Decisões RULE / HYBRID / AI</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Amanda AI</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Decisões RULE / HYBRID / AI</span>
                                         </div>
                                     </NavDropdownItem>
                                     <NavDropdownItem
@@ -369,8 +420,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         icon={<MessageCircle className="h-4 w-4 text-green-600" />}
                                     >
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium text-gray-800">WhatsApp Conexão</span>
-                                            <span className="text-xs text-gray-500">QR code, status e reconexão</span>
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">WhatsApp Conexão</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">QR code, status e reconexão</span>
                                         </div>
                                     </NavDropdownItem>
                                 </div>
@@ -380,6 +431,12 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
                     <div className="flex shrink-0 items-center gap-1.5">
+                        <button type="button" onClick={openCmdk} aria-label="Ir para uma tela (Ctrl + K)" title="Ir para… (Ctrl + K)"
+                            className={`${HEADER_ICON_BUTTON_CLASS} xl:w-auto xl:gap-2 xl:px-3`}>
+                            <Search size={18} />
+                            <span className="hidden text-sm font-medium min-[1800px]:inline">Ir para…</span>
+                            <kbd className="hidden rounded border border-white/25 px-1 text-[10px] font-sans text-white/80 xl:inline">Ctrl K</kbd>
+                        </button>
                         <NotificationBellFixed />
                         <NovidadesCenter area="admin" activeTab={activeTab} />
                         <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
@@ -499,6 +556,20 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                 Agenda
                             </MobileNavItem>
                             <MobileNavItem
+                                active={activeTab === "Caixa"}
+                                onClick={() => handleMobileTabChange("Caixa")}
+                                icon={<Wallet size={18} className="text-green-400" />}
+                            >
+                                Caixa
+                            </MobileNavItem>
+                            <MobileNavItem
+                                active={activeTab === "Convenios"}
+                                onClick={() => handleMobileTabChange("Convenios")}
+                                icon={<ShieldCheck size={18} className="text-cyan-300" />}
+                            >
+                                Convênios
+                            </MobileNavItem>
+                            <MobileNavItem
                                 active={activeTab === "Financeiro"}
                                 onClick={() => handleMobileTabChange("Financeiro")}
                                 icon={<DollarSign size={18} className="text-green-400" />}
@@ -612,7 +683,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     </div>
                 )}
             </div>
-        </header>
+        <CommandPalette open={cmdkOpen} onClose={() => setCmdkOpen(false)} items={cmdItems} />
+            </header>
     );
 };
 

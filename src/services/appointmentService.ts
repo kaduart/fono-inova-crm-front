@@ -5,7 +5,7 @@ import {
     IPaginatedAppointmentResponse,
     TherapyType
 } from '../utils/types/types';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import API from './api';
 import { extractErrorMessage } from '../utils/errorUtils';
 import { sanitizeAppointmentPayload } from '../dtos/appointment.dto';

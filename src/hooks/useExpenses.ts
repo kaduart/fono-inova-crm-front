@@ -1,7 +1,7 @@
 // src/hooks/useExpenses.ts
 import { useState, useCallback } from 'react';
 import { expenseService, Expense, ExpenseFilters, ExpenseOriginTotals, ExpenseStatusCounts } from '../services/expenseService';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { invalidateCache } from '../utils/cacheManager';
 
 import { notifyApiError } from '../utils/notifyApiError';

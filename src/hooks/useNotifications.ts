@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { socketManager } from '../utils/socketManager';
 import notificationService, { Notification } from '../services/notificationService';
 

@@ -7,6 +7,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Figtree", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+      },
       // Degraus de micro-texto já usados em todo o app (badges, timestamps,
       // rótulos densos) como text-[10px]/text-[11px] — nomeados aqui pra
       // sair de "valor arbitrário" pra parte real da escala tipográfica.

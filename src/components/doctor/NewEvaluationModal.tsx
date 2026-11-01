@@ -1,5 +1,7 @@
 import { format } from 'date-fns';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { confirmDialog } from '../ui/ConfirmHost';
+import { toast } from '../../utils/toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { formatDateForInput, toLocalDate } from '../../utils/dateHelper';
@@ -49,6 +51,8 @@ type NewEvaluationModalProps = {
     /** Data (yyyy-MM-dd) e hora sugeridas, ex.: a sessão pendente de evolução */
     defaultDate?: string;
     defaultTime?: string;
+    /** Nome do paciente, para o título do modal. */
+    patientName?: string;
 };
 
 // ============================================
@@ -163,7 +167,7 @@ function AddMetricModal({
 
     const handleSubmit = () => {
         if (!name.trim()) {
-            alert('Preencha o nome da métrica');
+            toast.warning('Preencha o nome da métrica');
             return;
         }
 
@@ -286,7 +290,7 @@ function AddAreaModal({
 
     const handleSubmit = () => {
         if (!name.trim()) {
-            alert('Preencha o nome da área');
+            toast.warning('Preencha o nome da área');
             return;
         }
 
@@ -353,17 +357,18 @@ export function NewEvaluationModal({
     objectives = [],
     protocols = [],
     selectedProtocolCode,
-    protocolsLoading,
-    protocolsError,
     onSelectProtocol,
     lastEvolution,
     defaultDate,
-    defaultTime
+    defaultTime,
+    onSpecialtyChange,
+    doctorSpecialty,
+    patientName,
 }: NewEvaluationModalProps) {
     const [metrics, setMetrics] = useState<Record<string, number>>({});
     const [areaScores, setAreaScores] = useState<Record<string, number>>({});
     const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-    const [time, setTime] = useState<string>('10:00');
+    const [time, setTime] = useState<string>(() => format(new Date(), 'HH:mm'));
     const [content, setContent] = useState<string>('');
     const [saving, setSaving] = useState(false);
 
@@ -400,17 +405,49 @@ export function NewEvaluationModal({
     useEffect(() => {
         if (!open) return;
 
+        // Horário: o da sessão pendente; sem sessão, a hora atual (antes era 10:00 fixo).
         setDate(defaultDate || format(new Date(), 'yyyy-MM-dd'));
-        setTime(defaultTime || '10:00');
+        setTime(defaultTime || format(new Date(), 'HH:mm'));
 
-        // Sempre começa limpo — sem cards pré-carregados
+        // Continuidade: especialidade e áreas da última evolução já vêm marcadas
+        // (as notas começam em 0 para avaliar a sessão de hoje).
         setContent('');
         setDynamicMetrics([]);
-        setDynamicAreas([]);
-        setSelectedSpecialty('');
+        const spec = String(lastEvolution?.specialty || doctorSpecialty || '').toLowerCase().replace(/\s+/g, '_');
+        const knownSpec = SPECIALTY_TEMPLATES[spec] ? spec : '';
+        setSelectedSpecialty(knownSpec);
+        if (knownSpec) onSpecialtyChange?.(knownSpec);
+        const prevAreas: AreaType[] = (lastEvolution?.evaluationAreas || [])
+            .filter((a: any) => a?.id)
+            .map((a: any) => ({ id: String(a.id), name: String(a.name || a.id) }));
+        setDynamicAreas(prevAreas);
         setMetrics({});
         setAreaScores({});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, lastEvolution, defaultDate, defaultTime]);
+
+    // Fechar com algo escrito pede confirmação (X, Cancelar, fundo ou Esc).
+    const dirty = content.trim().length > 0
+        || Object.values(metrics).some(v => v > 0) || Object.values(areaScores).some(v => v > 0);
+    const confirmingRef = useRef(false);
+    const requestClose = useCallback(async () => {
+        if (saving || confirmingRef.current) return;
+        if (!dirty) { onClose(); return; }
+        confirmingRef.current = true;
+        const ok = await confirmDialog('O que você escreveu nesta evolução será descartado.', { title: 'Fechar sem salvar?', confirmText: 'Descartar', cancelText: 'Continuar escrevendo' });
+        confirmingRef.current = false;
+        if (ok) onClose();
+    }, [dirty, saving, onClose]);
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape' || confirmingRef.current || showAddMetricModal || showAddAreaModal) return;
+            e.preventDefault();
+            requestClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, requestClose, showAddMetricModal, showAddAreaModal]);
 
     // Handler para carregar template de especialidade - AGORA SÓ ADICIONA AO CATALOGO
     const handleLoadTemplate = (specialty: string) => {
@@ -483,7 +520,7 @@ export function NewEvaluationModal({
 
     const handleSubmit = async () => {
         if (!content.trim()) {
-            alert('Preencha o relatório clínico antes de salvar.');
+            toast.warning('Escreva o relatório da sessão antes de salvar.');
             return;
         }
 
@@ -526,20 +563,66 @@ export function NewEvaluationModal({
             />
 
             <div className="fixed inset-0 bg-gradient-to-br from-black/70 to-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col animate-in fade-in zoom-in duration-300">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col animate-in fade-in zoom-in duration-300">
                     {/* HEADER */}
                     <div className="bg-gradient-to-br from-green-600 via-green-500 to-cyan-500 p-4 sm:p-8 rounded-t-3xl shrink-0">
-                        <h3 className="font-bold text-xl sm:text-3xl text-white drop-shadow-lg">Nova Avaliação</h3>
-                        <p className="text-green-50 text-sm sm:text-base mt-1 sm:mt-2 font-light">
-                            Preencha os dados da avaliação do paciente com atenção
+                        <h3 className="font-bold text-xl sm:text-2xl text-white">
+                            Evolução{patientName ? ` · ${patientName}` : ''} · {date ? format(toLocalDate(date), 'dd/MM') : ''} {time}
+                        </h3>
+                        <p className="text-green-50 text-sm mt-1">
+                            Escreva primeiro como foi a sessão; notas, áreas e protocolo são opcionais.
                         </p>
                     </div>
 
                     {/* BODY */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-8 bg-gradient-to-br from-gray-50 to-white">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-8 bg-gradient-to-br from-gray-50 to-white dark:from-slate-900 dark:to-slate-900">
+
+                        {/* Data e hora */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="group">
+                                <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
+                                    📅 Data da sessão
+                                </label>
+                                <DatePicker
+                                    selected={date ? toLocalDate(date) : null}
+                                    onChange={(d) => {
+                                        if (!d) return;
+                                        setDate(formatDateForInput(d));
+                                    }}
+                                    dateFormat="dd/MM/yyyy"
+                                    placeholderText="dd/MM/yyyy"
+                                    className="w-full py-4 px-5 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md"
+                                />
+                            </div>
+                            <div className="group">
+                                <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
+                                    🕐 Horário
+                                </label>
+                                <input
+                                    type="time"
+                                    value={time}
+                                    onChange={(e) => setTime(e.target.value)}
+                                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Relatório clínico */}
+                        <div className="group">
+                            <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
+                                📝 Relatório da sessão
+                            </label>
+                            <textarea
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                placeholder="Descreva detalhadamente a evolução do paciente, observações relevantes e próximos passos..."
+                                className="w-full p-5 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all h-40 resize-y shadow-sm hover:shadow-md dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
+                                autoFocus
+                            />
+                        </div>
 
                         {/* ⚡ SELETOR DE ESPECIALIDADE / TEMPLATE */}
-                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5 space-y-3">
+                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-amber-500/5 border-2 border-amber-300 dark:border-amber-500/40 rounded-2xl p-5 space-y-3">
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">⚡</span>
                                 <div className="flex-1">
@@ -672,7 +755,6 @@ export function NewEvaluationModal({
                                     <select
                                         value={selectedProtocolCode ?? ''}
                                         onChange={(e) => {
-                                            console.log('🎯 PROTOCOLO SELECIONADO:', e.target.value);
                                             onSelectProtocol?.(e.target.value || '');
                                         }}
                                         className="w-full p-4 text-base font-medium border-2 border-emerald-400 rounded-xl focus:ring-4 focus:ring-emerald-200 focus:border-emerald-500 bg-white"
@@ -835,49 +917,6 @@ export function NewEvaluationModal({
                             )}
                         </div>
 
-                        {/* Data e hora */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="group">
-                                <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
-                                    📅 Data da Avaliação
-                                </label>
-                                <DatePicker
-                                    selected={date ? toLocalDate(date) : null}
-                                    onChange={(d) => {
-                                        if (!d) return;
-                                        setDate(formatDateForInput(d));
-                                    }}
-                                    dateFormat="dd/MM/yyyy"
-                                    placeholderText="dd/MM/yyyy"
-                                    className="w-full py-4 px-5 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md"
-                                />
-                            </div>
-                            <div className="group">
-                                <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
-                                    🕐 Horário
-                                </label>
-                                <input
-                                    type="time"
-                                    value={time}
-                                    onChange={(e) => setTime(e.target.value)}
-                                    className="w-full p-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all shadow-sm hover:shadow-md"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Relatório clínico */}
-                        <div className="group">
-                            <label className="block text-sm font-semibold mb-3 text-gray-800 group-hover:text-green-600 transition-colors">
-                                📝 Relatório Clínico Detalhado
-                            </label>
-                            <textarea
-                                value={content}
-                                onChange={(e) => setContent(e.target.value)}
-                                placeholder="Descreva detalhadamente a evolução do paciente, observações relevantes e próximos passos..."
-                                className="w-full p-5 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-100 focus:border-green-500 transition-all h-36 resize-none shadow-sm hover:shadow-md font-light"
-                            />
-                        </div>
-
                         {/* Métricas */}
                         <div className="space-y-6">
                             <div className="border-2 border-gray-200 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
@@ -1037,12 +1076,12 @@ export function NewEvaluationModal({
                     </div>
 
                     {/* FOOTER */}
-                    <div className="shrink-0 border-t-2 border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-white rounded-b-3xl">
+                    <div className="shrink-0 border-t-2 border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-white dark:from-slate-900 dark:to-slate-900 dark:border-slate-700 rounded-b-3xl">
                         <div className="flex justify-end gap-4">
                             <Button
                                 variant="outline"
                                 disabled={saving}
-                                onClick={onClose}
+                                onClick={requestClose}
                                 className="px-8 py-3 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold transition-all hover:scale-105"
                             >
                                 Cancelar
@@ -1052,7 +1091,7 @@ export function NewEvaluationModal({
                                 onClick={handleSubmit}
                                 className="px-8 py-3 bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white shadow-lg hover:shadow-xl rounded-xl font-semibold transition-all hover:scale-105"
                             >
-                                {saving ? 'Salvando...' : '✓ Salvar Avaliação'}
+                                {saving ? 'Salvando...' : '✓ Salvar evolução'}
                             </Button>
                         </div>
                     </div>

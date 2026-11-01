@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { sendTemplateMessage } from '../../services/whatsappService';
 
 export function TesteEnvioWpp() {

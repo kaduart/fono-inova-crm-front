@@ -49,6 +49,13 @@ interface PackageLite {
   sessionValue?: number;
 }
 
+const PAYMENT_STATUS_PT: Record<string, string> = { paid: 'Pago', pending: 'Pendente', partial: 'Parcial', canceled: 'Cancelado' };
+const PAYMENT_METHOD_PT: Record<string, string> = {
+  pix: 'Pix', dinheiro: 'Dinheiro', cash: 'Dinheiro', cartao: 'Cartão', card: 'Cartão', credit_card: 'Cartão de crédito',
+  debit_card: 'Cartão de débito', cartão: 'Cartão', transferencia: 'Transferência', bank_transfer: 'Transferência',
+  boleto: 'Boleto', convenio: 'Convênio', insurance: 'Convênio', liminar_credit: 'Liminar',
+};
+
 interface V2PaymentItem {
   _id: string;
   date: string;
@@ -184,54 +191,33 @@ const DoctorFinancialTab: React.FC<DoctorFinancialTabProps> = ({
         const thisMonth = currentMonth();
         const today = todayStr();
 
-        // 1. Payments do mês atual (consolidado para KPIs + listas)
-        const monthRes = await getPaymentsV2({
-          doctorId,
-          month: thisMonth,
-          limit: 500,
-        });
-        setMonthPayments((monthRes.data?.data || []) as V2PaymentItem[]);
-
-        // 2. Payments de HOJE (para caixa e produção)
-        const todayRes = await getPaymentsV2({
-          doctorId,
-          startDate: today,
-          endDate: today,
-          limit: 500,
-        });
-        setTodayPayments((todayRes.data?.data || []) as V2PaymentItem[]);
-
-        // 3. Appointments de HOJE (para sessões e avaliações)
-        const apptRes = await appointmentService.getAppointmentsByType({
-          doctorId,
-          date: today,
-        });
-        setTodayAppointments(apptRes.data?.appointments || []);
-
-        // 4. Gráfico dos últimos 6 meses
+        // Tudo em paralelo (antes eram 9 chamadas em sequência). O mês atual do gráfico
+        // reaproveita a consulta do mês em vez de pedir de novo.
         const chartMonths = Array.from({ length: 6 }, (_, i) =>
           format(subMonths(new Date(), 5 - i), 'yyyy-MM')
         );
-
-        const chartPromises = chartMonths.map(async (m) => {
+        const chartOf = async (m: string) => {
           try {
             const res = await getPaymentsV2({ doctorId, month: m, limit: 1 });
-            return {
-              month: m,
-              label: monthLabel(m),
-              received: res.data?.received || 0,
-              produced: res.data?.produced || 0,
-              sessions: res.data?.countPaid || 0,
-            };
+            return { month: m, label: monthLabel(m), received: res.data?.received || 0, produced: res.data?.produced || 0, sessions: res.data?.countPaid || 0 };
           } catch {
             return { month: m, label: monthLabel(m), received: 0, produced: 0, sessions: 0 };
           }
-        });
-
-        const chartData = await Promise.all(chartPromises);
-        if (!abortCtrl.signal.aborted) {
-          setMonthlyChart(chartData);
-        }
+        };
+        const [monthRes, todayRes, apptRes, pastChart] = await Promise.all([
+          getPaymentsV2({ doctorId, month: thisMonth, limit: 500 }),
+          getPaymentsV2({ doctorId, startDate: today, endDate: today, limit: 500 }),
+          appointmentService.getAppointmentsByType({ doctorId, date: today }),
+          Promise.all(chartMonths.slice(0, -1).map(chartOf)),
+        ]);
+        if (abortCtrl.signal.aborted) return;
+        setMonthPayments((monthRes.data?.data || []) as V2PaymentItem[]);
+        setTodayPayments((todayRes.data?.data || []) as V2PaymentItem[]);
+        setTodayAppointments(apptRes.data?.appointments || []);
+        setMonthlyChart([
+          ...pastChart,
+          { month: thisMonth, label: monthLabel(thisMonth), received: monthRes.data?.received || 0, produced: monthRes.data?.produced || 0, sessions: monthRes.data?.countPaid || 0 },
+        ]);
 
         // 5. Packages dos patients
         const activePatients = patients.filter((p) => p._id).slice(0, 20);
@@ -558,11 +544,11 @@ const DoctorFinancialTab: React.FC<DoctorFinancialTabProps> = ({
                     <p className="text-xs text-gray-400">
                       {p.date ? format(parseISO(p.date), 'dd/MM/yyyy') : '--'}
                       {p.paymentMethod && (
-                        <span className="ml-1 text-gray-300">· {p.paymentMethod}</span>
+                        <span className="ml-1 text-gray-500">· {PAYMENT_METHOD_PT[p.paymentMethod] || p.paymentMethod}</span>
                       )}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold text-emerald-600 ml-3 shrink-0">
+                  <span className="text-sm font-semibold tabular-nums text-gray-900 ml-3 shrink-0">
                     {formatCurrency(p.amount || 0)}
                   </span>
                 </div>
@@ -595,7 +581,7 @@ const DoctorFinancialTab: React.FC<DoctorFinancialTabProps> = ({
                     <p className="text-xs text-gray-400">
                       {p.date ? format(parseISO(p.date), 'dd/MM/yyyy') : '--'}
                       {' · '}
-                      <span className="text-amber-600 font-medium">{p.status}</span>
+                      <span className="text-amber-700 font-medium">{PAYMENT_STATUS_PT[p.status] || p.status}</span>
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-amber-600 ml-3 shrink-0">

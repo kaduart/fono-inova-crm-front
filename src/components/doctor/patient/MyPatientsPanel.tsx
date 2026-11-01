@@ -5,7 +5,7 @@
 // e acrescenta próxima sessão, status de atendimento real, filtros rápidos e WhatsApp do responsável.
 // Status vem do back: active = tem sessão futura; no_next = atendido nos últimos 60 dias sem
 // agendamento; inactive = o resto.
-import { CalendarPlus, ChevronLeft, ChevronRight, FileText, MessageCircle, MoreHorizontal, RefreshCw, School, Search, Stethoscope, UserPlus, UserRound } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, FileText, MessageCircle, MoreHorizontal, RefreshCw, School, Search, Stethoscope, UserPlus, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchMyPatients, type MyPatientsSummary } from '../../../services/doctorService';
 import { toDateString } from '../../../utils/dateUtils';
@@ -19,21 +19,26 @@ interface Props {
     refreshKey?: number;
     onOpenPatient: (p: Patient) => void;
     onCreateAnamnesis: (p: Patient) => void;
+    /** Abre a aba Anamnese da ficha (quando já existe anamnese). */
+    onViewAnamnesis?: (p: Patient) => void;
     onCreateSchoolReport: (p: Patient) => void;
     onViewReports: (p: Patient) => void;
     onRegisterEvolution: (p: Patient) => void;
     onSchedule: (p: Patient) => void;
-    onAddNewPatient: () => void;
+    onAddNewPatient?: () => void;
+    /** Filtro inicial (ex.: KPI "Sem próxima sessão" do Dashboard). */
+    initialFilter?: Filter;
 }
 
 const PAGE_SIZE = 20;
-type Filter = '' | 'active' | 'no_next' | 'inactive' | 'birthday' | 'evolution';
+export type Filter = '' | 'active' | 'no_next' | 'inactive' | 'birthday' | 'evolution';
 
 const chipTone = {
     ok: 'border-green-200 bg-green-50 text-green-800',
     warn: 'border-amber-200 bg-amber-50 text-amber-800',
     info: 'border-blue-200 bg-blue-50 text-blue-800',
     pur: 'border-purple-200 bg-purple-50 text-purple-800',
+    lim: 'border-orange-300 bg-orange-100 text-orange-800',
     neu: 'border-gray-300 bg-gray-50 text-gray-700',
 };
 export const Chip = ({ tone, children }: { tone: keyof typeof chipTone; children: React.ReactNode }) => (
@@ -81,10 +86,18 @@ export function nextLabel(apt?: { date: string; time?: string } | null) {
 }
 
 export function billingChip(p: Patient) {
-    if (p.billingType === 'liminar' || p.hasLiminar) return <Chip tone="pur">Liminar</Chip>;
+    if (p.billingType === 'liminar' || p.hasLiminar) return <Chip tone="lim">Liminar</Chip>;
     if (p.billingType === 'convenio') return <Chip tone="info">{p.insuranceProvider || 'Convênio'}</Chip>;
     if (p.billingType === 'particular') return <Chip tone="neu">Particular</Chip>;
     return p.insuranceProvider ? <Chip tone="info">{p.insuranceProvider}</Chip> : null;
+}
+
+// Plano terapêutico (da evolução mais recente): avisa quando a revisão venceu ou vence em até 7 dias.
+export function planReviewChip(reviewDate?: string | null) {
+    if (!reviewDate) return null;
+    const days = Math.floor((new Date(reviewDate).getTime() - Date.now()) / 86_400_000);
+    if (Number.isNaN(days) || days > 7) return null;
+    return <Chip tone="warn">{days < 0 ? 'Revisar plano · vencido' : days === 0 ? 'Revisar plano · hoje' : `Revisar plano · ${days}d`}</Chip>;
 }
 
 function careChip(p: Patient) {
@@ -133,12 +146,13 @@ function RowMenu({ patient, onRegisterEvolution, onSchedule, onViewReports }: {
 }
 
 export default function MyPatientsPanel({
-    pendingEvolutionIds, refreshKey = 0, onOpenPatient, onCreateAnamnesis, onCreateSchoolReport,
-    onViewReports, onRegisterEvolution, onSchedule, onAddNewPatient,
+    pendingEvolutionIds, refreshKey = 0, onOpenPatient, onCreateAnamnesis, onViewAnamnesis, onCreateSchoolReport,
+    onViewReports, onRegisterEvolution, onSchedule, onAddNewPatient, initialFilter = '',
 }: Props) {
     const [search, setSearch] = useState('');
     const [debounced, setDebounced] = useState('');
-    const [filter, setFilter] = useState<Filter>('');
+    const [filter, setFilter] = useState<Filter>(initialFilter);
+    useEffect(() => { setFilter(initialFilter); setPage(1); }, [initialFilter]);
     const [sort, setSort] = useState('next');
     const [page, setPage] = useState(1);
     const [rows, setRows] = useState<Patient[]>([]);
@@ -191,6 +205,11 @@ export default function MyPatientsPanel({
             {billingChip(p)}
             {careChip(p)}
             {pendingEvolutionIds.has(p._id) && <Chip tone="warn">Evolução pendente</Chip>}
+            {p.activePackage?.totalSessions > 0 && (() => {
+                const left = p.activePackage.totalSessions - (p.activePackage.sessionsDone || 0);
+                return <Chip tone={left <= 2 ? 'warn' : 'neu'}>Pacote {Math.min(p.activePackage.sessionsDone || 0, p.activePackage.totalSessions)}/{p.activePackage.totalSessions}</Chip>;
+            })()}
+            {planReviewChip(p.planReviewDate)}
             {p.birthdayThisMonth && <Chip tone="ok">Aniversário {birthdayLabel(p.dateOfBirth)}</Chip>}
         </div>
     );
@@ -202,7 +221,11 @@ export default function MyPatientsPanel({
     };
     const docLinks = (p: Patient) => (
         <div className="flex flex-wrap gap-x-1">
-            <button type="button" className={linkBtn} onClick={() => onCreateAnamnesis(p)}><Stethoscope className="h-3.5 w-3.5" aria-hidden />Anamnese</button>
+            <button type="button" className={linkBtn} onClick={() => (p.hasAnamnesis ? (onViewAnamnesis || onCreateAnamnesis)(p) : onCreateAnamnesis(p))}
+                title={p.hasAnamnesis ? 'Anamnese registrada: abrir' : 'Sem anamnese: criar agora'}>
+                {p.hasAnamnesis ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" aria-hidden /> : <Stethoscope className="h-3.5 w-3.5" aria-hidden />}
+                Anamnese{p.hasAnamnesis && <span className="sr-only"> registrada</span>}
+            </button>
             <button type="button" className={linkBtn} onClick={() => onCreateSchoolReport(p)}><School className="h-3.5 w-3.5" aria-hidden />Escolar</button>
         </div>
     );
@@ -248,9 +271,11 @@ export default function MyPatientsPanel({
                     <option value="last">Ordenar: última sessão</option>
                     <option value="name">Ordenar: nome (A–Z)</option>
                 </select>
+{onAddNewPatient && (
                 <button type="button" onClick={onAddNewPatient} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
                     <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
                 </button>
+                )}
             </div>
 
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Filtros rápidos">

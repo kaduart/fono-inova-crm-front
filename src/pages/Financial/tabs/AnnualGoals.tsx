@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { planningService, type AnnualPlanning, type AnnualMonthStatus } from '../../../services/planningService';
 import { KpiStrip, Pill, brl, type Tone } from '../components/finUi';
+import GoalBar from '../../../components/ui/insight/GoalBar';
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -69,6 +70,20 @@ export default function AnnualGoals({ year, selectedMonth, onSelect, reloadKey }
         ]}
       />
 
+      {/* Novo design (Tremor): o ano numa barra só, com o traço de onde deveria estar hoje. */}
+      {!!t?.metaAno && (
+        <div className="mt-3">
+          <GoalBar
+            label={`Ano de ${year}: realizado × meta`}
+            done={t.realizadoAno ?? 0}
+            goal={t.metaAno}
+            pace={t.metaAteAgora ?? null}
+            tone={diff < 0 ? 'amber' : 'emerald'}
+            right={<><b className="text-gray-900 dark:text-gray-50">{brl(t.realizadoAno)}</b> de {brl(t.metaAno)}</>}
+          />
+        </div>
+      )}
+
       <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {(data?.months ?? Array.from({ length: 12 }, () => null as any)).map((m, i) => {
           const month = m?.month ?? i + 1;
@@ -82,7 +97,7 @@ export default function AnnualGoals({ year, selectedMonth, onSelect, reloadKey }
               aria-pressed={on}
               onClick={() => onSelect(month)}
               className={`text-left rounded-xl border p-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                on ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' : 'border-gray-200 bg-white hover:bg-gray-50'
+                on ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500 dark:bg-emerald-500/10' : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-[#161d1b] dark:hover:bg-white/5'
               }`}
             >
               <div className="flex items-center justify-between gap-1">

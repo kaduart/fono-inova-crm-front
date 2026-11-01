@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import api from '../../services/api';
 import InputCurrency from '../ui/InputCurrency';
 

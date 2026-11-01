@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import API from '../../services/api';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useSystemHealthCtx } from '../../contexts/SystemHealthContext';
 
 import type { DomainHealth } from '../../utils/systemHealthResolver';

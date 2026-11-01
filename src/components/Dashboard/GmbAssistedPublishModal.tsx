@@ -4,8 +4,9 @@
  */
 
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 // 🧠 Score de qualidade do post
 function calculatePostScore(post: any): number {
@@ -61,7 +62,7 @@ export default function GmbAssistedPublishModal({ post, isOpen, onClose, onPubli
   };
 
   const handleMarkPublished = async () => {
-    if (!confirm('Confirma que publicou este post no Google Meu Negócio?')) return;
+    if (!await confirmDialog('Confirma que publicou este post no Google Meu Negócio?')) return;
     
     setMarking(true);
     try {

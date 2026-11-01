@@ -1,19 +1,18 @@
 import { Banknote, Landmark, TrendingUp, WalletCards } from 'lucide-react';
-import moment from 'moment-timezone';
+import { monthSP, spMonthRangeISO, yearSP } from '../../../utils/dateSP';
 import { useMemo, useState } from 'react';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { useFinancialMetrics } from '../../../hooks/useFinancialMetrics';
 
-const TIMEZONE = 'America/Sao_Paulo';
 const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const RevenueTab: React.FC = () => {
-    const [selectedMonth, setSelectedMonth] = useState(moment().tz(TIMEZONE).month());
-    const [selectedYear, setSelectedYear] = useState(moment().tz(TIMEZONE).year());
-    const startDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).startOf('month').toISOString();
-    const endDate = moment().tz(TIMEZONE).year(selectedYear).month(selectedMonth).endOf('month').toISOString();
-    const years = Array.from({ length: 3 }, (_, index) => moment().tz(TIMEZONE).year() - index);
+    const [selectedMonth, setSelectedMonth] = useState(monthSP() - 1);
+    const [selectedYear, setSelectedYear] = useState(yearSP());
+    const startDate = spMonthRangeISO(selectedYear, selectedMonth).start;
+    const endDate = spMonthRangeISO(selectedYear, selectedMonth).end;
+    const years = Array.from({ length: 3 }, (_, index) => yearSP() - index);
     const { data, isLoading } = useFinancialMetrics(startDate, endDate);
 
     const metrics = useMemo(() => ({

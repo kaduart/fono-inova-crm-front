@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { metaAdsApi, Campaign, AggregatedMetrics, SpecialtyMetrics } from '../services/metaAdsApi';
 
 export type FilterPeriod = '7d' | '30d' | 'this_month' | 'all';

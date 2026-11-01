@@ -10,7 +10,7 @@ import {
   receivePayment,
   type FinancialSummary,
 } from '../../services/financialSummaryService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 
 import { ModalSpinner } from '../ui/LoadingSpinner';
@@ -397,16 +397,25 @@ export const PatientBalanceModal: React.FC<Props> = ({
     setSplitMethods([]);
   };
 
+  // Esc fecha o modal (antes não fechava)
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !confirmMode) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, confirmMode, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div role="dialog" aria-modal="true" aria-label="Receber" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col relative">
         {/* Header */}
         <PatientBalanceHeader summary={summary} patientName={patientName} onOpenReceive={goToReceiveTab} />
 
         <button
           onClick={onClose}
+          aria-label="Fechar"
           className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 z-10"
         >
           <X className="w-6 h-6" />
@@ -430,11 +439,13 @@ export const PatientBalanceModal: React.FC<Props> = ({
             activeClass="text-green-600 border-green-500 bg-green-50"
           />
           <TabButton
-            active={activeTab === 'add'}
-            onClick={() => setActiveTab('add')}
+            active={false}
+            onClick={() => {}}
             icon={<Plus className="w-4 h-4" />}
             label="Registrar"
             activeClass="text-amber-600 border-amber-500 bg-amber-50"
+            disabled
+            title="Registro manual de débito temporariamente indisponível"
           />
           <TabButton
             active={activeTab === 'receive'}
@@ -601,7 +612,11 @@ function TabButton({
   label,
   activeClass,
   badge,
+  disabled = false,
+  title,
 }: {
+  disabled?: boolean;
+  title?: string;
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
@@ -611,9 +626,15 @@ function TabButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-disabled={disabled || undefined}
       className={`flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-        active
+        disabled
+          ? 'text-gray-300 cursor-not-allowed'
+          : active
           ? `border-b-2 ${activeClass}`
           : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
       }`}

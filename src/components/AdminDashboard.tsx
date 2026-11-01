@@ -2,7 +2,7 @@ import { Box, Typography, useTheme } from '@mui/material';
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '../utils/toast';
-import moment from 'moment-timezone';
+import { monthEndYmd, monthStartYmd } from '../utils/dateSP';
 import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
 import { invalidateCache } from '../utils/cacheManager';
 
@@ -266,8 +266,8 @@ export default function AdminDashboard() {
         if ((activeTab === 'Calendário' || activeTab === 'Pré-Agendamentos') && !hasLoadedAppointments) {
             // Inicializa o range com a data atual
             setCalendarDateRange({
-                startDate: moment().startOf('month').format('YYYY-MM-DD'),
-                endDate: moment().endOf('month').format('YYYY-MM-DD')
+                startDate: monthStartYmd(),
+                endDate: monthEndYmd()
             });
             setHasLoadedAppointments(true);
         }
@@ -1092,8 +1092,8 @@ export default function AdminDashboard() {
         // 🎯 FIX: O FullCalendar passa a grade visível (ex: 30/03 a 02/05).
         // Pegamos o meio do intervalo para garantir o mês correto (abril, não março).
         const middleDate = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
-        const monthStart = moment(middleDate).startOf('month').format('YYYY-MM-DD');
-        const monthEnd = moment(middleDate).endOf('month').format('YYYY-MM-DD');
+        const monthStart = monthStartYmd(new Date(middleDate));
+        const monthEnd = monthEndYmd(new Date(middleDate));
 
         // ✅ FIX: Apenas atualiza o estado - o useEffect cuidará do fetch
         setCalendarDateRange(prev => {
@@ -1246,11 +1246,14 @@ export default function AdminDashboard() {
                         </Suspense>
                     </TabErrorBoundary>
                 );
+            case 'Caixa':
+            case 'Convenios':
             case 'Financeiro':
                 return (
-                    <TabErrorBoundary tabName="Financeiro">
+                    <TabErrorBoundary tabName={activeTab}>
                         <Suspense fallback={<TabSpinner />}>
-                            <FinancialDashboard {...financialProps} />
+                            <FinancialDashboard key={activeTab} {...financialProps}
+                                section={activeTab === 'Caixa' ? 'caixa' : activeTab === 'Convenios' ? 'convenios' : 'gestao'} />
                         </Suspense>
                     </TabErrorBoundary>
                 );
@@ -1353,7 +1356,7 @@ export default function AdminDashboard() {
 
     return (
         <SystemHealthProvider active={activeTab === 'Observability' || activeTab === 'Monitor'}>
-        <div className="min-h-screen bg-gray-100 text-gray-800">
+        <div className="min-h-screen bg-gray-100 text-left text-gray-800">
             <WhatsAppCriticalBanner />
             <AdminHeader
                 activeTab={activeTab}

@@ -1,8 +1,7 @@
 // src/pages/doctor/DoctorDashboard.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { Box, Card, CardContent, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from '../../utils/toast';
 import { toDateString } from '../../utils/dateUtils';
 import DashboardHeader from '../../components/doctor/DashboardHeader';
 import { PatientModal } from '../../components/patients/PatientModal';
@@ -11,8 +10,9 @@ import patientService from '../../services/patientService';
 import { IPatient } from '../../utils/types/types';
 
 import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
-import PatientDetail from '../../components/doctor/patient/PatientDetail';
-import MyPatientsPanel from '../../components/doctor/patient/MyPatientsPanel';
+import PatientDetail, { type PatientSection } from '../../components/doctor/patient/PatientDetail';
+import MyPatientsPanel, { type Filter as PatientsFilter } from '../../components/doctor/patient/MyPatientsPanel';
+import { fetchMyPatients, type MyPatientsSummary } from '../../services/doctorService';
 import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
 import useDoctorInsights from '../../hooks/useDoctorInsights';
 import ScheduleAppointmentModal from '../../components/patients/ScheduleAppointmentModal';
@@ -21,55 +21,35 @@ import TherapyEvolution from '../../components/doctor/TherapyEvolution';
 import DoctorFinancialTab from '../../components/doctor/tabs/DoctorFinancialTab';
 import { AlertTriangle, CalendarDays, FileText, Plus, RefreshCw, UserPlus } from 'lucide-react';
 import DayBar from '../../components/doctor/overview/DayBar';
+import DoctorViewPicker from '../../components/doctor/DoctorViewPicker';
 import TodayAgendaPanel from '../../components/doctor/overview/TodayAgendaPanel';
 import PatientQuickSearch from '../../components/doctor/overview/PatientQuickSearch';
-import { MonthPanel, PendingPanel, TomorrowPanel } from '../../components/doctor/overview/OverviewSidePanels';
+import { TomorrowPanel } from '../../components/doctor/overview/OverviewSidePanels';
+import DoctorNeedsYou from '../../components/doctor/overview/DoctorNeedsYou';
+import DoctorOverviewInsights from '../../components/doctor/overview/DoctorOverviewInsights';
 import { aptDateTime, isCanceled, isOpen, patientOf, todayLocal } from '../../components/doctor/overview/agendaUtils';
 
 const quickBtn = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 import { notifyApiError } from '../../utils/notifyApiError';
 
-// Skeleton para KPI
-const KPICardSkeleton = () => (
-  <Card className="rounded-2xl border border-gray-200 shadow-sm">
-    <CardContent className="p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <Skeleton variant="text" width={120} height={20} className="mb-2" />
-          <Skeleton variant="text" width={60} height={48} />
-        </div>
-        <Skeleton variant="circular" width={48} height={48} />
-      </div>
-    </CardContent>
-  </Card>
-);
-
-// Skeleton para o Dashboard completo
+// Skeleton do painel (sem MUI): cabeçalho + 4 indicadores
 const DashboardSkeleton = () => (
-  <div className="min-h-screen bg-gray-50">
-    <div className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Skeleton variant="circular" width={48} height={48} />
-            <div>
-              <Skeleton variant="text" width={250} height={32} />
-              <Skeleton variant="text" width={180} height={20} />
-            </div>
+  <div className="min-h-screen bg-gray-50" aria-busy="true">
+    <div className="border-b border-gray-200 bg-white">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 animate-pulse rounded-full bg-gray-100" />
+          <div className="space-y-2">
+            <div className="h-6 w-60 animate-pulse rounded bg-gray-100" />
+            <div className="h-4 w-44 animate-pulse rounded bg-gray-100" />
           </div>
-          <Skeleton variant="rectangular" width={120} height={40} className="rounded-full" />
         </div>
+        <div className="h-10 w-28 animate-pulse rounded-full bg-gray-100" />
       </div>
     </div>
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-        <Grid container spacing={3} className="mb-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Grid item xs={12} sm={6} lg={3} key={i}>
-              <KPICardSkeleton />
-            </Grid>
-          ))}
-        </Grid>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-gray-100" />)}
       </div>
     </div>
   </div>
@@ -118,12 +98,39 @@ const initialPatientState: IPatient = {
   lastAppointment: ''
 };
 
+
+const SLUG_FROM_TAB: Record<string, string> = {
+  overview: 'dashboard', patients: 'pacientes', therapy: 'evolucao', appointments: 'agenda', insights: 'insights', financial: 'financeiro',
+};
+const TAB_FROM_SLUG: Record<string, string> = Object.fromEntries(Object.entries(SLUG_FROM_TAB).map(([k, v]) => [v, k]));
+
 export default function DoctorDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  // Aba e paciente ficam na URL (?aba=pacientes&paciente=<id>): F5 e "voltar" não perdem o lugar.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => TAB_FROM_SLUG[urlParams.get('aba') || ''] || (urlParams.get('paciente') ? 'patients' : 'overview'));
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+  const [selectedPatient, setSelectedPatient] = useState<IPatient | null>(() => {
+    const id = urlParams.get('paciente');
+    return id ? ({ _id: id, fullName: '' } as IPatient) : null;
+  });
+
+  const [detailSection, setDetailSection] = useState<PatientSection | undefined>(undefined);
+  const [createSignal, setCreateSignal] = useState(0);
+  // Filtro da lista "Meus pacientes" vindo de um atalho (KPI "Sem próxima sessão").
+  const [patientsFilter, setPatientsFilter] = useState<PatientsFilter>('');
+  const [careSummary, setCareSummary] = useState<MyPatientsSummary | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>(() => (urlParams.get('paciente') ? 'detail' : 'list'));
+
+  useEffect(() => {
+    const next = new URLSearchParams(urlParams);
+    const slug = SLUG_FROM_TAB[activeTab];
+    if (slug && slug !== 'dashboard') next.set('aba', slug); else next.delete('aba');
+    if (activeTab === 'patients' && viewMode === 'detail' && selectedPatient?._id) next.set('paciente', selectedPatient._id);
+    else { next.delete('paciente'); next.delete('secao'); }
+    if (next.toString() !== urlParams.toString()) setUrlParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, viewMode, selectedPatient?._id]);
   const [isLoading, setIsLoading] = useState(false);
 
   // ── Insights: schedule modal ──────────────────────────────────────────────
@@ -149,8 +156,13 @@ export default function DoctorDashboard() {
     loadTherapy,
     loadPatients,
     ensurePatientsLoaded,
-    pendingEvolutions
+    pendingEvolutions,
+    pendingEvolutionsError,
+    userRole,
+    selectViewDoctor
   } = useDoctorDashboard();
+  // Cadastro de paciente é da recepção (decisão do Kadu, 01/11/2026).
+  const isStaffViewer = userRole === 'admin' || userRole === 'secretary';
 
   const doctorInsights = useDoctorInsights(doctorId);
 
@@ -161,6 +173,7 @@ export default function DoctorDashboard() {
     switch (activeTab) {
       case 'overview':
         loadOverview();
+        doctorInsights.refresh(); // pacientes em risco do "Precisa de você"
         break;
       case 'patients':
         loadPatients();
@@ -191,7 +204,8 @@ export default function DoctorDashboard() {
     setScheduleModalLoading(true);
     try {
       await appointmentService.create(data);
-      toast.success('Consulta reagendada com sucesso!');
+      const when = data?.date ? `${String(data.date).slice(8, 10)}/${String(data.date).slice(5, 7)}${data.time ? ` às ${data.time}` : ''}` : '';
+      toast.success(when ? `Sessão agendada para ${when}` : 'Sessão agendada');
       setScheduleModalSignal(s => s + 1); // fecha modal via closeModalSignal
       loadOverview(true);       // atualiza consultas de hoje
       doctorInsights.refresh(); // atualiza métricas de risco
@@ -217,6 +231,8 @@ export default function DoctorDashboard() {
 
   const handleViewPatientDetails = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
+    setDetailSection(undefined);
+    setCreateSignal(0);
     setViewMode('detail');
     setActiveTab('patients');
   }, []);
@@ -230,21 +246,24 @@ export default function DoctorDashboard() {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    toast.info(`Criar anamnese para ${patient.fullName}`);
+    setDetailSection('anamnesis');
+    setCreateSignal(Date.now());
   }, []);
 
   const handleCreateSchoolReport = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    toast.info(`Criar relatório escolar para ${patient.fullName}`);
+    setDetailSection('school');
+    setCreateSignal(Date.now());
   }, []);
 
   const handleViewMedicalReports = useCallback((patient: IPatient) => {
     setSelectedPatient(patient);
     setViewMode('detail');
     setActiveTab('patients');
-    toast.info(`Ver relatórios médicos de ${patient.fullName}`);
+    setDetailSection('medical');
+    setCreateSignal(0);
   }, []);
 
   const handleAddNewPatient = useCallback(() => {
@@ -290,6 +309,16 @@ export default function DoctorDashboard() {
   const handleLogout = useCallback(() => {
     navigate('/logout');
   }, [navigate]);
+
+  // Resumo da carteira (ativos, sem próxima sessão…) para o KPI clicável do Dashboard.
+  useEffect(() => {
+    if (!doctorId || activeTab !== 'overview') return;
+    let alive = true;
+    fetchMyPatients({ limit: 1 })
+      .then(r => { if (alive) setCareSummary(r.meta.summary || null); })
+      .catch(() => { if (alive) setCareSummary(null); });
+    return () => { alive = false; };
+  }, [doctorId, activeTab, patientsRefreshKey]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
@@ -361,6 +390,15 @@ export default function DoctorDashboard() {
     handleViewPatientDetails(p as IPatient);
   }, [handleViewPatientDetails]);
 
+  // Admin/secretária sem profissional escolhido: seletor no lugar do painel vazio.
+  if (isStaffViewer && !doctorId) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4">
+        <DoctorViewPicker prominent onChange={(d) => selectViewDoctor(d)} />
+      </div>
+    );
+  }
+
   // Skeleton enquanto carrega dados iniciais
   if (!doctorData || !doctorId) {
     return <DashboardSkeleton />;
@@ -384,9 +422,11 @@ export default function DoctorDashboard() {
               <button type="button" onClick={() => handleTabChange('appointments')} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
                 <Plus className="h-4 w-4" aria-hidden />Nova consulta
               </button>
-              <button type="button" onClick={handleAddNewPatient} className={quickBtn}>
-                <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
-              </button>
+              {isStaffViewer && (
+                <button type="button" onClick={handleAddNewPatient} className={quickBtn}>
+                  <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
+                </button>
+              )}
               <button type="button" onClick={() => handleTabChange('therapy')} className={quickBtn}>
                 <FileText className="h-4 w-4" aria-hidden />Evolução rápida
               </button>
@@ -408,27 +448,32 @@ export default function DoctorDashboard() {
                   <RefreshCw className={`h-4 w-4 ${loading.overview ? 'animate-spin' : ''}`} aria-hidden />{loading.overview ? 'Carregando…' : 'Tentar de novo'}
                 </button>
               </div>
-            ) : loading.overview && !stats ? (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true">
-                {[1, 2, 3, 4].map(i => <div key={i} className="h-[76px] animate-pulse rounded-xl bg-gray-100" />)}
-              </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {overviewKpis.map(k => {
-                  const body = (
-                    <>
-                      <span className="text-xs font-medium text-gray-600">{k.label}</span>
-                      <span className="text-2xl font-bold leading-tight tabular-nums text-gray-900">{k.value}</span>
-                      {k.hint && <span className="text-xs text-gray-600">{k.hint}</span>}
-                    </>
-                  );
-                  return k.onClick ? (
-                    <button key={k.label} type="button" onClick={k.onClick} className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-left hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">{body}</button>
-                  ) : (
-                    <div key={k.label} className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-2.5">{body}</div>
-                  );
-                })}
-              </div>
+              <>
+                <DoctorNeedsYou
+                  pendingEvolutions={pendingEvolutions}
+                  pendingError={pendingEvolutionsError}
+                  todayAppointments={todayAppointments}
+                  birthdayPatients={birthdayPatients}
+                  riskPatients={doctorInsights.insights?.riskPatients ?? []}
+                  riskLoading={doctorInsights.loading}
+                  specialty={doctorData?.specialty}
+                  canRegisterContact={isStaffViewer}
+                  onRegisterEvolution={handleGoToEvolution}
+                  onOpenPatient={openPatient}
+                  onSchedule={handleScheduleRiskPatient}
+                />
+                <DoctorOverviewInsights
+                  stats={stats}
+                  loading={loading.overview && !stats}
+                  insights={doctorInsights.insights}
+                  nextLabel={overviewKpis[3]}
+                  onOpenPatients={() => { setPatientsFilter(''); handleTabChange('patients'); }}
+                  noNext={careSummary?.no_next}
+                  onOpenNoNext={() => { setPatientsFilter('no_next'); handleTabChange('patients'); }}
+                  onOpenInsights={() => handleTabChange('insights')}
+                />
+              </>
             )}
 
             {!overviewError && <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -440,18 +485,7 @@ export default function DoctorDashboard() {
                 onRegisterEvolution={handleGoToEvolution}
                 onOpenPatient={openPatient}
               />
-              <div className="flex flex-col gap-4">
-                <PendingPanel
-                  pendingEvolutions={pendingEvolutions}
-                  todayAppointments={todayAppointments}
-                  birthdayPatients={birthdayPatients}
-                  onRegisterEvolution={handleGoToEvolution}
-                  onOpenPatient={openPatient}
-                  onSeeAgenda={() => handleTabChange('appointments')}
-                />
-                <TomorrowPanel futureAppointments={futureAppointments ?? []} />
-                <MonthPanel stats={stats} />
-              </div>
+              <TomorrowPanel futureAppointments={futureAppointments ?? []} onSeeAgenda={() => handleTabChange('appointments')} />
             </div>}
           </div>
         );
@@ -461,8 +495,11 @@ export default function DoctorDashboard() {
           return (
             <div className="p-6">
               <PatientDetail
+                key={selectedPatient._id}
                 patientId={selectedPatient._id}
                 onBack={handleBackToList}
+                initialSection={detailSection}
+                createSignal={createSignal || undefined}
               />
             </div>
           );
@@ -474,11 +511,13 @@ export default function DoctorDashboard() {
               refreshKey={patientsRefreshKey}
               onOpenPatient={(p) => handleViewPatientDetails(p as IPatient)}
               onCreateAnamnesis={(p) => handleCreateAnamnesis(p as IPatient)}
+              onViewAnamnesis={(p) => { setSelectedPatient(p as IPatient); setDetailSection('anamnesis'); setCreateSignal(0); setViewMode('detail'); }}
               onCreateSchoolReport={(p) => handleCreateSchoolReport(p as IPatient)}
               onViewReports={(p) => handleViewMedicalReports(p as IPatient)}
               onRegisterEvolution={handleGoToEvolution}
               onSchedule={(p) => handleScheduleRiskPatient(p._id, p.fullName)}
-              onAddNewPatient={handleAddNewPatient}
+              onAddNewPatient={isStaffViewer ? handleAddNewPatient : undefined}
+              initialFilter={patientsFilter}
             />
           </div>
         );
@@ -524,6 +563,7 @@ export default function DoctorDashboard() {
               onPatientClick={handleViewPatientHistory}
               onSchedule={handleScheduleRiskPatient}
               onViewHistory={handleViewPatientHistory}
+              futureAppointments={futureAppointments ?? []}
             />
         );
 
@@ -538,25 +578,6 @@ export default function DoctorDashboard() {
           </div>
         );
 
-      case 'messages':
-        return (
-          <div className="p-6">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Mensagens</h2>
-              <p className="text-gray-600">Sistema de mensagens em desenvolvimento</p>
-            </div>
-          </div>
-        );
-
-      case 'profile':
-        return (
-          <div className="p-6">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Meu Perfil</h2>
-              <p className="text-gray-600">Página de perfil em desenvolvimento</p>
-            </div>
-          </div>
-        );
 
       default:
         return (
@@ -571,7 +592,7 @@ export default function DoctorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 text-left">
       <DashboardHeader
         doctorData={doctorData}
         activeTab={activeTab}
@@ -580,6 +601,7 @@ export default function DoctorDashboard() {
       />
 
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {isStaffViewer && <DoctorViewPicker value={doctorId} onChange={(d) => selectViewDoctor(d)} />}
         {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
         <div className={activeTab === 'overview' || activeTab === 'therapy' || activeTab === 'insights' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
           {renderTabContent()}
@@ -606,7 +628,7 @@ export default function DoctorDashboard() {
           initialData={{
             patientId: scheduleRiskTarget._id,
             doctorId: doctorId || '',
-            date: '',
+            date: new Date().toISOString().slice(0, 10),
             time: '',
             sessionType: scheduleRiskTarget.lastSessionType || 'individual_session',
           } as any}

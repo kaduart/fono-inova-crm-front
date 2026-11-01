@@ -12,12 +12,11 @@ import {
     User,
     X
 } from 'lucide-react';
-import moment from 'moment';
-import 'moment/locale/pt-br';
+import { addWeeks, format as fmtDate, getISODay, isBefore, parse as parseDate, setISODay, startOfISOWeek } from 'date-fns';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePicker from 'react-datepicker';
-import ReactInputMask from 'react-input-mask';
-import { toast } from 'react-toastify';
+import ReactInputMask from '../ui/MaskedInput';
+import { toast } from '../../utils/toast';
 
 import appointmentService from '../../services/appointmentService';
 import packageService from '../../services/packageService';
@@ -662,27 +661,27 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         dailySessionTimes?: string[];
         intervalWeeks?: number;
     }) {
-        const start = moment(startDate, "YYYY-MM-DD");
+        const start = parseDate(startDate, "yyyy-MM-dd", new Date());
         const results: { date: string; time: string }[] = [];
 
         // 🆕 Lógica para Sessões no Mesmo Dia
         if (sameDaySessions && dailySessionTimes.length > 0) {
             let sessionsCreated = 0;
-            let currentWeek = start.clone().startOf('isoWeek');
-            const dayOfWeek = start.isoWeekday(); // Dia da semana da data de início
+            let currentWeek = startOfISOWeek(start);
+            const dayOfWeek = getISODay(start); // Dia da semana da data de início
 
             // Ordena horários para garantir ordem cronológica
             const sortedTimes = [...dailySessionTimes].sort();
 
             while (sessionsCreated < totalSessions) {
-                const sessionDate = currentWeek.clone().isoWeekday(dayOfWeek);
+                const sessionDate = setISODay(currentWeek, dayOfWeek);
 
                 // Só processa se a data for válida (>= start date e não fim de semana se desejado)
-                if (sessionDate.isSameOrAfter(start, 'day') && sessionDate.isoWeekday() <= 5) {
+                if (!isBefore(sessionDate, start) && getISODay(sessionDate) <= 5) {
                     for (const time of sortedTimes) {
                         if (sessionsCreated >= totalSessions) break;
                         results.push({
-                            date: sessionDate.format('YYYY-MM-DD'),
+                            date: fmtDate(sessionDate, 'yyyy-MM-dd'),
                             time: time
                         });
                         sessionsCreated++;
@@ -690,7 +689,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 }
 
                 // Semanal = avança 1 semana; quinzenal = pula 2 (ocorrência a cada 15 dias)
-                currentWeek.add(intervalWeeks, 'week');
+                currentWeek = addWeeks(currentWeek, intervalWeeks);
             }
             return results;
         }
@@ -709,7 +708,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         const dayTimes: Record<number, string> = {};
 
         // Primeira sessão (data inicial)
-        const firstSessionDay = start.isoWeekday();
+        const firstSessionDay = getISODay(start);
         activeDays.push(firstSessionDay);
         dayTimes[firstSessionDay] = startTime;
 
@@ -728,29 +727,29 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         activeDays.sort((a, b) => a - b);
 
         let sessionsCreated = 0;
-        let currentWeek = start.clone().startOf('isoWeek'); // Segunda-feira da semana inicial
+        let currentWeek = startOfISOWeek(start); // Segunda-feira da semana inicial
 
         while (sessionsCreated < totalSessions) {
             // Para cada dia ativo na semana atual
             for (const dayOfWeek of activeDays) {
                 if (sessionsCreated >= totalSessions) break;
 
-                const sessionDate = currentWeek.clone().isoWeekday(dayOfWeek);
+                const sessionDate = setISODay(currentWeek, dayOfWeek);
 
                 // ⚠️ IMPORTANTE: Só inclui sessões a partir da data de início
-                if (sessionDate.isBefore(start, 'day')) {
+                if (isBefore(sessionDate, start)) {
                     continue;
                 }
 
                 // ⚠️ CORREÇÃO: Garante que não cria sessões em dias passados
-                if (sessionDate.isoWeekday() > 5) { // Sábado ou Domingo
+                if (getISODay(sessionDate) > 5) { // Sábado ou Domingo
                     continue;
                 }
 
                 const time = dayTimes[dayOfWeek] || startTime;
 
                 results.push({
-                    date: sessionDate.format('YYYY-MM-DD'),
+                    date: fmtDate(sessionDate, 'yyyy-MM-dd'),
                     time: time
                 });
 
@@ -758,7 +757,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             }
 
             // Avança para a próxima ocorrência (1 semana no modo semanal, 2 no quinzenal)
-            currentWeek.add(intervalWeeks, 'week');
+            currentWeek = addWeeks(currentWeek, intervalWeeks);
         }
 
         return results.slice(0, totalSessions);

@@ -1,10 +1,11 @@
 // hooks/useAmandaControl.ts
 import { useState, useCallback, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../../utils/toast';
 import API from '../../../../services/api';
 import { logger } from '../../../../utils/logger';
 import { socketManager } from '../../../../utils/socketManager';
 import type { Contact } from '../types/chat.types';
+import { confirmDialog } from '../../../ui/ConfirmHost';
 
 export function useAmandaControl(contact: Contact | null) {
     const [manualActive, setManualActive] = useState<boolean>(!!contact?.manualActive);
@@ -75,7 +76,7 @@ export function useAmandaControl(contact: Contact | null) {
             return;
         }
 
-        if (!confirm("Tem certeza que deseja cancelar o follow-up deste lead?")) {
+        if (!await confirmDialog("Tem certeza que deseja cancelar o follow-up deste lead?")) {
             return;
         }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../utils/toast';
 import { 
   analyticsService, 
   GAEvent, 

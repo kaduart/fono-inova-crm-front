@@ -22,6 +22,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: '/',
+    // 01/11: o Vite só deve escanear o index.html da raiz (antes varria dist/ e public/ e travava a otimização).
+    optimizeDeps: { entries: ['index.html'] },
     plugins: [
       react(),
       VitePWA({
@@ -77,10 +79,10 @@ export default defineConfig(({ mode }) => {
             // Vendor chunks - bibliotecas grandes que mudam pouco
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-            'vendor-charts': ['recharts', 'chart.js', 'react-chartjs-2'],
+            'vendor-charts': ['recharts'],
             'vendor-calendar': ['@fullcalendar/core', '@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction'],
             'vendor-forms': ['react-hook-form', 'zod'],
-            'vendor-utils': ['axios', 'date-fns', 'dayjs', 'moment', 'moment-timezone'],
+            'vendor-utils': ['axios', 'date-fns'],
             'vendor-ui': ['framer-motion', 'lucide-react', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
 
             // Dynamic imports para features pesadas

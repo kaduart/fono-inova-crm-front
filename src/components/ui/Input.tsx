@@ -1,5 +1,5 @@
 import React, { useState, forwardRef } from 'react';
-import InputMask from 'react-input-mask';
+import InputMask from './MaskedInput';
 
 type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
@@ -24,10 +24,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           <InputMask
             mask={mask}
-            value={value}
+            value={value as string | number | undefined}
             onChange={onChange}
             id={id}
-            inputRef={ref as React.Ref<HTMLInputElement>}
+            ref={ref as React.Ref<HTMLInputElement>}
             className={inputClassName}
             {...props}
           />

@@ -21,6 +21,7 @@ import {
 import BirthdayList from './BirthdayList';
 import { EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 
 // Ordem aprovada pelo Kadu em 29/10 (mock "Dashboard do admin"):
 // 1. Precisa de você hoje · 2. Aniversariantes · 3. Lista de pacientes (única aberta)
@@ -254,6 +255,8 @@ const TONE: Record<NeedItem['tone'], string> = {
 };
 
 const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading }) => {
+    // AutoAnimate: card que zera sai deslizando, card novo entra suave.
+    const [animRef] = useAutoAnimate<HTMLDivElement>();
     // Erro ≠ zero: fila que não carregou aparece como "não carregou", nunca some como se estivesse em dia.
     const visible = items.filter(i => i.count > 0 || i.error);
     const cols = visible.length > 4 ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4';
@@ -270,7 +273,7 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
             ) : visible.length === 0 ? (
                 <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, avaliações, confirmações, pacotes, retornos e aniversários estão em dia.</p>
             ) : (
-                <div className={`grid gap-3 ${cols}`}>
+                <div ref={animRef} className={`grid gap-3 ${cols}`}>
                     {visible.map(item => item.error && !item.count ? (
                         <button
                             key={item.key}
@@ -633,7 +636,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         },
         {
             key: 'pay', count: stats?.pendingPayments || 0, tone: 'bad', title: 'Pagamentos em aberto',
-            detail: 'pendentes ou parciais', cta: 'Abrir financeiro', onClick: () => onNavigate?.('Financeiro'),
+            detail: 'pendentes ou parciais', cta: 'Abrir recebimentos', onClick: () => onNavigate?.('Caixa'),
         },
         {
             key: 'leads', count: opCounts.total || 0, tone: 'info', title: 'Leads para retornar',
@@ -802,7 +805,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem as canceladas" />
                         <StatTile label="Caixa hoje" value={formatCurrency(stats.todayRevenue)} detail="recebido hoje" />
                         <StatTile label="Caixa do mês" value={formatCurrency(stats.monthRevenue)} detail="recebido no mês (regra do caixa)" />
-                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Financeiro') : undefined} />
+                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Caixa') : undefined} />
                         <StatTile label="Leads do mês" value={stats.monthLeads} detail="novos interessados" onClick={onNavigate ? () => onNavigate('Leads') : undefined} />
                         <StatTile
                             label="Pacientes"

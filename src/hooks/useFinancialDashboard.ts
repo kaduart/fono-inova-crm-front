@@ -7,9 +7,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
-import moment from 'moment-timezone';
+import { monthSP, yearSP } from '../utils/dateSP';
 
-const TIMEZONE = 'America/Sao_Paulo';
 
 interface Period {
   month: number;
@@ -112,8 +111,8 @@ export const useFinancialDashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async (month?: number, year?: number, view: 'month' | 'week' | 'day' = 'month') => {
-    const mes = month || moment().tz(TIMEZONE).month() + 1;
-    const ano = year || moment().tz(TIMEZONE).year();
+    const mes = month || monthSP();
+    const ano = year || yearSP();
     
     setLoading(true);
     setError(null);
@@ -144,8 +143,8 @@ export const useFinancialDashboard = () => {
  * Hook com período atual (mês) — carrega automaticamente ao montar
  */
 export const useCurrentMonthDashboard = () => {
-  const month = moment().tz(TIMEZONE).month() + 1;
-  const year = moment().tz(TIMEZONE).year();
+  const month = monthSP();
+  const year = yearSP();
   const hook = useFinancialDashboard();
   const fetched = useRef(false);
 

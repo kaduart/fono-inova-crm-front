@@ -8,6 +8,36 @@ import cancellationReportService, {
     type RequesterKey,
 } from '../../services/cancellationReportService';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import patientService from '../../services/patientService';
+import { waLink, WA_TAB } from '../commercial/commercialCopy';
+import { toast } from '../../utils/toast';
+
+// Remarcar pelo WhatsApp: o relatório não traz telefone, então busca a ficha do paciente (rota que já existe) no clique.
+function RemarcarButton({ it }: { it: CancellationDetailItem }) {
+    const [busy, setBusy] = useState(false);
+    if (!it.patientId) return null;
+    const go = async () => {
+        // Abre a aba já no clique (senão o navegador bloqueia o pop-up depois do await).
+        const win = window.open('', WA_TAB);
+        setBusy(true);
+        try {
+            const p = (await patientService.getById(it.patientId as string)) as { fullName?: string; phone?: string } | null;
+            const first = String(p?.fullName || it.patientName || '').split(' ')[0];
+            const msg = `Olá${first ? `, ${first}` : ''}! Aqui é da Fono Inova. Vimos que a sessão de ${fmtDate(it.date)} foi cancelada. Quer remarcar? Temos horários amanhã à tarde ou na quinta de manhã. 💚`;
+            const url = waLink(p?.phone, msg);
+            if (!url) { win?.close(); toast.info('Esse paciente está sem telefone na ficha'); return; }
+            if (win) win.location.href = url; else window.open(url, WA_TAB);
+        } catch {
+            win?.close();
+            toast.error('Não consegui abrir a ficha do paciente');
+        } finally { setBusy(false); }
+    };
+    return (
+        <button type="button" onClick={go} disabled={busy} className="rounded-lg px-2 py-1 font-medium text-green-700 hover:bg-green-50 disabled:opacity-50 dark:text-green-300 dark:hover:bg-green-900/30">
+            {busy ? 'Abrindo…' : 'Remarcar'}
+        </button>
+    );
+}
 
 /**
  * Cancelamentos — tela para o comercial/gestão.
@@ -235,27 +265,27 @@ export default function CancellationsReport() {
             {/* ── Cabeçalho ─────────────────────────────────────────── */}
             <header className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                    <div><h2 className="text-xl font-bold text-gray-900">Cancelamentos</h2><p className="mt-1 text-sm text-gray-600">{fmtDate(range.startDate)} a {fmtDate(range.endDate)}</p></div>
+                    <div><h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Cancelamentos</h2><p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{fmtDate(range.startDate)} a {fmtDate(range.endDate)}</p></div>
                     <button
                         type="button"
                         onClick={() => setHelpOpen((v) => !v)}
                         aria-expanded={helpOpen}
                         aria-label="Como os números são calculados"
-                        className="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
+                        className="rounded-full p-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                     >
                         <HelpCircle className="h-4 w-4" />
                     </button>
                 </div>
 
                 <div className="flex flex-wrap items-end gap-2">
-                    <div role="group" aria-label="Período" className="inline-flex max-w-full overflow-hidden rounded-lg border border-gray-300 bg-white text-sm">
+                    <div role="group" aria-label="Período" className="inline-flex max-w-full overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm">
                         {([['month', 'Este mês'], ['quarter', 'Últimos 3 meses'], ['custom', 'Personalizado']] as const).map(([k, label]) => (
                             <button
                                 key={k}
                                 type="button"
                                 aria-pressed={preset === k}
                                 onClick={() => choosePreset(k)}
-                                className={`px-3 py-1.5 font-medium ${preset === k ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                                className={`px-3 py-1.5 font-medium ${preset === k ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50'}`}
                             >
                                 {label}
                             </button>
@@ -263,17 +293,17 @@ export default function CancellationsReport() {
                     </div>
                     {preset === 'custom' && (
                         <div className="flex items-center gap-2 text-sm">
-                            <input aria-label="Data inicial" type="date" value={range.startDate} onChange={(e) => setRange((r) => ({ ...r, startDate: e.target.value }))} className="rounded-lg border border-gray-300 px-2 py-1.5" />
-                            <span className="text-gray-500">até</span>
-                            <input aria-label="Data final" type="date" value={range.endDate} onChange={(e) => setRange((r) => ({ ...r, endDate: e.target.value }))} className="rounded-lg border border-gray-300 px-2 py-1.5" />
+                            <input aria-label="Data inicial" type="date" value={range.startDate} onChange={(e) => setRange((r) => ({ ...r, startDate: e.target.value }))} className="rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1.5" />
+                            <span className="text-gray-500 dark:text-gray-400">até</span>
+                            <input aria-label="Data final" type="date" value={range.endDate} onChange={(e) => setRange((r) => ({ ...r, endDate: e.target.value }))} className="rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1.5" />
                         </div>
                     )}
                 </div>
             </header>
 
             {helpOpen && (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-600">
-                    <p className="mb-1 font-semibold text-gray-700">Como os números são calculados</p>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-4 py-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+                    <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">Como os números são calculados</p>
                     <ul className="list-disc space-y-0.5 pl-4">
                         <li>O período vale para tudo na tela e usa a <strong>data do atendimento</strong>.</li>
                         <li>Cada atendimento cancelado conta <strong>uma vez</strong>; se foi cancelado, reativado e cancelado de novo, vale o último solicitante.</li>
@@ -287,15 +317,15 @@ export default function CancellationsReport() {
 
             {invalidRange && <Alert tone="amber">Período inválido: a data inicial deve ser anterior à final.</Alert>}
             {error && <Alert tone="red">{error}</Alert>}
-            {loading && !report && <div className="flex items-center gap-2 py-10 text-gray-500"><Loader2 className="h-5 w-5 animate-spin" /> Carregando…</div>}
+            {loading && !report && <div className="flex items-center gap-2 py-10 text-gray-500 dark:text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /> Carregando…</div>}
 
-            {report && summary && total === 0 && <div className="rounded-lg border border-gray-200 bg-white px-6 py-10"><h3 className="font-semibold text-gray-900">Nenhum cancelamento neste período</h3><p className="mt-1 text-sm text-gray-600">Escolha outro período para consultar os registros.</p></div>}
+            {report && summary && total === 0 && <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-10"><h3 className="font-semibold text-gray-900 dark:text-gray-100">Nenhum cancelamento neste período</h3><p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Escolha outro período para consultar os registros.</p></div>}
             {report && summary && total > 0 && (
                 <>
                     {/* ── 1. Quem solicita mais? ─────────────────────── */}
                     {/* linha de apoio */}
-                    <p className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{total}</strong> cancelamento{total === 1 ? '' : 's'} no período
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <strong className="text-gray-900 dark:text-gray-100">{total}</strong> cancelamento{total === 1 ? '' : 's'} no período
                         {summary.totalAppointments > 0 && (
                             <>
                                 {' '}· <span className="rounded-md bg-red-50 px-1.5 py-0.5 font-semibold text-red-700" title={`${total} de ${summary.totalAppointments} sessões agendadas no período`}>
@@ -311,11 +341,11 @@ export default function CancellationsReport() {
                         )}
                         {!noneIdentified && unspecified > 0 && (
                             <>
-                                {' '}· <button type="button" onClick={() => chooseTab('unspecified')} className="font-medium text-gray-700 underline decoration-dotted underline-offset-2 hover:text-gray-900">
+                                {' '}· <button type="button" onClick={() => chooseTab('unspecified')} className="font-medium text-gray-700 dark:text-gray-300 underline decoration-dotted underline-offset-2 hover:text-gray-900">
                                     {unspecified} sem identificação
                                 </button>
                                 {Object.entries(summary.unspecifiedByChannel || {}).length > 0 && (
-                                    <span className="text-gray-500"> ({Object.entries(summary.unspecifiedByChannel || {}).map(([c, n]) => `${n} ${CHANNEL_LABELS[c] || c}`).join(' · ')})</span>
+                                    <span className="text-gray-500 dark:text-gray-400"> ({Object.entries(summary.unspecifiedByChannel || {}).map(([c, n]) => `${n} ${CHANNEL_LABELS[c] || c}`).join(' · ')})</span>
                                 )}
                             </>
                         )}
@@ -337,16 +367,16 @@ export default function CancellationsReport() {
                                     type="button"
                                     aria-pressed={selected}
                                     onClick={() => chooseTab(k)}
-                                    className={`rounded-lg border bg-white p-4 text-left transition-colors hover:border-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${selected ? 'border-emerald-600 ring-1 ring-emerald-600' : 'border-gray-200'}`}
+                                    className={`rounded-lg border bg-white dark:bg-gray-900 p-4 text-left transition-colors hover:border-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${selected ? 'border-emerald-600 ring-1 ring-emerald-600' : 'border-gray-200 dark:border-gray-700'}`}
                                 >
-                                    <div className="text-sm font-medium text-gray-600">{CARD_LABEL[k]}</div>
+                                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400">{CARD_LABEL[k]}</div>
                                     {noneIdentified ? (
-                                        <div className="mt-1 text-sm text-gray-500">Sem dados identificados</div>
+                                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">Sem dados identificados</div>
                                     ) : (
                                         <>
                                             <div className="mt-1 flex items-baseline gap-2">
-                                                <span className="text-2xl font-bold tabular-nums text-gray-900">{row?.count ?? 0}</span>
-                                                <span className="text-sm tabular-nums text-gray-500">{row?.percent ?? 0}% dos cancelamentos</span>
+                                                <span className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{row?.count ?? 0}</span>
+                                                <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400">{row?.percent ?? 0}% dos cancelamentos</span>
                                             </div>
                                             {cmp && comparison?.byRequesterReliable && (
                                                 <div className={`mt-1 text-xs font-medium ${diffTone(cmp.diff)}`}>{diffText(cmp.diff)}</div>
@@ -359,18 +389,18 @@ export default function CancellationsReport() {
                     </section>}
 
                     {comparison && !comparison.byRequesterReliable && total > 0 && !noneIdentified && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comparação por solicitante indisponível: a identificação de quem pediu foi muito diferente entre os dois períodos
                             ({comparison.coverage.current.percent ?? 0}% agora × {comparison.coverage.previous.percent ?? 0}% antes).
                         </p>
                     )}
                     {!noneIdentified && unspecified > 0 && (
-                        <p className="text-xs text-gray-500">Identificados: {report.coverage?.percent ?? 0}% dos cancelamentos. Os demais ficam visíveis em &quot;Sem identificação&quot;.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Identificados: {report.coverage?.percent ?? 0}% dos cancelamentos. Os demais ficam visíveis em &quot;Sem identificação&quot;.</p>
                     )}
 
                     {/* ── 2. Quais pessoas? ──────────────────────────── */}
-                    <section className="rounded-lg border border-gray-200 bg-white">
-                        <div role="tablist" aria-label="Detalhamento" className="flex flex-wrap gap-2 border-b border-gray-100 px-3 py-2.5">
+                    <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                        <div role="tablist" aria-label="Detalhamento" className="flex flex-wrap gap-2 border-b border-gray-100 dark:border-gray-800 px-3 py-2.5">
                             {(['patient', 'professional', 'clinic', 'unspecified'] as const).map((k) => (
                                 <button
                                     key={k}
@@ -378,16 +408,16 @@ export default function CancellationsReport() {
                                     role="tab"
                                     aria-selected={tab === k}
                                     onClick={() => chooseTab(k)}
-                                    className={`rounded-full border px-3 py-1.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${tab === k ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+                                    className={`rounded-full border px-3 py-1.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${tab === k ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'}`}
                                 >
-                                    {TAB_LABEL[k]} <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs tabular-nums text-gray-600">{tabCount(k)}</span>
+                                    {TAB_LABEL[k]} <span className="ml-1 rounded-full bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-xs tabular-nums text-gray-600 dark:text-gray-400">{tabCount(k)}</span>
                                 </button>
                             ))}
                         </div>
 
                         <div role="tabpanel" className="p-4">
                             {isPeopleTab && noneIdentified && (
-                                <p className="text-sm text-gray-500">{tab === 'patient' || tab === 'professional' ? EMPTY_TEXT[tab] : ''}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{tab === 'patient' || tab === 'professional' ? EMPTY_TEXT[tab] : ''}</p>
                             )}
 
                             {isPeopleTab && !noneIdentified && (
@@ -395,20 +425,20 @@ export default function CancellationsReport() {
                                     <div className="mb-3 flex flex-wrap items-center gap-2">
                                         <label className="relative">
                                             <span className="sr-only">Buscar por nome</span>
-                                            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                                            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
                                             <input
                                                 type="search"
                                                 value={search}
                                                 onChange={(e) => setSearch(e.target.value)}
                                                 placeholder="Buscar por nome"
-                                                className="w-56 rounded-lg border border-gray-300 py-2 pl-8 pr-3 text-sm"
+                                                className="w-56 rounded-lg border border-gray-300 dark:border-gray-600 py-2 pl-8 pr-3 text-sm"
                                             />
                                         </label>
                                         <Chip active={onlyRepeat} onClick={() => setOnlyRepeat((v) => !v)}>{REPEAT_THRESHOLD} ou mais cancelamentos</Chip>
                                         <Chip active={onlyLate} onClick={() => setOnlyLate((v) => !v)}>Com menos de 24h</Chip>
-                                        <label className="ml-auto text-sm text-gray-600">
+                                        <label className="ml-auto text-sm text-gray-600 dark:text-gray-400">
                                             <span className="mr-1">Ordenar por</span>
-                                            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+                                            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1.5 text-sm">
                                                 <option value="count">Mais cancelamentos</option>
                                                 <option value="late">Mais com menos de 24h</option>
                                                 <option value="last">Cancelamento mais recente</option>
@@ -419,8 +449,8 @@ export default function CancellationsReport() {
 
                                     <div className="overflow-x-auto">
                                         <table className="block w-full text-sm sm:table">
-                                            <thead className="hidden text-left text-xs font-medium text-gray-500 sm:table-header-group">
-                                                <tr className="border-b border-gray-200">
+                                            <thead className="hidden text-left text-xs font-medium text-gray-500 dark:text-gray-400 sm:table-header-group">
+                                                <tr className="border-b border-gray-200 dark:border-gray-700">
                                                     <th className="py-2 pr-3">{tab === 'patient' ? 'Paciente' : 'Profissional'}</th>
                                                     <th className="px-2 text-right">Cancelamentos</th>
                                                     {tab === 'professional' && (
@@ -435,23 +465,23 @@ export default function CancellationsReport() {
                                             </thead>
                                             <tbody className="block sm:table-row-group">
                                                 {pageRows.length === 0 && (
-                                                    <tr><td colSpan={5} className="py-6 text-left text-gray-500">{rows.length === 0 ? EMPTY_TEXT[tab as 'patient' | 'professional'] : 'Ninguém encontrado com esses filtros.'}</td></tr>
+                                                    <tr><td colSpan={5} className="py-6 text-left text-gray-500 dark:text-gray-400">{rows.length === 0 ? EMPTY_TEXT[tab as 'patient' | 'professional'] : 'Ninguém encontrado com esses filtros.'}</td></tr>
                                                 )}
                                                 {pageRows.map((r) => (
-                                                    <tr key={r.id} className="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-gray-100 py-4 sm:table-row sm:py-0">
+                                                    <tr key={r.id} className="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-gray-100 dark:border-gray-800 py-4 sm:table-row sm:py-0">
                                                         <td className="col-span-2 sm:py-2.5 sm:pr-3">
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="font-medium text-gray-900">{r.name}</span>
+                                                                <span className="font-medium text-gray-900 dark:text-gray-100">{r.name}</span>
                                                                 {r.count >= REPEAT_THRESHOLD && (
                                                                     <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs text-orange-800">{r.count} no período</span>
                                                                 )}
                                                             </div>
-                                                            {r.sub && <div className="text-xs text-gray-500">{r.sub}</div>}
+                                                            {r.sub && <div className="text-xs text-gray-500 dark:text-gray-400">{r.sub}</div>}
                                                         </td>
-                                                        <td data-label="Cancelamentos" className="text-left font-semibold tabular-nums text-gray-900 before:block before:text-xs before:font-normal before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{r.count}</td>
+                                                        <td data-label="Cancelamentos" className="text-left font-semibold tabular-nums text-gray-900 dark:text-gray-100 before:block before:text-xs before:font-normal before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{r.count}</td>
                                                         {tab === 'professional' && <td data-label="Taxa" className="text-left before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:before:hidden sm:px-2 sm:text-right tabular-nums">{r.rate}%</td>}
-                                                        <td data-label="Com menos de 24h" className={`text-left before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:before:hidden sm:px-2 sm:text-right tabular-nums ${r.late > 0 ? 'font-medium text-orange-700' : 'text-gray-500'}`}>{r.late}</td>
-                                                        {tab === 'patient' && <td data-label="Último cancelamento" className="text-left tabular-nums text-gray-700 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{r.last ? fmtDate(r.last) : <span className="text-gray-500">sem data</span>}</td>}
+                                                        <td data-label="Com menos de 24h" className={`text-left before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:before:hidden sm:px-2 sm:text-right tabular-nums ${r.late > 0 ? 'font-medium text-orange-700' : 'text-gray-500 dark:text-gray-400'}`}>{r.late}</td>
+                                                        {tab === 'patient' && <td data-label="Último cancelamento" className="text-left tabular-nums text-gray-700 dark:text-gray-300 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:text-right sm:before:hidden">{r.last ? fmtDate(r.last) : <span className="text-gray-500 dark:text-gray-400">sem data</span>}</td>}
                                                         <td className="col-span-2 text-right sm:px-2">
                                                             <button
                                                                 type="button"
@@ -469,12 +499,12 @@ export default function CancellationsReport() {
                                     </div>
 
                                     {pages > 1 && (
-                                        <nav aria-label="Paginação" className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                                        <nav aria-label="Paginação" className="mt-3 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
                                             <span>{visibleRows.length} resultado{visibleRows.length === 1 ? '' : 's'}</span>
                                             <div className="flex items-center gap-2">
-                                                <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-gray-300 px-3 py-1 disabled:opacity-40">Anterior</button>
+                                                <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1 disabled:opacity-40">Anterior</button>
                                                 <span className="tabular-nums">Página {page} de {pages}</span>
-                                                <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-gray-300 px-3 py-1 disabled:opacity-40">Próxima</button>
+                                                <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1 disabled:opacity-40">Próxima</button>
                                             </div>
                                         </nav>
                                     )}
@@ -492,7 +522,7 @@ export default function CancellationsReport() {
                         </div>
                     </section>
 
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                         Faltas (paciente não compareceu): <strong>{summary.absences}</strong> no período — não entram nos cancelamentos.
                     </p>
                 </>
@@ -505,25 +535,25 @@ export default function CancellationsReport() {
                         role="dialog"
                         aria-modal="true"
                         aria-label={`Histórico de ${drawer.title}`}
-                        className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
+                        className="flex h-full w-full max-w-md flex-col bg-white dark:bg-gray-900 shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
+                        <div className="flex items-start justify-between gap-3 border-b border-gray-200 dark:border-gray-700 px-5 py-4">
                             <div>
-                                <h3 className="text-base font-bold text-gray-900">{drawer.title}</h3>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{drawer.title}</h3>
                                 {!drawer.loading && (
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
                                         {drawer.items.length} cancelamento{drawer.items.length === 1 ? '' : 's'} · {drawer.items.filter((i) => i.lessThan24h).length} com menos de 24h
                                         {' '}· {fmtDate(range.startDate)} a {fmtDate(range.endDate)}
                                     </p>
                                 )}
                             </div>
-                            <button ref={closeRef} type="button" onClick={() => setDrawer(null)} aria-label="Fechar" className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+                            <button ref={closeRef} type="button" onClick={() => setDrawer(null)} aria-label="Fechar" className="rounded-lg p-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
                         </div>
 
                         <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-                            {drawer.loading && <div className="flex items-center gap-2 py-8 text-gray-500"><Loader2 className="h-5 w-5 animate-spin" /> Carregando…</div>}
-                            {!drawer.loading && drawer.items.length === 0 && <p className="py-8 text-center text-sm text-gray-500">Nada para mostrar.</p>}
+                            {drawer.loading && <div className="flex items-center gap-2 py-8 text-gray-500 dark:text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /> Carregando…</div>}
+                            {!drawer.loading && drawer.items.length === 0 && <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Nada para mostrar.</p>}
                             {drawer.items.map((it) => <CaseCard key={it.appointmentId} it={it} />)}
                         </div>
                     </aside>
@@ -536,9 +566,9 @@ export default function CancellationsReport() {
 function CaseCard({ it }: { it: CancellationDetailItem }) {
     const requestedAt = it.requestedAt || it.registeredAt;
     return (
-        <article className="rounded-lg border border-gray-200 p-3 text-sm">
+        <article className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-sm">
             <div className="flex items-center justify-between gap-2">
-                <h4 className="font-semibold text-gray-900">{fmtDate(it.date)}{it.time ? ` às ${it.time}` : ''}</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">{fmtDate(it.date)}{it.time ? ` às ${it.time}` : ''}</h4>
                 {it.lessThan24h && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-800">
                         <Clock className="h-3 w-3" /> Menos de 24h
@@ -546,31 +576,32 @@ function CaseCard({ it }: { it: CancellationDetailItem }) {
                 )}
             </div>
             <dl className="mt-2 grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1">
-                <dt className="text-gray-500">Paciente</dt><dd className="text-gray-900">{it.patientName || '—'}</dd>
-                <dt className="text-gray-500">Profissional</dt><dd className="text-gray-900">{it.doctorName || '—'}</dd>
-                <dt className="text-gray-500">Quem solicitou</dt><dd className="text-gray-900">{it.requesterLabel}</dd>
-                <dt className="text-gray-500">Motivo</dt><dd className="text-gray-900">{it.reason || '—'}</dd>
-                <dt className="text-gray-500">Pedido em</dt>
-                <dd className="text-gray-900">
+                <dt className="text-gray-500 dark:text-gray-400">Paciente</dt><dd className="text-gray-900 dark:text-gray-100">{it.patientName || '—'}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">Profissional</dt><dd className="text-gray-900 dark:text-gray-100">{it.doctorName || '—'}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">Quem solicitou</dt><dd className="text-gray-900 dark:text-gray-100">{it.requesterLabel}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">Motivo</dt><dd className="text-gray-900 dark:text-gray-100">{it.reason || '—'}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">Pedido em</dt>
+                <dd className="text-gray-900 dark:text-gray-100">
                     {fmtDateTime(requestedAt)}
-                    {it.requestedAtApproximate && <span className="block text-xs text-gray-500">Aproximado: usamos a hora do registro.</span>}
+                    {it.requestedAtApproximate && <span className="block text-xs text-gray-500 dark:text-gray-400">Aproximado: usamos a hora do registro.</span>}
                 </dd>
-                <dt className="text-gray-500">Antecedência</dt>
+                <dt className="text-gray-500 dark:text-gray-400">Antecedência</dt>
                 <dd className={it.lessThan24h ? 'font-medium text-orange-800' : 'text-gray-900'}>{formatAdvance(it.hoursInAdvance)}</dd>
-                <dt className="text-gray-500">Registrado por</dt><dd className="text-gray-900">{it.registeredBy || '—'}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">Registrado por</dt><dd className="text-gray-900 dark:text-gray-100">{it.registeredBy || '—'}</dd>
             </dl>
+            <div className="mt-2 text-right"><RemarcarButton it={it} /></div>
         </article>
     );
 }
 
 function CasesTable({ loading, items, emptyText, onOpen }: { loading: boolean; items: CancellationDetailItem[]; emptyText: string; onOpen: (it: CancellationDetailItem) => void }) {
-    if (loading) return <div className="flex items-center gap-2 py-8 text-gray-500"><Loader2 className="h-5 w-5 animate-spin" /> Carregando…</div>;
-    if (items.length === 0) return <p className="py-8 text-center text-sm text-gray-500">{emptyText}</p>;
+    if (loading) return <div className="flex items-center gap-2 py-8 text-gray-500 dark:text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /> Carregando…</div>;
+    if (items.length === 0) return <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{emptyText}</p>;
     return (
         <div className="overflow-x-auto">
             <table className="block w-full text-sm sm:table">
-                <thead className="hidden text-left text-xs font-medium text-gray-500 sm:table-header-group">
-                    <tr className="border-b border-gray-200">
+                <thead className="hidden text-left text-xs font-medium text-gray-500 dark:text-gray-400 sm:table-header-group">
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
                         <th className="py-2 pr-3">Atendimento</th>
                         <th className="px-2">Paciente</th>
                         <th className="px-2">Profissional</th>
@@ -580,12 +611,13 @@ function CasesTable({ loading, items, emptyText, onOpen }: { loading: boolean; i
                 </thead>
                 <tbody className="block sm:table-row-group">
                     {items.map((it) => (
-                        <tr key={it.appointmentId} className="grid grid-cols-2 gap-3 border-b border-gray-100 py-4 sm:table-row sm:py-0 sm:align-top">
+                        <tr key={it.appointmentId} className="grid grid-cols-2 gap-3 border-b border-gray-100 dark:border-gray-800 py-4 sm:table-row sm:py-0 sm:align-top">
                             <td data-label="Atendimento" className="col-span-2 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:whitespace-nowrap sm:py-2.5 sm:pr-3 sm:before:hidden">{fmtDate(it.date)}{it.time ? ` ${it.time}` : ''}</td>
-                            <td data-label="Paciente" className="min-w-0 break-words text-gray-900 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:before:hidden">{it.patientName || '—'}</td>
-                            <td data-label="Profissional" className="min-w-0 break-words text-gray-700 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:before:hidden">{it.doctorName || '—'}</td>
-                            <td data-label="Motivo" className="col-span-2 min-w-0 break-words text-gray-700 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:max-w-[16rem] sm:px-2 sm:before:hidden">{it.reason || '—'}</td>
-                            <td className="col-span-2 text-right sm:px-2">
+                            <td data-label="Paciente" className="min-w-0 break-words text-gray-900 dark:text-gray-100 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:before:hidden">{it.patientName || '—'}</td>
+                            <td data-label="Profissional" className="min-w-0 break-words text-gray-700 dark:text-gray-300 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:before:hidden">{it.doctorName || '—'}</td>
+                            <td data-label="Motivo" className="col-span-2 min-w-0 break-words text-gray-700 dark:text-gray-300 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:max-w-[16rem] sm:px-2 sm:before:hidden">{it.reason || '—'}</td>
+                            <td className="col-span-2 whitespace-nowrap text-right sm:px-2">
+                                <RemarcarButton it={it} />
                                 <button type="button" onClick={() => onOpen(it)} aria-label={`Ver detalhes de ${it.patientName || 'atendimento'}`} className="rounded-lg px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-50">
                                     Ver detalhes
                                 </button>
@@ -604,7 +636,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
             type="button"
             aria-pressed={active}
             onClick={onClick}
-            className={`rounded-full border px-3 py-1.5 text-sm ${active ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
+            className={`rounded-full border px-3 py-1.5 text-sm ${active ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'}`}
         >
             {children}
         </button>

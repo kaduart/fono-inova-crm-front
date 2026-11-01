@@ -1,6 +1,6 @@
 import React from 'react';
 import { translateAction } from '../../utils/types/types';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import api from '@/services/api';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 

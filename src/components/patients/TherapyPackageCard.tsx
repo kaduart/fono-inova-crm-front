@@ -1,10 +1,10 @@
 import CancelAppointmentDialog from '../calendar/CancelAppointmentDialog';
-import { Building2, Calendar, CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Gavel, Plus, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, MoreHorizontal, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { SessionListItem } from './SessionListItem';
@@ -14,6 +14,7 @@ import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import { showScheduleConflictToast } from '../../utils/scheduleConflictToast';
 import InactivateEntityModal from '../common/InactivateEntityModal';
+import AnimatedValue from '../ui/insight/AnimatedValue';
 
 /**
  * ⚠️ LEGADO — condições `pack.type === 'liminar'` e `pack.type === 'convenio'`
@@ -38,6 +39,7 @@ type Props = {
   onUseSession: (id: string, session: ISession, modalAction: string) => void;
   onCardClick?: (pack: ITherapyPackage) => void;
   onRefresh?: () => void; // 🔥 NOVO: Para recarregar após cancelamento em lote
+  onRenew?: (pack: ITherapyPackage) => void;
 };
 
 type ModalAction = 'edit' | 'use' | null;
@@ -72,12 +74,14 @@ export default function TherapyPackageCard({
   onUseSession,
   onCardClick = () => { },
   onRefresh,
+  onRenew,
 }: Props) {
   if (!pack) return null;
 
 
 
   const [modalAction, setModalAction] = useState<ModalAction>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const initialSessionState: ISession = {
     _id: '',
@@ -146,14 +150,10 @@ export default function TherapyPackageCard({
 
   const sessionDebt = financial?.sessionDebt ?? 0;
   const particularPaid = financial?.particularPaid ?? 0;
-  const liminarPaid = financial?.liminarPaid ?? 0;
   const completedSessions = pack.sessionsDone ?? financial?.completedSessions ?? 0;
 
   const isFullyPaid = pack.financialStatus === 'paid_with_credit'
     || ((pack.totalValue || 0) > 0 && particularPaid >= (pack.totalValue || 0));
-  const paymentRatio = isFullyPaid ? 1 : (pack.totalValue || 0) > 0
-    ? Math.min(particularPaid / (pack.totalValue || 1), 1)
-    : 0;
   const hasNoPayment = financial !== null && particularPaid === 0 && !isFullyPaid;
 
   const paymentState: 'paid' | 'reserved' | 'overdue' | 'partial' | 'unknown' =
@@ -527,190 +527,167 @@ export default function TherapyPackageCard({
   };
 
 
+  useEffect(() => {
+    if (!showSessionsCalendarModal && !menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (menuOpen) setMenuOpen(false);
+      else if (!isModalOpen && !showCancelModal) setShowSessionsCalendarModal(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showSessionsCalendarModal, menuOpen, isModalOpen, showCancelModal]);
+
   const statusConfig = getStatusConfig(pack.status);
   const StatusIcon = statusConfig.icon;
 
+  const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+  const isLegacyConvenio = pack.type === 'convenio';
+  const isActive = pack.status === 'active';
+  const totalSessions = Number(pack.totalSessions || 0);
+  const sessionsLeft = Math.max(totalSessions - Number(completedSessions || 0), 0);
+  const toSchedule = Math.max(sessionsLeft - scheduledSessions.length, 0);
+  const nearEnd = isActive && totalSessions > 0 && sessionsLeft <= 2;
+  const progressPct = totalSessions > 0 ? Math.min(((completedSessions || 0) / totalSessions) * 100, 100) : 0;
+  const totalValue = Number(pack.totalValue || 0);
+  // Mesmos números que o card já mostrava (resumo financeiro do back); só reorganizados.
+  const paidShown = isFullyPaid ? (particularPaid > 0 ? particularPaid : (pack.totalPaid || totalValue)) : particularPaid;
+  const missing = isFullyPaid ? 0 : Math.max(totalValue - particularPaid, 0);
+  const canReceive = !isLegacyConvenio && !financialLoading && Number(sessionDebt) > 0;
+
+  type Primary = { label: string; onClick: () => void; tone: 'emerald' | 'amber' };
+  const primary: Primary = canReceive
+    ? { label: `Receber ${brl(sessionDebt)}`, onClick: () => setShowBalanceModal(true), tone: 'amber' }
+    : isActive && !isLegacyConvenio && toSchedule > 0
+      ? { label: `Agendar sessão · faltam ${toSchedule}`, onClick: () => openModalWithAction('use'), tone: 'emerald' }
+      : (nearEnd || !isActive) && onRenew && !isLegacyConvenio
+        ? { label: 'Renovar pacote', onClick: () => onRenew(pack), tone: 'emerald' }
+        : { label: 'Ver sessões', onClick: () => { setSessionsModalView('mes'); setShowSessionsCalendarModal(true); }, tone: 'emerald' };
+
+  const payPill = isLegacyConvenio || financialLoading || financial === null ? null
+    : paymentState === 'paid' ? { t: 'Quitado', c: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' }
+    : paymentState === 'reserved' ? { t: 'Aguardando pagamento', c: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30' }
+    : paymentState === 'overdue' ? { t: 'Em aberto', c: 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30' }
+    : paymentState === 'partial' ? { t: 'Pago parcial', c: 'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/30' }
+    : null;
+
+  const hasSequenceId = (pack.type === 'therapy' || !pack.type) && typeof pack.sequenceNumber === 'number';
+
   return (
     <div
-      className="bg-white rounded-2xl border border-slate-200 border-t-[4px] border-t-emerald-500 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+      className={`overflow-hidden rounded-xl border border-l-4 bg-white text-left shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900 ${isLegacyConvenio ? 'border-slate-200 border-l-blue-500 dark:border-slate-700' : 'border-slate-200 border-l-emerald-500 dark:border-slate-700'}`}
     >
-      {/* Header com gradiente - verde para therapy, azul para convenio, âmbar para liminar */}
-      <div className={`px-4 pt-3 pb-2.5 sm:px-5 sm:pt-4 sm:pb-3 ${
-        pack.type === 'convenio'
-          ? 'bg-blue-50/20'
-          : pack.type === 'liminar'
-          ? 'bg-emerald-50/20'
-          : paymentState === 'paid'
-          ? 'bg-emerald-50/20'
-          : paymentState === 'reserved'
-          ? 'bg-amber-50/20'
-          : paymentState === 'overdue'
-          ? 'bg-red-50/20'
-          : paymentState === 'partial'
-          ? 'bg-blue-50/20'
-          : 'bg-white'
-      }`}>
-        {/* Barra de status: Ativo | estado financeiro | Detalhes */}
-        <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
-          {pack.status === 'active' ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                // O backend consulta agendamentos reais e protege os pré-pagos.
-                // sessionsRemaining é saldo contratual, não quantidade de agendamentos pendentes.
-                setShowInactivateModal(true);
-              }}
-              title="Clique para inativar este pacote"
-              className={statusConfig.pill + ' order-2 ml-auto cursor-pointer hover:opacity-80 transition-opacity'}
-            >
-              <StatusIcon className="w-3 h-3" />
-              {statusConfig.label}
-            </button>
-          ) : (
-            <div className={statusConfig.pill + ' order-2 ml-auto'}>
-              <StatusIcon className="w-3 h-3" />
-              {statusConfig.label}
-            </div>
-          )}
-          {pack.type !== 'convenio' && !financialLoading && financial !== null && (
-            paymentState === 'paid' ? (
-              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full border border-green-200 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Quitado
-              </span>
-            ) : paymentState === 'reserved' ? (
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-300">
-                Aguardando pag.
-              </span>
-            ) : paymentState === 'overdue' ? (
-              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full border border-red-200">
-                Em aberto
-              </span>
-            ) : paymentState === 'partial' ? (
-              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
-                Pago parcial
-              </span>
-            ) : null
-          )}
-        </div>
-
-        {/* Info: identificador do pacote (linha própria, sem ícone) + profissional (com ícone) — bloco centralizado */}
-        <div className="mb-2.5 text-center">
-          {(() => {
-            const hasSequenceId = (pack.type === 'therapy' || !pack.type) && typeof pack.sequenceNumber === 'number';
-            const patientName = patient?.fullName || pack.searchFields?.patientName || 'Paciente não identificado';
-            return (
-              <div className="flex items-center justify-center gap-2 min-w-0">
-                {hasSequenceId ? (
-                  <span
-                    className="inline-block px-3 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 text-sm font-bold tracking-wide rounded-full truncate uppercase"
-                    title="Identificador do pacote — sequencial por paciente e especialidade"
-                  >
-                    {getSpecialtyShortLabel(pack.sessionType)}-{pack.sequenceNumber}
-                  </span>
-                ) : (
-                  <h3 className="font-bold leading-tight truncate text-gray-900">
-                    {patientName}
-                  </h3>
-                )}
-                {pack.type === 'convenio' && (
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                    CONVÊNIO
-                  </span>
-                )}
-                {pack.type === 'liminar' && (
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
-                    LIMINAR
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-          {/* Ícone alinhado com o nome do profissional, não com o identificador do
-              pacote — o identificador precisa da linha inteira pra si, sem disputar
-              espaço com o ícone. "Criado em" ganha linha própria (não divide
-              espaço com o nome do profissional): dividir a mesma linha com
-              justify-between quebrava visualmente em cards mais largos da grade
-              (texto sobrepondo a data). Empilhar é menos elegante mas nunca
-              sobrepõe, independente do tamanho do card. O nome do paciente não
-              repete aqui: este card só existe dentro da lista de pacotes de UM
-              paciente (TherapyPackagesSummary sempre passa o mesmo `patient` pra
-              todo card da grade) — repeti-lo em cada card era ruído vertical puro,
-              sem informação nova. */}
-          <div className="flex items-center justify-center gap-1.5 mt-0.5 min-w-0">
-            {pack.type === 'convenio' ? (
-              <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-            ) : pack.type === 'liminar' ? (
-              <Gavel className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-            ) : (
-              <Sprout className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-            )}
-            <p className="text-xs sm:text-sm text-gray-500 truncate min-w-0">
-              {pack.searchFields?.doctorName || 'Profissional não identificado'} • {' '}
-              <span className="capitalize">{pack.sessionType?.toLowerCase()}</span>
-            </p>
-          </div>
-          {pack.createdAt && (
-            <p className="text-2xs text-gray-400 mt-0.5">
-              Criado em {new Date(pack.createdAt).toLocaleDateString('pt-BR')}
-            </p>
-          )}
-          {pack.type === 'convenio' && pack.insuranceProvider && (
-            <p className="text-xs text-blue-600 font-medium mt-1">
-              {pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}
-            </p>
-          )}
-          {pack.type === 'liminar' && pack.liminarProcessNumber && (
-            <p className="text-xs text-emerald-600 font-medium mt-1">
-              Processo: {pack.liminarProcessNumber}
-            </p>
-          )}
-        </div>
-
-        {/* Barra de progresso clínico */}
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">Progresso Clínico</span>
-            <div className="text-right">
-              <span className={`text-xs font-bold ${
-                pack.type === 'convenio'
-                  ? 'text-blue-600'
-                  : pack.type === 'liminar'
-                  ? 'text-emerald-600'
-                  : 'text-emerald-600'
-              }`}>
-                {completedSessions} de {pack.totalSessions}
-              </span>
-              <p className="text-3xs text-gray-400 leading-none">utilizadas</p>
-            </div>
-          </div>
-          <div className="w-full bg-white/80 rounded-full h-2 overflow-hidden mt-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
-                pack.type === 'convenio'
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-600'
-                  : pack.type === 'liminar'
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600'
-                  : 'bg-gradient-to-r from-emerald-500 to-green-600'
-              }`}
-              style={{ width: `${((completedSessions || 0) / pack.totalSessions) * 100}%` }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse-slow"></div>
-            </div>
-          </div>
-          {(scheduledSessions.length > 0 || (pack.sessionsCanceled ?? 0) > 0) && (
-            <p className="text-xs text-gray-500">
-              {scheduledSessions.length > 0 && `${scheduledSessions.length} futuras agendadas`}
-              {scheduledSessions.length > 0 && (pack.sessionsCanceled ?? 0) > 0 && ' · '}
-              {(pack.sessionsCanceled ?? 0) > 0 && (
-                <span className="text-red-500">{pack.sessionsCanceled} cancelada{pack.sessionsCanceled === 1 ? '' : 's'}</span>
+      <div className="space-y-3 px-4 pb-3 pt-3.5">
+        {/* Identificação + estado */}
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {hasSequenceId ? (
+                <span className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-slate-100" title="Identificador do pacote — sequencial por paciente e especialidade">
+                  {getSpecialtyShortLabel(pack.sessionType)}-{pack.sequenceNumber}
+                </span>
+              ) : (
+                <span className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{isLegacyConvenio ? 'Pacote de convênio' : 'Pacote'}</span>
               )}
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold ring-1 ring-inset ${(pack.status as string) === 'canceled' || (pack.status as string) === 'cancelled' ? 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30' : isActive ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' : 'bg-slate-100 text-slate-600 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'}`}>
+                <StatusIcon className="h-3 w-3" />{statusConfig.label}
+              </span>
+              {payPill && <span className={`rounded-full px-2 py-0.5 text-2xs font-semibold ring-1 ring-inset ${payPill.c}`}>{payPill.t}</span>}
+              {isLegacyConvenio && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30">Convênio · modelo antigo</span>}
+            </div>
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400">
+              {isLegacyConvenio ? <Building2 className="h-3.5 w-3.5 shrink-0 text-blue-600" /> : <Sprout className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+              <span className="truncate">{pack.searchFields?.doctorName || 'Profissional não identificado'} · <span className="capitalize">{pack.sessionType?.toLowerCase().replace(/_/g, ' ')}</span></span>
             </p>
+            {(pack.createdAt || (isLegacyConvenio && pack.insuranceProvider)) && (
+              <p className="mt-0.5 text-2xs text-slate-400">
+                {pack.createdAt && `Criado em ${new Date(pack.createdAt).toLocaleDateString('pt-BR')}`}
+                {isLegacyConvenio && pack.insuranceProvider && ` · ${pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}`}
+              </p>
+            )}
+          </div>
+          {(
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                aria-label="Mais ações do pacote"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div role="menu" className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onCardClick?.(pack); }} className="block w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Ficha completa do pacote</button>
+                    {isActive && <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setShowInactivateModal(true); }} className="block w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">Inativar pacote…</button>}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
+
+        {/* Números do pacote */}
+        {!isLegacyConvenio ? (
+          <dl className="grid grid-cols-3 gap-2">
+            {[
+              { k: 'Total', v: brl(totalValue), c: 'text-slate-900 dark:text-slate-100' },
+              { k: 'Pago', v: financial === null ? '—' : brl(paidShown), c: 'text-emerald-700 dark:text-emerald-300' },
+              { k: 'Falta', v: financial === null ? '—' : brl(missing), c: missing > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500' },
+            ].map(f => (
+              <div key={f.k} className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
+                <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{f.k}</dt>
+                <dd className={`mt-0.5 text-sm font-semibold tabular-nums ${f.c}`}>{financialLoading ? <span className="inline-block h-4 w-14 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <AnimatedValue value={f.v} />}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <dl className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
+              <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">Valor convênio</dt>
+              <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{brl((pack.insuranceGrossAmount || 0) * totalSessions)}</dd>
+            </div>
+            <div className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
+              <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">Por sessão</dt>
+              <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{brl(pack.insuranceGrossAmount || 0)}</dd>
+            </div>
+          </dl>
+        )}
+
+        {/* Progresso clínico */}
+        <div>
+          <div className="flex items-baseline justify-between text-xs">
+            <span className="font-medium text-slate-600 dark:text-slate-300">Sessões</span>
+            <span className={`font-semibold tabular-nums ${nearEnd ? 'text-amber-700 dark:text-amber-300' : 'text-slate-700 dark:text-slate-200'}`}>
+              <AnimatedValue value={Number(completedSessions || 0)} /> de {totalSessions}
+            </span>
+          </div>
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={totalSessions} aria-valuenow={Number(completedSessions || 0)} aria-label="Sessões realizadas">
+            <div className={`h-full rounded-full transition-[width] duration-700 ease-out ${isLegacyConvenio ? 'bg-blue-500' : nearEnd ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${progressPct}%` }} />
+          </div>
+          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+            {[
+              scheduledSessions.length > 0 ? `${scheduledSessions.length} agendada${scheduledSessions.length === 1 ? '' : 's'}` : null,
+              isActive && toSchedule > 0 ? `${toSchedule} a agendar` : null,
+              (pack.sessionsCanceled ?? 0) > 0 ? `${pack.sessionsCanceled} cancelada${pack.sessionsCanceled === 1 ? '' : 's'}` : null,
+              nearEnd ? (sessionsLeft === 0 ? 'pacote no fim, hora de renovar' : `faltam ${sessionsLeft}, hora de falar em renovação`) : null,
+            ].filter(Boolean).join(' · ') || `${sessionsLeft} restante${sessionsLeft === 1 ? '' : 's'}`}
+          </p>
+        </div>
+
+        {canReceive && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+            <strong className="tabular-nums">{brl(sessionDebt)}</strong> em sessões feitas e ainda não pagas.
+          </p>
+        )}
       </div>
 
       {/* Conteúdo principal */}
-      {detailsExpanded && <div className="px-4 pb-3 sm:px-5 space-y-3">
+      {detailsExpanded && <div className="space-y-3 border-t border-slate-100 px-4 pb-3 pt-3 dark:border-slate-800">
         {/* Badge de Status de Faturamento (só para convênio) */}
         {pack.type === 'convenio' && pack.insuranceBillingStatus && (
           <div className={`p-3 rounded-lg border flex items-center gap-2 ${
@@ -904,53 +881,6 @@ export default function TherapyPackageCard({
           )}
         </div>
 
-        {/* ⚖️ Métricas de Crédito - Só para Liminar */}
-        {pack.type === 'liminar' && (
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
-            <div className="flex items-center gap-2 mb-3">
-              <Gavel className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-medium text-gray-700">Crédito da Liminar</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-xs text-gray-500">Total</span>
-                <div className="text-base font-bold text-emerald-900">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.liminarTotalCredit || 0)}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">Disponível</span>
-                <div className="text-base font-bold text-emerald-600">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.liminarCreditBalance || 0)}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">Reconhecido</span>
-                <div className="text-base font-bold text-green-600">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.recognizedRevenue || 0)}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-500">Executado</span>
-                <div className="text-base font-bold text-emerald-700">
-                  {pack.totalSessions > 0 
-                    ? Math.round(((pack.recognizedRevenue || 0) / (pack.liminarTotalCredit || 1)) * 100)
-                    : 0}%
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Detalhes Financeiros */}
         <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t border-gray-100">
           <div className="space-y-1">
@@ -1096,54 +1026,45 @@ export default function TherapyPackageCard({
         )}
       </div>}
 
-      {/* Resumo de Sessões — abre o modal (Mês/Lista). "X futuras agendadas" não repete aqui: já aparece
-          junto do Progresso Clínico acima. Se houver pendência de cancelamento, abre direto na Lista. */}
-      <button
-        type="button"
-        onClick={() => setDetailsExpanded(value => !value)}
-        className="mx-auto mb-1 flex items-center justify-center gap-1 rounded-lg px-4 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
-      >
-        {detailsExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`} />
-      </button>
-
-      <div className="px-4 pt-1 pb-3.5 sm:px-5 flex items-center gap-2">
+      {/* Ações: a principal muda conforme a situação do pacote */}
+      <div className="flex items-center gap-2 px-4 pb-3.5">
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onCardClick && onCardClick(pack); }}
-          className="px-3.5 py-2.5 rounded-xl border border-emerald-500 text-emerald-700 text-xs font-semibold hover:bg-emerald-50 transition-colors shrink-0"
+          onClick={(e) => { e.stopPropagation(); primary.onClick(); }}
+          className={`flex-1 truncate rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${primary.tone === 'amber' ? 'bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500' : 'bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500'}`}
         >
-          Detalhes
+          {primary.label}
         </button>
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setSessionsModalView('mes');
-            setShowSessionsCalendarModal(true);
-          }}
-          className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-green-500 text-white flex items-center justify-center gap-2 text-xs font-bold shadow-sm hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 [&_span]:!text-white [&_span]:!bg-transparent [&_svg]:!text-white"
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setSessionsModalView('mes'); setShowSessionsCalendarModal(true); }}
+          title="Ver sessões no calendário ou em lista"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span className="font-medium text-gray-700 text-sm whitespace-nowrap">Sessões</span>
-            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium shrink-0">
-              {pack?.sessions?.length || 0}
-            </span>
-          </div>
-          <span className="flex items-center gap-0.5 text-xs font-semibold text-emerald-700 group-hover:underline shrink-0 whitespace-nowrap">
-            Ver sessões
-            <ChevronRight className="w-3.5 h-3.5" />
-          </span>
+          <Calendar className="h-4 w-4" />
+          <span className="tabular-nums">{pack?.sessions?.length || 0}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setDetailsExpanded(value => !value)}
+          aria-expanded={detailsExpanded}
+          className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Detalhes
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
       {/* 🔥 Modal de sessões — toggle Mês (visualização) / Lista (seleção em lote + cancelamento) */}
       {showSessionsCalendarModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setShowSessionsCalendarModal(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby={`pkg-sessions-${pack._id}`} onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white text-left shadow-2xl dark:bg-slate-900">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800">
               <div className="min-w-0">
-                <h3 className="font-bold text-gray-800 truncate">Sessões — {pack.sessionType?.replace(/_/g, ' ')}</h3>
+                <h3 id={`pkg-sessions-${pack._id}`} className="truncate font-semibold text-slate-900 dark:text-slate-100">
+                  Sessões · {hasSequenceId ? `${getSpecialtyShortLabel(pack.sessionType)}-${pack.sequenceNumber}` : pack.sessionType?.replace(/_/g, ' ')}
+                  <span className="ml-2 text-sm font-normal tabular-nums text-slate-500">{completedSessions} de {totalSessions} feitas{scheduledSessions.length > 0 ? ` · ${scheduledSessions.length} agendadas` : ''}</span>
+                </h3>
                 {sessionsModalView === 'mes' && (
                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-1 flex-wrap">
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Realizada</span>
@@ -1154,11 +1075,11 @@ export default function TherapyPackageCard({
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <div role="tablist" aria-label="Modo de exibição" className="flex items-center rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
                   <button
                     onClick={() => setSessionsModalView('mes')}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      sessionsModalView === 'mes' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      sessionsModalView === 'mes' ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                     }`}
                   >
                     Mês
@@ -1166,15 +1087,17 @@ export default function TherapyPackageCard({
                   <button
                     onClick={() => setSessionsModalView('lista')}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      sessionsModalView === 'lista' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      sessionsModalView === 'lista' ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                     }`}
                   >
                     Lista
                   </button>
                 </div>
                 <button
+                  type="button"
+                  aria-label="Fechar"
                   onClick={() => setShowSessionsCalendarModal(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                  className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
                 >
                   <X className="w-5 h-5" />
                 </button>

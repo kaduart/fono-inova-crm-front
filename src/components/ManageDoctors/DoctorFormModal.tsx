@@ -2,7 +2,7 @@ import { Box, Modal } from "@mui/material";
 import { useEffect, useState } from "react";
 import { IDoctor } from "../../utils/types/types";
 import DoctorForm from "./DoctorForm";
-import { toast } from "react-toastify";
+import { toast } from '../../utils/toast';
 
 interface DoctorFormModalProps {
     open: boolean;

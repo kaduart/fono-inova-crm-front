@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import API from '../../services/api';
 import { trackGmbPostView, openGmbWhatsApp } from '../../services/gmbAbTracking';
 import { useMarketing, type FunnelStage, type AdSpy, type Post, type PublishTarget, type CampaignConfig } from '../../hooks/useMarketing';
@@ -32,6 +32,7 @@ import {
   ESPECIALIDADES, TEMAS_VIDEO, ESPECIALIDADE_AREAS, HORARIOS_ESTRATEGICOS,
   getProximosDias, getTabConfigMap, SOCIAL_GROUPS,
 } from './marketing/marketingStatic';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 export default function MarketingDashboard() {
   const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('instagram');
@@ -494,7 +495,7 @@ export default function MarketingDashboard() {
     const msg = status === 'unconfirmed'
       ? 'Este post pode já ter sido publicado no Google (o Make não confirmou a tempo). Confira no Google Business Profile antes de continuar — republicar sem checar pode criar um post duplicado. Republicar mesmo assim?'
       : 'Deseja republicar este post?';
-    if (!confirm(msg)) return;
+    if (!await confirmDialog(msg)) return;
     setRepublishingPost(postId);
     try {
       await API.post(`/gmb/posts/${postId}/republish`);
@@ -508,7 +509,7 @@ export default function MarketingDashboard() {
   };
 
   const handleDelete = async (postId: string) => {
-    if (!confirm('Tem certeza que deseja excluir?')) return;
+    if (!await confirmDialog('Tem certeza que deseja excluir?')) return;
     setDeletingPost(postId);
     try {
       if (activeTab === 'gmb') await gmb.delete(postId);
@@ -626,7 +627,7 @@ export default function MarketingDashboard() {
 
   // Passo 2: usuário confirmou (com ou sem edição) → dispara o pipeline de vídeo
   const handleConfirmRoteiro = async (roteiroEditado: RoteiroPreview) => {
-    if ((videoMode === 'veo' || videoMode === 'veo3' || videoMode === 'runway') && !window.confirm(`⚠️ Gerar este vídeo custa ~R$56–70 (${videoMode === 'veo3' ? 'Veo 3.0 com áudio' : videoMode === 'veo' ? 'Veo 2.0' : 'Runway'}).\n\nConfirmar geração?`)) {
+    if ((videoMode === 'veo' || videoMode === 'veo3' || videoMode === 'runway') && !await confirmDialog(`⚠️ Gerar este vídeo custa ~R$56–70 (${videoMode === 'veo3' ? 'Veo 3.0 com áudio' : videoMode === 'veo' ? 'Veo 2.0' : 'Runway'}).\n\nConfirmar geração?`)) {
       return;
     }
     setRoteiroPreview(null);
@@ -768,7 +769,7 @@ export default function MarketingDashboard() {
   };
 
   const handleWeeklyPlan = async () => {
-    if (!confirm('Gerar posts para toda a semana? Isso criará posts automáticos para todas as especialidades.')) return;
+    if (!await confirmDialog('Gerar posts para toda a semana? Isso criará posts automáticos para todas as especialidades.')) return;
     setWeeklyPlanLoading(true);
     setWeeklyPlanResult(null);
     try {

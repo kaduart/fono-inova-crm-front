@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import {
     CartesianGrid,
     Cell,

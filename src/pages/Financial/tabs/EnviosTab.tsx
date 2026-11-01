@@ -195,14 +195,14 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
     return (
         <Box>
             {/* Header */}
-            <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#0D9488' }}>
                         <Mail className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Envios aos Convênios</h2>
-                        <p className="text-sm text-gray-500">Histórico completo de tentativas — destinatário, anexos e protocolo</p>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Envios aos Convênios</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Histórico completo de tentativas — destinatário, anexos e protocolo</p>
                     </div>
                 </div>
             </div>
@@ -246,7 +246,7 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
                     ))}
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Mail className="w-16 h-16 mx-auto mb-4 opacity-20" />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
                         Nenhum envio encontrado
@@ -273,7 +273,7 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
                             <div
                                 key={log._id}
                                 onClick={() => handleOpenDrawer(log)}
-                                className="group relative rounded-2xl border border-slate-200 bg-white overflow-hidden cursor-pointer transition-all hover:border-slate-300"
+                                className="group relative rounded-2xl border border-slate-200 bg-white dark:bg-gray-900 overflow-hidden cursor-pointer transition-all hover:border-slate-300"
                                 style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
                                 onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px -6px rgba(15,23,42,0.14)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 2px rgba(15,23,42,0.04)'; }}
@@ -375,7 +375,7 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
             )}
 
             {pages > 1 && (
-                <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
                     <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
                         {total} envio{total !== 1 ? 's' : ''} encontrado{total !== 1 ? 's' : ''}
                     </Typography>

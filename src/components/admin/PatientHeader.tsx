@@ -7,7 +7,6 @@ import {
     LineChart,
     LogOut,
     Menu,
-    MessageCircle,
     Package,
     Scale,
     Shield,
@@ -29,6 +28,16 @@ interface PatientHeaderProps {
     onLogout?: () => void;
     onNewAppointment?: () => void;
 }
+
+const PATIENT_TABS = [
+    { id: "Dashboard", label: "Dashboard", icon: <Home size={14} /> },
+    { id: "Profile", label: "Perfil", icon: <UserCircle size={14} /> },
+    { id: "Appointment Booking", label: "Agenda", icon: <Calendar size={14} /> },
+    { id: "Management Packages", label: "Pacotes", icon: <Package size={14} /> },
+    { id: "Insurance Guides", label: "Convênios", icon: <Shield size={14} /> },
+    { id: "Liminar", label: "Liminar", icon: <Scale size={14} /> },
+    { id: "Evolution", label: "Evolução", icon: <LineChart size={14} /> },
+];
 
 const PatientHeader: React.FC<PatientHeaderProps> = ({
     activeTab,
@@ -60,26 +69,18 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
         <header className="bg-emerald-700 text-white px-3 py-3.5 shadow-sm sticky top-0 z-50">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
                     {/* Logo e nome da clínica */}
-                    <div className="flex items-center gap-1.5 cursor-pointer ml-6" onClick={() => navigate("/admin")}>
+                    <div className="flex items-center gap-1.5 cursor-pointer ml-2 sm:ml-6 shrink-0" onClick={() => navigate("/admin")}>
                     <div className="bg-white p-1 rounded-full">
                         <Heart className="h-4 w-4 text-emerald-700" />
                     </div>
-                    <span className="text-base font-bold tracking-tight text-white">
+                    <span className="text-base font-bold tracking-tight text-white whitespace-nowrap">
                         Fono <span className="text-emerald-200">Inova</span>
                     </span>
                 </div>
 
                     {/* Navegação */}
                     <nav className="hidden md:flex items-center gap-1">
-                        {[
-                            { id: "Dashboard", label: "Dashboard", icon: <Home size={14} /> },
-                            { id: "Profile", label: "Perfil", icon: <UserCircle size={14} /> },
-                            { id: "Appointment Booking", label: "Agenda", icon: <Calendar size={14} /> },
-                            { id: "Management Packages", label: "Pacotes", icon: <Package size={14} /> },
-                            { id: "Insurance Guides", label: "Convênios", icon: <Shield size={14} /> },
-                            { id: "Liminar", label: "Liminar", icon: <Scale size={14} /> },
-                            { id: "Evolution", label: "Evolução", icon: <LineChart size={14} /> },
-                        ].map((item) => (
+                        {PATIENT_TABS.map((item) => (
                             <button
                                 key={item.id}
                                 onClick={() => handleTabChange(item.id)}
@@ -202,47 +203,34 @@ const PatientHeader: React.FC<PatientHeaderProps> = ({
                     </div>
                 
 
-                {/* Menu Mobile */}
-                {isMobileMenuOpen && (
-                    <div className="md:hidden border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1">
-                        <button onClick={() => { handleTabChange("Dashboard"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Dashboard" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <Home size={18} className="text-blue-400" /> Dashboard
-                        </button>
-                        <button onClick={() => { handleTabChange("Profile"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Profile" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <UserCircle size={18} className="text-purple-400" /> Meu Perfil
-                        </button>
-                        <button onClick={() => { handleTabChange("Appointment Booking"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Appointment Booking" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <Calendar size={18} className="text-amber-400" /> Agendamentos
-                        </button>
-                        <button onClick={() => { handleTabChange("Management Packages"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Management Packages" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <Package size={18} className="text-green-400" /> Pacotes
-                        </button>
-                        <button onClick={() => { handleTabChange("Insurance Guides"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Insurance Guides" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <Shield size={18} className="text-blue-400" /> Guias Convênio
-                        </button>
-                        <button onClick={() => { handleTabChange("Liminar"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Liminar" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <Scale size={18} className="text-amber-400" /> Liminar
-                        </button>
-                        <button onClick={() => { handleTabChange("Evolution"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Evolution" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <LineChart size={18} className="text-cyan-400" /> Evolução
-                        </button>
-                        <button onClick={() => { handleTabChange("Messages"); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "Messages" ? "bg-emerald-600 text-white" : "text-emerald-100 hover:bg-emerald-700"}`}>
-                            <MessageCircle size={18} className="text-emerald-400" /> Mensagens
-                        </button>
-                        <div className="border-t border-emerald-600 mt-2 pt-2">
-                            <button
-                                onClick={() => { onNewAppointment?.(); setIsMobileMenuOpen(false); }}
-                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors mb-1"
-                            >
-                                <Clock size={18} /> Novo Agendamento
-                            </button>
-                            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors">
-                                <LogOut size={18} /> Sair do Sistema
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
+            {/* Menu Mobile: fora da linha do header, em largura total, mesmos rótulos do desktop */}
+            {isMobileMenuOpen && (
+                <nav className="md:hidden max-w-7xl mx-auto border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1" aria-label="Abas do paciente">
+                    {PATIENT_TABS.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => { handleTabChange(item.id); setIsMobileMenuOpen(false); }}
+                            aria-current={activeTab === item.id ? "page" : undefined}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === item.id ? "bg-white text-emerald-700" : "text-emerald-50 hover:bg-emerald-600"}`}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </button>
+                    ))}
+                    <div className="border-t border-emerald-600 mt-2 pt-2">
+                        <button
+                            onClick={() => { onNewAppointment?.(); setIsMobileMenuOpen(false); }}
+                            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors mb-1"
+                        >
+                            <Clock size={18} /> Novo agendamento
+                        </button>
+                        <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-100 hover:bg-red-900/30 transition-colors">
+                            <LogOut size={18} /> Sair do sistema
+                        </button>
+                    </div>
+                </nav>
+            )}
         </header>
     );
 };

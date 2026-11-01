@@ -1,7 +1,7 @@
 import { Package as PackageIcon, Plus, Filter, Search, Users, Calendar, DollarSign, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { packageService } from '../../services/packageService';
 // 🚫 LEGADO BLOQUEADO: packagesService removido. Use packageService (V2)
 import { IDoctor, IPatient, ITherapyPackage } from '../../utils/types/types';

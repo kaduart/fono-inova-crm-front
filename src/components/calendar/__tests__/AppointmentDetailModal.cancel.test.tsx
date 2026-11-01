@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-vi.mock('react-toastify', () => ({
+vi.mock('../../../utils/toast', () => ({
     toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn(), warning: vi.fn() },
 }));
 vi.mock('../../../hooks/useConvenios', () => ({

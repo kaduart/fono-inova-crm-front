@@ -11,7 +11,7 @@ import { FitSlotPanel, FitSlot } from '../commercial/CommercialParts';
 import { openWhatsApp as openWa, reactivationMessage, WA_TAB } from '../commercial/commercialCopy';
 import { commercialService } from '../../services/commercialService';
 import { patientService } from '../../services/patientService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 
 const STABILITY: Record<Stability, { label: string; dot: string }> = {
   estavel: { label: 'Fixo', dot: '#1baf7a' },
@@ -96,12 +96,12 @@ function SlotCell({ slot, onOpen }: { slot: RetentionSlot; onOpen: () => void })
     return (
       <button type="button" onClick={onOpen}
         className={`block h-full w-full rounded-lg border border-dashed px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-          critico ? 'border-red-300 hover:bg-red-50' : temp ? 'border-amber-300 hover:bg-amber-50' : 'border-gray-300 hover:bg-gray-50'
+          critico ? 'border-red-300 hover:bg-red-50' : temp ? 'border-amber-300 hover:bg-amber-50' : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50'
         }`}>
-        <span className={`block truncate text-[13px] font-semibold ${critico ? 'text-red-700' : temp ? 'text-amber-700' : 'text-gray-500'}`}>
+        <span className={`block truncate text-[13px] font-semibold ${critico ? 'text-red-700' : temp ? 'text-amber-700' : 'text-gray-500 dark:text-gray-400'}`}>
           {critico ? 'Vaga crítica' : temp ? 'Ausente esta semana' : 'Livre'}
         </span>
-        <span className="block truncate text-[11px] text-gray-500">
+        <span className="block truncate text-[11px] text-gray-500 dark:text-gray-400">
           {slot.daysSinceVacant !== null ? `vago há ${slot.daysSinceVacant} d` : slot.lastPatientName ? `antes: ${slot.lastPatientName.split(' ')[0]}` : 'para encaixe'}
         </span>
       </button>
@@ -112,10 +112,10 @@ function SlotCell({ slot, onOpen }: { slot: RetentionSlot; onOpen: () => void })
   const name = slot.currentPatientName ? slot.currentPatientName.split(' ').slice(0, 2).join(' ') : '—';
   return (
     <button type="button" onClick={onOpen}
-      className="block h-full w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+      className="block h-full w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
       title={`${slot.currentPatientName || ''} · ${cfg.label} · presença ${pct}%`}>
-      <span className="block truncate text-[13px] font-semibold text-gray-900">{name}</span>
-      <span className="flex items-center gap-1.5 text-[11px] text-gray-600">
+      <span className="block truncate text-[13px] font-semibold text-gray-900 dark:text-gray-100">{name}</span>
+      <span className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-400">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.dot }} aria-hidden />
         <span className="tabular-nums">{pct}%</span>
         {packageEnding(slot) && <span className="ml-auto shrink-0 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800">pacote {slot.packageRemaining}</span>}
@@ -128,9 +128,9 @@ function SlotCell({ slot, onOpen }: { slot: RetentionSlot; onOpen: () => void })
 // ── Painel de detalhes ──────────────────────────────────────────────────────
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-gray-100 py-2 text-sm last:border-0">
-      <span className="text-gray-500">{label}</span>
-      <span className="text-right font-medium text-gray-900">{children}</span>
+    <div className="flex items-baseline justify-between gap-3 border-b border-gray-100 dark:border-gray-800 py-2 text-sm last:border-0">
+      <span className="text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-right font-medium text-gray-900 dark:text-gray-100">{children}</span>
     </div>
   );
 }
@@ -184,23 +184,23 @@ function SlotPanel({ slot, onClose, onFit, fitHint, specialty }: { slot: Retenti
   return (
     <div className="fixed inset-0 z-[1400] flex justify-end bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-label={`Horário ${when}`}
-        className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white text-left shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4">
+        className="flex h-full w-full max-w-sm flex-col overflow-y-auto bg-white dark:bg-gray-900 text-left shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800 p-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{when}</p>
-            <h3 className="mt-0.5 text-lg font-bold text-gray-900">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{when}</p>
+            <h3 className="mt-0.5 text-lg font-bold text-gray-900 dark:text-gray-100">
               {slot.isVacant ? (slot.vacantType === 'critico' ? 'Vaga crítica' : slot.vacantType === 'temporario' ? 'Paciente ausente esta semana' : 'Horário livre') : slot.currentPatientName}
             </h3>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
               <span className="h-2 w-2 rounded-full" style={{ background: cfg.dot }} aria-hidden />
               {cfg.label} · estabilidade {slot.stabilityScore}/100
             </p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 hover:bg-gray-100"><X size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
         </div>
 
         <div className="flex flex-col gap-3 p-4">
-          {slot.stabilityReason && <p className="text-sm text-gray-600">{slot.stabilityReason}</p>}
+          {slot.stabilityReason && <p className="text-sm text-gray-600 dark:text-gray-400">{slot.stabilityReason}</p>}
 
           {acao && (
             <div className={`rounded-lg border px-3 py-2 ${ACAO_TONE[acao.level]}`}>
@@ -240,7 +240,7 @@ function SlotPanel({ slot, onClose, onFit, fitHint, specialty }: { slot: Retenti
               <>
                 <button type="button" onClick={() => reactivateLastPatient(slot, specialty)} disabled={!slot.lastPatientId}
                   title={slot.lastPatientId ? `Chamar ${slot.lastPatientName || 'o último paciente'} no WhatsApp para voltar` : 'Sem paciente anterior neste horário'}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">
                   <MessageCircle size={15} aria-hidden /> Reativar
                 </button>
                 <button type="button" onClick={onFit} disabled={!onFit} title={onFit ? 'Ver leads e pacientes da especialidade para este horário' : fitHint}
@@ -251,8 +251,8 @@ function SlotPanel({ slot, onClose, onFit, fitHint, specialty }: { slot: Retenti
               <button type="button" onClick={onFit} disabled={!onFit} title={onFit ? 'Ver leads e pacientes da especialidade para este horário' : fitHint}
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Oferecer horário</button>
             )}
-            {slot.isVacant && slot.vacantType !== 'temporario' && !onFit && fitHint && <p className="w-full text-xs text-gray-500">{fitHint}</p>}
-            {slot.isVacant && slot.vacantType === 'temporario' && <p className="text-sm text-gray-500">Próxima sessão confirmada.</p>}
+            {slot.isVacant && slot.vacantType !== 'temporario' && !onFit && fitHint && <p className="w-full text-xs text-gray-500 dark:text-gray-400">{fitHint}</p>}
+            {slot.isVacant && slot.vacantType === 'temporario' && <p className="text-sm text-gray-500 dark:text-gray-400">Próxima sessão confirmada.</p>}
           </div>
         </div>
       </aside>
@@ -319,25 +319,25 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
     <div className="p-4 text-left sm:p-5">
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Recorrência · grade terapêutica</h2>
-          <p className="text-sm text-gray-500">Horários fixos da semana e quem está em risco de sair</p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Recorrência · grade terapêutica</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Horários fixos da semana e quem está em risco de sair</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Período">
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-0.5" role="group" aria-label="Período">
             {[30, 60, 90].map(d => (
               <button key={d} type="button" aria-pressed={days === d} onClick={() => setDays(d)}
-                className={`rounded-md px-2.5 py-1 text-[13px] font-medium ${days === d ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                className={`rounded-md px-2.5 py-1 text-[13px] font-medium ${days === d ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100'}`}>
                 {d} dias
               </button>
             ))}
           </div>
           <select value={selectedDoctorId} onChange={e => setSelectedDoctorId(e.target.value)} aria-label="Profissional"
-            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             <option value="">Todos os profissionais</option>
             {filteredDoctors.map(doc => <option key={doc._id} value={doc._id}>{doc.fullName}</option>)}
           </select>
           <select value={selectedSpecialty} onChange={e => setSelectedSpecialty(e.target.value)} aria-label="Terapia"
-            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             <option value="">Todas as terapias</option>
             {specialties.map(sp => <option key={sp} value={sp}>{getSpecialtyLabel(sp)}</option>)}
           </select>
@@ -346,17 +346,17 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
 
       {loading && (
         <div className="flex flex-col gap-2" aria-busy="true">
-          <div className="h-11 animate-pulse rounded-xl bg-gray-100" />
-          <div className="h-9 w-3/4 animate-pulse rounded-full bg-gray-100" />
-          <div className="grid grid-cols-5 gap-2">{Array.from({ length: 20 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-50" />)}</div>
+          <div className="h-11 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
+          <div className="h-9 w-3/4 animate-pulse rounded-full bg-gray-100 dark:bg-gray-800" />
+          <div className="grid grid-cols-5 gap-2">{Array.from({ length: 20 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-50 dark:bg-gray-800/60" />)}</div>
         </div>
       )}
 
       {error && !loading && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 px-4 py-10 text-center">
-          <p className="text-sm font-semibold text-gray-900">Não foi possível carregar a grade</p>
-          <p className="max-w-md text-xs text-gray-500">{error}</p>
-          <button type="button" onClick={reload} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-10 text-center">
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Não foi possível carregar a grade</p>
+          <p className="max-w-md text-xs text-gray-500 dark:text-gray-400">{error}</p>
+          <button type="button" onClick={reload} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
             <RefreshCw size={14} aria-hidden /> Tentar de novo
           </button>
         </div>
@@ -384,7 +384,7 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
 
           <div className="mb-3 flex flex-col gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
+              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</span>
               <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1">
                 <Chip active={statusFilter === 'todos'} count={statusCount('todos')} onClick={() => setStatusFilter('todos')}>Todos</Chip>
                 {(['estavel', 'atencao', 'risco', 'novo'] as Stability[]).map(st => (
@@ -398,7 +398,7 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
               </div>
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">Mostrar</span>
+              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Mostrar</span>
               <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1">
                 <Chip active={showFilter === 'todos'} onClick={() => setShowFilter('todos')}>Tudo</Chip>
                 {([
@@ -415,28 +415,28 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
           </div>
 
           {allTimes.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">Nenhum horário recorrente neste período.</p>
+            <p className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum horário recorrente neste período.</p>
           ) : (
-            <div className="overflow-auto rounded-xl border border-gray-200" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+            <div className="overflow-auto rounded-xl border border-gray-200 dark:border-gray-700" style={{ maxHeight: 'calc(100vh - 160px)' }}>
               <table className="w-full min-w-[760px] table-fixed border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr>
-                    <th scope="col" className="w-14 border-b border-gray-200 bg-white px-2 py-2" />
+                    <th scope="col" className="w-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-2" />
                     {WEEKDAY_ORDER.map(wd => {
                       const occ = data.occupancyByDay[String(wd)] || { active: 0, vacant: 0, total: 0, rate: 0 };
                       const rate = Math.min(100, Math.round((occ.total / TOTAL_DAILY_SLOTS) * 100));
                       const isToday = wd === TODAY_MONGO_WEEKDAY;
                       const color = rate >= 80 ? '#1baf7a' : rate >= 60 ? '#eda100' : '#e5484d';
                       return (
-                        <th key={wd} scope="col" className={`border-b border-l border-gray-200 px-2 py-2 text-left align-bottom ${isToday ? 'bg-emerald-50' : 'bg-white'}`}>
-                          <span className="block text-sm font-semibold text-gray-900">
-                            {WEEKDAY_LABELS[wd].slice(0, 3)} <span className="font-normal text-gray-500">{getWeekDate(wd).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                        <th key={wd} scope="col" className={`border-b border-l border-gray-200 dark:border-gray-700 px-2 py-2 text-left align-bottom ${isToday ? 'bg-emerald-50' : 'bg-white dark:bg-gray-900'}`}>
+                          <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {WEEKDAY_LABELS[wd].slice(0, 3)} <span className="font-normal text-gray-500 dark:text-gray-400">{getWeekDate(wd).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
                             {isToday && <span className="ml-1 text-xs font-semibold text-emerald-700">hoje</span>}
                           </span>
-                          <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                          <span className="mt-0.5 block text-xs font-normal text-gray-500 dark:text-gray-400">
                             {occ.total}/{TOTAL_DAILY_SLOTS} preenchidos{occ.vacant > 0 && ` · ${occ.vacant} ${occ.vacant === 1 ? 'livre' : 'livres'}`}
                           </span>
-                          <span className="mt-1 block h-1 overflow-hidden rounded-full bg-gray-100">
+                          <span className="mt-1 block h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                             <span className="block h-full rounded-full" style={{ width: `${rate}%`, background: color }} />
                           </span>
                         </th>
@@ -447,11 +447,11 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
                 <tbody>
                   {allTimes.map(time => (
                     <tr key={time}>
-                      <th scope="row" className="border-b border-gray-100 px-2 py-1 text-right align-top text-xs font-semibold tabular-nums text-gray-500">{time}</th>
+                      <th scope="row" className="border-b border-gray-100 dark:border-gray-800 px-2 py-1 text-right align-top text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">{time}</th>
                       {WEEKDAY_ORDER.map(wd => {
                         const slot = slotAt(wd, time);
                         return (
-                          <td key={wd} className="h-14 border-b border-l border-gray-100 p-1 align-top">
+                          <td key={wd} className="h-14 border-b border-l border-gray-100 dark:border-gray-800 p-1 align-top">
                             {slot && <SlotCell slot={slot} onOpen={() => setOpenSlot(slot)} />}
                           </td>
                         );
@@ -462,7 +462,7 @@ export default function CarteiraWeeklyView({ doctors: doctorsProp }: CarteiraWee
               </table>
             </div>
           )}
-          <p className="mt-2 text-xs text-gray-500">Clique num horário para ver presença, acompanhamento, valor, pacote, próxima e última sessão.</p>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Clique num horário para ver presença, acompanhamento, valor, pacote, próxima e última sessão.</p>
         </>
       )}
 

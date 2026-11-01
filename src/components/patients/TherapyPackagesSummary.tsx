@@ -1,6 +1,7 @@
-import { Info, Package, Plus, ChevronDown, Scale } from 'lucide-react';
+import { Package, Plus, ChevronDown, Settings2 } from 'lucide-react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useAppointmentsContext } from '../../contexts/AppointmentsContext';
 import { packageService, UseSessionParams, validatePayment } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
@@ -26,15 +27,13 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
     const [showManager, setShowManager] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState<ITherapyPackage | null>(null);
     const [loading, setLoading] = useState(false);
-    const [isAccordionOpen, setIsAccordionOpen] = useState(true);
+    const [loadedOnce, setLoadedOnce] = useState(false);
+    const [showLegacy, setShowLegacy] = useState(false);
+    const [gridRef] = useAutoAnimate<HTMLDivElement>();
 
     const realPatientId = patient?.patientId || patient?._id;
     const hasFetchedInitialRef = useRef<string | null>(null);
 
-    const [creditModal, setCreditModal] = useState<{ open: boolean; packageId: string; specialty: string }>({ open: false, packageId: '', specialty: '' });
-    const [creditAmount, setCreditAmount] = useState('');
-    const [creditReason, setCreditReason] = useState('');
-    const [creditLoading, setCreditLoading] = useState(false);
 
     useEffect(() => {
         if (realPatientId && hasFetchedInitialRef.current !== realPatientId) {
@@ -69,16 +68,17 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                         ? responseData.packages
                         : responseData.data?.packages || []
             ).filter(pkg => pkg);
-            setPackages(packageData);
-            if (packageData.length === 0 && !loading) {
-                toast.info('Nenhum pacote contratado para este paciente', { icon: <Info className="text-blue-500" /> });
-            }
+            // Pacote do tipo liminar é modelo antigo: todos foram migrados para
+            // LiminarContract (aba Liminar). O saldo que sobrou nele é histórico e
+            // enganava; o paciente vê o liminar só na aba Liminar.
+            setPackages((packageData || []).filter((pkg: ITherapyPackage) => pkg.type !== 'liminar'));
         } catch (error: any) {
             console.error('Erro na requisição:', { error, message: extractErrorMessage(error, 'Erro desconhecido') });
             toast.error('Erro ao carregar pacotes');
             setPackages([]);
         } finally {
             setLoading(false);
+            setLoadedOnce(true);
         }
     };
 
@@ -225,221 +225,127 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
         setSelectedPackage(pkg);
     };
 
-    const activePackages = packages.filter(pkg => pkg.status === 'active');
-    const inactivePackages = packages.filter(pkg => pkg.status !== 'active');
-    const displayedPackages = activeTab === 'active' ? activePackages : inactivePackages;
 
-    const liminarBySpecialty = activePackages
-        .filter(pkg => pkg.type === 'liminar')
-        .reduce<Record<string, { balance: number; totalCredit: number; sessionValue: number; count: number; packageId: string }>>((acc, pkg) => {
-            const key = pkg.specialty || pkg.sessionType || 'Geral';
-            if (!acc[key]) {
-                acc[key] = { balance: 0, totalCredit: 0, sessionValue: pkg.sessionValue || 0, count: 0, packageId: pkg.packageId || pkg._id };
-            }
-            acc[key].balance += pkg.liminarCreditBalance ?? 0;
-            acc[key].totalCredit += pkg.liminarTotalCredit ?? 0;
-            acc[key].count += 1;
-            return acc;
-        }, {});
-
-    const handleAddLiminarCredit = async () => {
-        const amount = parseFloat(creditAmount.replace(',', '.'));
-        if (!amount || amount <= 0) {
-            toast.error('Informe um valor válido');
-            return;
-        }
-        setCreditLoading(true);
-        try {
-            await packageService.addLiminarCredit(creditModal.packageId, amount, creditReason || 'Recarga de crédito liminar');
-            toast.success(`Crédito de R$ ${amount.toFixed(2)} adicionado ao pacote de ${creditModal.specialty}!`);
-            setCreditModal({ open: false, packageId: '', specialty: '' });
-            setCreditAmount('');
-            setCreditReason('');
-            await fetchBasicPackages();
-        } catch (err: any) {
-            toast.error(err.response?.data?.error || err.message || 'Erro ao adicionar crédito');
-        } finally {
-            setCreditLoading(false);
-        }
-    };
 
     const handleEditPackage = () => {
         setShowEditModal(true);
     };
 
-    const openManager = () => {
-        setIsAccordionOpen(false);
-        setShowManager(true);
-    };
+    const openManager = () => setShowManager(true);
+    const closeManager = () => setShowManager(false);
 
-    const closeManager = () => {
-        setShowManager(false);
-        setIsAccordionOpen(true);
-    };
+    const isLegacy = (pkg: ITherapyPackage) => (pkg as { type?: string }).type === 'convenio';
+    const legacyPackages = packages.filter(isLegacy);
+    const currentPackages = packages.filter(pkg => !isLegacy(pkg));
+    const activePackages = currentPackages.filter(pkg => pkg.status === 'active');
+    const inactivePackages = currentPackages.filter(pkg => pkg.status !== 'active');
+    const displayedPackages = activeTab === 'active' ? activePackages : inactivePackages;
 
-    const toggleAccordion = () => {
-        if (showManager) {
-            closeManager();
-        } else {
-            setIsAccordionOpen(prev => !prev);
-        }
-    };
+    const renderCard = (pkg: ITherapyPackage) => (
+        <TherapyPackageCard
+            key={pkg._id}
+            pack={pkg}
+            patient={patient}
+            doctors={doctors}
+            onUseSession={handleUseSession}
+            onRegisterPayment={handleRegisterPayment}
+            onCardClick={handleViewPackage}
+            onRefresh={fetchBasicPackages}
+            onRenew={() => setShowFormModal(true)}
+        />
+    );
+
+    const segBtn = (tab: 'active' | 'inactive', label: string, count: number) => (
+        <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            onClick={() => setActiveTab(tab)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === tab
+                ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-300'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'}`}
+        >
+            {label} <span className="tabular-nums text-slate-400">{count}</span>
+        </button>
+    );
 
     return (
-        <div className="space-y-6">
-            {/* Card topo */}
-            <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                            <Package className="w-8 h-8 text-emerald-600" />
-                            Pacotes de Terapia
-                        </h2>
-                        <p className="text-gray-600 mt-1">Gerencie os pacotes de {patient.fullName}</p>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 border border-emerald-200 min-w-[120px] text-center">
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => { setIsAccordionOpen(true); setShowFormModal(true); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2"><Plus className="w-4 h-4" />Novo Pacote</button>
-                            <button onClick={openManager} className="px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors text-sm font-medium flex items-center gap-2"><Package className="w-4 h-4" />Gerenciar</button>
+        <div className="space-y-4 text-left">
+            {/* Barra de ferramentas */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                        <Package className="h-5 w-5 text-emerald-600" />
+                        Pacotes
+                    </h2>
+                    {currentPackages.length > 0 && !showManager && (
+                        <div role="tablist" aria-label="Filtrar pacotes" className="inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+                            {segBtn('active', 'Ativos', activePackages.length)}
+                            {segBtn('inactive', 'Inativos', inactivePackages.length)}
                         </div>
-                    </div>
+                    )}
+                    {loading && loadedOnce && <span className="text-xs text-slate-400">atualizando…</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={showManager ? closeManager : openManager} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+                        <Settings2 className="h-4 w-4" />{showManager ? 'Voltar aos cards' : 'Gerenciar'}
+                    </button>
+                    <button type="button" onClick={() => setShowFormModal(true)} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                        <Plus className="h-4 w-4" />Novo pacote
+                    </button>
                 </div>
             </div>
 
-            {/* Saldo Liminar */}
-            {Object.keys(liminarBySpecialty).length > 0 && (
-                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <Scale className="w-6 h-6 text-amber-600" />
-                        <h3 className="text-lg font-bold text-gray-900">Saldo Liminar</h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Object.entries(liminarBySpecialty).map(([specialty, data]) => {
-                            const sessoesPossiveis = data.sessionValue > 0 ? Math.floor(data.balance / data.sessionValue) : null;
-                            const pctUsado = data.totalCredit > 0 ? Math.round(((data.totalCredit - data.balance) / data.totalCredit) * 100) : 0;
-                            const corBarra = data.balance <= 0 ? 'bg-red-500' : pctUsado >= 75 ? 'bg-orange-400' : 'bg-amber-500';
-                            return (
-                                <div key={specialty} className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-sm font-semibold text-gray-700 capitalize">{specialty}</span>
-                                        <div className="flex items-center gap-2">
-                                            {data.count > 1 && (
-                                                <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">{data.count} pacotes</span>
-                                            )}
-                                            <button onClick={() => setCreditModal({ open: true, packageId: data.packageId, specialty })} className="p-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors" title="Adicionar crédito">
-                                                <Plus className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-900 mb-1">R$ {data.balance.toFixed(2)}</div>
-                                    <div className="text-xs text-gray-500 mb-3">
-                                        de R$ {data.totalCredit.toFixed(2)} total
-                                        {sessoesPossiveis !== null && <span className="ml-2 text-amber-600 font-medium">· ~{sessoesPossiveis} {sessoesPossiveis === 1 ? 'sessão' : 'sessões'}</span>}
-                                    </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2">
-                                        <div className={`h-2 rounded-full transition-all ${corBarra}`} style={{ width: `${Math.min(100 - pctUsado, 100)}%` }} />
-                                    </div>
-                                    {data.balance <= 0 && <p className="text-xs text-red-600 mt-2 font-medium">Saldo esgotado — adicione crédito para continuar.</p>}
-                                </div>
-                            );
-                        })}
-                    </div>
+            {!loadedOnce && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {[0, 1, 2].map(i => <div key={i} className="h-56 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />)}
                 </div>
             )}
 
-            {/* Modal recarga liminar */}
-            {creditModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setCreditModal({ open: false, packageId: '', specialty: '' })}>
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <Scale className="w-5 h-5 text-amber-600" />
-                            <h4 className="text-lg font-bold text-gray-900">Adicionar Crédito</h4>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4 capitalize">Especialidade: <span className="font-semibold">{creditModal.specialty}</span></p>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Valor (R$)</label>
-                                <input type="number" min="0.01" step="0.01" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} placeholder="0,00" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Motivo (opcional)</label>
-                                <input type="text" value={creditReason} onChange={e => setCreditReason(e.target.value)} placeholder="Ex: Recarga mensal" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            </div>
-                        </div>
-                        <div className="flex gap-3 mt-5">
-                            <button onClick={() => { setCreditModal({ open: false, packageId: '', specialty: '' }); setCreditAmount(''); setCreditReason(''); }} className="flex-1 px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors" disabled={creditLoading}>Cancelar</button>
-                            <button onClick={handleAddLiminarCredit} disabled={creditLoading || !creditAmount} className="flex-1 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium transition-colors disabled:opacity-50">{creditLoading ? 'Salvando...' : 'Confirmar'}</button>
-                        </div>
+            {loadedOnce && !showManager && currentPackages.length > 0 && (
+                displayedPackages.length > 0 ? (
+                    <div ref={gridRef} className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {displayedPackages.map(renderCard)}
                     </div>
+                ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-700">
+                        Nenhum pacote {activeTab === 'active' ? 'ativo' : 'inativo'}.
+                        {activeTab === 'active' && inactivePackages.length > 0 && (
+                            <button type="button" onClick={() => setActiveTab('inactive')} className="ml-1 font-medium text-emerald-700 hover:underline dark:text-emerald-300">Ver inativos</button>
+                        )}
+                    </div>
+                )
+            )}
+
+            {/* Estado vazio */}
+            {loadedOnce && !showManager && currentPackages.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center dark:border-slate-700">
+                    <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">Nenhum pacote particular</h3>
+                    <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{patient.fullName} ainda não tem pacote. Pacote fixa o valor por sessão e ajuda a manter a frequência.</p>
+                    <button type="button" onClick={() => setShowFormModal(true)} className="mx-auto mt-4 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Plus className="h-4 w-4" />Criar primeiro pacote</button>
                 </div>
             )}
 
-            {/* Accordion Pacotes do Paciente */}
-            {!loading && packages.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    <div className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-green-50">
-                        <div className="flex items-center gap-3">
-                            <Package className="w-6 h-6 text-emerald-600" />
-                            <span className="font-semibold text-gray-900">Pacotes do Paciente</span>
-                            <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-sm font-medium">{packages.length}</span>
-                        </div>
-                         <div className="flex items-center gap-3">
-                            <button onClick={toggleAccordion} className={`transform transition-transform duration-300 ${isAccordionOpen && !showManager ? 'rotate-180' : ''}`}>
-                                <ChevronDown className="w-5 h-5 text-emerald-600" />
-                            </button>
-                        </div>
-                    </div>
-
-                    {isAccordionOpen && !showManager && (
-                        <div className="p-6">
-                            <div className="flex gap-2 mb-4">
-                                <button onClick={() => setActiveTab('active')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'active' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ativos ({activePackages.length})</button>
-                                <button onClick={() => setActiveTab('inactive')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'inactive' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Inativos ({inactivePackages.length})</button>
-                            </div>
-                            {displayedPackages.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-                                    {displayedPackages.map(pkg => (
-                                        <TherapyPackageCard
-                                            key={pkg._id}
-                                            pack={pkg}
-                                            patient={patient}
-                                            doctors={doctors}
-                                            onUseSession={handleUseSession}
-                                            onRegisterPayment={handleRegisterPayment}
-                                            onCardClick={handleViewPackage}
-                                            onRefresh={fetchBasicPackages}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-gray-500">Nenhum pacote {activeTab === 'active' ? 'ativo' : 'inativo'} encontrado.</div>
-                            )}
+            {/* Pacotes de convênio do modelo antigo: guias agora ficam na aba Convênios */}
+            {loadedOnce && !showManager && legacyPackages.length > 0 && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700">
+                    <button type="button" onClick={() => setShowLegacy(v => !v)} aria-expanded={showLegacy} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-slate-600 dark:text-slate-300">
+                        <span>Pacotes de convênio do modelo antigo <span className="tabular-nums text-slate-400">({legacyPackages.length})</span> · hoje o convênio fica na aba Convênios</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showLegacy ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showLegacy && (
+                        <div className="grid grid-cols-1 items-start gap-4 border-t border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-3 dark:border-slate-700">
+                            {legacyPackages.map(renderCard)}
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Estado vazio */}
-            {!loading && packages.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-                    <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum pacote encontrado</h3>
-                    <p className="text-gray-600 mb-6 max-w-md mx-auto">{patient.fullName} não possui pacotes de terapia no momento.</p>
-                    <button onClick={() => setShowFormModal(true)} className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium flex items-center gap-2 mx-auto"><Plus className="w-5 h-5" />Criar Primeiro Pacote</button>
-                </div>
-            )}
-
             {/* Gerenciador de Pacotes */}
             {showManager && (
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    <div className="w-full px-6 py-4 flex items-center justify-between bg-slate-50 border-b border-gray-200">
-                        <div className="flex items-center gap-3">
-                            <Package className="w-6 h-6 text-slate-600" />
-                            <span className="font-semibold text-gray-900">Gerenciador de Pacotes</span>
-                        </div>
-                        <button onClick={closeManager} className="px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors text-sm font-medium flex items-center gap-2">✕ Fechar</button>
-                    </div>
-                    <div className="p-6">
+                <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                    <div className="p-4">
                         <TherapyPackageManager
                             onClose={closeManager}
                             onSave={() => {
@@ -472,7 +378,6 @@ export default function TherapyPackagesSummary({ patient, doctors }: TherapyPack
                         fetchBasicPackages();
                         fetchAppointments();
                         setShowFormModal(false);
-                        setIsAccordionOpen(true);
                     }}
                 />
             )}

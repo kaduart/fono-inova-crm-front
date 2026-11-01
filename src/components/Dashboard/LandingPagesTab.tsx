@@ -4,10 +4,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { useLandingPages, LandingPage } from '../../hooks/useLandingPages';
 import API from '../../services/api';
 import { Copy, ExternalLink, Link2, TrendingUp, Calendar, Sparkles, RefreshCw, Globe, MapPin, Play, Clock } from 'lucide-react';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 // Categorias com cores
 const CATEGORY_CONFIG = {
@@ -70,7 +71,7 @@ export default function LandingPagesTab() {
   };
   
   const handleRunCronNow = async () => {
-    if (!confirm('Executar cron manualmente? Isso criará posts para as LPs do dia.')) return;
+    if (!await confirmDialog('Executar cron manualmente? Isso criará posts para as LPs do dia.')) return;
     
     setRunningCron(true);
     try {

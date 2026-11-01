@@ -82,7 +82,7 @@ import {
   receiveInsuranceSession,
   InsuranceReceivableGroup
 } from '../../../services/paymentService';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import { IAppointment } from '../../../utils/types/types';
 import { FEATURE_FLAGS } from '../../../config/featureFlags';
 import { ymdSP } from '../../../utils/dateFormat';

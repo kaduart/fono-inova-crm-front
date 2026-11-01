@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { Save, Upload, CheckCircle, AlertCircle, Link2, RefreshCw, Building2, FileText, Shield, Settings, X, Pencil, MapPin } from 'lucide-react';
 import { fiscalService } from '../../services/fiscalService';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 
 const REGIME_OPTIONS = [
   { value: 'SIMPLES_NACIONAL', label: 'Simples Nacional' },

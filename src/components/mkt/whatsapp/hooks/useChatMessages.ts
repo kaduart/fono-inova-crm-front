@@ -1,6 +1,6 @@
 // hooks/useChatMessages.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../../utils/toast';
 import { getChatMessages, getChatMessagesByLeadId, loadMoreMessages, sendWhatsAppMedia, deleteWhatsAppMessage } from '../../../../services/whatsappService';
 import { socketManager } from '../../../../utils/socketManager';
 import { logger } from '../../../../utils/logger';

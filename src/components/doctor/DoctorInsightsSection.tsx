@@ -27,6 +27,27 @@ interface Props {
     onPatientClick?: (patientId: string, patientName: string) => void;
     onSchedule?: (patientId: string, patientName: string, hints?: { lastSessionType?: string }) => void;
     onViewHistory?: (patientId: string, patientName: string) => void;
+    /** Sessões futuras com pacote (contagem vinda do back) para "Renovações à vista". */
+    futureAppointments?: any[];
+}
+
+export interface Renewal { patientId: string; name: string; left: number; total: number; lastDate: string }
+/** Pacientes cujo pacote termina em até 2 sessões: hora de conversar sobre renovação. */
+export function renewalsAhead(appts: any[] = []): Renewal[] {
+    const byPkg = new Map<string, Renewal>();
+    for (const a of appts) {
+        const pk = a?.package;
+        if (!pk?._id || !pk.totalSessions || ['completed', 'finished', 'canceled'].includes(pk.status)) continue;
+        if (['canceled', 'cancelled', 'cancelado', 'force_cancelled'].includes(a.operationalStatus)) continue;
+        const left = Number(pk.totalSessions) - (Number(pk.sessionsDone) || 0);
+        if (left > 2 || left < 0) continue;
+        const key = String(pk._id);
+        const date = String(a.date || '').slice(0, 10);
+        const cur = byPkg.get(key);
+        if (!cur) byPkg.set(key, { patientId: a.patient?._id, name: a.patient?.fullName || 'Paciente', left, total: Number(pk.totalSessions), lastDate: date });
+        else if (date > cur.lastDate) cur.lastDate = date;
+    }
+    return [...byPkg.values()].filter(r => r.patientId).sort((a, b) => a.left - b.left || a.lastDate.localeCompare(b.lastDate));
 }
 
 const TIME_RANGES: { value: TimeRange; label: string }[] = [
@@ -142,7 +163,9 @@ export default function DoctorInsightsSection({
     onPatientClick,
     onSchedule,
     onViewHistory,
+    futureAppointments,
 }: Props) {
+    const renewals = renewalsAhead(futureAppointments);
     const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
     const [freqFilter, setFreqFilter] = useState<FreqFilter>('all');
     const [showAllRisk, setShowAllRisk] = useState(false);
@@ -312,6 +335,28 @@ export default function DoctorInsightsSection({
                     ]} />
                 </section>
             </div>
+
+            {/* ── Renovações à vista ── */}
+            {renewals.length > 0 && (
+                <section className={card} aria-labelledby="ins-renov">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+                        <h3 id="ins-renov" className="text-base font-semibold text-gray-900">Renovações à vista · {renewals.length}</h3>
+                        <span className="text-sm text-gray-600">pacote termina em até 2 sessões</span>
+                    </div>
+                    <ul className="divide-y divide-gray-100">
+                        {renewals.map(r => (
+                            <li key={r.patientId + r.lastDate} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                                <button type="button" onClick={() => onPatientClick?.(r.patientId, r.name)} className="text-left text-sm font-semibold text-gray-900 hover:underline">{r.name}</button>
+                                <span className="text-sm text-gray-600">
+                                    {r.left === 0 ? 'pacote já usado' : r.left === 1 ? 'última sessão' : 'faltam 2 sessões'} de {r.total}
+                                    {r.lastDate ? ` · até ${r.lastDate.slice(8, 10)}/${r.lastDate.slice(5, 7)}` : ''}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="border-t border-gray-100 px-4 py-2 text-xs text-gray-600">Avise a recepção para oferecer a renovação antes da última sessão.</p>
+                </section>
+            )}
 
             {/* ── Pacientes que precisam de atenção ── */}
             <section className={card} aria-labelledby="ins-risco">

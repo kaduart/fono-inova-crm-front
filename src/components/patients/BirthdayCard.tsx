@@ -26,7 +26,7 @@ import {
     PhoneCall
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import { sendBirthdayMessage } from '../../services/whatsappService';
 
 export interface BirthdayPatient {

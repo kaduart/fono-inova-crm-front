@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from '../../utils/toast';
 import type { Video, Channel } from '../../hooks/useMarketing';
 import { ChannelToggle } from './ChannelToggle';
 import API from '../../services/api';
 import { io } from 'socket.io-client';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import { confirmDialog } from '../ui/ConfirmHost';
 
 interface VideoCardProps {
   video: Video;
@@ -318,7 +319,7 @@ export function VideoCard({ video, onPublish, onPublishMeta, onDelete, onEditar,
           {isStale && (
             <button
               onClick={async () => {
-                if (!confirm('Marcar este vídeo como falho? Ele está travado há mais de 30 minutos.')) return;
+                if (!await confirmDialog('Marcar este vídeo como falho? Ele está travado há mais de 30 minutos.')) return;
                 try {
                   await API.post(`/videos/${video._id}/force-fail`);
                   onRefresh?.();

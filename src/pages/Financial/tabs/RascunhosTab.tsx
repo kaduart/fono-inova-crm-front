@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Typography, Skeleton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import { FileClock, Trash2, User, Calendar, Layers } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '../../../utils/toast';
 import {
     listBillingSubmissions,
     cancelBillingSubmission,
@@ -100,13 +100,13 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
 
     return (
         <div className="p-4">
-            <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex items-center gap-3">
+            <div className="mb-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#B45309' }}>
                     <FileClock className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900">Preparos em aberto</h2>
-                    <p className="text-sm text-gray-500">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Preparos em aberto</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                         Faturamentos iniciados e não concluídos. Enquanto estiverem aqui, as sessões
                         deles ficam reservadas e não podem ser faturadas de novo.
                     </p>
@@ -118,7 +118,7 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
                     {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} variant="rounded" height={104} />)}
                 </div>
             ) : filteredItems.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <FileClock className="w-16 h-16 mx-auto mb-4 opacity-20" />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
                         {items.length === 0 ? 'Nenhum preparo em aberto' : 'Nenhum rascunho encontrado'}
@@ -138,7 +138,7 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
                         return (
                             <div
                                 key={s._id}
-                                className="relative rounded-2xl border border-slate-200 bg-white overflow-hidden"
+                                className="relative rounded-2xl border border-slate-200 bg-white dark:bg-gray-900 overflow-hidden"
                                 style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
                             >
                                 <div className="absolute inset-y-0 left-0 w-[3px]" style={{ background: alerta ? '#D97706' : '#94A3B8' }} />

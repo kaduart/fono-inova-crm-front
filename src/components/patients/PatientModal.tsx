@@ -1,12 +1,8 @@
-import { Dialog, DialogContent, DialogTitle, IconButton, Slide } from '@mui/material';
 import { X, UserPlus2 } from 'lucide-react';
-import { forwardRef, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ModalShell } from '../ui/TailwindParts';
 import PatientForm from '../../shared/components/PatientForm';
 import { IPatient } from '../../utils/types/types';
-
-const Transition = forwardRef(function Transition(props: any, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
 
 interface PatientModalProps {
   open: boolean;
@@ -29,44 +25,24 @@ export const PatientModal = ({
     setPatient(patientProp);
   }, [patientProp, open]);
 
+  const isEdit = Boolean(patientProp?._id || (patientProp as any)?.patientId || (patientProp as any)?.id);
+
   return (
-    <Dialog
-      open={open}
-      onClose={isLoading ? undefined : onClose}
-      TransitionComponent={Transition}
-      fullWidth
-      maxWidth="md"
-      disableScrollLock
-      PaperProps={{
-        className:
-          'rounded-2xl shadow-xl border border-gray-100 backdrop-blur-sm bg-white/90 overflow-hidden transition-all',
-      }}
-    >
+    <ModalShell open={open} onClose={isLoading ? () => {} : onClose} labelledBy="patient-modal-title"
+      className="max-h-[94vh] w-full max-w-4xl border border-gray-100 sm:rounded-2xl dark:border-slate-700">
       {/* Cabeçalho */}
-      <DialogTitle className="p-0">
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-sm">
-          <div className="flex items-center gap-2">
-            <UserPlus2 className="w-5 h-5 text-white/90" />
-            <span className="font-semibold text-lg tracking-wide">
-              {(patientProp?._id || (patientProp as any)?.patientId || (patientProp as any)?.id)
-                ? 'Editar Paciente'
-                : 'Novo Paciente'}
-            </span>
-          </div>
-          <IconButton
-            onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full transition-all"
-          >
-            <X className="w-6 h-6" />
-          </IconButton>
+      <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-4 text-white shadow-sm">
+        <div className="flex items-center gap-2">
+          <UserPlus2 className="h-5 w-5 text-white/90" aria-hidden />
+          <h2 id="patient-modal-title" className="text-lg font-semibold tracking-wide">{isEdit ? 'Editar Paciente' : 'Novo Paciente'}</h2>
         </div>
-      </DialogTitle>
+        <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-1.5 text-white transition-all hover:bg-white/20">
+          <X className="h-6 w-6" aria-hidden />
+        </button>
+      </div>
 
       {/* Conteúdo */}
-      <DialogContent
-        dividers
-        className="p-6 bg-gradient-to-b from-white to-gray-50 rounded-b-2xl overflow-y-auto"
-      >
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-100 bg-gradient-to-b from-white to-gray-50 p-6 dark:border-slate-800 dark:from-slate-900 dark:to-slate-900">
         {open && (
           <PatientForm
             key={(patientProp?._id || (patientProp as any)?.patientId || (patientProp as any)?.id) ?? 'new'}
@@ -78,7 +54,7 @@ export const PatientModal = ({
             }}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </ModalShell>
   );
 };
