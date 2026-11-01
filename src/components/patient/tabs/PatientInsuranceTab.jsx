@@ -3,32 +3,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import GenerationCancellationFlow from '../../common/GenerationCancellationFlow';
 import { AppointmentOrigin } from '../../patients/AppointmentOrigin';
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Chip,
-  LinearProgress,
-  IconButton,
-  Menu,
-  MenuItem,
-  CircularProgress,
-  Alert,
-  Tabs,
-  Tab,
-  Paper,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Select,
-  FormControl,
-  InputLabel,
-  TextField,
-  Skeleton
-} from '@mui/material';
-import {
   Plus,
   Calendar,
   AlertCircle,
@@ -69,6 +43,7 @@ import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
+import { AnchorMenu, MenuAction, ModalShell, ProgressBar, Spinner } from '../../ui/TailwindParts';
 import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
 import AnimatedValue from '../../ui/insight/AnimatedValue';
 import InactivateEntityModal from '../../common/InactivateEntityModal';
@@ -295,61 +270,32 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 
   if (isLoading && guides.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={40} sx={{ color: '#2E7A5E' }} />
-      </Box>
+      <div className="flex justify-center py-16"><Spinner size={40} /></div>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ borderRadius: '20px', fontSize: '0.875rem' }}>{error}</Alert>
-      </Box>
+      <div className="p-6">
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>
+      </div>
     );
   }
 
   if (guides.length === 0) {
     return (
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        py: 10,
-        px: 2
-      }}>
-        <Paper elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '32px', bgcolor: '#F9FBFD', maxWidth: 400 }}>
-          <Box sx={{ width: 64, height: 64, mx: 'auto', mb: 2, bgcolor: '#EFF9F6', borderRadius: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FileText size={32} color="#2E7A5E" />
-          </Box>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#1A2C3E', mb: 1 }}>
-            Nenhuma guia cadastrada
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#5B6E8C', mb: 3 }}>
-            Cadastre a primeira guia de convênio para este paciente
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={16} />}
-            onClick={() => setIsFormOpen(true)}
-            sx={{
-              textTransform: 'none',
-              borderRadius: '40px',
-              px: 3,
-              py: 1,
-              fontWeight: 600,
-              background: 'linear-gradient(135deg, #1B4D6E 0%, #2E7A5E 100%)',
-              boxShadow: '0 4px 12px rgba(27,77,110,0.2)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #123F5A 0%, #246653 100%)',
-                boxShadow: '0 6px 14px rgba(27,77,110,0.3)'
-              }
-            }}
-          >
-            Cadastrar primeira guia
-          </Button>
-        </Paper>
+      <div className="flex flex-col items-center justify-center px-4 py-20">
+        <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+            <FileText size={32} aria-hidden />
+          </div>
+          <h3 className="mb-1 text-lg font-semibold text-slate-900 dark:text-slate-50">Nenhuma guia cadastrada</h3>
+          <p className="mb-5 text-sm text-slate-500 dark:text-slate-400">Cadastre a primeira guia de convênio para este paciente</p>
+          <button type="button" onClick={() => setIsFormOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <Plus size={16} aria-hidden /> Cadastrar primeira guia
+          </button>
+        </div>
 
         <InsuranceGuideForm
           open={isFormOpen}
@@ -358,12 +304,12 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
           guide={editingGuide}
           doctors={doctors}
         />
-      </Box>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2 }, minHeight: '100%' }} className="text-left">
+    <div className="min-h-full p-1 text-left sm:p-2">
       {/* Barra de ferramentas: título, filtro único de situação e nova guia */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -428,59 +374,29 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 
       {/* Saldo agregado por especialidade (apenas quando filtrado) */}
       {balance && selectedSpecialty !== 'all' && (
-        <Card sx={{
-          mb: 4,
-          borderRadius: '24px',
-          border: 'none',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.05)',
-          background: 'linear-gradient(135deg, #FFFFFF 0%, #F9FBFD 100%)'
-        }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="caption" sx={{ color: '#5B6E8C', fontWeight: 500, display: 'block', mb: 1.5 }}>
-              Saldo total • {selectedSpecialty.replace(/_/g, ' ')}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1A2C3E', lineHeight: 1.2 }}>
-                  {balance.remaining}
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#5B6E8C' }}>
-                  sessões restantes
-                </Typography>
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 150 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={(balance.remaining / balance.total) * 100}
-                  sx={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: '#E9EEF2',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: '#2E7A5E',
-                      borderRadius: 4
-                    }
-                  }}
-                />
-                <Typography variant="caption" sx={{ color: '#5B6E8C', mt: 0.5, display: 'block' }}>
-                  {balance.used} de {balance.total} sessões utilizadas
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <p className="mb-2 text-xs font-medium capitalize text-slate-500 dark:text-slate-400">Saldo total · {selectedSpecialty.replace(/_/g, ' ')}</p>
+          <div className="flex flex-wrap items-center gap-6">
+            <div>
+              <p className="text-3xl font-bold leading-tight tabular-nums text-slate-900 dark:text-slate-50"><AnimatedValue value={balance.remaining} /></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">sessões restantes</p>
+            </div>
+            <div className="min-w-[150px] flex-1">
+              <ProgressBar value={balance.total ? (balance.remaining / balance.total) * 100 : 0} className="bg-blue-600" />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{balance.used} de {balance.total} sessões utilizadas</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {availablePresentations.length === 0 && (
-        <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#F9FBFD', borderRadius: '32px' }}>
-          <Typography variant="body1" sx={{ color: '#5B6E8C', mb: 1 }}>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-14 text-center dark:border-slate-700 dark:bg-slate-800/40">
+          <p className="mb-1 text-sm text-slate-600 dark:text-slate-300">
             Nenhuma guia {selectedStatus === 'inactive' ? 'inativa' : selectedStatus === 'cancelled' ? 'cancelada' : 'ativa'} encontrada
             {selectedSpecialty !== 'all' && ` para ${selectedSpecialty.replace(/_/g, ' ')}`}
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#8A99B0' }}>
-            Tente selecionar outro filtro ou cadastre uma nova guia
-          </Typography>
-        </Box>
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Tente selecionar outro filtro ou cadastre uma nova guia</p>
+        </div>
       )}
 
       {/* Seções de guias */}
@@ -545,40 +461,15 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
       />
 
       {/* Menu de ações */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleDismissMenu}
-        PaperProps={{
-          sx: {
-            borderRadius: '20px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            minWidth: '160px',
-            mt: 1
-          }
-        }}
-      >
-        <MenuItem
-          onClick={handleEdit}
-          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5 }}
-        >
-          <Edit2 size={14} /> Editar
-        </MenuItem>
-        <MenuItem
-          onClick={handleRenovarGuia}
-          disabled={!selectedPresentation?.canRenew}
-          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#1B4D6E' }}
-        >
-          <RefreshCw size={14} /> Renovar Guia
-        </MenuItem>
-        <MenuItem
-          onClick={handleCancelGuide}
-          disabled={selectedPresentation?.isCancelled}
-          sx={{ fontSize: '0.8125rem', py: 1, gap: 1.5, borderRadius: '12px', mx: 0.5, color: '#C75146' }}
-        >
-          <Trash2 size={14} /> Inativar guia
-        </MenuItem>
-      </Menu>
+      <AnchorMenu anchorEl={anchorEl} onClose={handleDismissMenu}>
+        <MenuAction onClick={handleEdit}><Edit2 size={14} aria-hidden /> Editar</MenuAction>
+        <MenuAction onClick={handleRenovarGuia} disabled={!selectedPresentation?.canRenew} className="text-blue-800 dark:text-blue-300">
+          <RefreshCw size={14} aria-hidden /> Renovar guia
+        </MenuAction>
+        <MenuAction onClick={handleCancelGuide} disabled={selectedPresentation?.isCancelled} className="text-red-700 dark:text-red-400">
+          <Trash2 size={14} aria-hidden /> Inativar guia
+        </MenuAction>
+      </AnchorMenu>
 
       {/* Modais */}
       <InsuranceGuideForm
@@ -620,7 +511,7 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
           }
         }}
       />
-    </Box>
+    </div>
   );
 };
 
@@ -631,34 +522,13 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
   if (count === 0) return null;
 
   return (
-    <Box sx={{ mb: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <Box sx={{ width: 4, height: 20, bgcolor: color, borderRadius: 2 }} />
-        <Typography
-          variant="subtitle2"
-          sx={{
-            fontWeight: 600,
-            color: '#1A2C3E',
-            letterSpacing: '-0.2px',
-            textTransform: 'uppercase',
-            fontSize: '0.7rem'
-          }}
-        >
-          {title} ({count})
-        </Typography>
-      </Box>
+    <section className="mb-8">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="h-5 w-1 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">{title} ({count})</h3>
+      </div>
       <AnimatePresence>
-        <Box sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)'
-          },
-          gap: 2.5,
-          justifyItems: 'start',
-          alignItems: 'start'
-        }}>
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 md:grid-cols-3">
           {presentations.map(presentation => (
             <GuideCard
               key={presentation.id}
@@ -670,9 +540,9 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
               onGuidesChanged={onGuidesChanged}
             />
           ))}
-        </Box>
+        </div>
       </AnimatePresence>
-    </Box>
+    </section>
   );
 };
 
@@ -892,22 +762,15 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             </div>
             <div className="flex items-center gap-0.5 shrink-0 -mr-1.5 -mt-1">
               {!plan && onOpenDetails && (
-                <IconButton
-                  size="small"
-                  onClick={() => onOpenDetails(presentation)}
-                  title="Detalhes da guia"
-                  sx={{ color: '#9CA3AF', p: 0.5, '&:hover': { color: theme.text, bgcolor: theme.light } }}
-                >
-                  <Info size={15} />
-                </IconButton>
+                <button type="button" onClick={() => onOpenDetails(presentation)} title="Detalhes da guia" aria-label="Detalhes da guia"
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+                  <Info size={15} aria-hidden />
+                </button>
               )}
-              <IconButton
-                size="small"
-                onClick={(e) => onOpenMenu(e, presentation)}
-                sx={{ color: '#9CA3AF', p: 0.5, '&:hover': { color: theme.text, bgcolor: theme.light } }}
-              >
-                <MoreVertical size={16} />
-              </IconButton>
+              <button type="button" onClick={(e) => onOpenMenu(e, presentation)} aria-label="Mais ações da guia" aria-haspopup="menu"
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+                <MoreVertical size={16} aria-hidden />
+              </button>
             </div>
           </div>
 
@@ -1053,24 +916,16 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
         {/* ── Plan block (lazy-loaded) ── */}
         {isUsable && planLoading && (
-          <Box sx={{ mx: 2, mb: 2 }}>
-            <Skeleton variant="rounded" height={110} sx={{ borderRadius: '12px' }} />
-          </Box>
+          <div className="mx-4 mb-4 h-[110px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" aria-hidden />
         )}
 
         {isUsable && planError && (
-          <Box sx={{
-            mx: 2, mb: 2, px: 2, py: 1.5, borderRadius: '12px',
-            bgcolor: '#FDECEA', border: '1px solid #F5C6C0',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1
-          }}>
-            <Typography sx={{ fontSize: '0.75rem', color: '#C75146' }}>
-              Não foi possível carregar o plano
-            </Typography>
-            <IconButton size="small" onClick={() => refetchPlan()} sx={{ color: '#C75146', p: 0.4 }}>
-              <RefreshCw size={13} />
-            </IconButton>
-          </Box>
+          <div className="mx-4 mb-4 flex items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-500/30 dark:bg-red-500/10">
+            <p className="text-xs text-red-700 dark:text-red-300">Não foi possível carregar o plano</p>
+            <button type="button" onClick={() => refetchPlan()} aria-label="Tentar de novo" className="rounded-md p-1 text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-500/20">
+              <RefreshCw size={13} aria-hidden />
+            </button>
+          </div>
         )}
 
         {plan && (
@@ -1404,44 +1259,25 @@ const PlanChangelogEntry = ({ entry }) => {
   }
 
   return (
-    <Box sx={{
-      display: 'flex', gap: 1.5,
-      px: 2, py: 1.5,
-      bgcolor: cfg.bg,
-      borderRadius: '14px',
-      border: `1px solid ${cfg.color}20`,
-    }}>
-      <Box sx={{
-        width: 28, height: 28, borderRadius: '8px',
-        bgcolor: `${cfg.color}15`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0, mt: 0.2
-      }}>
-        <Icon size={13} color={cfg.color} />
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: cfg.color }}>
-            {cfg.label}
-          </Typography>
-          <Typography sx={{ fontSize: '0.65rem', color: '#8A99B0', flexShrink: 0 }}>
-            {dateStr}
-          </Typography>
-        </Box>
-        <Typography sx={{ fontSize: '0.7rem', color: '#5B6E8C', mt: 0.2 }}>
-          Por: {actorLabel}
-        </Typography>
+    <div className="flex gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.color}20` }}>
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${cfg.color}15` }}>
+        <Icon size={13} color={cfg.color} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-[0.8rem] font-bold" style={{ color: cfg.color }}>{cfg.label}</p>
+          <p className="shrink-0 text-[0.65rem] text-slate-500">{dateStr}</p>
+        </div>
+        <p className="mt-0.5 text-[0.7rem] text-slate-600">Por: {actorLabel}</p>
         {diffLines.length > 0 && (
-          <Box sx={{ mt: 0.8, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+          <div className="mt-1.5 flex flex-col gap-1">
             {diffLines.map((line, i) => (
-              <Typography key={i} sx={{ fontSize: '0.7rem', color: '#1A2C3E', fontWeight: 500 }}>
-                • {line}
-              </Typography>
+              <p key={i} className="text-[0.7rem] font-medium text-slate-800">• {line}</p>
             ))}
-          </Box>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };
 
@@ -1811,67 +1647,34 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   const scheduledCount = therapyAppointments.filter(a => ['scheduled', 'confirmed', 'pre_agendado'].includes(apptStatus(a))).length;
   const canceledCount  = visibleAppointments.filter(a => ['canceled', 'cancelled', 'missed'].includes(apptStatus(a))).length;
 
+  const btnOutline = 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700';
+  const btnPrimary = 'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50';
+  const fieldCls = 'mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100';
+  const labelCls = 'block text-xs font-medium text-slate-600 dark:text-slate-300';
+
   return (
     <>
-    <Dialog
-      open={Boolean(guide)}
-      onClose={onClose}
-      maxWidth={false}
-      PaperProps={{
-        sx: {
-          borderRadius: { xs: 0, sm: '20px' },
-          boxShadow: '0 20px 50px rgba(15, 23, 42, 0.14)',
-          overflow: 'hidden',
-          width: '100%',
-          maxWidth: { xs: '100vw', sm: 'min(1000px, 94vw)' },
-          height: { xs: '100dvh', sm: 'auto' },
-          maxHeight: { xs: '100dvh', sm: 'min(90vh, 920px)' },
-          m: { xs: 0, sm: 2 },
-          display: 'flex',
-          flexDirection: 'column'
-        }
-      }}
-    >
+    <ModalShell open={Boolean(guide)} onClose={onClose} labelledBy="guide-details-title"
+      className="h-[100dvh] w-full sm:h-auto sm:max-h-[min(90vh,920px)] sm:w-[min(1000px,94vw)] sm:rounded-2xl">
       {/* Header */}
-      <Box sx={{
-        px: 3,
-        py: 2.25,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 2,
-        borderBottom: '1px solid #EEF2F7',
-        flexShrink: 0
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-          <Box sx={{ width: 4, height: 34, borderRadius: '4px', background: 'linear-gradient(180deg, #1565C0, #1E3A8A)', flexShrink: 0 }} />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ color: '#0F172A', fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.3 }} noWrap>
+      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="h-9 w-1 shrink-0 rounded bg-blue-700" aria-hidden />
+          <div className="min-w-0">
+            <h2 id="guide-details-title" className="truncate text-[1.05rem] font-bold leading-tight text-slate-900 dark:text-slate-50">
               Detalhes da Guia #{guide.number}
-            </Typography>
-            <Typography sx={{ color: '#64748B', fontSize: '0.78rem', mt: 0.2 }} noWrap>
-              {specialtyFormatted} • {insuranceFormatted}
-            </Typography>
-          </Box>
-        </Box>
-        <IconButton onClick={onClose} sx={{ color: '#94A3B8', flexShrink: 0, '&:hover': { color: '#1E293B', bgcolor: '#F1F5F9' } }}>
-          <X size={20} />
-        </IconButton>
-      </Box>
+            </h2>
+            <p className="truncate text-[0.78rem] text-slate-500 dark:text-slate-400">{specialtyFormatted} • {insuranceFormatted}</p>
+          </div>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Fechar" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+          <X size={20} aria-hidden />
+        </button>
+      </div>
 
-      <DialogContent sx={{
-        p: 3,
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-        '&::-webkit-scrollbar': { width: '6px' },
-        '&::-webkit-scrollbar-thumb': { backgroundColor: '#CBD5E1', borderRadius: '10px' },
-        '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' }
-      }}>
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress size={32} sx={{ color: '#2E7A5E' }} />
-          </Box>
+          <div className="flex justify-center py-12"><Spinner size={32} /></div>
         ) : (
           <>
             {/* Resumo rápido: o mesmo vocabulário do card (autorizadas, realizadas, agendadas, restam) */}
@@ -1898,139 +1701,80 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             })()}
 
             {modalPlanLoading && (
-              <Box sx={{ mb: 2.5 }}>
-                <Skeleton variant="rounded" height={56} sx={{ borderRadius: '14px' }} />
-              </Box>
+              <div className="mb-5 h-14 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" aria-hidden />
             )}
 
             {modalPlanError && (
-              <Box sx={{
-                mb: 2.5, px: 2, py: 1.5, borderRadius: '14px',
-                bgcolor: '#FDECEA', border: '1px solid #F5C6C0',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1
-              }}>
-                <Typography sx={{ fontSize: '0.8rem', color: '#C75146' }}>
-                  Não foi possível carregar o plano desta guia
-                </Typography>
-                <Button size="small" startIcon={<RefreshCw size={13} />} onClick={() => refetchModalPlan()}
-                  sx={{ color: '#C75146', textTransform: 'none', fontSize: '0.75rem' }}>
-                  Tentar novamente
-                </Button>
-              </Box>
+              <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-500/30 dark:bg-red-500/10">
+                <p className="text-[0.8rem] text-red-700 dark:text-red-300">Não foi possível carregar o plano desta guia</p>
+                <button type="button" onClick={() => refetchModalPlan()} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-500/20">
+                  <RefreshCw size={13} aria-hidden /> Tentar novamente
+                </button>
+              </div>
             )}
 
             {!modalPlanLoading && !modalPlanError && !modalPlan && (
-              <Box sx={{ mb: 2.5, px: 2, py: 1.5, borderRadius: '14px', bgcolor: '#F8FAFE', border: '1px solid #EDF2F7' }}>
-                <Typography sx={{ fontSize: '0.8rem', color: '#8A99B0' }}>
-                  Nenhum plano de atendimento configurado para esta guia
-                </Typography>
-              </Box>
+              <p className="mb-5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-[0.8rem] text-slate-500 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-400">
+                Nenhum plano de atendimento configurado para esta guia
+              </p>
             )}
 
             {/* Histórico de alterações do plano */}
             {modalPlan && (
-              <Box sx={{ mb: 2.5, pb: 2.5, borderBottom: '1px solid #F1F5F9' }}>
-                <Box
-                  component="button"
-                  onClick={() => setShowChangelog(v => !v)}
-                  sx={{
-                    display: 'flex', alignItems: 'center', gap: 1.25, width: '100%',
-                    bgcolor: '#F8FAFC',
-                    border: 'none',
-                    borderRadius: '12px', px: 1.75, py: 1.25, cursor: 'pointer',
-                    transition: 'background-color 0.15s',
-                    '&:hover': { bgcolor: '#F1F5F9' },
-                    '&:focus-visible': { outline: '2px solid #2E7A5E', outlineOffset: '2px' }
-                  }}
-                >
-                  <History size={15} color="#2E7A5E" />
-                  <Typography sx={{ flex: 1, textAlign: 'left', fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}>
-                    Histórico do plano
-                  </Typography>
+              <div className="mb-5 border-b border-slate-100 pb-5 dark:border-slate-800">
+                <button type="button" onClick={() => setShowChangelog(v => !v)} aria-expanded={showChangelog}
+                  className="flex w-full items-center gap-2.5 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:bg-slate-800/60 dark:hover:bg-slate-800">
+                  <History size={15} className="text-emerald-700 dark:text-emerald-400" aria-hidden />
+                  <span className="flex-1 text-[0.82rem] font-semibold text-slate-700 dark:text-slate-200">Histórico do plano</span>
                   {changelog.length > 0 && (
-                    <Box component="span" sx={{ px: 1, py: 0.15, bgcolor: '#E2E8F0', color: '#475569', borderRadius: '8px', fontSize: '0.68rem', fontWeight: 700 }}>
-                      {changelog.length}
-                    </Box>
+                    <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[0.68rem] font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">{changelog.length}</span>
                   )}
-                  {showChangelog ? <ChevronUp size={15} color="#64748B" /> : <ChevronDown size={15} color="#94A3B8" />}
-                </Box>
+                  {showChangelog ? <ChevronUp size={15} className="text-slate-500" aria-hidden /> : <ChevronDown size={15} className="text-slate-400" aria-hidden />}
+                </button>
 
                 {showChangelog && (
-                  <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                  <div className="mt-2 flex flex-col gap-1.5">
                     {changelogLoading ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                        <CircularProgress size={20} sx={{ color: '#2E7A5E' }} />
-                      </Box>
+                      <div className="flex justify-center py-4"><Spinner size={20} /></div>
                     ) : changelog.length === 0 ? (
-                      <Box sx={{ textAlign: 'center', py: 2 }}>
-                        <Typography sx={{ fontSize: '0.8rem', color: '#8A99B0' }}>Nenhuma alteração registrada</Typography>
-                      </Box>
+                      <p className="py-4 text-center text-[0.8rem] text-slate-500">Nenhuma alteração registrada</p>
                     ) : changelog.map((entry) => (
                       <PlanChangelogEntry key={entry._id} entry={entry} />
                     ))}
-                  </Box>
+                  </div>
                 )}
-              </Box>
+              </div>
             )}
 
             {/* Toggle Lista / Calendário — cabeçalho da seção de agenda */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.75, flexWrap: 'wrap', gap: 1 }}>
-              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                Agenda da guia
-              </Typography>
-              <Box sx={{
-                display: 'inline-flex',
-                bgcolor: '#F1F5F9',
-                borderRadius: '10px',
-                p: 0.5,
-                gap: 0.5
-              }}>
+            <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Agenda da guia</h3>
+              <div role="tablist" aria-label="Modo de visualização" className="inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
                 {[
                   { key: 'list', label: 'Lista' },
                   { key: 'calendar', label: 'Calendário' }
                 ].map(({ key, label }) => (
-                  <Box
-                    key={key}
-                    component="button"
-                    type="button"
-                    onClick={() => setViewMode(key)}
-                    sx={{
-                      px: 2.25,
-                      py: 0.875,
-                      borderRadius: '8px',
-                      fontSize: '0.8125rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: 'none',
-                      transition: 'all 0.15s',
-                      bgcolor: viewMode === key ? '#fff' : 'transparent',
-                      color: viewMode === key ? '#1565C0' : '#64748B',
-                      boxShadow: viewMode === key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                      '&:focus-visible': { outline: '2px solid #1565C0', outlineOffset: '2px' }
-                    }}
-                  >
+                  <button key={key} type="button" role="tab" aria-selected={viewMode === key} onClick={() => setViewMode(key)}
+                    className={`rounded-md px-4 py-1.5 text-[0.8125rem] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${viewMode === key ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-900 dark:text-blue-300' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}`}>
                     {label}
-                  </Box>
+                  </button>
                 ))}
-              </Box>
-            </Box>
+              </div>
+            </div>
 
             {/* Calendário */}
             {appointmentsError ? (
-              <Box sx={{ textAlign: 'center', py: 5 }}>
-                <AlertCircle size={32} color="#C75146" style={{ marginBottom: 8 }} />
-                <Typography sx={{ color: '#C75146', fontSize: '0.875rem', mb: 1.5 }}>
-                  Não foi possível carregar os agendamentos desta guia
-                </Typography>
-                <Button size="small" startIcon={<RefreshCw size={13} />} onClick={() => loadAppointments(guide._id)}
-                  sx={{ color: '#C75146', textTransform: 'none' }}>
-                  Tentar novamente
-                </Button>
-              </Box>
+              <div className="py-10 text-center">
+                <AlertCircle size={32} className="mx-auto mb-2 text-red-600" aria-hidden />
+                <p className="mb-3 text-sm text-red-700 dark:text-red-300">Não foi possível carregar os agendamentos desta guia</p>
+                <button type="button" onClick={() => loadAppointments(guide._id)} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 dark:text-red-300">
+                  <RefreshCw size={13} aria-hidden /> Tentar novamente
+                </button>
+              </div>
             ) : viewMode === 'calendar' ? (
-              <Box sx={{ minHeight: 480 }}>
+              <div className="min-h-[480px]">
                 {evaluationAppointments.map(a => (
-                  <div key={a._id} className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                  <div key={a._id} className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
                     <span className="font-semibold">Avaliação: </span>
                     {format(parseISO(a.date.substring(0, 10)), 'dd/MM/yyyy')}{a.time ? ` às ${a.time}` : ''}
                     <span className="ml-2 text-xs">{APPT_STATUS_CONFIG[apptStatus(a)]?.label || apptStatus(a)}</span>
@@ -2045,16 +1789,14 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                   onEventClick={openEdit}
                   initialDate={calendarInitialDate}
                 />
-              </Box>
+              </div>
             ) : visibleAppointments.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 5 }}>
-                <Calendar size={32} color="#A0AABF" style={{ marginBottom: 8 }} />
-                <Typography sx={{ color: '#8A99B0', fontSize: '0.875rem' }}>
-                  Nenhum agendamento registrado para esta guia
-                </Typography>
-              </Box>
+              <div className="py-10 text-center">
+                <Calendar size={32} className="mx-auto mb-2 text-slate-400" aria-hidden />
+                <p className="text-sm text-slate-500 dark:text-slate-400">Nenhum agendamento registrado para esta guia</p>
+              </div>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <ul className="flex flex-col gap-1.5">
                 {visibleAppointments.map((appt, idx) => {
                   const statusKey = appt.operationalStatus || appt.status || '';
                   const cfg = APPT_STATUS_CONFIG[statusKey] || { label: statusKey, color: '#8A99B0', bg: '#F8FAFE' };
@@ -2071,86 +1813,49 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                   const doctorName = appt.doctor?.fullName || appt.professionalName || '';
 
                   return (
-                    <Box
-                      key={appt._id || idx}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 2,
-                        py: 1.25,
-                        bgcolor: '#F8FAFC',
-                        borderRadius: '12px',
-                        transition: 'background-color 0.15s',
-                        '&:hover': { bgcolor: '#F1F5F9' }
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cfg.color, flexShrink: 0 }} />
-                        <Box>
-                          <Typography sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#1A2C3E' }}>
-                            {dateStr}{timeStr ? ` às ${timeStr}` : ''}
-                          </Typography>
-                          <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0', mt: 0.2 }}>
+                    <li key={appt._id || idx} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800">
+                      <div className="flex items-center gap-3">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cfg.color }} aria-hidden />
+                        <div>
+                          <p className="text-[0.8125rem] font-semibold text-slate-900 dark:text-slate-100">{dateStr}{timeStr ? ` às ${timeStr}` : ''}</p>
+                          <p className="mt-0.5 text-[0.7rem] text-slate-500 dark:text-slate-400">
                             {[
                               appt.serviceType === 'evaluation' ? 'Avaliação' : 'Sessão',
                               doctorName,
                               appt.sessionType ? appt.sessionType.replace(/_/g, ' ') : null
                             ].filter(Boolean).join(' • ') || '—'}
-                          </Typography>
-                          <Box sx={{ color: '#334155', mt: 0.5 }}><AppointmentOrigin appointment={appt} /></Box>
-                        </Box>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Chip
-                          label={cfg.label}
-                          size="small"
-                          sx={{
-                            height: '20px',
-                            fontSize: '0.6rem',
-                            fontWeight: 600,
-                            bgcolor: cfg.bg,
-                            color: cfg.color,
-                            border: `1px solid ${cfg.color}30`,
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <IconButton
-                          size="small"
-                          onClick={() => openMove(appt)}
-                          disabled={isCompleted}
-                          sx={{ color: '#8A99B0', '&:hover': { color: '#1565C0' }, p: 0.5, '&.Mui-disabled': { color: '#D8DEE8' } }}
+                          </p>
+                          <div className="mt-1 text-slate-700 dark:text-slate-300"><AppointmentOrigin appointment={appt} /></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="rounded-lg px-2 py-0.5 text-[0.6rem] font-semibold" style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+                          {cfg.label}
+                        </span>
+                        <button type="button" onClick={() => openMove(appt)} disabled={isCompleted}
                           title={isCompleted ? 'Sessão já concluída — não pode ser movida' : 'Mover para outra guia'}
-                        >
-                          <ArrowRightLeft size={13} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => openEdit(appt)}
-                          disabled={isCompleted}
-                          sx={{ color: '#8A99B0', '&:hover': { color: '#1B4D6E' }, p: 0.5, '&.Mui-disabled': { color: '#D8DEE8' } }}
+                          aria-label={isCompleted ? 'Sessão já concluída — não pode ser movida' : 'Mover para outra guia'}
+                          className="rounded-md p-1.5 text-slate-400 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-300 dark:disabled:text-slate-600">
+                          <ArrowRightLeft size={13} aria-hidden />
+                        </button>
+                        <button type="button" onClick={() => openEdit(appt)} disabled={isCompleted}
                           title={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
-                        >
-                          <Edit2 size={13} />
-                        </IconButton>
-                      </Box>
-                    </Box>
+                          aria-label={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
+                          className="rounded-md p-1.5 text-slate-400 hover:text-blue-800 disabled:cursor-not-allowed disabled:text-slate-300 dark:disabled:text-slate-600">
+                          <Edit2 size={13} aria-hidden />
+                        </button>
+                      </div>
+                    </li>
                   );
                 })}
-              </Box>
+              </ul>
             )}
           </>
         )}
-      </DialogContent>
+      </div>
 
-      <DialogActions sx={{
-        px: 3, py: 2, gap: 1.5,
-        justifyContent: 'space-between',
-        borderTop: '1px solid #EEF2F7',
-        flexShrink: 0,
-        flexDirection: { xs: 'column-reverse', sm: 'row' }
-      }}>
-        <Button
+      <div className="flex shrink-0 flex-col-reverse justify-between gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800 sm:flex-row">
+        <button type="button"
           onClick={() => {
             const firstPending = appointments.find(a =>
               ['pre_agendado', 'scheduled'].includes(a.operationalStatus || a.status)
@@ -2163,71 +1868,38 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
             }
             setBulkDoctorOpen(true);
           }}
-          variant="outlined"
-          sx={{
-            borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem',
-            px: 2.5, py: 0.9,
-            width: { xs: '100%', sm: 'auto' },
-            borderColor: '#C6E6DA', color: '#2E7A5E',
-            '&:hover': { bgcolor: '#EFF9F6', borderColor: '#2E7A5E' }
-          }}
-        >
+          className={`${btnOutline} w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 sm:w-auto`}>
           Alterar terapeuta/horário (todas pendentes)
-        </Button>
-        <Button
-          onClick={onClose}
-          variant="outlined"
-          sx={{
-            borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem',
-            px: 3, py: 0.9,
-            width: { xs: '100%', sm: 'auto' },
-            borderColor: '#DDE4EE', color: '#5B6E8C',
-            '&:hover': { bgcolor: '#F1F5F9', borderColor: '#C8D4E0' }
-          }}
-        >
-          Fechar
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </button>
+        <button type="button" onClick={onClose} className={`${btnOutline} w-full sm:w-auto`}>Fechar</button>
+      </div>
+    </ModalShell>
 
-    {/* ── Dialog: Trocar terapeuta (todas pendentes) — form ou preview de impacto ── */}
-    <Dialog
-      open={bulkDoctorOpen}
-      onClose={() => !bulkSaving && closeBulkDialog()}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: '20px' } }}
-    >
-      <Box sx={{ background: 'linear-gradient(135deg, #1565C0 0%, #1E3A8A 100%)', px: 3, py: 2,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
+    {/* ── Trocar terapeuta (todas pendentes) — form ou preview de impacto ── */}
+    <ModalShell open={bulkDoctorOpen} onClose={() => !bulkSaving && closeBulkDialog()} labelledBy="bulk-title" className="w-full max-w-md rounded-2xl">
+      <div className="flex items-center justify-between bg-blue-700 px-6 py-4">
+        <div>
+          <h2 id="bulk-title" className="text-[0.9rem] font-bold text-white">
             {bulkPreviewOpen ? 'Revisar alteração em massa' : 'Alterar sessões pendentes'}
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.7rem', mt: 0.2 }}>
+          </h2>
+          <p className="mt-0.5 text-[0.7rem] text-white/75">
             {bulkPreviewOpen
               ? 'Confira o impacto antes de aplicar'
               : 'Aplica para todos os pré-agendados e agendados desta guia'}
-          </Typography>
-        </Box>
-        <IconButton onClick={closeBulkDialog} size="small" disabled={bulkSaving}
-          sx={{ color: 'rgba(255,255,255,0.8)' }}>
-          <X size={16} />
-        </IconButton>
-      </Box>
+          </p>
+        </div>
+        <button type="button" onClick={closeBulkDialog} disabled={bulkSaving} aria-label="Fechar" className="rounded-md p-1 text-white/80 hover:bg-white/10 disabled:opacity-50">
+          <X size={16} aria-hidden />
+        </button>
+      </div>
 
       {!bulkPreviewOpen ? (
         <>
-          <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Profissional (opcional)</InputLabel>
-              <Select
-                value={bulkDoctorId}
-                label="Profissional (opcional)"
-                onChange={e => setBulkDoctorId(e.target.value)}
-                sx={{ borderRadius: '12px' }}
-              >
-                <MenuItem value=""><em>Manter atual</em></MenuItem>
+          <div className="flex flex-col gap-4 px-6 pb-2 pt-6">
+            <label className={labelCls}>
+              Profissional (opcional)
+              <select value={bulkDoctorId} onChange={e => setBulkDoctorId(e.target.value)} className={fieldCls}>
+                <option value="">Manter atual</option>
                 {doctors
                   .filter(d => {
                     if (!guide?.specialty) return true;
@@ -2235,135 +1907,98 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                     const allowed = [d.specialty, ...(d.specialties || [])].map(s => (s || '').toLowerCase());
                     return allowed.includes(target);
                   })
-                  .map(d => <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel>Dia da semana (opcional)</InputLabel>
-              <Select
-                value={bulkDayOfWeek}
-                label="Dia da semana (opcional)"
-                onChange={e => setBulkDayOfWeek(e.target.value)}
-                sx={{ borderRadius: '12px' }}
-              >
-                <MenuItem value=""><em>Manter dia atual</em></MenuItem>
-                <MenuItem value="1">Segunda-feira</MenuItem>
-                <MenuItem value="2">Terça-feira</MenuItem>
-                <MenuItem value="3">Quarta-feira</MenuItem>
-                <MenuItem value="4">Quinta-feira</MenuItem>
-                <MenuItem value="5">Sexta-feira</MenuItem>
-                <MenuItem value="6">Sábado</MenuItem>
-                <MenuItem value="0">Domingo</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label="Horário (opcional)"
-              type="time"
-              value={bulkTime}
-              onChange={e => setBulkTime(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-            />
-            <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0' }}>
+                  .map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+              </select>
+            </label>
+            <label className={labelCls}>
+              Dia da semana (opcional)
+              <select value={bulkDayOfWeek} onChange={e => setBulkDayOfWeek(e.target.value)} className={fieldCls}>
+                <option value="">Manter dia atual</option>
+                <option value="1">Segunda-feira</option>
+                <option value="2">Terça-feira</option>
+                <option value="3">Quarta-feira</option>
+                <option value="4">Quinta-feira</option>
+                <option value="5">Sexta-feira</option>
+                <option value="6">Sábado</option>
+                <option value="0">Domingo</option>
+              </select>
+            </label>
+            <label className={labelCls}>
+              Horário (opcional)
+              <input type="time" value={bulkTime} onChange={e => setBulkTime(e.target.value)} className={fieldCls} />
+            </label>
+            <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">
               Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-            <Button onClick={closeBulkDialog} disabled={bulkSaving}
-              variant="outlined" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
-                fontSize: '0.8rem', borderColor: '#DDE4EE', color: '#5B6E8C' }}>
-              Cancelar
-            </Button>
-            <Button
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
+            <button type="button" onClick={closeBulkDialog} disabled={bulkSaving} className={btnOutline}>Cancelar</button>
+            <button type="button"
               onClick={() => setBulkPreviewOpen(true)}
               disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedAppointments.length === 0}
-              variant="contained" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
-                fontSize: '0.8rem', bgcolor: '#2E7A5E', '&:hover': { bgcolor: '#246653' } }}>
+              className={`${btnPrimary} bg-emerald-700 hover:bg-emerald-800`}>
               Revisar alterações ({bulkAffectedAppointments.length})
-            </Button>
-          </DialogActions>
+            </button>
+          </div>
         </>
       ) : (
         <>
-          <DialogContent sx={{ pt: 3, pb: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ bgcolor: '#FFF3E0', border: '1px solid #FFE0B2', borderRadius: '14px', px: 2, py: 1.5 }}>
-              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: '#B45309' }}>
+          <div className="flex flex-col gap-4 px-6 pb-2 pt-6">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <p className="text-[0.8125rem] font-bold text-amber-800 dark:text-amber-300">
                 {bulkAffectedAppointments.length} sessão(ões) pendente(s) serão alteradas
-              </Typography>
-              <Typography sx={{ fontSize: '0.75rem', color: '#8A6018', mt: 0.3 }}>
+              </p>
+              <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">
                 Período: {format(parseISO(bulkAffectedAppointments[0].date.substring(0, 10)), 'dd/MM/yyyy')}
                 {' – '}
                 {format(parseISO(bulkAffectedAppointments[bulkAffectedAppointments.length - 1].date.substring(0, 10)), 'dd/MM/yyyy')}
-              </Typography>
-            </Box>
+              </p>
+            </div>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-              {bulkDoctorId && (
-                <Typography sx={{ fontSize: '0.8125rem', color: '#1A2C3E' }}>
-                  <strong>Terapeuta:</strong> {bulkSelectedDoctor?.fullName || '—'}
-                </Typography>
-              )}
-              {bulkTime && (
-                <Typography sx={{ fontSize: '0.8125rem', color: '#1A2C3E' }}>
-                  <strong>Horário:</strong> {bulkTime}
-                </Typography>
-              )}
+            <div className="flex flex-col gap-1.5 text-[0.8125rem] text-slate-800 dark:text-slate-200">
+              {bulkDoctorId && (<p><strong>Terapeuta:</strong> {bulkSelectedDoctor?.fullName || '—'}</p>)}
+              {bulkTime && (<p><strong>Horário:</strong> {bulkTime}</p>)}
               {bulkDayOfWeek !== '' && (
-                <Typography sx={{ fontSize: '0.8125rem', color: '#1A2C3E' }}>
+                <p>
                   <strong>Dia da semana:</strong> {bulkDayOfWeekLabel[parseInt(bulkDayOfWeek)]}
-                  <Box component="span" sx={{ display: 'block', fontSize: '0.7rem', color: '#8A99B0', mt: 0.2 }}>
+                  <span className="mt-0.5 block text-[0.7rem] text-slate-500 dark:text-slate-400">
                     Cada sessão será movida para a próxima ocorrência desse dia após sua data atual
-                  </Box>
-                </Typography>
+                  </span>
+                </p>
               )}
-            </Box>
+            </div>
 
-            <Box sx={{
-              maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0.8,
-              bgcolor: '#F8FAFE', borderRadius: '14px', border: '1px solid #EDF2F7', p: 1.2
-            }}>
+            <ul className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
               {bulkAffectedAppointments.map((appt, idx) => {
                 const currentDate = appt.date.substring(0, 10);
                 const newDate = bulkDayOfWeek !== ''
                   ? shiftToWeekday(currentDate, parseInt(bulkDayOfWeek))
                   : null;
                 return (
-                  <Box key={appt._id || idx} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', px: 0.5 }}>
+                  <li key={appt._id || idx} className="flex items-center justify-between px-1 text-xs text-slate-800 dark:text-slate-200">
                     <span>
                       {format(parseISO(currentDate), 'dd/MM')} {appt.time || ''}
                       {newDate && (
                         <> → <strong>{format(newDate, 'dd/MM')}</strong></>
                       )}
                     </span>
-                    <span style={{ color: '#8A99B0' }}>
-                      {appt.doctor?.fullName || appt.professionalName || '—'}
-                    </span>
-                  </Box>
+                    <span className="text-slate-500 dark:text-slate-400">{appt.doctor?.fullName || appt.professionalName || '—'}</span>
+                  </li>
                 );
               })}
-            </Box>
+            </ul>
 
-            <Typography sx={{ fontSize: '0.7rem', color: '#8A99B0' }}>
-              Sessões confirmadas/realizadas não serão alteradas.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-            <Button onClick={() => setBulkPreviewOpen(false)} disabled={bulkSaving}
-              variant="outlined" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
-                fontSize: '0.8rem', borderColor: '#DDE4EE', color: '#5B6E8C' }}>
-              Voltar
-            </Button>
-            <Button onClick={saveBulkDoctor} disabled={bulkSaving}
-              variant="contained" sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600,
-                fontSize: '0.8rem', bgcolor: '#2E7A5E', '&:hover': { bgcolor: '#246653' } }}>
-              {bulkSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirmar alteração'}
-            </Button>
-          </DialogActions>
+            <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">Sessões confirmadas/realizadas não serão alteradas.</p>
+          </div>
+          <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
+            <button type="button" onClick={() => setBulkPreviewOpen(false)} disabled={bulkSaving} className={btnOutline}>Voltar</button>
+            <button type="button" onClick={saveBulkDoctor} disabled={bulkSaving} className={`${btnPrimary} min-w-[150px] bg-emerald-700 hover:bg-emerald-800`}>
+              {bulkSaving ? <Spinner size={16} light /> : 'Confirmar alteração'}
+            </button>
+          </div>
         </>
       )}
-    </Dialog>
+    </ModalShell>
 
     {/* ── Modal de edição de agendamento (mesmo AppointmentDetailModal do calendário/Liminar) ── */}
     {editingAppointment && (
@@ -2375,72 +2010,44 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         onCancelAppointment={handleCancelFromModal}
         onCompleteAppointment={handleCompleteFromModal}
         onEditAppointment={handleEditFromModal}
-        // 🚨 FIX (2026-08-15): sem isso, este modal (div fixed, z-50) renderizava
-        // ATRÁS do Dialog MUI "Detalhes da Guia" que o abre (MUI Modal usa
-        // z-index 1300 por padrão) — clicar num agendamento parecia não abrir
-        // nada, mas na verdade abria escondido atrás. 1400 > zIndex.modal do MUI.
+        // Precisa ficar acima do modal "Detalhes da Guia" que o abre (ModalShell usa z-index 1300).
         zIndex={1400}
       />
     )}
 
-    <Dialog open={!!movingAppt} onClose={() => setMovingAppt(null)} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>Mover atendimento entre guias</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        <Typography sx={{ fontSize: '0.8rem', color: '#8A99B0' }}>
+    <ModalShell open={!!movingAppt} onClose={() => setMovingAppt(null)} labelledBy="move-title" className="w-full max-w-md rounded-2xl">
+      <h2 id="move-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Mover atendimento entre guias</h2>
+      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
+        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
           {movingAppt?.date ? format(parseISO(movingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
           {movingAppt?.time ? ` às ${movingAppt.time}` : ''} · Guia atual: #{guide?.number}
-        </Typography>
-        <FormControl fullWidth size="small">
-          <InputLabel>Guia de destino</InputLabel>
-          <Select
-            value={moveTargetGuideId}
-            label="Guia de destino"
-            onChange={e => setMoveTargetGuideId(e.target.value)}
-            disabled={moveGuidesLoading}
-            sx={{ borderRadius: '12px' }}
-          >
+        </p>
+        <label className={labelCls}>
+          Guia de destino
+          <select value={moveTargetGuideId} onChange={e => setMoveTargetGuideId(e.target.value)} disabled={moveGuidesLoading} className={fieldCls}>
+            <option value="" disabled>Selecione</option>
             {moveGuides.map(g => (
-              <MenuItem key={g._id} value={g._id}>
+              <option key={g._id} value={g._id}>
                 #{g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
-              </MenuItem>
+              </option>
             ))}
-          </Select>
-        </FormControl>
+          </select>
+        </label>
         {!moveGuidesLoading && moveGuides.length === 0 && (
-          <Typography sx={{ fontSize: '0.75rem', color: '#C75146' }}>
-            Nenhuma outra guia de {guide?.specialty} disponível para este paciente.
-          </Typography>
+          <p className="text-xs text-red-700 dark:text-red-400">Nenhuma outra guia de {guide?.specialty} disponível para este paciente.</p>
         )}
-        <TextField
-          label="Motivo (opcional)"
-          size="small"
-          fullWidth
-          value={moveReason}
-          onChange={e => setMoveReason(e.target.value)}
-          placeholder="Ex: correção administrativa"
-        />
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button
-          onClick={() => setMovingAppt(null)}
-          disabled={moveSubmitting}
-          variant="outlined"
-          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
-            borderColor: '#DDE4EE', color: '#5B6E8C' }}
-        >
-          Cancelar
-        </Button>
-        <Button
-          onClick={confirmMove}
-          disabled={moveSubmitting || !moveTargetGuideId}
-          variant="contained"
-          sx={{ borderRadius: '40px', textTransform: 'none', fontWeight: 600, fontSize: '0.8rem',
-            bgcolor: '#1565C0', '&:hover': { bgcolor: '#0d4b94' } }}
-        >
-          {moveSubmitting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Confirmar'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        <label className={labelCls}>
+          Motivo (opcional)
+          <input type="text" value={moveReason} onChange={e => setMoveReason(e.target.value)} placeholder="Ex: correção administrativa" className={fieldCls} />
+        </label>
+      </div>
+      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
+        <button type="button" onClick={() => setMovingAppt(null)} disabled={moveSubmitting} className={btnOutline}>Cancelar</button>
+        <button type="button" onClick={confirmMove} disabled={moveSubmitting || !moveTargetGuideId} className={`${btnPrimary} min-w-[110px] bg-blue-700 hover:bg-blue-800`}>
+          {moveSubmitting ? <Spinner size={16} light /> : 'Confirmar'}
+        </button>
+      </div>
+    </ModalShell>
     </>
   );
 };
