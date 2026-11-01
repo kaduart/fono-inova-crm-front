@@ -32,6 +32,7 @@ import { toast } from 'react-toastify';
 import { getInsuranceHistory, InsuranceHistoryMonth, getPatientInsuranceSessions, InsurancePatientSession, BILLING_MODEL, BillingModel } from '../../../services/paymentService';
 import appointmentService from '../../../services/appointmentService';
 import { getSpecialtyLabel } from '../../../constants/specialties';
+import { sessoes } from '../../../utils/plural';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -556,7 +557,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                     {group.type === 'batch' && group.sentDate && (
                                         <>Enviado {fmtDateShort(group.sentDate)} · </>
                                     )}
-                                    {(group.summary?.sessions ?? group.sessions.length)} sessõe{(group.summary?.sessions ?? group.sessions.length) !== 1 ? 's' : ''}
+                                    {(group.summary?.sessions ?? group.sessions.length)} {sessoes((group.summary?.sessions ?? group.sessions.length))}
                                     {group.summary && group.summary.issAmount > 0 && (
                                         <> · Bruto {fmtBRL(group.summary.grossAmount)} · ISS {fmtBRL(group.summary.issAmount)} · Líquido {fmtBRL(group.summary.netAmount)}</>
                                     )}
@@ -666,7 +667,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 1, mt: 1 }}>
                 <Typography fontSize="0.72rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Total · {totalSessions} sessõe{totalSessions !== 1 ? 's' : ''}
+                    Total · {totalSessions} {sessoes(totalSessions)}
                 </Typography>
                 <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A">{fmtBRL(total)}</Typography>
             </Box>

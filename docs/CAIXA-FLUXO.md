@@ -44,3 +44,24 @@ Mock: https://claude.ai/artifact/MofvBUst4aP3nUUB3Vx11G
 - Caixa em destaque (número grande, barra de quanto do previsto entrou, variação vs ontem).
 - Agenda e perfil numa linha de chips clicáveis (mesmos cliques de antes).
 - Ações com número colorido pela urgência; origem do caixa em barra empilhada com %.
+
+## Versão 2 (01/11/2026, mock aprovado)
+
+Mock: https://claude.ai/artifact/R6NEhtTmWQm5ZwWR98r6dh · crítica Impeccable: critique 26/40, audit 14/20.
+- Bug "clico no card e a tela desce": cards e chips não rolam mais até as sub-abas. Abrem o painel lateral `CashflowDrawer` (Esc fecha, a página fica parada); "Abrir na aba …" leva à sub-aba completa. Sub-abas ganharam "↑ Voltar ao resumo".
+- A receber: agrupado por paciente, valor por atendimento e WhatsApp com mensagem pronta (`collectMessage`). Nada é enviado sozinho.
+- Novo "Do previsto ao caixa": caixa + atendido sem pagamento + convênio a faturar; o resto aparece como "pacote pago antes, liminar ou sem lançamento". Só números do backend.
+- Nova ação "Faltas para remarcar" com `agenda.perdido` (backend) e mensagem `rescheduleMessage`.
+- Pacotes: última sessão primeiro, resumo por especialidade e WhatsApp com renovação (Valor → Preço). Sem próxima sessão cita os 3 primeiros nomes.
+- Chips em duas linhas (Agenda / Perfil); cards com "Ver … ›"; "caixa do mês" no Ticket; origem com uma forma só vira uma linha; card violeta trocado pelo padrão e usando o previsto do backend.
+- Performance: sem busca duplicada da agenda no clique; renovações com cache de 5 min; blocos de "Ver detalhes" só renderizam quando abertos; console.log removidos.
+
+## Convênios v2 (01/11/2026, mock aprovado)
+
+Mock: https://claude.ai/artifact/TCo6c4YXfJqnXW222cS3yK · Impeccable: critique 21/40, audit 10/20.
+- "Precisa de ação" virou fila ordenada pelo valor parado, com o próximo passo em cada linha (os 5 itens de antes continuam; zerados aparecem numa linha "nada a fazer"). Sessões fora do faturamento mostram valor estimado (nº × valor médio a faturar), marcado como estimativa.
+- Aviso das sessões sem lançamento elegível reescrito sem jargão ("Payment").
+- Tabela: coluna "Mais antiga" (vermelho acima de 60 dias), ordenação pela sessão mais antiga, "Prazo de envio" mostra "a configurar" e um aviso único com "Configurar prazos" (abre o cadastro de convênios). Botão "Preparar N" abre um painel com todas as guias do convênio.
+- Painel: guias por guia já vêm marcadas; nome do paciente no card quando o painel é do convênio; "Sessões de dd/mm a dd/mm"; alertas de dias sem faturar, guia acabando/esgotada e valor por sessão diferente.
+- Plural corrigido no sistema com `src/utils/plural.ts` ("sessãoões", "sessãos", "1 sessões").
+- Removida a carga de pacientes e profissionais que só servia a um modal que nunca abre.

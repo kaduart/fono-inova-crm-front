@@ -37,6 +37,7 @@ import { autoLinkOrphanSessions, createGuideFromOrphan, encerrarGuia, linkOrphan
 import { updateGuide } from '../../../services/insuranceGuideApi';
 import type { Convenio } from '../../../services/insuranceService';
 import { toast } from 'react-toastify';
+import { sessoes } from '../../../utils/plural';
 
 export interface PendingGuideSession {
     sessionId: string;
@@ -168,6 +169,8 @@ interface GuidePendingBillingSectionProps {
     // Pode retornar (ou resolver para) `false` quando a ação falhou — o drawer
     // do paciente só fecha quando não é explicitamente `false`.
     onDrawerAction?: (guideIds: string[], billingCompetence?: string) => void | boolean | Promise<void | boolean>;
+    /** Abre o cadastro de convênios (aviso único de prazos não cadastrados). */
+    onConfigureConvenios?: () => void;
     onLoadGuideDetails?: (guideIds: string[]) => Promise<PendingGuide[]>;
     detailsLoading?: boolean;
     phase?: 'pendingBilling' | 'documentationSent' | 'billed' | 'received';
@@ -238,6 +241,11 @@ const resolveGuideSessionValue = (guide: PendingGuide) => {
         return sessionValues.reduce((sum, v) => sum + v, 0) / sessionValues.length;
     }
     return Number(guide.sessionValue || 0);
+};
+
+const hasSubmissionDeadline = (convenio?: Convenio) => {
+    const p = convenio?.guidePolicy;
+    return !!p && !!(p.billingSubmissionDay || p.billingDeadlineDays || (p.renewalType === 'advance_authorization' && p.priorAuthRequestDay));
 };
 
 const formatDate = (date: string | Date | null | undefined) => {
@@ -390,6 +398,10 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
         const first = guides.find(g => Number(g.sessionValue) > 0)?.sessionValue ?? 0;
         return Number(first || 0);
     })();
+    const multiPatient = new Set(guides.map(g => g.patient?.fullName || '')).size > 1;
+    // Valor por sessão diferente entre guias do mesmo paciente/convênio: provável tabela errada.
+    const distinctValues = [...new Set(guides.map(g => Math.round(resolveGuideSessionValue(g) * 100)).filter(v => v > 0))];
+    const valueMismatch = !multiPatient && distinctValues.length > 1;
     const isReceiveMode = drawerAction === 'receive';
     const isDocumentMode = drawerAction === 'send_documents';
     const isBillingMode = drawerAction === 'bill';
@@ -620,12 +632,18 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 <Checkbox
                                     checked={isSelected}
                                     onChange={handleToggleSelected}
+                                    inputProps={{ 'aria-label': `Selecionar guia ${guide.number || ''}` }}
                                     size="small"
                                     sx={{ p: 0.25, mt: 0.1 }}
                                 />
                             )}
                             <Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                                    {multiPatient && guide.patient?.fullName && (
+                                        <Typography component="span" fontWeight="700" fontSize="0.82rem" color="#334155" sx={{ width: '100%' }}>
+                                            {guide.patient.fullName}
+                                        </Typography>
+                                    )}
                                     <Typography fontWeight="700" fontSize="0.9rem" color="#0F172A">
                                         Guia {guide.number}
                                     </Typography>
@@ -683,7 +701,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 {formatCurrency(resolveGuidePendingTotal(guide))}
                             </Typography>
                             <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
-                                {guide.pendingSessions} sessõe{guide.pendingSessions !== 1 ? 's' : ''} {phaseLabel} · {formatCurrency(resolveGuideSessionValue(guide))}/sessão
+                                {guide.pendingSessions} {sessoes(guide.pendingSessions)} {phaseLabel} · {formatCurrency(resolveGuideSessionValue(guide))}/sessão
                             </Typography>
                         </Box>
                     </Box>
@@ -800,12 +818,28 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         )}
                     </Box>
 
+                    {/* Inteligência (01/11): idade das sessões e ciclo da guia */}
+                    {(() => {
+                        const age = phase === 'pendingBilling' || phase === 'documentationSent' ? daysSince(guide.firstSessionDate) : null;
+                        const remaining = typeof guide.totalSessions === 'number' ? guide.totalSessions - (guide.usedSessions ?? 0) : null;
+                        const notes: { text: string; tone: 'red' | 'blue' | 'green' }[] = [];
+                        if (age != null && age > 60) notes.push({ text: `${age} dias sem faturar · risco de glosa por prazo`, tone: 'red' });
+                        if (guide.billingMode === 'per_guide' && remaining != null && remaining > 0 && remaining <= 5)
+                            notes.push({ text: `Restam ${remaining} ${sessoes(remaining)} na guia · pedir nova autorização`, tone: 'blue' });
+                        if (remaining === 0 && guide.guideStatus !== 'cancelled') notes.push({ text: 'Guia esgotada · pode fechar depois de faturar', tone: 'green' });
+                        if (!notes.length) return null;
+                        const c = { red: ['#FEF2F2', '#991B1B'], blue: ['#EFF6FF', '#1E40AF'], green: ['#ECFDF5', '#065F46'] };
+                        return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
+                            {notes.map(n => <Box key={n.text} sx={{ fontSize: '0.72rem', fontWeight: 600, px: 1, py: 0.4, borderRadius: 999, bgcolor: c[n.tone][0], color: c[n.tone][1] }}>{n.text}</Box>)}
+                        </Box>;
+                    })()}
+
                     {/* Row 3: período + expandir */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 0.25 }}>
                         {guide.firstSessionDate ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#94A3B8', fontSize: '0.73rem' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B', fontSize: '0.73rem', flexWrap: 'wrap' }}>
                                 <Calendar size={11} />
-                                {formatDate(guide.firstSessionDate)}
+                                Sessões de {formatDate(guide.firstSessionDate)}
                                 {guide.lastSessionDate && guide.firstSessionDate !== guide.lastSessionDate &&
                                     <> → {formatDate(guide.lastSessionDate)}</>}
                             </Box>
@@ -820,7 +854,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                     '&:hover': { color: '#1D4ED8' }
                                 }}
                             >
-                                {isExpanded ? 'Ocultar sessões' : `Ver ${guide.sessions!.length} sessões`}
+                                {isExpanded ? 'Ocultar sessões' : `Ver ${guide.sessions!.length} ${sessoes(guide.sessions!.length)}`}
                                 {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                             </Box>
                         )}
@@ -833,7 +867,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         ir atrás do lote antigo pra confirmar. */}
                     {phase === 'pendingBilling' && !!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: '#94A3B8', fontSize: '0.7rem', fontStyle: 'italic' }}>
-                            + {guide.alreadyBilledSessions} sessõe{guide.alreadyBilledSessions !== 1 ? 's' : ''} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
+                            + {guide.alreadyBilledSessions} {sessoes(guide.alreadyBilledSessions)} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
                             {guide.lastBatchSentAt ? ` em ${formatDate(guide.lastBatchSentAt)}` : ''} (não aparece{guide.alreadyBilledSessions !== 1 ? 'm' : ''} na lista abaixo)
                         </Box>
                     )}
@@ -954,6 +988,12 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 </Box>
             </Box>
 
+            {valueMismatch && (
+                <Box sx={{ px: 3, py: 1, bgcolor: '#FFFBEB', borderBottom: '1px solid #FDE68A', fontSize: '0.78rem', color: '#92400E' }}>
+                    Valor por sessão diferente entre as guias ({distinctValues.map(v => formatCurrency(v / 100)).join(' x ')}). Confira a tabela do convênio antes de faturar.
+                </Box>
+            )}
+
             {/* ── Selecionar todas ───────────────────────────────── */}
             <Box sx={{
                 px: 3, py: 1.25,
@@ -988,7 +1028,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 Competência {group.competence}
                             </Typography>
                             <Typography fontSize="0.75rem" color="#64748B" fontWeight={600}>
-                                {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''} · {formatCurrency(group.value)}
+                                {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} {sessoes(group.sessions)} · {formatCurrency(group.value)}
                             </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
@@ -1031,7 +1071,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                             {group.invoiceNumber ? `NF ${group.invoiceNumber}` : 'Sem NF informada'}
                                         </Typography>
                                         <Typography fontSize="0.71rem" color="#64748B" fontWeight={500}>
-                                            {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} sessõe{group.sessions !== 1 ? 's' : ''}
+                                            {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} {sessoes(group.sessions)}
                                             {group.invoiceDate ? ` · ${formatDate(group.invoiceDate)}` : ''}
                                         </Typography>
                                     </Box>
@@ -1067,7 +1107,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
                         <Box>
                             <Typography fontSize="0.82rem" fontWeight={800} color="#0F172A">
-                                {selectedHere.length} guia{selectedHere.length !== 1 ? 's' : ''} · {selectedSessions} sessão{selectedSessions !== 1 ? 'ões' : ''}
+                                {selectedHere.length} guia{selectedHere.length !== 1 ? 's' : ''} · {selectedSessions} {sessoes(selectedSessions)}
                             </Typography>
                             <Typography fontSize="0.78rem" color={phasePresentation.color} fontWeight={700}>
                                 {formatCurrency(selectedValue)} {phasePresentation.value}
@@ -1135,6 +1175,7 @@ const GuidePendingBillingSection = ({
     phaseLabel = 'para faturar',
     drawerAction,
     onDrawerAction,
+    onConfigureConvenios,
     onLoadGuideDetails,
     detailsLoading = false,
     phase = 'pendingBilling',
@@ -1143,7 +1184,7 @@ const GuidePendingBillingSection = ({
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
-    const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[] } | null>(null);
+    const [drawerPatient, setDrawerPatient]                     = useState<{ name: string; provider: string; guides: PendingGuide[]; all?: boolean } | null>(null);
     const [linking, setLinking]                                 = useState(false);
     const [createModal, setCreateModal]                         = useState<OrphanSession | null>(null);
     const [createIsAba, setCreateIsAba]                         = useState(false);
@@ -1178,7 +1219,7 @@ const GuidePendingBillingSection = ({
         setExpandedOrphanProviders(prev => ({ ...prev, [p]: !prev[p] }));
     };
 
-    const openDrawer = async (name: string, provider: string, patientGuides: PendingGuide[]) => {
+    const openDrawer = async (name: string, provider: string, patientGuides: PendingGuide[], all = false) => {
         if (detailsLoading) return;
         if (onLoadGuideDetails && patientGuides.some(guide => (guide.sessions || []).length === 0)) {
             try {
@@ -1192,6 +1233,12 @@ const GuidePendingBillingSection = ({
         // seleção canônica acontece nas guias exibidas dentro deste drawer.
         if (selectionInsideDrawer) {
             selectedGuides.forEach(guideId => onToggleGuide(guideId));
+            // 01/11: guias por guia já vêm marcadas quando têm sessões a faturar
+            // (antes abria tudo desmarcado e o botão ficava desabilitado sem dica).
+            // Mensal segue a seleção automática por competência do próprio drawer.
+            patientGuides
+                .filter(guide => guide.billingMode === 'per_guide' && Number(guide.pendingSessions || (guide.sessions || []).length) > 0)
+                .forEach(guide => onToggleGuide(guide.guideId));
         }
         // A ReadView V2 soma sessões pendentes de todas as competências não
         // faturadas (achado 2026-08-17) — o drawer mostra tudo, agrupado por
@@ -1201,7 +1248,7 @@ const GuidePendingBillingSection = ({
             toast.info('Nenhuma sessão pendente encontrada para este paciente');
             return;
         }
-        setDrawerPatient({ name, provider, guides: patientGuides });
+        setDrawerPatient({ name, provider, guides: patientGuides, all });
     };
 
     // Mantém o drawer sincronizado após uma baixa/refresh. Se todas as guias
@@ -1210,7 +1257,7 @@ const GuidePendingBillingSection = ({
         if (!drawerPatient) return;
         const currentGuides = guides.filter(g =>
             (g.insurance || 'outros') === drawerPatient.provider &&
-            (g.patient?.fullName || 'Paciente não identificado') === drawerPatient.name
+            (drawerPatient.all || (g.patient?.fullName || 'Paciente não identificado') === drawerPatient.name)
         );
         if (currentGuides.length === 0 || currentGuides.every(guide => (guide.sessions || []).length === 0)) {
             setDrawerPatient(null);
@@ -1375,12 +1422,17 @@ const GuidePendingBillingSection = ({
         groupedGuides[provider][name].push(guide);
     });
 
-    // Ordenar convênios por maior valor total
+    // 01/11: convênio com a sessão mais antiga primeiro (risco de glosa); empate pelo maior valor.
+    const oldestOf = (list: PendingGuide[]) => list.map(g => g.firstSessionDate).filter(Boolean).map(String).sort()[0] || '';
     const sortedProviders = Object.entries(groupedGuides).sort(([, a], [, b]) => {
+        const aO = oldestOf(Object.values(a).flat());
+        const bO = oldestOf(Object.values(b).flat());
+        if (aO !== bO) return !aO ? 1 : !bO ? -1 : aO.localeCompare(bO);
         const aT = Object.values(a).flat().reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
         const bT = Object.values(b).flat().reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
         return bT - aT;
     });
+    const providersWithoutDeadline = sortedProviders.filter(([provider]) => !hasSubmissionDeadline(resolveProviderConvenio(provider, convenios))).length;
 
     // Agrupar órfãs por convênio
     const groupedOrphans: Record<string, OrphanSession[]> = {};
@@ -1393,6 +1445,13 @@ const GuidePendingBillingSection = ({
     return (
         <>
             <div className="space-y-3">
+                {/* Aviso único (01/11) no lugar de "Prazo de envio não informado" repetido em cada linha */}
+                {providersWithoutDeadline > 0 && !readOnly && (
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+                        <span className="min-w-0 flex-1"><b>{providersWithoutDeadline} {providersWithoutDeadline === 1 ? 'convênio sem prazo de envio cadastrado' : 'convênios sem prazo de envio cadastrado'}.</b> Sem o prazo, a tela não consegue avisar antes da glosa.</span>
+                        {onConfigureConvenios && <button type="button" onClick={onConfigureConvenios} className="min-h-10 rounded-lg border border-amber-800 bg-white px-3 font-semibold text-amber-900 hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-600">Configurar prazos</button>}
+                    </div>
+                )}
                 {/* ── Resumo por convênio ─────────────────────────────────── */}
                 {(() => {
                     const allFlat = Object.values(groupedGuides).flatMap(p => Object.values(p).flat());
@@ -1411,11 +1470,13 @@ const GuidePendingBillingSection = ({
                                 {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', lg: 'block' }, width: 180, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regra da guia</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', lg: 'block' }, width: 240, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo operacional</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#64748B" sx={{ display: { xs: 'none', md: 'block' }, width: 130, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mais antiga</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="#64748B" sx={{ display: { xs: 'none', lg: 'block' }, width: 220, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo de envio</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pacientes</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guias</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sessões</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</Typography>
+                                {selectionInsideDrawer && !readOnly && <Box sx={{ width: 120, flexShrink: 0 }} />}
                                 <Box sx={{ width: 38, flexShrink: 0 }} />
                             </Box>
 
@@ -1432,6 +1493,9 @@ const GuidePendingBillingSection = ({
                                 const providerConvenio = resolveProviderConvenio(provider, convenios);
                                 const guideRule = resolveGuideRule(providerConvenio);
                                 const submissionHint = resolveSubmissionHint(providerConvenio);
+                                const hasDeadline = hasSubmissionDeadline(providerConvenio);
+                                const providerOldest = oldestOf(allGuides);
+                                const providerAge = daysSince(providerOldest || null);
                                 const isPerGuide   = providerMode === 'per_guide';
                                 const rowAccent    = isPerGuide ? '#10B981' : '#3B82F6';
                                 const accentColor  = isPerGuide ? '#059669' : '#2563EB';
@@ -1489,12 +1553,19 @@ const GuidePendingBillingSection = ({
                                                     </Typography>
                                                 </Box>
                                             </Box>
-                                            <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 240, pr: 2 }}>
-                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.55, borderRadius: 1.5, bgcolor: providerConvenio ? '#FFF7ED' : '#F8FAFC', border: `1px solid ${providerConvenio ? '#FED7AA' : '#E2E8F0'}` }}>
-                                                    <Typography fontSize="0.72rem" fontWeight={700} color={providerConvenio ? '#9A3412' : '#64748B'} noWrap>
-                                                        {submissionHint}
+                                            <Box sx={{ display: { xs: 'none', md: 'block' }, width: 130, pr: 1 }}>
+                                                {providerOldest ? (
+                                                    <Typography fontSize="0.78rem" fontWeight={700} color={providerAge != null && providerAge > 60 ? '#B91C1C' : '#334155'} noWrap>
+                                                        {formatDate(providerOldest).slice(0, 5)} · {providerAge} {providerAge === 1 ? 'dia' : 'dias'}
                                                     </Typography>
-                                                </Box>
+                                                ) : <Typography fontSize="0.78rem" color="#64748B">—</Typography>}
+                                            </Box>
+                                            <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 220, pr: 2 }}>
+                                                {hasDeadline ? (
+                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.55, borderRadius: 1.5, bgcolor: '#FFF7ED', border: '1px solid #FED7AA' }}>
+                                                        <Typography fontSize="0.72rem" fontWeight={700} color="#9A3412" noWrap>{submissionHint}</Typography>
+                                                    </Box>
+                                                ) : <Typography fontSize="0.75rem" color="#64748B" noWrap title={submissionHint}>a configurar</Typography>}
                                             </Box>
                                             <Typography fontSize="0.83rem" color="#64748B" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{patients}</Typography>
                                             <Typography fontSize="0.83rem" color="#64748B" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allGuides.length}</Typography>
@@ -1502,6 +1573,17 @@ const GuidePendingBillingSection = ({
                                                 <Typography fontSize="0.83rem" fontWeight={700} color="#1D4ED8">{sessions}</Typography>
                                             </Box>
                                             <Typography fontWeight="800" fontSize="0.87rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>{formatCurrency(total)}</Typography>
+                                            {selectionInsideDrawer && !readOnly && (
+                                                <Box sx={{ width: 120, display: 'flex', justifyContent: 'flex-end' }}>
+                                                    {/* 01/11: preparar o convênio inteiro num painel só (antes, um painel por paciente) */}
+                                                    <button type="button" disabled={detailsLoading}
+                                                        onClick={(event) => { event.stopPropagation(); void openDrawer(`Todos os pacientes · ${patients}`, provider, allGuides, true); }}
+                                                        onKeyDown={(event) => event.stopPropagation()}
+                                                        className="min-h-9 rounded-lg border border-emerald-700 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50">
+                                                        Preparar {sessions}
+                                                    </button>
+                                                </Box>
+                                            )}
                                             <Box sx={{ width: 30, ml: 1, color: '#94A3B8', display: 'flex', justifyContent: 'flex-end', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
                                                 <ChevronDown size={17} />
                                             </Box>
@@ -1560,10 +1642,11 @@ const GuidePendingBillingSection = ({
                             {/* Rodapé total */}
                             {sortedProviders.length > 1 && (
                                 <Box sx={{ px: 2.5, py: 1.45, minWidth: { xs: 0, lg: 1080 }, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderTop: '1px solid #CBD5E1' }}>
-                                    {!readOnly && <Box sx={{ width: 38, flexShrink: 0 }} />}
+                                    {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                     <Typography fontSize="0.8rem" fontWeight={700} color="#475569" sx={{ flex: 1 }}>Total</Typography>
                                     <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 180 }} />
-                                    <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 240 }} />
+                                    <Box sx={{ display: { xs: 'none', md: 'block' }, width: 130 }} />
+                                    <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 220 }} />
                                     <Typography fontSize="0.83rem" fontWeight={600} color="#475569" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{grandPats}</Typography>
                                     <Typography fontSize="0.83rem" fontWeight={600} color="#475569" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allFlat.length}</Typography>
                                     <Box sx={{ width: 72, display: 'flex', justifyContent: 'center' }}>
@@ -1572,6 +1655,7 @@ const GuidePendingBillingSection = ({
                                     <Typography fontWeight="800" fontSize="0.92rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>
                                         {formatCurrency(grandTotal)}
                                     </Typography>
+                                    {selectionInsideDrawer && !readOnly && <Box sx={{ width: 120, flexShrink: 0 }} />}
                                     <Box sx={{ width: 38, flexShrink: 0 }} />
                                 </Box>
                             )}
@@ -1593,7 +1677,7 @@ const GuidePendingBillingSection = ({
                                     ⚠️ Atendimentos sem guia vinculada
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                    {orphanSessionsCount} sessão{orphanSessionsCount !== 1 ? 's' : ''} · sem seleção em lote disponível
+                                    {orphanSessionsCount} {sessoes(orphanSessionsCount)} · sem seleção em lote disponível
                                 </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1643,7 +1727,7 @@ const GuidePendingBillingSection = ({
                                         </Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Typography variant="caption" color="text.secondary">
-                                                {sessions.length} sessão{sessions.length !== 1 ? 's' : ''} · {formatCurrency(total)}
+                                                {sessions.length} {sessoes(sessions.length)} · {formatCurrency(total)}
                                             </Typography>
                                             {isExpanded ? <ChevronUp size={14} color="#9CA3AF" /> : <ChevronDown size={14} color="#9CA3AF" />}
                                         </Box>

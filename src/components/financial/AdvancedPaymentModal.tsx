@@ -6,6 +6,7 @@ import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 import { notifyApiError } from '../../utils/notifyApiError';
+import { sessoes } from '../../utils/plural';
 
 interface AdvancedPaymentModalProps {
     open: boolean;
@@ -321,7 +322,7 @@ export const AdvancedPaymentModal = ({
                                     />
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Valor total para {advanceSessions.length} sessão{advanceSessions.length > 1 ? 'es' : ''}
+                                    Valor total para {advanceSessions.length} {sessoes(advanceSessions.length)}
                                 </p>
                             </div>
 
