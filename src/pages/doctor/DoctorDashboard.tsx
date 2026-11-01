@@ -21,6 +21,7 @@ import TherapyEvolution from '../../components/doctor/TherapyEvolution';
 import DoctorFinancialTab from '../../components/doctor/tabs/DoctorFinancialTab';
 import { AlertTriangle, CalendarDays, FileText, Plus, RefreshCw, UserPlus } from 'lucide-react';
 import DayBar from '../../components/doctor/overview/DayBar';
+import DoctorViewPicker from '../../components/doctor/DoctorViewPicker';
 import TodayAgendaPanel from '../../components/doctor/overview/TodayAgendaPanel';
 import PatientQuickSearch from '../../components/doctor/overview/PatientQuickSearch';
 import { MonthPanel, PendingPanel, TomorrowPanel } from '../../components/doctor/overview/OverviewSidePanels';
@@ -149,8 +150,12 @@ export default function DoctorDashboard() {
     loadTherapy,
     loadPatients,
     ensurePatientsLoaded,
-    pendingEvolutions
+    pendingEvolutions,
+    userRole,
+    selectViewDoctor
   } = useDoctorDashboard();
+  // Cadastro de paciente é da recepção (decisão do Kadu, 01/11/2026).
+  const isStaffViewer = userRole === 'admin' || userRole === 'secretary';
 
   const doctorInsights = useDoctorInsights(doctorId);
 
@@ -361,6 +366,15 @@ export default function DoctorDashboard() {
     handleViewPatientDetails(p as IPatient);
   }, [handleViewPatientDetails]);
 
+  // Admin/secretária sem profissional escolhido: seletor no lugar do painel vazio.
+  if (isStaffViewer && !doctorId) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4">
+        <DoctorViewPicker prominent onChange={(d) => selectViewDoctor(d)} />
+      </div>
+    );
+  }
+
   // Skeleton enquanto carrega dados iniciais
   if (!doctorData || !doctorId) {
     return <DashboardSkeleton />;
@@ -384,9 +398,11 @@ export default function DoctorDashboard() {
               <button type="button" onClick={() => handleTabChange('appointments')} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
                 <Plus className="h-4 w-4" aria-hidden />Nova consulta
               </button>
-              <button type="button" onClick={handleAddNewPatient} className={quickBtn}>
-                <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
-              </button>
+              {isStaffViewer && (
+                <button type="button" onClick={handleAddNewPatient} className={quickBtn}>
+                  <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
+                </button>
+              )}
               <button type="button" onClick={() => handleTabChange('therapy')} className={quickBtn}>
                 <FileText className="h-4 w-4" aria-hidden />Evolução rápida
               </button>
@@ -478,7 +494,7 @@ export default function DoctorDashboard() {
               onViewReports={(p) => handleViewMedicalReports(p as IPatient)}
               onRegisterEvolution={handleGoToEvolution}
               onSchedule={(p) => handleScheduleRiskPatient(p._id, p.fullName)}
-              onAddNewPatient={handleAddNewPatient}
+              onAddNewPatient={isStaffViewer ? handleAddNewPatient : undefined}
             />
           </div>
         );
@@ -580,6 +596,7 @@ export default function DoctorDashboard() {
       />
 
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {isStaffViewer && <DoctorViewPicker value={doctorId} onChange={(d) => selectViewDoctor(d)} />}
         {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
         <div className={activeTab === 'overview' || activeTab === 'therapy' || activeTab === 'insights' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>
           {renderTabContent()}
@@ -606,7 +623,7 @@ export default function DoctorDashboard() {
           initialData={{
             patientId: scheduleRiskTarget._id,
             doctorId: doctorId || '',
-            date: '',
+            date: new Date().toISOString().slice(0, 10),
             time: '',
             sessionType: scheduleRiskTarget.lastSessionType || 'individual_session',
           } as any}

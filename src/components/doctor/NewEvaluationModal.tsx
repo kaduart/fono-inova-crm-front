@@ -358,7 +358,8 @@ export function NewEvaluationModal({
     onSelectProtocol,
     lastEvolution,
     defaultDate,
-    defaultTime
+    defaultTime,
+    onSpecialtyChange
 }: NewEvaluationModalProps) {
     const [metrics, setMetrics] = useState<Record<string, number>>({});
     const [areaScores, setAreaScores] = useState<Record<string, number>>({});

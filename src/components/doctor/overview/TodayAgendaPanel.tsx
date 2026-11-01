@@ -4,7 +4,7 @@
 // Concluir e Cancelar mudam o status OPERACIONAL (recepção/agenda); o terapeuta cuida do
 // status clínico. Por decisão do Kadu (29/10/2026) os dois ficam visíveis e desativados até
 // existir o fluxo próprio do terapeuta.
-import { CheckCircle2, FileText, MessageCircle, MoreHorizontal, UserRound, XCircle } from 'lucide-react';
+import { CheckCircle2, FileText, MessageCircle, MoreHorizontal, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
     aptDateTime, isCanceled, isCompleted, isMissed, isOpen, minutesUntil, opStatus, patientOf, whatsappLink,
@@ -64,13 +64,11 @@ function journeyChip(apt: any) {
 
 const btn = 'inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 disabled:opacity-60';
 const btnPrimary = `${btn} border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800`;
-const btnSoft = `${btn} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`;
 const btnGhost = `${btn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
 const btnIcon = `${btn} w-10 px-0 border-gray-300 bg-white text-gray-700 hover:bg-gray-50`;
 
-const SOON = 'Em breve: hoje a conclusão e o cancelamento são feitos pela recepção na agenda.';
 
-function RowMenu({ onOpen, onEvolution, canCancel }: { onOpen: () => void; onEvolution: () => void; canCancel: boolean }) {
+function RowMenu({ onOpen, onEvolution }: { onOpen: () => void; onEvolution: () => void }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -92,11 +90,6 @@ function RowMenu({ onOpen, onEvolution, canCancel }: { onOpen: () => void; onEvo
                 <div role="menu" className="absolute right-0 top-11 z-20 min-w-[210px] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
                     <button role="menuitem" type="button" className={`${item} text-gray-700`} onClick={pick(onOpen)}><UserRound className="h-4 w-4" aria-hidden />Abrir ficha do paciente</button>
                     <button role="menuitem" type="button" className={`${item} text-gray-700`} onClick={pick(onEvolution)}><FileText className="h-4 w-4" aria-hidden />Evolução do paciente</button>
-                    {canCancel && (
-                        <button role="menuitem" type="button" disabled aria-disabled="true" title={SOON} className={`${item} cursor-not-allowed text-gray-500`}>
-                            <XCircle className="h-4 w-4" aria-hidden />Cancelar sessão <span className="ml-auto text-xs">em breve</span>
-                        </button>
-                    )}
                 </div>
             )}
         </div>
@@ -176,12 +169,8 @@ export default function TodayAgendaPanel({
                                         <button type="button" className={evolutionPending ? btnPrimary : btnGhost} onClick={() => onRegisterEvolution(patient)}>
                                             <FileText className="h-4 w-4" aria-hidden />{evolutionPending ? 'Registrar evolução' : 'Ver evolução'}
                                         </button>
-                                    ) : isOpen(apt) ? (
-                                        <button type="button" className={`${btnSoft} cursor-not-allowed`} disabled aria-disabled="true" title={SOON}>
-                                            <CheckCircle2 className="h-4 w-4" aria-hidden />Concluir
-                                            <span className="text-xs font-normal">em breve</span>
-                                        </button>
                                     ) : null}
+                                    {/* Concluir e cancelar são da recepção (decisão do Kadu, 01/11/2026): sem botão para o terapeuta. */}
                                     {wa && !dim && (
                                         <a href={wa} target="_blank" rel="noreferrer" className={btnIcon} aria-label={`WhatsApp de ${patient.fullName}`} title={patient.phone}>
                                             <MessageCircle className="h-4 w-4" aria-hidden />
@@ -190,7 +179,6 @@ export default function TodayAgendaPanel({
                                     <RowMenu
                                         onOpen={() => onOpenPatient(patient)}
                                         onEvolution={() => onRegisterEvolution(patient)}
-                                        canCancel={isOpen(apt)}
                                     />
                                 </div>
                             </li>

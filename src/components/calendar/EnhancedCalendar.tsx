@@ -1373,15 +1373,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             : totalSessions ? <p className="mt-2 text-xs">Total do pacote: {totalSessions} sessões</p> : null)}
                         {hasPackage && sessionsRemaining !== null && <p className="mt-1 text-xs">{sessionsRemaining} sessões restantes</p>}
                         {guidePct !== null && renderBar(guidePct, `${guideUsed} / ${guideTotal} sessões`, 'Sessões utilizadas da guia')}
-                        {liminarPct !== null && <p className="mt-2 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
+                        {permissions.canSeeFinancial && liminarPct !== null && <p className="mt-2 text-xs leading-relaxed">Crédito utilizado: <strong className="tabular-nums">{fmtBRL(liminarUsedCredit)}</strong> de {fmtBRL(liminarTotalCredit)}</p>}
                         {!hasPackage && !isConvenio && reason && <p className="mt-2 break-words text-xs leading-relaxed">{reason}</p>}
-                        <div className="mt-2 grid grid-cols-2 gap-3 text-xs leading-relaxed">
+                        {permissions.canSeeFinancial && <div className="mt-2 grid grid-cols-2 gap-3 text-xs leading-relaxed">
                             <div><span className="block">{isLiminar && liminarCreditBalance !== null ? 'Crédito disponível' : isConvenio ? 'Valor tabela' : hasPackage ? 'Valor da sessão' : 'Valor do atendimento'}</span>
                                 <strong className="mt-1 block text-[15px] tabular-nums text-slate-900">{fmtBRL(isLiminar && liminarCreditBalance !== null ? Number(liminarCreditBalance) : isConvenio ? Number(appointment.insuranceValue || 0) : Number(effectiveSessionValue))}</strong>
                             </div>
                             <div><span className="block">Situação financeira</span><strong className="mt-1 block text-[13px]">{financialLabel}</strong></div>
-                        </div>
-                        {patientHasDebt && <p className="mt-2 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
+                        </div>}
+                        {permissions.canSeeFinancial && patientHasDebt && <p className="mt-2 text-xs font-semibold text-red-900" title="Saldo devedor do paciente, independente desta sessão">Débito do paciente: {fmtBRL(patientBalance)}</p>}
                     </div>
                     <div className="mt-2 border-t border-black/10 pt-1 [&>div]:mt-1 [&>div]:flex-wrap">
                         {operationalStatus === 'completed'

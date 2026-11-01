@@ -7,7 +7,8 @@ import doctorService, {
   fetchStats,
   fetchTherapySessions,
   fetchTodaysAppointments,
-  updateClinicalStatus
+  updateClinicalStatus,
+  setViewAsDoctor
 } from '../services/doctorService';
 import { fetchPendingEvolutions, PendingEvolution } from '../services/evolutionService';
 import { Appointment } from '../utils/types';
@@ -78,9 +79,38 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     const id = (authUser as any)._id || (authUser as any).id;
     console.log(`[Dashboard] authUser pronto → role=${role} id=${id}`);
     setUserRole(role);
+    if (role === 'admin' || role === 'secretary') {
+      // Staff escolhe o profissional no seletor "Ver painel de".
+      let saved: { id: string; fullName?: string; specialty?: string } | null = null;
+      try { saved = JSON.parse(localStorage.getItem('fono-doctor-view') || 'null'); } catch { saved = null; }
+      if (saved?.id) {
+        setViewAsDoctor(saved.id);
+        setDoctorId(saved.id);
+        setDoctorData({ _id: saved.id, fullName: saved.fullName, specialty: saved.specialty });
+      } else {
+        setViewAsDoctor(null);
+        setDoctorId(null);
+        setDoctorData(null);
+      }
+      return;
+    }
+    setViewAsDoctor(null);
     if (id) setDoctorId(id);
     setDoctorData(authUser);
   }, [authUser]);
+
+  /** Staff: trocar o profissional cujo painel está sendo visto. */
+  const selectViewDoctor = useCallback((doc: { _id: string; fullName?: string; specialty?: string } | null) => {
+    if (!doc?._id) {
+      setViewAsDoctor(null); setDoctorId(null); setDoctorData(null);
+      try { localStorage.removeItem('fono-doctor-view'); } catch { /* sem storage */ }
+      return;
+    }
+    setViewAsDoctor(doc._id);
+    setDoctorId(doc._id);
+    setDoctorData(doc);
+    try { localStorage.setItem('fono-doctor-view', JSON.stringify({ id: doc._id, fullName: doc.fullName, specialty: doc.specialty })); } catch { /* sem storage */ }
+  }, []);
 
   // AuthContext já fez /users/me — não chamar de novo para evitar 304→res.data=null→skeleton
 
@@ -348,6 +378,7 @@ export default function useDoctorDashboard(options: UseDoctorDashboardOptions = 
     doctorId,
     userRole,
     isDoctor,
+    selectViewDoctor,
     
     // Dados por aba
     patients: overviewData.patients,  // lista paginada (aba Pacientes)

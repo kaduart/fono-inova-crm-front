@@ -40,11 +40,13 @@ export const ADMIN_PERMISSIONS: CalendarPermissions = {
 };
 
 /** Permissions para modo doctor (clínica compartilhada) */
+// Decisão do Kadu (01/11/2026): nenhum terapeuta conclui, cancela ou edita
+// sessão; isso é da recepção (o back também bloqueia com 403).
 export const DOCTOR_PERMISSIONS: CalendarPermissions = {
   canCreate: true,
-  canEdit: true,
+  canEdit: false,
   canCancel: false,
-  canComplete: true,
+  canComplete: false,
   canSeeFinancial: false,
   canEditFinancial: false,
   canSeeDebt: false,
@@ -55,9 +57,9 @@ export const DOCTOR_PERMISSIONS: CalendarPermissions = {
 /** Permissions para modo doctor_private */
 export const DOCTOR_PRIVATE_PERMISSIONS: CalendarPermissions = {
   canCreate: true,
-  canEdit: true,
-  canCancel: true,
-  canComplete: true,
+  canEdit: false,
+  canCancel: false,
+  canComplete: false,
   canSeeFinancial: true,
   canEditFinancial: true,
   canSeeDebt: true,

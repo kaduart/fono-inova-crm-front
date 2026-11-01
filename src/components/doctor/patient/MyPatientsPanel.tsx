@@ -23,7 +23,7 @@ interface Props {
     onViewReports: (p: Patient) => void;
     onRegisterEvolution: (p: Patient) => void;
     onSchedule: (p: Patient) => void;
-    onAddNewPatient: () => void;
+    onAddNewPatient?: () => void;
 }
 
 const PAGE_SIZE = 20;
@@ -248,9 +248,11 @@ export default function MyPatientsPanel({
                     <option value="last">Ordenar: última sessão</option>
                     <option value="name">Ordenar: nome (A–Z)</option>
                 </select>
+{onAddNewPatient && (
                 <button type="button" onClick={onAddNewPatient} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1">
                     <UserPlus className="h-4 w-4" aria-hidden />Novo paciente
                 </button>
+                )}
             </div>
 
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Filtros rápidos">

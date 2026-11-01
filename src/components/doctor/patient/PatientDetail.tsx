@@ -18,7 +18,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import API from '../../../services/api';
-import TherapyPackagesSummary from '../../patients/TherapyPackagesSummary';
+import PackagesReadOnly from './PackagesReadOnly';
 import MedicalReportsSection from './reports/MedicalReportsSection';
 
 interface Address {
@@ -118,14 +118,6 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
     const [patient, setPatient] = useState<Patient | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [doctors, setDoctors] = useState<any[]>([]);
-
-    useEffect(() => {
-        API.get('/doctors?status=active&limit=100')
-            .then(res => setDoctors(res.data?.data || res.data || []))
-            .catch(() => {});
-    }, []);
-
     useEffect(() => {
         const fetchPatient = async () => {
             try {
@@ -335,7 +327,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
 
             case 5:
                 return (
-                    <TherapyPackagesSummary patient={patient as any} doctors={doctors} />
+                    <PackagesReadOnly patientId={(patient as any)?._id || (patient as any)?.patientId} />
                 );
 
             default:

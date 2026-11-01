@@ -409,17 +409,18 @@ export default function MedicalReportsSection({ patient, reportType = 'all' }: M
         }
     };
 
-    // Função para obter cor do status
-    const getStatusColor = (status: Report['status']) => {
-        switch (status) {
-            case 'completed': return 'success';
-            case 'draft': return 'warning';
-            case 'archived': return 'default';
-            case 'sent_to_school': return 'info';
-            case 'reviewed': return 'secondary';
-            default: return 'default';
-        }
+    // Rótulo e cor (Tailwind) do status na tabela. Antes a tabela chamava
+    // getStatusLabel, que não existia, e derrubava a ficha inteira.
+    const STATUS_UI: Record<string, { label: string; cls: string }> = {
+        completed: { label: 'Concluído', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+        draft: { label: 'Rascunho', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+        archived: { label: 'Arquivado', cls: 'bg-gray-100 text-gray-600 border-gray-200' },
+        sent_to_school: { label: 'Enviado à escola', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+        reviewed: { label: 'Revisado', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
     };
+    const getStatusLabel = (status?: string) => STATUS_UI[status || '']?.label || status || '—';
+    const getStatusClass = (status?: string) => STATUS_UI[status || '']?.cls || 'bg-gray-100 text-gray-600 border-gray-200';
+
 
     if (loading && reports.length === 0) {
         return (
@@ -548,7 +549,7 @@ export default function MedicalReportsSection({ patient, reportType = 'all' }: M
                                             </td>
                                             
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusClass(report.status)}`}>
                                                     {getStatusLabel(report.status)}
                                                 </span>
                                             </td>

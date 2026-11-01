@@ -237,6 +237,15 @@ export const doctorService = {
 // ⚠️ IMPORTANTE: O backend usa req.user.id do token JWT, não precisa passar doctorId na URL
 // 🔄 Os controllers legados retornam array direto, não { success, data }
 
+// Admin/secretária vendo o painel de um profissional ("Ver painel de"). O back
+// só respeita ?doctorId para staff; para terapeuta usa sempre o token.
+let viewAsDoctorId: string | null = null;
+export const setViewAsDoctor = (id: string | null) => { viewAsDoctorId = id; };
+const withDoctor = (url: string) => {
+  if (!viewAsDoctorId) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}doctorId=${encodeURIComponent(viewAsDoctorId)}`;
+};
+
 export const fetchPatients = async (params?: { page?: number; limit?: number; search?: string }) => {
   console.log('[DoctorService] fetchPatients: Chamando /doctors/patients', params);
   try {
@@ -245,7 +254,7 @@ export const fetchPatients = async (params?: { page?: number; limit?: number; se
     if (params?.limit) query.append('limit', String(params.limit));
     if (params?.search) query.append('search', params.search);
     const qs = query.toString();
-    const response = await API.get(`/doctors/patients${qs ? `?${qs}` : ''}`);
+    const response = await API.get(withDoctor(`/doctors/patients${qs ? `?${qs}` : ''}`));
     console.log('[DoctorService] fetchPatients: Sucesso', response.data?.data?.length || response.data?.length || 0, 'pacientes');
     // Backend retorna { success, data, meta }
     return response.data?.data || response.data || [];
@@ -268,7 +277,7 @@ export const fetchMyPatients = async (params: MyPatientsQuery = {}) => {
   if (params.care) query.append('care', params.care);
   if (params.sort) query.append('sort', params.sort);
   if (params.ids?.length) query.append('ids', params.ids.join(','));
-  const response = await API.get(`/doctors/patients?${query.toString()}`);
+  const response = await API.get(withDoctor(`/doctors/patients?${query.toString()}`));
   const body = response.data || {};
   return {
     data: (body.data || []) as any[],
@@ -279,25 +288,25 @@ export const fetchMyPatients = async (params: MyPatientsQuery = {}) => {
 };
 
 export const fetchStats = async (_doctorId?: string) => {
-  const response = await API.get(`/doctors/appointments/stats`);
+  const response = await API.get(withDoctor(`/doctors/appointments/stats`));
   // Backend legado retorna objeto direto
   return response.data?.data || response.data || {};
 };
 
 export const fetchTherapySessions = async (_doctorId?: string) => {
-  const response = await API.get(`/doctors/therapy-sessions`);
+  const response = await API.get(withDoctor(`/doctors/therapy-sessions`));
   // Backend legado retorna array direto
   return Array.isArray(response.data) ? response.data : response.data?.data || [];
 };
 
 export const fetchTodaysAppointments = async (_doctorId?: string) => {
-  const response = await API.get(`/doctors/appointments/today`);
+  const response = await API.get(withDoctor(`/doctors/appointments/today`));
   // Backend legado retorna array direto
   return Array.isArray(response.data) ? response.data : response.data?.data || [];
 };
 
 export const fetchFutureAppointments = async (_doctorId?: string) => {
-  const response = await API.get(`/doctors/appointments/future`);
+  const response = await API.get(withDoctor(`/doctors/appointments/future`));
   // Backend legado retorna array direto
   return Array.isArray(response.data) ? response.data : response.data?.data || [];
 };
