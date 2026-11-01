@@ -14,6 +14,7 @@ import {
 import { ProfessionalAdvanceModal } from '../../../components/financial/ProfessionalAdvanceModal';
 import { summarizeCommissionSessions, CommissionSessionItem } from './commissionSessionsSummary';
 import { Chip, KpiStrip, Pill, brl, fmtDay } from '../components/finUi';
+import BarList from '../../../components/ui/insight/BarList';
 import { confirmDialog } from '../../../components/ui/ConfirmHost';
 
 const ProfessionalResultsPage = lazy(() => import('../../ProfessionalResults/ProfessionalResultsPage'));
@@ -119,6 +120,19 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                 { label: 'Produção', value: t ? brl(t.production) : '—', sub: 'sessões realizadas no mês' },
                 { label: 'A receber', value: t ? brl(t.receivables) : '—', sub: 'sem pacote pré-pago' },
             ]} />
+
+            {/* Novo design (Tremor): quem mais tem saldo a pagar, num relance. Clique abre o detalhe. */}
+            {rows.some(r => (r.balance ?? 0) > 0) && (
+                <details className="group rounded-2xl border border-gray-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161d1b]" open>
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        Saldo a pagar por profissional <span className="font-normal text-gray-400">· maiores primeiro</span>
+                    </summary>
+                    <div className="mt-2">
+                        <BarList items={[...rows].filter(r => (r.balance ?? 0) > 0).sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0)).slice(0, 8)
+                            .map(r => ({ key: r.doctorId, label: r.doctorName, value: r.balance ?? 0, display: brl(r.balance), onClick: () => setOpenId(r.doctorId) }))} />
+                    </div>
+                </details>
+            )}
 
             <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
                 <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">

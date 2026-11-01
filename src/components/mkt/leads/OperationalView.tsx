@@ -4,6 +4,7 @@ import { Calendar, ChevronRight, MessageCircle, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
 import Skeleton from '../../ui/Skeleton';
 import { leadNextStep, waLink, WA_TAB } from '../../commercial/commercialCopy';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 
 export interface NewFollowupPayload {
   name: string;
@@ -287,6 +288,8 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
   onOpenTimeline,
   onCreateNew,
 }) => {
+  // AutoAnimate: lead atendido sai da fila deslizando; a pessoa vê o que mudou.
+  const [animRef] = useAutoAnimate<HTMLTableSectionElement>();
   const [editingNote, setEditingNote] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -506,7 +509,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                 <th className="px-4 py-3 font-semibold text-slate-600 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody ref={animRef} className="divide-y divide-slate-100">
               {loading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>

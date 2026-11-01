@@ -2,6 +2,8 @@
 // Peças visuais comuns do Financeiro (mesmo padrão de Gestão): chips com contagem,
 // faixa de números, pílulas e barra de período no horário de Brasília.
 import { ReactNode } from 'react';
+import AnimatedValue from '../../../components/ui/insight/AnimatedValue';
+import Sparkline from '../../../components/ui/insight/Sparkline';
 
 export const TZ = 'America/Sao_Paulo';
 
@@ -62,7 +64,7 @@ export function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
     return <span className={`inline-flex whitespace-nowrap rounded-full border px-2 py-px text-xs font-semibold ${PILL[tone]}`}>{children}</span>;
 }
 
-export interface KpiItem { label: string; value: ReactNode; sub?: ReactNode; hero?: boolean; danger?: boolean; onClick?: () => void }
+export interface KpiItem { label: string; value: ReactNode; sub?: ReactNode; hero?: boolean; danger?: boolean; onClick?: () => void; /** série curta para o mini-gráfico (opcional) */ trend?: number[] }
 const KPI_COLS: Record<3 | 4 | 5, string> = { 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-3 xl:grid-cols-5' };
 export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loading?: boolean; cols?: 3 | 4 | 5 }) {
     // Novo design: rótulo em caixa normal, número maior, "hero" com fio esmeralda no topo e "danger" com fio vermelho.
@@ -75,7 +77,8 @@ export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loadi
                     <Tag key={k.label} type={k.onClick ? 'button' : undefined} onClick={k.onClick}
                         className={`relative min-w-0 bg-white px-4 pb-3.5 pt-3 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${rule} dark:bg-[#161d1b] ${k.onClick ? 'transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-white/5' : ''}`}>
                         <div className="truncate text-[13px] font-medium text-gray-500 dark:text-gray-400">{k.label}</div>
-                        <div className={`mt-1 text-[1.65rem] font-bold leading-none tracking-tight tabular-nums ${loading ? 'animate-pulse text-gray-300 dark:text-gray-600' : k.danger ? 'text-red-700 dark:text-red-400' : k.hero ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{k.value}</div>
+                        <div className={`mt-1 text-[1.65rem] font-bold leading-none tracking-tight tabular-nums ${loading ? 'animate-pulse text-gray-300 dark:text-gray-600' : k.danger ? 'text-red-700 dark:text-red-400' : k.hero ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{loading ? k.value : <AnimatedValue value={k.value} />}</div>
+                        {k.trend && !loading && <Sparkline values={k.trend} tone={k.danger ? 'red' : 'emerald'} />}
                         {k.sub && <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{k.sub}</div>}
                     </Tag>
                 );
