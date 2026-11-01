@@ -8,6 +8,36 @@ import cancellationReportService, {
     type RequesterKey,
 } from '../../services/cancellationReportService';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import patientService from '../../services/patientService';
+import { waLink, WA_TAB } from '../commercial/commercialCopy';
+import { toast } from '../../utils/toast';
+
+// Remarcar pelo WhatsApp: o relatório não traz telefone, então busca a ficha do paciente (rota que já existe) no clique.
+function RemarcarButton({ it }: { it: CancellationDetailItem }) {
+    const [busy, setBusy] = useState(false);
+    if (!it.patientId) return null;
+    const go = async () => {
+        // Abre a aba já no clique (senão o navegador bloqueia o pop-up depois do await).
+        const win = window.open('', WA_TAB);
+        setBusy(true);
+        try {
+            const p: any = await patientService.getById(it.patientId as string);
+            const first = String(p?.fullName || it.patientName || '').split(' ')[0];
+            const msg = `Olá${first ? `, ${first}` : ''}! Aqui é da Fono Inova. Vimos que a sessão de ${fmtDate(it.date)} foi cancelada. Quer remarcar? Temos horários amanhã à tarde ou na quinta de manhã. 💚`;
+            const url = waLink(p?.phone, msg);
+            if (!url) { win?.close(); toast.info('Esse paciente está sem telefone na ficha'); return; }
+            if (win) win.location.href = url; else window.open(url, WA_TAB);
+        } catch {
+            win?.close();
+            toast.error('Não consegui abrir a ficha do paciente');
+        } finally { setBusy(false); }
+    };
+    return (
+        <button type="button" onClick={go} disabled={busy} className="rounded-lg px-2 py-1 font-medium text-green-700 hover:bg-green-50 disabled:opacity-50 dark:text-green-300 dark:hover:bg-green-900/30">
+            {busy ? 'Abrindo…' : 'Remarcar'}
+        </button>
+    );
+}
 
 /**
  * Cancelamentos — tela para o comercial/gestão.
@@ -559,6 +589,7 @@ function CaseCard({ it }: { it: CancellationDetailItem }) {
                 <dd className={it.lessThan24h ? 'font-medium text-orange-800' : 'text-gray-900'}>{formatAdvance(it.hoursInAdvance)}</dd>
                 <dt className="text-gray-500 dark:text-gray-400">Registrado por</dt><dd className="text-gray-900 dark:text-gray-100">{it.registeredBy || '—'}</dd>
             </dl>
+            <div className="mt-2 text-right"><RemarcarButton it={it} /></div>
         </article>
     );
 }
@@ -585,7 +616,8 @@ function CasesTable({ loading, items, emptyText, onOpen }: { loading: boolean; i
                             <td data-label="Paciente" className="min-w-0 break-words text-gray-900 dark:text-gray-100 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:before:hidden">{it.patientName || '—'}</td>
                             <td data-label="Profissional" className="min-w-0 break-words text-gray-700 dark:text-gray-300 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:px-2 sm:before:hidden">{it.doctorName || '—'}</td>
                             <td data-label="Motivo" className="col-span-2 min-w-0 break-words text-gray-700 dark:text-gray-300 before:block before:text-xs before:text-gray-500 before:content-[attr(data-label)] sm:max-w-[16rem] sm:px-2 sm:before:hidden">{it.reason || '—'}</td>
-                            <td className="col-span-2 text-right sm:px-2">
+                            <td className="col-span-2 whitespace-nowrap text-right sm:px-2">
+                                <RemarcarButton it={it} />
                                 <button type="button" onClick={() => onOpen(it)} aria-label={`Ver detalhes de ${it.patientName || 'atendimento'}`} className="rounded-lg px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-50">
                                     Ver detalhes
                                 </button>

@@ -16,6 +16,7 @@ import { summarizeCommissionSessions, CommissionSessionItem } from './commission
 import { Chip, KpiStrip, Pill, brl, fmtDay } from '../components/finUi';
 import BarList from '../../../components/ui/insight/BarList';
 import { confirmDialog } from '../../../components/ui/ConfirmHost';
+import { checkboxCls } from '../../../components/ui/table/batch';
 
 const ProfessionalResultsPage = lazy(() => import('../../ProfessionalResults/ProfessionalResultsPage'));
 
@@ -59,6 +60,9 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
     const [busca, setBusca] = useState('');
     const [openId, setOpenId] = useState<string | null>(null);
     const [detalhada, setDetalhada] = useState(false);
+    // Fechamento em lote: só quem tem regra, não está fechado e não tem pendência. Usa a mesma prévia + fechamento do painel.
+    const [lote, setLote] = useState<Set<string>>(new Set());
+    const [fechandoLote, setFechandoLote] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -83,6 +87,30 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
         return rows.filter(r => matches(filtro, r) && (!q || r.doctorName.toLowerCase().includes(q)));
     }, [rows, filtro, busca]);
     const aberto = rows.find(r => r.doctorId === openId) || null;
+    const elegivel = (r: Row) => isAdmin && !noRule(r) && !isClosed(r) && !hasIssue(r);
+    const toggleLote = (id: string) => setLote(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    const fecharLote = async () => {
+        const alvo = rows.filter(r => lote.has(r.doctorId) && elegivel(r));
+        if (!alvo.length) return;
+        const total = alvo.reduce((s2, r) => s2 + Number(r.balance || 0), 0);
+        if (!await confirmDialog(`Fechar o mês de ${alvo.length} profissional(is), somando ${brl(total)} de saldo? Quem tiver pendência na prévia fica de fora.`,
+            { title: 'Fechar mês em lote', confirmText: 'Fechar mês' })) return;
+        setFechandoLote(true);
+        const ok: string[] = []; const pulados: string[] = [];
+        for (const r of alvo) {
+            try {
+                const pv = await professionalResultsService.previewSettlement(r.doctorId, month, year);
+                if (pv?.hasFinancialIssues) { pulados.push(r.doctorName); continue; }
+                await professionalResultsService.closeSettlement(r.doctorId, month, year, { force: false });
+                ok.push(r.doctorName);
+            } catch { pulados.push(r.doctorName); }
+        }
+        setFechandoLote(false);
+        setLote(new Set());
+        if (ok.length) toast.success(`Mês fechado para ${ok.length} profissional(is)`);
+        if (pulados.length) toast.info(`Ficaram de fora (abra cada um para conferir): ${pulados.join(', ')}`, { duration: 12000 });
+        void load();
+    };
 
     if (detalhada) {
         return (
@@ -148,6 +176,16 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                         className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 text-sm lg:w-64" />
                 </div>
 
+                {lote.size > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-900/40 dark:text-emerald-100">
+                        <b>{lote.size} selecionado(s)</b> · saldo {brl(rows.filter(r => lote.has(r.doctorId)).reduce((s2, r) => s2 + Number(r.balance || 0), 0))}
+                        <span className="flex-1" />
+                        <button type="button" disabled={fechandoLote} onClick={() => void fecharLote()} className="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">
+                            {fechandoLote ? 'Fechando…' : 'Fechar mês dos selecionados'}
+                        </button>
+                        <button type="button" onClick={() => setLote(new Set())} className="px-2 underline">Limpar</button>
+                    </div>
+                )}
                 {error ? (
                     <div role="alert" className="flex flex-wrap items-center gap-2 px-4 py-6 text-sm text-red-700">
                         Não foi possível carregar os profissionais.
@@ -158,6 +196,7 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-800/60 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 <tr>
+                                    {isAdmin && <th className="w-8 py-2 pl-4"><span className="sr-only">Selecionar</span></th>}
                                     <th className="px-4 py-2">Profissional</th>
                                     <th className="hidden px-3 py-2 text-right sm:table-cell">Sessões</th>
                                     <th className="hidden px-3 py-2 text-right md:table-cell">Produção</th>
@@ -169,14 +208,20 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading && rows.length === 0 && Array.from({ length: 5 }).map((_, i) => (
-                                    <tr key={i}><td colSpan={7} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /></td></tr>
+                                    <tr key={i}><td colSpan={isAdmin ? 8 : 7} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-100 dark:bg-gray-800" /></td></tr>
                                 ))}
                                 {!loading && visiveis.length === 0 && (
-                                    <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">Nenhum profissional neste filtro.</td></tr>
+                                    <tr><td colSpan={isAdmin ? 8 : 7} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">Nenhum profissional neste filtro.</td></tr>
                                 )}
                                 {visiveis.map(r => (
                                     <tr key={r.doctorId} onClick={() => setOpenId(r.doctorId)} className="cursor-pointer hover:bg-gray-50"
                                         tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') setOpenId(r.doctorId); }}>
+                                        {isAdmin && (
+                                            <td className="py-2.5 pl-4" onClick={e => e.stopPropagation()}>
+                                                <input type="checkbox" className={checkboxCls} disabled={!elegivel(r)} checked={lote.has(r.doctorId)} onChange={() => toggleLote(r.doctorId)}
+                                                    aria-label={`Selecionar ${r.doctorName} para fechar o mês`} title={elegivel(r) ? 'Selecionar para fechar em lote' : 'Fechado, sem regra ou com pendência: abra o profissional'} />
+                                            </td>
+                                        )}
                                         <td className="px-4 py-2.5">
                                             <div className="font-semibold text-gray-900 dark:text-gray-100">{r.doctorName}</div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400">{r.specialty || '—'}</div>
@@ -198,6 +243,7 @@ export default function ProfissionaisTab({ month, year, onMonthChange, onYearCha
                             {t && (
                                 <tfoot className="bg-gray-50 dark:bg-gray-800/60 font-semibold">
                                     <tr>
+                                        {isAdmin && <td />}
                                         <td className="px-4 py-2.5">Total · {rows.length} profissionais</td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">{t.sessions}</td>
                                         <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">{brl(t.production)}</td>
