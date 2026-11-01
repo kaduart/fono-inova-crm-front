@@ -14,6 +14,8 @@ import { getGuides, type InsuranceGuide } from '../../services/insuranceGuideApi
 import liminarContractService, { type LiminarContract } from '../../services/liminarContractService';
 import packageService from '../../services/packageService';
 import { subscribeToCacheInvalidation } from '../../utils/cacheManager';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
+import AnimatedValue from '../ui/insight/AnimatedValue';
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : '');
@@ -279,7 +281,7 @@ function Figure({ label, value, hint, tone }: { label: string; value: string; hi
   return (
     <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-2 sm:min-w-[7.5rem]">
       <dt className="text-3xs font-bold uppercase tracking-widest text-slate-400">{label}</dt>
-      <dd className={`mt-0.5 truncate text-sm font-extrabold tabular-nums ${FIG[tone]}`}>{value}</dd>
+      <dd className={`mt-0.5 truncate text-sm font-extrabold tabular-nums ${FIG[tone]}`}><AnimatedValue value={value} /></dd>
       {hint && <dd className="truncate text-3xs text-slate-500" title={hint}>{hint}</dd>}
     </div>
   );
@@ -433,6 +435,7 @@ const SEV: Record<Severity, { dot: string; icon: string; label: string }> = {
 export function PatientNextActions(props: ActionsProps) {
   const actions = useMemo(() => buildNextActions(props), [props]);
   const [showAll, setShowAll] = useState(false);
+  const [listRef] = useAutoAnimate<HTMLUListElement>();
   const visible = showAll ? actions : actions.slice(0, 4);
   const urgent = actions.filter((a) => a.severity === 'high').length;
 
@@ -456,7 +459,7 @@ export function PatientNextActions(props: ActionsProps) {
           <CheckCircle2 size={18} /> Tudo em dia: sem débito, com sessão agendada e coberturas válidas.
         </div>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul ref={listRef} className="divide-y divide-slate-100">
           {visible.map((a) => (
             <li key={a.id} className="flex items-center gap-3 px-5 py-3">
               <div className={`shrink-0 rounded-lg p-2 ${SEV[a.severity].icon}`}>{a.icon}</div>

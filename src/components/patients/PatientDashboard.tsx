@@ -26,6 +26,7 @@ import { PatientMiniCalendar } from './PatientMiniCalendar';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
+import AnimatedValue from '../ui/insight/AnimatedValue';
 import { PatientNextActions, PatientSituationStrip, findNextSession, usePatientSituation } from './PatientSituation';
 import LiminarContractPanel from '../liminar/LiminarContractPanel';
 import { notifyApiError } from '../../utils/notifyApiError';
@@ -532,8 +533,13 @@ export default function PatientDashboard() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Atendimentos</p>
-              <p className="mt-1 text-2xl font-extrabold text-slate-900">{totalApts}</p>
+              <p className="mt-1 text-2xl font-extrabold text-slate-900"><AnimatedValue value={totalApts} /></p>
               <p className="mt-0.5 text-2xs text-slate-500">{totalDone} concluídos</p>
+              {totalApts > 0 && (
+                <div className="mt-2 h-1.5 w-40 max-w-full overflow-hidden rounded-full bg-slate-100" title={`${Math.round((totalDone / totalApts) * 100)}% concluídos`}>
+                  <div className="h-full rounded-full bg-blue-500 transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, Math.round((totalDone / totalApts) * 100))}%` }} />
+                </div>
+              )}
             </div>
             <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Activity size={18} /></div>
           </div>
@@ -544,7 +550,7 @@ export default function PatientDashboard() {
             <div>
               <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
               <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
-                {formatBalance(totalPending)}
+                <AnimatedValue value={formatBalance(totalPending)} />
               </p>
               {appliedCredit > 0 && (
                 <div className="mt-2 space-y-1 text-xs text-slate-600 text-left">
