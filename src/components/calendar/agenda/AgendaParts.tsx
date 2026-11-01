@@ -4,6 +4,7 @@ import { CalendarClock, CalendarPlus, CheckCircle, Info, Plus, RotateCcw, Search
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getSpecialtyLabel } from '../../../constants/specialties';
 import { normalizeSlots } from '../RescheduleDialog';
+import AnimatedValue from '../../ui/insight/AnimatedValue';
 import {
     AgendaFilter, STATUS_COLOR, STATUS_LABEL, STATUS_SINGLE, StatusGroup, TYPE_COLOR, TYPE_LABEL, TypeGroup,
     doctorIdOf, doctorNameOf, fmtBRL, patientNameOf, plural, statusGroupOf, typeGroupOf,
@@ -372,6 +373,9 @@ export const DayAgendaModal: React.FC<{
 
 interface DoctorLite { _id?: string; id?: string; fullName?: string; name?: string; specialty?: string }
 
+// % da grade ocupada (sessões ÷ sessões + livres)
+const occ = (busy: number, free: number) => (busy + free > 0 ? Math.round((busy / (busy + free)) * 100) : 0);
+
 export const DayByProfessional: React.FC<{
     dateStr: string;
     appts: any[];
@@ -442,6 +446,22 @@ export const DayByProfessional: React.FC<{
                 {' · '}{plural(appts.length, 'sessão', 'sessões')}
                 {!isPastDay && <> · {loadingSlots ? 'buscando horários livres…' : plural(totalFree, 'horário livre', 'horários livres')}</>}
             </p>
+            {/* Faixa do dia: o que já está vendido e onde ainda cabe venda */}
+            {!isPastDay && !loadingSlots && columns.length > 0 && (
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                        { label: 'Sessões', value: appts.length, tone: 'text-gray-900' },
+                        { label: 'Horários livres', value: totalFree, tone: totalFree > 0 ? 'text-emerald-700' : 'text-gray-900' },
+                        { label: 'Ocupação do dia', value: `${occ(appts.length, totalFree)}%`, tone: 'text-gray-900' },
+                        { label: 'Pré-agendados', value: appts.filter(a => statusGroupOf(a) === 'pre').length, tone: 'text-amber-700' },
+                    ].map(k => (
+                        <div key={k.label} className="rounded-xl border border-gray-200 bg-white px-3 py-2">
+                            <div className="text-[11px] font-medium text-gray-500">{k.label}</div>
+                            <div className={`text-lg font-bold tabular-nums ${k.tone}`}><AnimatedValue value={k.value} /></div>
+                        </div>
+                    ))}
+                </div>
+            )}
             {columns.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">Nenhuma sessão nem horário livre neste dia.</p>
             ) : (
@@ -456,6 +476,14 @@ export const DayByProfessional: React.FC<{
                                         <span className="block truncate text-xs font-normal text-gray-500">
                                             {c.specialty ? `${getSpecialtyLabel(c.specialty)} · ` : ''}{plural(c.appts.length, 'sessão', 'sessões')}{!isPastDay && ` · ${c.free.length} livres`}
                                         </span>
+                                        {!isPastDay && (c.appts.length + c.free.length) > 0 && (
+                                            <span className="mt-1 flex items-center gap-1.5" title={`${occ(c.appts.length, c.free.length)}% da grade ocupada`}>
+                                                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                                                    <span className={`block h-full rounded-full ${occ(c.appts.length, c.free.length) >= 85 ? 'bg-emerald-600' : occ(c.appts.length, c.free.length) >= 50 ? 'bg-emerald-400' : 'bg-amber-400'}`} style={{ width: `${occ(c.appts.length, c.free.length)}%` }} />
+                                                </span>
+                                                <span className="text-[11px] font-semibold tabular-nums text-gray-600">{occ(c.appts.length, c.free.length)}%</span>
+                                            </span>
+                                        )}
                                     </th>
                                 ))}
                             </tr>

@@ -37,6 +37,7 @@ import {
     getDefaultFeatureFlags,
 } from '../../types/calendarCapabilities';
 import { ymdSP } from '../../utils/dateFormat';
+import { toast } from '../../utils/toast';
 /** yyyy-mm-dd na data local (as datas do FullCalendar chegam em horário local) */
 // "09:00 - 09:40" do FullCalendar; cai para o horário salvo se vier vazio
 const fmtSlimTime = (timeText?: string, fallback?: string) => (timeText || fallback || '').replace(/(\d{2}:\d{2}):\d{2}/g, '$1').trim();
@@ -927,12 +928,34 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         data: { date: string; time: string; reason?: string }
     ) => {
         if (!onRescheduleAppointment) throw new Error('Remarcação indisponível neste calendário.');
+        // Guarda onde estava, para o "Desfazer" do aviso (mesma rota de remarcar, sem campo novo).
+        const before = appointments.find((a: any) => (a._id || a.id) === id);
+        const prev = before ? { date: toDateOnly(before.date), time: before.time || '' } : null;
         await onRescheduleAppointment(id, data); // lança em erro → o diálogo mostra a mensagem inline
+        if (prev?.date && prev.time && (prev.date !== data.date || prev.time !== data.time)) {
+            const [, m, d] = data.date.split('-');
+            toast.success(`Remarcado para ${d}/${m} às ${data.time}`, {
+                duration: 10000,
+                action: {
+                    label: 'Desfazer',
+                    onClick: async () => {
+                        try {
+                            await onRescheduleAppointment(id, { date: prev.date, time: prev.time, reason: 'Desfeito pela secretária' });
+                            calendarRef.current?.getApi().gotoDate(prev.date);
+                            toast.info('Remarcação desfeita');
+                        } catch (e: any) {
+                            toast.error(e?.message || 'Não consegui desfazer. Remarque manualmente.');
+                        }
+                    },
+                },
+            });
+        }
         dragRevertRef.current = null; // gravou: o card fica onde foi solto (refetch já reposicionou)
         setDayModalOpen(false); // snapshot do dia antigo ficou desatualizado
         setPendingFocus({ id, date: data.date });
         calendarRef.current?.getApi().gotoDate(data.date); // pula para o dia/mês novo
-    }, [onRescheduleAppointment]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onRescheduleAppointment, appointments]);
 
     // Quando o agendamento remarcado aparece no dia novo (após o refetch), abre o dia com ele
     useEffect(() => {
