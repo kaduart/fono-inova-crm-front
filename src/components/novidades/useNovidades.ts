@@ -3,8 +3,9 @@ import { NOVIDADES_SCREENS, NovidadesArea, NovidadesScreen } from './novidadesDa
 
 // "Visto" fica no aparelho, por usuário: { [screenId]: version }.
 const storageKey = (userId?: string) => `erpNovidadesVistas:${userId || 'anon'}`;
-// No máximo 1 abertura automática por sessão do navegador.
-const AUTO_KEY = 'erpNovidadesAutoAbriu';
+// 01/11 (Kadu): a novidade volta a abrir a cada carregamento da página até a
+// pessoa clicar em "Não mostrar mais". No máximo 1 abertura automática por carregamento.
+let autoOpenedThisLoad = false;
 
 function readSeen(userId?: string): Record<string, string> {
     try { return JSON.parse(localStorage.getItem(storageKey(userId)) || '{}') || {}; } catch { return {}; }
@@ -33,20 +34,20 @@ export function useNovidades(area: NovidadesArea, activeTab: string, userId?: st
         if (!userId) return;
         const current = screens.find((s) => s.tabs.includes(activeTab));
         if (!current || !isNew(current)) return;
-        try {
-            if (sessionStorage.getItem(AUTO_KEY)) return;
-            sessionStorage.setItem(AUTO_KEY, current.id);
-        } catch { return; }
+        if (autoOpenedThisLoad) return;
+        autoOpenedThisLoad = true;
         const t = window.setTimeout(() => setOpen(current), 600);
         return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, userId, screens]);
 
     const show = useCallback((s: NovidadesScreen) => setOpen(s), []);
-    const close = useCallback(() => {
+    // Fechar (X, Esc, fora, "Ver depois") não marca como visto: volta no próximo carregamento.
+    const close = useCallback(() => setOpen(null), []);
+    const dismiss = useCallback(() => {
         if (open) markSeen(open);
         setOpen(null);
     }, [open, markSeen]);
 
-    return { screens, pending, isNew, open, show, close };
+    return { screens, pending, isNew, open, show, close, dismiss };
 }

@@ -23,7 +23,7 @@ function useEscape(active: boolean, onClose: () => void) {
     }, [active, onClose]);
 }
 
-function ScreenModal({ screen, onClose }: { screen: NovidadesScreen; onClose: () => void }) {
+function ScreenModal({ screen, onClose, onDismiss, dismissed }: { screen: NovidadesScreen; onClose: () => void; onDismiss: () => void; dismissed: boolean }) {
     useEscape(true, onClose);
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm" onClick={onClose}>
@@ -59,9 +59,16 @@ function ScreenModal({ screen, onClose }: { screen: NovidadesScreen; onClose: ()
                     ))}
                 </ol>
                 <div className="flex items-center gap-2 border-t border-gray-200 bg-gray-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
-                    <span className="mr-auto text-xs text-gray-500 dark:text-slate-400">Para rever depois, clique no <b>?</b> no topo.</span>
+                    <span className="mr-auto text-xs text-gray-500 dark:text-slate-400">
+                        {dismissed ? <>Para rever, clique no <b>?</b> no topo.</> : <>Fechando, ela volta a aparecer quando a tela carregar de novo.</>}
+                    </span>
+                    {!dismissed && (
+                        <button type="button" onClick={onDismiss} className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700">
+                            Não mostrar mais
+                        </button>
+                    )}
                     <button type="button" onClick={onClose} className="h-9 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
-                        Entendi
+                        {dismissed ? 'Fechar' : 'Ver depois'}
                     </button>
                 </div>
             </div>
@@ -71,7 +78,7 @@ function ScreenModal({ screen, onClose }: { screen: NovidadesScreen; onClose: ()
 
 export default function NovidadesCenter({ area, activeTab }: { area: NovidadesArea; activeTab: string }) {
     const { user } = useAuth();
-    const { screens, pending, isNew, open, show, close } = useNovidades(area, activeTab, user?._id);
+    const { screens, pending, isNew, open, show, close, dismiss } = useNovidades(area, activeTab, user?._id);
     const [panel, setPanel] = useState(false);
     const closePanel = () => setPanel(false);
     useEscape(panel && !open, closePanel);
@@ -135,7 +142,7 @@ export default function NovidadesCenter({ area, activeTab }: { area: NovidadesAr
                 document.body,
             )}
 
-            {open && createPortal(<ScreenModal screen={open} onClose={close} />, document.body)}
+            {open && createPortal(<ScreenModal screen={open} onClose={close} onDismiss={dismiss} dismissed={!isNew(open)} />, document.body)}
         </>
     );
 }
