@@ -99,6 +99,55 @@ export const leadReplyMessage = (p: { name?: string | null }) => {
     return `Oi${n ? `, ${n}` : ''}! Aqui é da Clínica Fono Inova, desculpe a demora. Vi sua mensagem e já vou te ajudar. Me conta um pouco do que vocês estão buscando? 💚`;
 };
 
+// ── Origem do lead (o back já grava metaTracking/utm/origin) ─────────────────
+const SOURCE_LABEL: Record<string, string> = {
+    google_ads: 'Google Ads', meta_ads: 'Meta Ads', tiktok_ads: 'TikTok Ads', instagram: 'Instagram',
+    facebook: 'Facebook', website: 'Site', organic: 'Orgânico', indication: 'Indicação',
+};
+const LEAD_SPECIALTY: Record<string, string> = {
+    fono: 'fonoaudiologia', fisio: 'fisioterapia', psicologia: 'psicologia', neuropsicologia: 'neuropsicologia',
+    psicopedagogia: 'psicopedagogia', terapia_ocupacional: 'terapia ocupacional', to: 'terapia ocupacional',
+};
+
+/** "Google Ads · Fala tardia" — de onde o lead veio, para a secretária abrir a conversa com contexto. */
+type LeadLike = {
+    origin?: string | null; therapyArea?: string | null; utmSource?: string | null; utmCampaign?: string | null;
+    metaTracking?: { source?: string; campaign?: string | null; gclid?: string | null; fbclid?: string | null; ttclid?: string | null; utmSource?: string | null; utmCampaign?: string | null; specialty?: string } | null;
+};
+
+export function leadOrigin(lead: LeadLike | null | undefined): { label: string; campaign: string | null; paid: boolean } | null {
+    const mt = lead?.metaTracking || {};
+    let src: string = mt.source || '';
+    if (!src && (mt.gclid || /google/i.test(lead?.utmSource || mt.utmSource || ''))) src = 'google_ads';
+    if (!src && (mt.fbclid || /(facebook|instagram|meta|fb|ig)/i.test(lead?.utmSource || mt.utmSource || ''))) src = 'meta_ads';
+    if (!src && mt.ttclid) src = 'tiktok_ads';
+    const rawCampaign: string | null = mt.campaign || lead?.utmCampaign || mt.utmCampaign || null;
+    // "[vd-trafego]-[psico]" → "vd trafego · psico"; "fala_tardia_anapolis" → "fala tardia anapolis"
+    const campaign = rawCampaign
+        ? rawCampaign.replace(/\]\s*-\s*\[/g, ' · ').replace(/[[\]]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || null
+        : null;
+    const label = SOURCE_LABEL[src] || (lead?.origin && lead.origin !== 'Outro' ? String(lead.origin) : '');
+    if (!label && !campaign) return null;
+    return { label: label || 'Campanha', campaign, paid: /_ads$/.test(src) };
+}
+
+/** Foco da queixa (TEA ou TDAH) pela campanha, área ou primeira mensagem do lead. */
+export function leadFocus(lead: (LeadLike & { metaTracking?: { firstMessage?: string | null } | null }) | null | undefined): 'tea' | 'tdah' | null {
+    const mt = lead?.metaTracking || {};
+    const txt = [mt.campaign, lead?.utmCampaign, mt.utmCampaign, lead?.therapyArea, (mt as { firstMessage?: string | null }).firstMessage]
+        .filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\-[\]]+/g, ' ');
+    if (/\btdah\b|hiperativ|deficit de atencao/.test(txt)) return 'tdah';
+    if (/\btea\b|autis/.test(txt)) return 'tea';
+    return null;
+}
+
+/** Especialidade de interesse do lead (área confirmada ou a detectada no anúncio). */
+export function leadSpecialty(lead: LeadLike | null | undefined): string {
+    const raw = lead?.therapyArea || lead?.metaTracking?.specialty || '';
+    if (!raw || raw === 'geral') return '';
+    return LEAD_SPECIALTY[raw] || specialtyText(raw);
+}
+
 /** "há 2h 15min", "há 45min", "há 1 dia". */
 export function waitingText(minutes: number): string {
     if (minutes < 60) return `há ${minutes}min`;
@@ -117,14 +166,15 @@ export const daysText = (d: number | null) => (d == null ? 'sem data' : d === 0 
  * Próximo passo da fila de leads, a partir do motivo e da etapa do acompanhamento.
  * Valor antes do preço; só horário genérico; 1 💚 no final.
  */
-export function leadNextStep(p: { name?: string | null; reason?: string; pipeline?: string; overdueDays?: number }): { text: string; message: string } {
+export function leadNextStep(p: { name?: string | null; reason?: string; pipeline?: string; overdueDays?: number; specialty?: string; focus?: 'tea' | 'tdah' | null }): { text: string; message: string } {
     const n = firstName(p.name);
+    const area = p.specialty ? ` de ${p.specialty}` : '';
     const oi = `Oi${n ? `, ${n}` : ''}! Aqui é da Clínica Fono Inova.`;
     if (p.pipeline === 'agendado' || p.reason === 'confirmar_agendamento') {
         return { text: 'Confirmar a avaliação e lembrar o que levar', message: `${oi} Passando para confirmar a avaliação. Se tiverem relatório da escola ou de outro profissional, vale levar. Podemos confirmar? 💚` };
     }
     if (p.reason === 'enviar_proposta' || p.pipeline === 'interessado') {
-        return { text: 'Explicar o valor da avaliação e depois o preço (R$ 220)', message: `${oi} Na avaliação a terapeuta conhece a criança, entende a queixa e já sai com um plano do que trabalhar. Ela custa R$ 220. Tenho horário amanhã à tarde ou quinta de manhã, qual fica melhor? 💚` };
+        return { text: 'Explicar o valor da avaliação e depois o preço (R$ 220)', message: `${oi} Na avaliação${area} a terapeuta conhece a criança, entende a queixa e já sai com um plano do que trabalhar. Ela custa R$ 220. Tenho horário amanhã à tarde ou quinta de manhã, qual fica melhor? 💚` };
     }
     if (p.reason === 'aguardando_decisao_familia' || p.pipeline === 'aguardando_decisao') {
         return (p.overdueDays ?? 0) >= 7
@@ -135,7 +185,11 @@ export function leadNextStep(p: { name?: string | null; reason?: string; pipelin
         return { text: 'Lembrar dos documentos pendentes', message: `${oi} Só lembrando dos documentos para seguirmos com o atendimento. Pode me mandar por aqui mesmo. 💚` };
     }
     if (p.pipeline === 'novo_contato' || p.pipeline === 'aguardando_clinica') {
-        return { text: 'Responder e entender a queixa antes de falar de preço', message: `${oi} Vi sua mensagem e já vou te ajudar. Me conta um pouco do que vocês estão buscando? 💚` };
+        if (p.focus === 'tdah') return { text: 'Abrir por foco, escola e agitação, antes de falar de preço', message: `${oi} Vi seu interesse na avaliação para TDAH. Sabemos que foco, agitação e a rotina da escola geram muitas dúvidas. Me conta: como têm sido os dias na escola? 💚` };
+        if (p.focus === 'tea') return { text: 'Acolher e perguntar sobre comunicação e interação, antes de falar de preço', message: `${oi} Vi seu interesse na avaliação para TEA. Cada detalhe da comunicação e da interação merece um olhar cuidadoso. Me conta: o que mais tem chamado sua atenção em casa? 💚` };
+        return p.specialty
+            ? { text: `Abrir pela queixa de ${p.specialty}, antes de falar de preço`, message: `${oi} Vi seu interesse na avaliação${area}. Para eu te orientar melhor, me conta: o que mais tem chamado sua atenção no dia a dia? 💚` }
+            : { text: 'Responder e entender a queixa antes de falar de preço', message: `${oi} Vi sua mensagem e já vou te ajudar. Me conta um pouco do que vocês estão buscando? 💚` };
     }
     return { text: 'Retomar o contato', message: `${oi} Passando para saber como vocês estão e se posso ajudar em algo. 💚` };
 }

@@ -4,6 +4,7 @@ import React from "react";
 import { Button } from "../ui/Button";
 import Skeleton from "../ui/Skeleton";
 import { WA_TAB } from "../commercial/commercialCopy";
+import LeadOriginChip from "./leads/LeadOriginChip";
 
 interface LeadTableProps {
     leads: any[];
@@ -100,6 +101,7 @@ const LeadTable: React.FC<LeadTableProps> = ({
                                         {lead.appointment.seekingFor}
                                     </div>
                                 )}
+                                <div className="mt-1"><LeadOriginChip lead={lead} /></div>
                             </td>
 
                             <td className="p-4">

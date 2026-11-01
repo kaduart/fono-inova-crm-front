@@ -19,7 +19,7 @@ import {
 } from '../../services/dashboardService';
 
 import BirthdayList from './BirthdayList';
-import { EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
+import { ChurnPanel, EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 
@@ -581,7 +581,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     useEffect(() => { loadPreStats(); }, [loadPreStats]);
     const opCounts = useOperationalCounts();
     const commercial = useCommercialQueues();
-    const [queueOpen, setQueueOpen] = useState<'renewal' | 'reactivation' | 'evaluation' | 'nextDay' | null>(null);
+    const [queueOpen, setQueueOpen] = useState<'renewal' | 'churn' | 'reactivation' | 'evaluation' | 'nextDay' | null>(null);
 
     const handleRefreshAll = useCallback(() => {
         onRefresh();
@@ -649,10 +649,20 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             detail: (() => {
                 const list = commercial.packageEnding || [];
                 const last = list.filter(i => i.remaining <= 1).length;
-                return last ? `${last} na última sessão ou sem sessões · renovar` : '2 sessões restantes · renovar';
+                return last ? `${last} na última sessão ou sem sessões · renovar` : '80% do pacote feito · oferecer renovação';
             })(),
             cta: 'Ver e renovar', onClick: () => setQueueOpen('renewal'),
             error: commercial.queueErrors.packageEnding, onRetry: commercial.reloadQueues,
+        },
+        {
+            key: 'churn', count: commercial.churn?.length || 0, tone: 'bad', title: 'Risco de evasão',
+            detail: (() => {
+                const list = commercial.churn || [];
+                const oldest = list.reduce((m, i) => Math.max(m, i.daysSince ?? 0), 0);
+                return oldest ? `há até ${oldest} dias sem agendamento · reengajar` : 'reengajar';
+            })(),
+            cta: 'Ver e reengajar', onClick: () => setQueueOpen('churn'),
+            error: commercial.queueErrors.churn, onRetry: commercial.reloadQueues,
         },
         {
             key: 'reactivation', count: commercial.reactivation?.length || 0, tone: 'bad', title: 'Sem próxima sessão',
@@ -743,6 +753,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 1. Precisa de você */}
             <NeedsYou items={needItems} loading={!preStats} />
             {queueOpen === 'renewal' && <PackageEndingPanel items={commercial.packageEnding || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
+            {queueOpen === 'churn' && <ChurnPanel items={commercial.churn || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'reactivation' && <ReactivationPanel items={commercial.reactivation || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'evaluation' && commercial.evaluation && <EvaluationPanel queue={commercial.evaluation} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'nextDay' && commercial.nextDay && <NextDayConfirmPanel queue={commercial.nextDay} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} onOpenAgenda={onNavigate ? () => { setQueueOpen(null); onNavigate('Calendário'); } : undefined} />}
