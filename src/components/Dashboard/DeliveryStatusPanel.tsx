@@ -42,10 +42,15 @@ export default function DeliveryStatusPanel({ startDate, endDate }: { startDate:
   const anyExtra = plats && ORDER.some(([k]) => plats[k].inconsistent > 0 || Object.keys(plats[k].reasons || {}).length > 0);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-slate-800">Envio das conversões ao pixel</h3>
-        <p className="text-[11px] text-slate-400">Fila real (AdConversion). Aceita = a API recebeu — não é atribuição nem otimização.</p>
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-4 sm:p-5 dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Envio das conversões ao pixel
+          </h3>
+          <p className="text-[11px] text-slate-400">Fila real (AdConversion). Aceita = a API recebeu — não é atribuição nem otimização.</p>
+        </div>
+        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-slate-400 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">diagnóstico técnico</span>
       </div>
 
       {loading ? (
@@ -58,7 +63,7 @@ export default function DeliveryStatusPanel({ startDate, endDate }: { startDate:
         <>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
+              <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100 dark:border-slate-800">
                 <th className="text-left font-medium py-1.5 pr-2">Plataforma</th>
                 <th className="text-right font-medium py-1.5 px-2">Pend.</th>
                 <th className="text-right font-medium py-1.5 px-2">Aceitas</th>
@@ -70,11 +75,11 @@ export default function DeliveryStatusPanel({ startDate, endDate }: { startDate:
               {ORDER.map(([k, label, dot]) => {
                 const p = plats[k];
                 return (
-                  <tr key={k} className="border-b border-slate-50 last:border-0">
-                    <td className="py-1.5 pr-2"><span className="inline-flex items-center gap-2 text-slate-700"><span className={`h-2 w-2 rounded-full ${dot}`} />{label}</span></td>
-                    <td className="py-1.5 px-2 text-right tabular-nums text-slate-500">{p.pending}</td>
+                  <tr key={k} className="border-b border-slate-100/70 last:border-0 dark:border-slate-800">
+                    <td className="py-1.5 pr-2"><span className="inline-flex items-center gap-2 text-slate-700 dark:text-slate-200"><span className={`h-2 w-2 rounded-full ${dot}`} />{label}</span></td>
+                    <td className="py-1.5 px-2 text-right tabular-nums text-slate-500 dark:text-slate-300">{p.pending}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums font-semibold text-emerald-700">{p.accepted}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums text-slate-500">{p.ignored}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums text-slate-500 dark:text-slate-300">{p.ignored}</td>
                     <td className="py-1.5 pl-2 text-right tabular-nums text-red-500">{p.failed}</td>
                   </tr>
                 );
