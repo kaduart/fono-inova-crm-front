@@ -72,7 +72,7 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
     if (detalhado) {
         return (
             <div className="space-y-3">
-                <button type="button" onClick={() => setDetalhado(false)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <button type="button" onClick={() => setDetalhado(false)} className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
                     ← Voltar para Indicadores
                 </button>
                 <Suspense fallback={<div className="py-16 text-center text-gray-400">Carregando...</div>}>
@@ -90,10 +90,10 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900">Indicadores · {monthLabel}</h2>
-                    <p className="text-sm text-gray-500">Resultado do mês e o que fazer agora.</p>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Indicadores · {monthLabel}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Resultado do mês e o que fazer agora.</p>
                 </div>
-                <button type="button" onClick={() => setDetalhado(true)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <button type="button" onClick={() => setDetalhado(true)} className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
                     Painel detalhado (ritmo, insights, ranking)
                 </button>
             </div>
@@ -128,19 +128,19 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
                 },
             ]} />
             {meta && meta.meta > 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-                    <div className="mb-1 flex flex-wrap justify-between gap-2 text-xs text-gray-600">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
+                    <div className="mb-1 flex flex-wrap justify-between gap-2 text-xs text-gray-600 dark:text-gray-400">
                         <span>Realizado {meta.percentual.toLocaleString('pt-BR')}% · esperado até hoje {meta.percentualEsperado.toLocaleString('pt-BR')}%</span>
                         <span>Projeção {brl(meta.projecaoEsperada)}</span>
                     </div>
-                    <div className="relative h-2 overflow-hidden rounded-full bg-gray-100" role="img" aria-label={`Meta realizada ${meta.percentual}% de 100%`}>
+                    <div className="relative h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" role="img" aria-label={`Meta realizada ${meta.percentual}% de 100%`}>
                         <div className="h-full rounded-full bg-emerald-600" style={{ width: `${Math.min(100, meta.percentual)}%` }} />
                         <div className="absolute top-0 h-full w-0.5 bg-gray-500" style={{ left: `${Math.min(100, meta.percentualEsperado)}%` }} />
                     </div>
                 </div>
             )}
             {k && (k.metaRealizada.liminarForaDaMeta > 0 || k.aReceber.liminar > 0 || k.metaRealizada.retroativoForaDaMeta > 0) && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                     Fora da meta neste mês: liminar recebida {brl(k.metaRealizada.liminarForaDaMeta)}
                     {k.metaRealizada.retroativoForaDaMeta > 0 && <> · convênio retroativo {brl(k.metaRealizada.retroativoForaDaMeta)}</>}
                     {k.aReceber.liminar > 0 && <> · liminar a receber {brl(k.aReceber.liminar)}</>}
@@ -151,21 +151,21 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
             )}
 
             {/* 2. O que fazer agora */}
-            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                <header className="border-b border-gray-100 px-4 py-3">
-                    <h3 className="font-semibold text-gray-900">O que fazer agora</h3>
-                    <p className="text-xs text-gray-500">Ordenado por valor · cada linha abre a lista certa</p>
+            <section className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <header className="border-b border-gray-100 dark:border-gray-800 px-4 py-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">O que fazer agora</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Ordenado por valor · cada linha abre a lista certa</p>
                 </header>
                 <table className="w-full text-sm">
-                    <tbody className="divide-y divide-gray-100">
-                        {acoes.length === 0 && <tr><td className="px-4 py-6 text-center text-gray-500">{loading ? 'Carregando…' : 'Nada pendente.'}</td></tr>}
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {acoes.length === 0 && <tr><td className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">{loading ? 'Carregando…' : 'Nada pendente.'}</td></tr>}
                         {acoes.map(a => (
                             <tr key={a.label}>
-                                <td className="px-4 py-2.5 font-medium text-gray-900">{a.label}</td>
-                                <td className="px-3 py-2.5 text-right tabular-nums text-gray-600">{a.qtd ?? ''}</td>
+                                <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{a.label}</td>
+                                <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400">{a.qtd ?? ''}</td>
                                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{a.valor != null ? brl(a.valor) : '—'}</td>
                                 <td className="px-4 py-2.5 text-right">
-                                    <button type="button" onClick={() => irPara(a.tab)} className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50">{a.cta} →</button>
+                                    <button type="button" onClick={() => irPara(a.tab)} className="whitespace-nowrap rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50">{a.cta} →</button>
                                 </td>
                             </tr>
                         ))}
@@ -174,9 +174,9 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
             </section>
 
             {/* 3. Composição */}
-            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-                    <h3 className="font-semibold text-gray-900">Composição do mês</h3>
+            <section className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Composição do mês</h3>
                     <div className="flex flex-wrap gap-1.5">
                         <Chip on={comp === 'caixa'} onClick={() => setComp('caixa')} label="Caixa" />
                         <Chip on={comp === 'producao'} onClick={() => setComp('producao')} label="Produção" />
@@ -194,14 +194,14 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
 
             {/* Comparativo */}
             {d?.comparativos && (
-                <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                    <header className="border-b border-gray-100 px-4 py-3"><h3 className="font-semibold text-gray-900">Comparativo com {prevLabel}</h3></header>
+                <section className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <header className="border-b border-gray-100 dark:border-gray-800 px-4 py-3"><h3 className="font-semibold text-gray-900 dark:text-gray-100">Comparativo com {prevLabel}</h3></header>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <thead className="bg-gray-50 dark:bg-gray-800/60 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 <tr><th className="px-4 py-2"></th><th className="px-3 py-2 text-right">{prevLabel}</th><th className="px-3 py-2 text-right">Este mês</th><th className="px-4 py-2 text-right">Variação</th></tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {(['caixa', 'producao', 'despesas'] as const).map(key => (
                                     <tr key={key}>
                                         <td className="px-4 py-2.5 font-medium">{key === 'caixa' ? 'Caixa' : key === 'producao' ? 'Produção' : 'Despesas'}</td>
@@ -221,16 +221,16 @@ export default function IndicadoresTab({ month, year }: { month: number; year: n
 
 const Tabela = ({ head, rows, foot }: { head: string[]; rows: Array<Array<string | number>>; foot?: Array<string | number> }) => (
     <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <thead className="bg-gray-50 dark:bg-gray-800/60 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             <tr>{head.map((h, i) => <th key={h + i} className={`px-4 py-2 ${i ? 'text-right' : ''}`}>{h}</th>)}</tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
-            {rows.length === 0 && <tr><td colSpan={head.length} className="px-4 py-6 text-center text-gray-500">Sem dados no mês.</td></tr>}
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            {rows.length === 0 && <tr><td colSpan={head.length} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">Sem dados no mês.</td></tr>}
             {rows.map((r, i) => (
                 <tr key={i}>{r.map((c, j) => <td key={j} className={`px-4 py-2.5 ${j ? 'text-right tabular-nums' : 'font-medium'}`}>{c}</td>)}</tr>
             ))}
         </tbody>
-        {foot && <tfoot className="bg-gray-50 font-semibold"><tr>{foot.map((c, j) => <td key={j} className={`px-4 py-2.5 ${j ? 'text-right tabular-nums' : ''}`}>{c}</td>)}</tr></tfoot>}
+        {foot && <tfoot className="bg-gray-50 dark:bg-gray-800/60 font-semibold"><tr>{foot.map((c, j) => <td key={j} className={`px-4 py-2.5 ${j ? 'text-right tabular-nums' : ''}`}>{c}</td>)}</tr></tfoot>}
     </table>
 );
 

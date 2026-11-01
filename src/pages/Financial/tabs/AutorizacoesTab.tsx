@@ -185,14 +185,14 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
     return (
         <Box>
             {/* Header */}
-            <div className="mb-4 rounded-2xl border border-gray-100 shadow-sm bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#8B5CF6' }}>
                         <Shield className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Central de Autorizações</h2>
-                        <p className="text-sm text-gray-500">Envio e acompanhamento de autorizações de convênio</p>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Central de Autorizações</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Envio e acompanhamento de autorizações de convênio</p>
                     </div>
                 </div>
                 <Button
@@ -206,17 +206,17 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
             </div>
 
             {/* Sub-tabs */}
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-3 pt-3 pb-3 border-b border-gray-100">
-                    <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <div className="px-3 pt-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 overflow-x-auto">
                         {TABS.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as CommunicationStatus)}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all shrink-0 ${
                                     activeTab === tab.id
-                                        ? 'bg-white text-gray-900 shadow-sm font-semibold'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm font-semibold'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                                 }`}
                             >
                                 {tab.label}
@@ -233,7 +233,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                             ))}
                         </div>
                     ) : filteredAuthorizations.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500">
+                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                             <FileText className="w-16 h-16 mx-auto mb-4 opacity-20" />
                             <Typography variant="h6" color="text.secondary" gutterBottom>
                                 {authorizations.length === 0

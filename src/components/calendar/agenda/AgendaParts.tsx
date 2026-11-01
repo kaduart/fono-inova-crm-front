@@ -29,12 +29,12 @@ export const Chip: React.FC<{ active: boolean; onClick: () => void; count?: numb
         className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
             active
                 ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800'
-                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
         }`}
     >
         {dot && <span className="h-2 w-2 rounded-full" style={{ background: dot }} aria-hidden />}
         <span>{children}</span>
-        {count !== undefined && <span className={`tabular-nums ${active ? 'text-emerald-800' : 'text-gray-500'}`}>{count}</span>}
+        {count !== undefined && <span className={`tabular-nums ${active ? 'text-emerald-800' : 'text-gray-500 dark:text-gray-400'}`}>{count}</span>}
     </button>
 );
 
@@ -49,15 +49,15 @@ export const AgendaHeader: React.FC<{
 }> = ({ monthLabel, total, preCount, onOpenPre, onCreate }) => (
     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Agenda</h1>
-            <p className="mt-0.5 text-sm text-gray-500">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Agenda</h1>
+            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                 {monthLabel || 'Carregando…'}{monthLabel && total !== null && ` · ${plural(total, 'sessão no mês', 'sessões no mês')}`}
             </p>
         </div>
         <div className="flex flex-wrap gap-2">
             {onOpenPre && (
                 <button type="button" onClick={onOpenPre}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                     <CalendarPlus size={15} aria-hidden />
                     Pré-agendamentos
                     {preCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs font-bold tabular-nums text-amber-800">{preCount}</span>}
@@ -80,7 +80,7 @@ export interface DoctorOption { id: string; label: string; fullName: string; cou
 
 const FilterRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
     <div className="flex min-w-0 items-center gap-2">
-        <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+        <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
         <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1 [scrollbar-width:thin]">{children}</div>
     </div>
 );
@@ -99,7 +99,7 @@ export const AgendaFilterBar: React.FC<{
     const [legendOpen, setLegendOpen] = useState(false);
     const hasFilter = filter.doctor !== 'all' || filter.status !== 'all' || filter.type !== 'all';
     return (
-        <div className="mb-3 rounded-xl border border-gray-200 bg-white p-3">
+        <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
             <div className="flex flex-col gap-2">
                 {doctorOptions && (
                     <FilterRow label="Profissional">
@@ -128,16 +128,16 @@ export const AgendaFilterBar: React.FC<{
                     <div className="ml-auto flex items-center gap-2">
                         {hasFilter && (
                             <button type="button" onClick={() => onChange({ doctor: 'all', status: 'all', type: 'all' })}
-                                className="rounded-lg px-2 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-100">Limpar filtros</button>
+                                className="rounded-lg px-2 py-1 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100">Limpar filtros</button>
                         )}
                         <button type="button" onClick={() => setLegendOpen(o => !o)} aria-expanded={legendOpen}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
                             <Info size={14} aria-hidden /> Legenda
                         </button>
                     </div>
                 </div>
             </div>
-            {legendOpen && <div className="mt-3 border-t border-gray-100 pt-3">{legend}</div>}
+            {legendOpen && <div className="mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">{legend}</div>}
         </div>
     );
 };
@@ -168,7 +168,7 @@ export const MonthCell: React.FC<{
     return (
         <div className={`flex h-full min-h-[84px] w-full flex-col gap-1 p-1.5 text-left ${isPast && !isToday ? 'opacity-80' : ''}`}
             title={total ? `${c.done} de ${total} realizadas · ${todo} a fazer · ${c.missed} faltas · ${c.canceled} canceladas` : undefined}>
-            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[13px] tabular-nums ${isToday ? 'bg-emerald-600 font-bold text-white' : 'font-medium text-gray-700'}`}>
+            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[13px] tabular-nums ${isToday ? 'bg-emerald-600 font-bold text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
                 {dayNumber}
             </span>
             {holidayName ? (
@@ -178,11 +178,11 @@ export const MonthCell: React.FC<{
                 </div>
             ) : total > 0 && (
                 <div className="mt-auto">
-                    <p className="leading-none text-gray-900">
+                    <p className="leading-none text-gray-900 dark:text-gray-100">
                         <span className="text-[17px] font-bold tabular-nums">{c.done}</span>
-                        <span className="text-xs text-gray-500"> de {total}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400"> de {total}</span>
                     </p>
-                    <div className="mt-1.5 flex h-1.5 w-full gap-[2px] overflow-hidden rounded-full bg-gray-100">
+                    <div className="mt-1.5 flex h-1.5 w-full gap-[2px] overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                         {segs.map((s, i) => <span key={i} style={{ flex: s.n, background: s.color }} />)}
                     </div>
                     {notes.length > 0 && (
@@ -217,7 +217,7 @@ const StatusTag: React.FC<{ a: any }> = ({ a }) => {
     const g = statusGroupOf(a);
     const confirmed = String(a.operationalStatus || a.status) === 'confirmed';
     return (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-700">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
             <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLOR[g] }} aria-hidden />
             {g === 'todo' && confirmed ? 'Confirmada' : STATUS_SINGLE[g]}
         </span>
@@ -237,7 +237,7 @@ const IconAction: React.FC<{ title: string; onClick: () => void; tone?: 'danger'
     <button type="button" title={title} aria-label={title}
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-            tone === 'danger' ? 'text-red-600 hover:bg-red-50' : tone === 'success' ? 'text-emerald-700 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100'
+            tone === 'danger' ? 'text-red-600 hover:bg-red-50' : tone === 'success' ? 'text-emerald-700 hover:bg-emerald-50' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'
         }`}>
         {children}
     </button>
@@ -256,15 +256,15 @@ const SessionRow: React.FC<{ a: any; actions: RowActions; convenioName: (c?: str
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); actions.onOpen(a); } }}
                 className="flex cursor-pointer items-center gap-3 rounded-lg border-l-[3px] px-2.5 py-2 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 style={{ borderLeftColor: TYPE_COLOR[type] }}>
-                <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-gray-900">{(a.time || '').slice(0, 5)}</span>
+                <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">{(a.time || '').slice(0, 5)}</span>
                 <div className="min-w-0 flex-1">
-                    <p className={`truncate text-sm font-semibold ${canceled ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{patientNameOf(a)}</p>
-                    <p className="truncate text-xs text-gray-500">
+                    <p className={`truncate text-sm font-semibold ${canceled ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-gray-100'}`}>{patientNameOf(a)}</p>
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                         {doctorNameOf(a)}{spec && ` · ${spec}`}
                         {showMoney && <span className="sm:hidden"> · {billingText(a, convenioName)}</span>}
                     </p>
                 </div>
-                {showMoney && <span className="hidden w-44 shrink-0 truncate text-right text-xs text-gray-600 sm:block">{billingText(a, convenioName)}</span>}
+                {showMoney && <span className="hidden w-44 shrink-0 truncate text-right text-xs text-gray-600 dark:text-gray-400 sm:block">{billingText(a, convenioName)}</span>}
                 <span className="hidden w-24 shrink-0 sm:block"><StatusTag a={a} /></span>
                 <div className="flex shrink-0 items-center">
                     {(active || canceled) && actions.onReschedule && (
@@ -287,7 +287,7 @@ const SessionRow: React.FC<{ a: any; actions: RowActions; convenioName: (c?: str
 
 // Prévia do dia ao passar o mouse no mês (linhas compactas, sem ações)
 export const DayPreviewList: React.FC<{ appts: any[]; convenioName: (c?: string) => string; showMoney: boolean; onOpen: (a: any) => void }> = ({ appts, convenioName, showMoney, onOpen }) => (
-    <ul className="divide-y divide-gray-100">
+    <ul className="divide-y divide-gray-100 dark:divide-gray-800">
         {[...appts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(a => (
             <SessionRow key={a._id || a.id} a={a} actions={{ onOpen }} convenioName={convenioName} showMoney={showMoney} />
         ))}
@@ -327,8 +327,8 @@ export const DayAgendaModal: React.FC<{
 
     const group = (label: string, items: any[]) => items.length > 0 && (
         <section key={label}>
-            <h4 className="px-2.5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{label} · {items.length}</h4>
-            <ul className="divide-y divide-gray-100">
+            <h4 className="px-2.5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label} · {items.length}</h4>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                 {items.map(a => <SessionRow key={a._id || a.id} a={a} actions={actions} convenioName={convenioName} showMoney={showMoney} />)}
             </ul>
         </section>
@@ -337,14 +337,14 @@ export const DayAgendaModal: React.FC<{
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-3 sm:p-6" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div role="dialog" aria-modal="true" aria-label={`Sessões de ${title}`}
-                className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-                <div className="border-b border-gray-100 px-4 pb-3 pt-4">
+                className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white dark:bg-gray-900 shadow-2xl">
+                <div className="border-b border-gray-100 dark:border-gray-800 px-4 pb-3 pt-4">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <h3 className="text-lg font-bold text-gray-900">{capFirst(title)}</h3>
-                            <p className="text-sm text-gray-500">{plural(appts.length, 'sessão', 'sessões')}</p>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{capFirst(title)}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{plural(appts.length, 'sessão', 'sessões')}</p>
                         </div>
-                        <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 hover:bg-gray-100"><X size={18} /></button>
+                        <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
                     </div>
                     <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
                         <Chip active={status === 'all'} count={appts.length} onClick={() => setStatus('all')}>Todas</Chip>
@@ -356,12 +356,12 @@ export const DayAgendaModal: React.FC<{
                     <label className="relative mt-2 block">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden />
                         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar paciente ou profissional…"
-                            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-2 pl-9 pr-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                     </label>
                 </div>
                 <div className="overflow-y-auto px-2 pb-3">
                     {list.length === 0
-                        ? <p className="py-10 text-center text-sm text-gray-500">Nenhuma sessão com esse filtro.</p>
+                        ? <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma sessão com esse filtro.</p>
                         : <>{group('Manhã', morning)}{group('Tarde', afternoon)}</>}
                 </div>
             </div>
@@ -441,8 +441,8 @@ export const DayByProfessional: React.FC<{
 
     return (
         <div className="px-3 pb-4 pt-1">
-            <p className="mb-3 text-sm text-gray-600">
-                <span className="font-semibold text-gray-900">{title}</span>
+            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{title}</span>
                 {' · '}{plural(appts.length, 'sessão', 'sessões')}
                 {!isPastDay && <> · {loadingSlots ? 'buscando horários livres…' : plural(totalFree, 'horário livre', 'horários livres')}</>}
             </p>
@@ -455,33 +455,33 @@ export const DayByProfessional: React.FC<{
                         { label: 'Ocupação do dia', value: `${occ(appts.length, totalFree)}%`, tone: 'text-gray-900' },
                         { label: 'Pré-agendados', value: appts.filter(a => statusGroupOf(a) === 'pre').length, tone: 'text-amber-700' },
                     ].map(k => (
-                        <div key={k.label} className="rounded-xl border border-gray-200 bg-white px-3 py-2">
-                            <div className="text-[11px] font-medium text-gray-500">{k.label}</div>
+                        <div key={k.label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2">
+                            <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{k.label}</div>
                             <div className={`text-lg font-bold tabular-nums ${k.tone}`}><AnimatedValue value={k.value} /></div>
                         </div>
                     ))}
                 </div>
             )}
             {columns.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">Nenhuma sessão nem horário livre neste dia.</p>
+                <p className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma sessão nem horário livre neste dia.</p>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
                     <table className="w-full border-collapse text-left">
                         <thead>
                             <tr>
-                                <th scope="col" className="sticky left-0 z-[1] w-14 border-b border-gray-200 bg-white px-2 py-2 text-xs font-semibold text-gray-500">Hora</th>
+                                <th scope="col" className="sticky left-0 z-[1] w-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Hora</th>
                                 {columns.map(c => (
-                                    <th key={c.id} scope="col" className="min-w-[170px] border-b border-l border-gray-200 bg-white px-2.5 py-2 align-bottom">
-                                        <span className="block truncate text-sm font-semibold text-gray-900" title={c.name}>{shortName(c.name)}</span>
-                                        <span className="block truncate text-xs font-normal text-gray-500">
+                                    <th key={c.id} scope="col" className="min-w-[170px] border-b border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2.5 py-2 align-bottom">
+                                        <span className="block truncate text-sm font-semibold text-gray-900 dark:text-gray-100" title={c.name}>{shortName(c.name)}</span>
+                                        <span className="block truncate text-xs font-normal text-gray-500 dark:text-gray-400">
                                             {c.specialty ? `${getSpecialtyLabel(c.specialty)} · ` : ''}{plural(c.appts.length, 'sessão', 'sessões')}{!isPastDay && ` · ${c.free.length} livres`}
                                         </span>
                                         {!isPastDay && (c.appts.length + c.free.length) > 0 && (
                                             <span className="mt-1 flex items-center gap-1.5" title={`${occ(c.appts.length, c.free.length)}% da grade ocupada`}>
-                                                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                                                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                                                     <span className={`block h-full rounded-full ${occ(c.appts.length, c.free.length) >= 85 ? 'bg-emerald-600' : occ(c.appts.length, c.free.length) >= 50 ? 'bg-emerald-400' : 'bg-amber-400'}`} style={{ width: `${occ(c.appts.length, c.free.length)}%` }} />
                                                 </span>
-                                                <span className="text-[11px] font-semibold tabular-nums text-gray-600">{occ(c.appts.length, c.free.length)}%</span>
+                                                <span className="text-[11px] font-semibold tabular-nums text-gray-600 dark:text-gray-400">{occ(c.appts.length, c.free.length)}%</span>
                                             </span>
                                         )}
                                     </th>
@@ -491,21 +491,21 @@ export const DayByProfessional: React.FC<{
                         <tbody>
                             {times.map(t => (
                                 <tr key={t}>
-                                    <th scope="row" className="sticky left-0 z-[1] border-b border-gray-100 bg-white px-2 py-1.5 align-top text-xs font-semibold tabular-nums text-gray-600">{t}</th>
+                                    <th scope="row" className="sticky left-0 z-[1] border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 py-1.5 align-top text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-400">{t}</th>
                                     {columns.map(c => {
                                         const here = c.appts.filter(a => (a.time || '').slice(0, 5) === t);
                                         const free = here.length === 0 && c.free.includes(t);
                                         return (
-                                            <td key={c.id} className="border-b border-l border-gray-100 p-1 align-top">
+                                            <td key={c.id} className="border-b border-l border-gray-100 dark:border-gray-800 p-1 align-top">
                                                 {here.map(a => {
                                                     const g = statusGroupOf(a);
                                                     return (
                                                         <button key={a._id || a.id} type="button" onClick={() => onOpen(a)}
-                                                            className="mb-1 block w-full rounded-md border-l-[3px] bg-gray-50 px-2 py-1 text-left last:mb-0 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                                            className="mb-1 block w-full rounded-md border-l-[3px] bg-gray-50 dark:bg-gray-800/60 px-2 py-1 text-left last:mb-0 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                                             style={{ borderLeftColor: TYPE_COLOR[typeGroupOf(a)] }}
                                                             title={`${patientNameOf(a)} · ${STATUS_SINGLE[g]} · ${TYPE_LABEL[typeGroupOf(a)]}`}>
-                                                            <span className={`block truncate text-[13px] font-semibold ${g === 'canceled' ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{patientNameOf(a)}</span>
-                                                            <span className="flex items-center gap-1 text-[11px] text-gray-600">
+                                                            <span className={`block truncate text-[13px] font-semibold ${g === 'canceled' ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-gray-100'}`}>{patientNameOf(a)}</span>
+                                                            <span className="flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-400">
                                                                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[g] }} aria-hidden />
                                                                 {String(a.operationalStatus) === 'confirmed' ? 'Confirmada' : STATUS_SINGLE[g]} · {TYPE_LABEL[typeGroupOf(a)]}
                                                             </span>
@@ -515,7 +515,7 @@ export const DayByProfessional: React.FC<{
                                                 {free && (
                                                     <button type="button" onClick={() => onSlot?.({ doctorId: c.id, doctorName: c.name, specialty: c.specialty, time: t })} disabled={!onSlot || isPastDay}
                                                         title={onSlot && !isPastDay ? 'Ver quem pode ocupar este horário' : undefined}
-                                                        className="group block w-full rounded-md border border-dashed border-gray-300 px-2 py-1.5 text-left text-xs text-gray-500 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-default disabled:hover:border-gray-300 disabled:hover:text-gray-500">
+                                                        className="group block w-full rounded-md border border-dashed border-gray-300 dark:border-gray-600 px-2 py-1.5 text-left text-xs text-gray-500 dark:text-gray-400 hover:border-emerald-500 hover:text-emerald-700 disabled:cursor-default disabled:hover:border-gray-300 disabled:hover:text-gray-500">
                                                         Livre{onSlot && !isPastDay && <span className="hidden group-hover:inline"> · encaixar</span>}
                                                     </button>
                                                 )}

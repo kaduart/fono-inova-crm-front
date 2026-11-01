@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { FinancialRecord } from '../../services/paymentService';
 import { IDoctor, IPatient } from '../../utils/types/types';
 import UnifiedCashflowTab from './UnifiedCashflowTab';
-import { SECTION_MENU, SECTION_TABS, sectionOfTab, type FinancialSection } from './financialSections';
+import { MERGED_INTO, SECTION_MENU, SECTION_TABS, sectionOfTab, type FinancialSection } from './financialSections';
 import { PeriodKey, rangeFor, todaySP } from './components/finUi';
 import { FiscalInvoiceHistory } from '../../components/fiscal/FiscalInvoiceHistory';
 
@@ -387,8 +387,8 @@ const TAB_HEADER_META: Record<string, { icon: React.ReactNode; title: string; su
     },
     'convenios': {
         icon: <CreditCard {...HEADER_ICON_PROPS} />,
-        title: 'Gestão de Convênios',
-        subtitle: 'Faturamento, guias e recebimentos por convênio.'
+        title: 'Convênios',
+        subtitle: 'Escolha o mês de competência; as guias e o faturamento ficam logo abaixo.'
     },
     'despesas': {
         icon: <Receipt {...HEADER_ICON_PROPS} />,
@@ -453,7 +453,8 @@ const FinancialDashboard = ({
         const raw = searchParams.get(TAB_PARAM_KEY);
         if (!raw) return 0;
         // Config. fiscal virou a engrenagem dentro de NFSe; links antigos abrem NFSe.
-        const tabId = raw === 'configuracao-fiscal' ? 'nfse' : raw;
+        const base = raw === 'configuracao-fiscal' ? 'nfse' : raw;
+        const tabId = section ? (MERGED_INTO[base] || base) : base;
         const index = tabs.findIndex((tab) => tab.id === tabId);
         return index >= 0 ? index : 0;
     };
@@ -680,12 +681,36 @@ const FinancialDashboard = ({
                 );
             case 'nfse':
                 return <FiscalInvoiceHistory month={selectedMonth} year={selectedYear} />;
-            case 'dashboard':
+            case 'dashboard': {
+                // Resultados = Indicadores + Metas do ano (no menu Financeiro). Sem `section`, Metas segue em aba própria.
+                const showMetas = !!section && (searchParams.get('resultados') === 'metas' || searchParams.get(TAB_PARAM_KEY) === 'planejamento');
+                const pick = (v: 'indicadores' | 'metas') => setSearchParams(prev => {
+                    const next = new URLSearchParams(prev);
+                    next.set(TAB_PARAM_KEY, 'dashboard'); next.set('resultados', v);
+                    return next;
+                }, { replace: true });
                 return (
-                    <Suspense fallback={<DashboardV3Skeleton />}>
-                        <IndicadoresTab month={selectedMonth} year={selectedYear} />
-                    </Suspense>
+                    <>
+                        {section && (
+                            <div role="tablist" aria-label="Resultados" className="mb-3 inline-flex rounded-xl border border-gray-200 bg-white p-0.5 text-sm dark:border-white/10 dark:bg-white/5">
+                                {([['indicadores', 'Indicadores do mês'], ['metas', 'Metas do ano']] as const).map(([v, l]) => (
+                                    <button key={v} type="button" role="tab" aria-selected={(v === 'metas') === showMetas} onClick={() => pick(v)}
+                                        className={`rounded-lg px-3 py-1.5 font-medium ${(v === 'metas') === showMetas ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300'}`}>{l}</button>
+                                ))}
+                            </div>
+                        )}
+                        {showMetas ? (
+                            <Suspense fallback={<PlanningSkeleton />}>
+                                <PlanningTab month={selectedMonth} year={selectedYear} />
+                            </Suspense>
+                        ) : (
+                            <Suspense fallback={<DashboardV3Skeleton />}>
+                                <IndicadoresTab month={selectedMonth} year={selectedYear} />
+                            </Suspense>
+                        )}
+                    </>
                 );
+            }
             case 'profissionais':
                 return (
                     <Suspense fallback={<div className="min-h-[400px] flex items-center justify-center text-gray-400">Carregando...</div>}>

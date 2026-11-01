@@ -59,7 +59,7 @@ function NewFollowupModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700">
         <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 rounded-t-2xl text-white flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Novo acompanhamento</h2>
@@ -73,9 +73,9 @@ function NewFollowupModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
-              <label className="text-xs font-medium text-slate-600">Nome*</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Nome*</label>
               <input
-                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
                 value={form.name}
                 onChange={e => set('name', e.target.value)}
                 placeholder="Nome completo"
@@ -83,9 +83,9 @@ function NewFollowupModal({
               />
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="text-xs font-medium text-slate-600">Telefone* (com DDD)</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Telefone* (com DDD)</label>
               <input
-                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
                 value={form.phone}
                 onChange={e => set('phone', e.target.value)}
                 placeholder="62 9XXXX-XXXX"
@@ -95,9 +95,9 @@ function NewFollowupModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-600">Origem</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Origem</label>
               <select
-                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 value={form.origin}
                 onChange={e => set('origin', e.target.value)}
               >
@@ -110,9 +110,9 @@ function NewFollowupModal({
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600">Pipeline</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Pipeline</label>
               <select
-                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 value={form.pipeline}
                 onChange={e => set('pipeline', e.target.value)}
               >
@@ -125,18 +125,18 @@ function NewFollowupModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-600">Retornar em</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Retornar em</label>
               <input
                 type="date"
-                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 value={form.nextActionAt}
                 onChange={e => set('nextActionAt', e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600">Motivo</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Motivo</label>
               <select
-                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 value={form.followupReason}
                 onChange={e => set('followupReason', e.target.value)}
               >
@@ -147,14 +147,14 @@ function NewFollowupModal({
             </div>
           </div>
 
-          <label className="block text-sm text-slate-700">Responsável comercial
+          <label className="block text-sm text-slate-700 dark:text-slate-300">Responsável comercial
             <input value={form.responsibleName} onChange={e => set('responsibleName', e.target.value)} maxLength={120}
               className="w-full mt-1 p-2 border border-slate-300 rounded-lg" placeholder="Nome de quem acompanhará" />
           </label>
           <div>
-            <label className="text-xs font-medium text-slate-600">Observação</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Observação</label>
             <input
-              className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+              className="w-full mt-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
               value={form.nextActionNote}
               onChange={e => set('nextActionNote', e.target.value)}
               placeholder="Ex: vai falar com o marido, ligar quinta"
@@ -165,7 +165,7 @@ function NewFollowupModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+              className="flex-1 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 transition-colors"
             >
               Cancelar
             </button>
@@ -367,7 +367,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
       return <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">🟡 Hoje</span>;
     if (c === 'proximo')
       return <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">🟢 {dateStr}</span>;
-    return <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">👻 Sem ação</span>;
+    return <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">👻 Sem ação</span>;
   };
 
   const toView = (lead: any): BoardLeadView => {
@@ -388,10 +388,10 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
       <CommercialQuickReplies />
       {/* HEADER COM BOTÃO */}
       <div className="flex items-center justify-between">
-        <div role="tablist" aria-label="Modo de visualização" className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+        <div role="tablist" aria-label="Modo de visualização" className="inline-flex rounded-xl border border-slate-200 bg-white dark:bg-gray-900 p-0.5 text-sm dark:border-slate-700 dark:bg-slate-800">
           {(['lista', 'quadro'] as const).map(m => (
             <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-              className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${mode === m ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300'}`}>
+              className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${mode === m ? 'bg-emerald-600 text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-300'}`}>
               {m === 'lista' ? 'Lista' : 'Quadro'}
             </button>
           ))}
@@ -421,24 +421,24 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
             <div className="text-xs font-medium text-red-600">Atrasados</div>
           </div>
         </div>
-        <div className={`border rounded-2xl p-4 flex items-center gap-3 ${plus3Count > 0 ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className={`border rounded-2xl p-4 flex items-center gap-3 ${plus3Count > 0 ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'}`}>
           <span className="text-2xl">⚠️</span>
           <div>
-            <div className={`text-2xl font-bold ${plus3Count > 0 ? 'text-orange-700' : 'text-slate-500'}`}>{plus3Count}</div>
+            <div className={`text-2xl font-bold ${plus3Count > 0 ? 'text-orange-700' : 'text-slate-500 dark:text-slate-400'}`}>{plus3Count}</div>
             <div className={`text-xs font-medium ${plus3Count > 0 ? 'text-orange-600' : 'text-slate-400'}`}>Há 3+ dias</div>
           </div>
         </div>
-        <div className={`border rounded-2xl p-4 flex items-center gap-3 ${plus7Count > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200'}`}>
+        <div className={`border rounded-2xl p-4 flex items-center gap-3 ${plus7Count > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'}`}>
           <span className="text-2xl">🚨</span>
           <div>
-            <div className={`text-2xl font-bold ${plus7Count > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{plus7Count}</div>
+            <div className={`text-2xl font-bold ${plus7Count > 0 ? 'text-rose-700' : 'text-slate-500 dark:text-slate-400'}`}>{plus7Count}</div>
             <div className={`text-xs font-medium ${plus7Count > 0 ? 'text-rose-600' : 'text-slate-400'}`}>Há 7+ dias</div>
           </div>
         </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+        <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center gap-3">
           <span className="text-2xl">👻</span>
           <div>
-            <div className="text-2xl font-bold text-slate-500">{noActionCount}</div>
+            <div className="text-2xl font-bold text-slate-500 dark:text-slate-400">{noActionCount}</div>
             <div className="text-xs font-medium text-slate-400">Sem ação</div>
           </div>
         </div>
@@ -461,13 +461,13 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                 urgencyFilter === key
                   ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-800'
+                  : 'bg-white dark:bg-gray-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400 hover:text-slate-800'
               }`}
             >
               {label}
               {count > 0 && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                  urgencyFilter === key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  urgencyFilter === key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 dark:text-slate-400'
                 }`}>
                   {count}
                 </span>
@@ -494,12 +494,12 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                   reasonFilter === key
                     ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
-                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
+                    : 'bg-white dark:bg-gray-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400 hover:text-slate-700'
                 }`}
               >
                 {label}
                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                  reasonFilter === key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  reasonFilter === key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500 dark:text-slate-400'
                 }`}>
                   {c}
                 </span>
@@ -510,8 +510,8 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
 
         {/* Indicador de filtros ativos */}
         {(urgencyFilter !== 'all' || reasonFilter !== 'all') && (
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>Mostrando <strong className="text-slate-700">{filtered.length}</strong> de {safeleads.length} leads</span>
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>Mostrando <strong className="text-slate-700 dark:text-slate-300">{filtered.length}</strong> de {safeleads.length} leads</span>
             <button
               onClick={() => { setUrgencyFilter('all'); setReasonFilter('all'); }}
               className="text-slate-400 hover:text-slate-600 underline transition-colors"
@@ -527,20 +527,20 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
       )}
 
       {/* TABELA OPERACIONAL */}
-      <div hidden={mode === 'quadro' && !loading} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div hidden={mode === 'quadro' && !loading} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                <th className="px-4 py-3 font-semibold text-slate-600">Lead</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Pipeline</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Retornar em</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Motivo</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Observações</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 text-center">Ações</th>
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-left">
+                <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">Lead</th>
+                <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">Pipeline</th>
+                <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">Retornar em</th>
+                <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">Motivo</th>
+                <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">Observações</th>
+                <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody ref={animRef} className="divide-y divide-slate-100">
+            <tbody ref={animRef} className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
@@ -592,7 +592,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                       {/* NOME */}
                       <td className="px-4 py-3 min-w-[160px]">
                         <button type="button" onClick={() => setSheet(toView(lead))} title="Ver resumo do lead"
-                          className="block font-medium text-slate-800 truncate max-w-[160px] text-left hover:text-emerald-700 hover:underline">
+                          className="block font-medium text-slate-800 dark:text-slate-100 truncate max-w-[160px] text-left hover:text-emerald-700 hover:underline">
                           {lead.name || 'Sem nome'}
                         </button>
                         {phone && (
@@ -610,7 +610,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                         <select
                           value={op.pipeline}
                           onChange={(e) => handleFieldUpdate(lead, 'pipeline', e.target.value)}
-                          className={`text-xs px-2 py-1.5 rounded-lg border-0 font-medium focus:ring-2 focus:ring-emerald-400 cursor-pointer ${PIPELINE_COLORS[op.pipeline] ?? 'bg-slate-100 text-slate-700'}`}
+                          className={`text-xs px-2 py-1.5 rounded-lg border-0 font-medium focus:ring-2 focus:ring-emerald-400 cursor-pointer ${PIPELINE_COLORS[op.pipeline] ?? 'bg-slate-100 text-slate-700 dark:text-slate-300'}`}
                         >
                           {Object.entries(PIPELINE_LABELS).map(([v, l]) => (
                             <option key={v} value={v}>{l}</option>
@@ -629,7 +629,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                             const date = v ? new Date(v + 'T12:00:00') : null;
                             handleFieldUpdate(lead, 'nextActionAt', date);
                           }}
-                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:outline-none w-[130px]"
+                          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:outline-none w-[130px]"
                         />
                       </td>
 
@@ -638,7 +638,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                         <select
                           value={op.followupReason}
                           onChange={(e) => handleFieldUpdate(lead, 'followupReason', e.target.value)}
-                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:outline-none max-w-[175px]"
+                          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:outline-none max-w-[175px]"
                         >
                           {Object.entries(FOLLOWUP_REASON_LABELS).map(([v, l]) => (
                             <option key={v} value={v}>{l}</option>
@@ -657,7 +657,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                           placeholder="Anotar observação..."
                           disabled={savingId === lead._id}
-                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:outline-none w-full min-w-[190px] placeholder-slate-300 disabled:opacity-50"
+                          className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-400 focus:outline-none w-full min-w-[190px] placeholder-slate-300 disabled:opacity-50"
                         />
                       </td>
 

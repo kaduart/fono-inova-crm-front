@@ -498,7 +498,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
             </Tabs>
 
             {isLoading && (
-                <Box className="flex items-center gap-2 py-4 text-gray-500 text-xs">
+                <Box className="flex items-center gap-2 py-4 text-gray-500 dark:text-gray-400 text-xs">
                     <CircularProgress size={14} />
                     Carregando sessões...
                 </Box>
@@ -1055,16 +1055,16 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                     )}
                     <div>
                         {/* Breadcrumb */}
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
+                        <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                             <button onClick={() => { setSelectedProvider(null); setDrawerPatient(null); setSearchText(''); }}
-                                className={`hover:text-indigo-600 ${level === 1 ? 'font-bold text-gray-800' : ''}`}>
+                                className={`hover:text-indigo-600 ${level === 1 ? 'font-bold text-gray-800 dark:text-gray-200' : ''}`}>
                                 Histórico
                             </button>
                             {selectedProvider && (
                                 <>
                                     <ChevronRight size={14} />
                                     <button onClick={() => setDrawerPatient(null)}
-                                        className={`hover:text-indigo-600 ${level === 2 && !drawerPatient ? 'font-bold text-gray-800' : ''}`}>
+                                        className={`hover:text-indigo-600 ${level === 2 && !drawerPatient ? 'font-bold text-gray-800 dark:text-gray-200' : ''}`}>
                                         {selectedProvider}
                                     </button>
                                 </>
@@ -1072,7 +1072,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                             {drawerPatient && (
                                 <>
                                     <ChevronRight size={14} />
-                                    <span className="font-bold text-gray-800">{drawerPatient.name}</span>
+                                    <span className="font-bold text-gray-800 dark:text-gray-200">{drawerPatient.name}</span>
                                 </>
                             )}
                         </div>
@@ -1186,7 +1186,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                     ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700'
                                     : showAdvanced
                                     ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 hover:bg-gray-50'
                             }`}
                         >
                             <SlidersHorizontal size={13} />
@@ -1221,7 +1221,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                     </div>
 
                     <Collapse in={showAdvanced}>
-                        <div className="relative flex flex-wrap gap-4 mb-4 p-4 pt-5 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="relative flex flex-wrap gap-4 mb-4 p-4 pt-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-[3px] bg-indigo-500" />
                             {[
                                 { label: 'Mês', value: filterMonth, set: setFilterMonth, options: [['all', 'Todos os meses'], ...months] as [string, string][], capitalize: true },

@@ -1175,26 +1175,26 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     return (
         <Box sx={{ '& *': { boxSizing: 'border-box' } }}>
             {/* Header */}
-            <div className="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-gray-900 px-4 py-3 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50 border border-emerald-100">
                         <Building2 className="w-5 h-5 text-emerald-700" />
                     </div>
                     <div className="min-w-0">
                         <h2 className="text-xl font-bold leading-tight tracking-tight text-slate-900">Gestão de Convênios</h2>
-                        <p className="text-xs leading-5 text-slate-500 sm:text-sm">Guias do lançamento ao recebimento</p>
+                        <p className="text-xs leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">Guias do lançamento ao recebimento</p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:ml-auto">
                     {subTab !== 4 && subTab !== 6 && subTab !== 7 && subTab !== 8 && subTab !== 9 && (
                         <div className="relative flex items-center gap-2 sm:mr-1">
-                            <span className="text-xs text-slate-500">{subTab === 5 ? 'Autorizações de' : 'Recebido no mês de'}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{subTab === 5 ? 'Autorizações de' : 'Recebido no mês de'}</span>
                             <input
                                 type="month"
                                 aria-label="Mês de referência"
                                 value={selectedMonthYear}
                                 onChange={(e) => handlePeriodChange(e.target.value)}
-                                className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-[150px]"
+                                className="h-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2.5 text-sm text-gray-700 dark:text-gray-300 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-[150px]"
                             />
                         </div>
                     )}
@@ -1202,7 +1202,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                     <button
                         type="button"
                         onClick={() => setConvenioManagerOpen(true)}
-                        className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-none"
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-none"
                     >
                         <Building2 size={14} />
                         Gerenciar convênios
@@ -1285,27 +1285,27 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             const hasEstimate = active.some(r => r.estimate && r.value > 0);
                             const badge = { r: 'bg-red-50 text-red-700', a: 'bg-amber-50 text-amber-800' };
                             return (
-                                <section aria-labelledby="ins-action-title" className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-                                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 px-4 py-2.5">
-                                        <h3 id="ins-action-title" className="text-sm font-semibold text-gray-900">Precisa de ação · por impacto</h3>
-                                        {totalStuck > 0 && <span className="text-xs text-gray-600">{hasEstimate ? '~' : ''}{brl(totalStuck)} parados{hasEstimate ? ' (inclui estimativa)' : ''}</span>}
+                                <section aria-labelledby="ins-action-title" className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 dark:border-gray-700 px-4 py-2.5">
+                                        <h3 id="ins-action-title" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Precisa de ação · por impacto</h3>
+                                        {totalStuck > 0 && <span className="text-xs text-gray-600 dark:text-gray-400">{hasEstimate ? '~' : ''}{brl(totalStuck)} parados{hasEstimate ? ' (inclui estimativa)' : ''}</span>}
                                     </div>
-                                    {!aq && !insSummaryError && loadingGuides && <p role="status" className="px-4 py-3 text-sm text-gray-600">Consultando pendências…</p>}
+                                    {!aq && !insSummaryError && loadingGuides && <p role="status" className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">Consultando pendências…</p>}
                                     {active.map((r, i) => (
-                                        <div key={r.key} className="grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-gray-100 px-4 py-2.5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto_9rem]">
+                                        <div key={r.key} className="grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-gray-100 dark:border-gray-800 px-4 py-2.5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto_9rem]">
                                             <span className={`rounded-lg py-1 text-center font-bold tabular-nums ${badge[r.tone]}`}>{n(r.count)}</span>
-                                            <div className="min-w-0"><p className="text-sm font-semibold text-gray-900">{r.title}</p><p className="truncate text-xs text-gray-600" title={r.detail}>{r.detail}</p></div>
-                                            <span className="text-right text-sm font-bold tabular-nums text-gray-900">
-                                                {r.value > 0 ? `${r.estimate ? '~' : ''}${brl(r.value)}` : <span className="text-xs font-normal text-gray-600">sem valor</span>}
-                                                {r.estimate && r.value > 0 && <span className="block text-2xs font-normal text-gray-600">estimado pelo valor médio</span>}
+                                            <div className="min-w-0"><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{r.title}</p><p className="truncate text-xs text-gray-600 dark:text-gray-400" title={r.detail}>{r.detail}</p></div>
+                                            <span className="text-right text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                                                {r.value > 0 ? `${r.estimate ? '~' : ''}${brl(r.value)}` : <span className="text-xs font-normal text-gray-600 dark:text-gray-400">sem valor</span>}
+                                                {r.estimate && r.value > 0 && <span className="block text-2xs font-normal text-gray-600 dark:text-gray-400">estimado pelo valor médio</span>}
                                             </span>
                                             <button type="button" onClick={r.go}
-                                                className={`col-start-3 min-h-10 rounded-lg border border-emerald-700 px-3 text-sm font-semibold sm:col-start-auto ${i === 0 ? 'bg-emerald-700 text-white hover:bg-emerald-800' : 'bg-white text-emerald-800 hover:bg-emerald-50'} focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1`}>
+                                                className={`col-start-3 min-h-10 rounded-lg border border-emerald-700 px-3 text-sm font-semibold sm:col-start-auto ${i === 0 ? 'bg-emerald-700 text-white hover:bg-emerald-800' : 'bg-white dark:bg-gray-900 text-emerald-800 hover:bg-emerald-50'} focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1`}>
                                                 {r.cta}
                                             </button>
                                         </div>
                                     ))}
-                                    {idle.length > 0 && <p className="px-4 py-2 text-xs text-gray-600">{idle.map(r => `${r.title}: 0`).join(' · ')} · nada a fazer</p>}
+                                    {idle.length > 0 && <p className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{idle.map(r => `${r.title}: 0`).join(' · ')} · nada a fazer</p>}
                                 </section>
                             );
                         })()}
@@ -1314,17 +1314,20 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
             })()}
 
             {/* Navegação: 3 grupos. As fases viram chips com contagem (guias) numa lista só. */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <div className="border-b border-slate-100 px-3 pt-2 pb-3 space-y-3">
-                    <div role="tablist" aria-label="Convênios" className="flex flex-wrap gap-1 border-b border-slate-100">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+                <div className="border-b border-slate-100 dark:border-slate-800 px-3 pt-2 pb-3 space-y-3">
+                    <div role="tablist" aria-label="Convênios" className="flex flex-wrap gap-1 border-b border-slate-100 dark:border-slate-800">
                         {([
+                            // Novo design: sem o "Mais" genérico — cada grupo diz o que faz, na ordem do trabalho.
                             { id: 'fat', label: 'Faturamento', go: 0, active: subTab <= 3 },
+                            { id: 'guias', label: 'Guias e autorizações', go: 5, active: subTab === 5 || subTab === 7 },
+                            { id: 'envios', label: 'Envios e rascunhos', go: 6, active: subTab === 6 || subTab === 9, count: (insSummary?.actionQueue.draftSubmissions ?? draftSubmissionCount) || undefined },
                             { id: 'nf', label: 'Notas e recebimentos', go: 8, active: subTab === 8, count: insSummary?.openInvoices.count },
-                            { id: 'mais', label: 'Mais', go: 4, active: subTab >= 4 && subTab !== 8 },
+                            { id: 'hist', label: 'Histórico', go: 4, active: subTab === 4 },
                         ] as const).map(g => (
                             <button key={g.id} type="button" role="tab" aria-selected={g.active}
                                 onClick={() => { if (!g.active) setSubTab(g.go); }}
-                                className={`-mb-px inline-flex min-h-10 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${g.active ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                                className={`-mb-px inline-flex min-h-10 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${g.active ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>
                                 {g.label}
                                 {'count' in g && g.count != null && <span className="tabular-nums text-xs opacity-70">{g.count}</span>}
                             </button>
@@ -1332,21 +1335,24 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                     </div>
                     {subTab <= 3 && (
                         <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="mr-1 text-xs font-semibold text-gray-500">Fase</span>
+                            <span className="mr-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Fase</span>
                             <FinChip on={subTab === 0} onClick={() => setSubTab(0)} label="A faturar" count={phaseStats?.pendingBilling.guides ?? pendingStateGuides.length} />
                             <FinChip on={subTab === 1} onClick={() => setSubTab(1)} label="Doc. enviada" count={phaseStats?.documentationSent.guides ?? waitingBillingGuides.length} />
                             <FinChip on={subTab === 2} onClick={() => setSubTab(2)} label="Faturadas" count={phaseStats?.billed.guides ?? guidesByPhase.billed.length} />
                             <FinChip on={subTab === 3} onClick={() => setSubTab(3)} label="Recebidas" count={phaseStats?.received.guides ?? guidesByPhase.received.length} />
-                            <span className="ml-1 text-xs text-gray-500">contagem em guias · listas acumuladas, sem filtro de mês</span>
+                            <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">contagem em guias · listas acumuladas, sem filtro de mês</span>
                         </div>
                     )}
-                    {subTab >= 4 && subTab !== 8 && (
+                    {(subTab === 5 || subTab === 7) && (
                         <div className="flex flex-wrap items-center gap-1.5">
-                            <FinChip on={subTab === 4} onClick={() => setSubTab(4)} label="Histórico" />
                             <FinChip on={subTab === 5} onClick={() => setSubTab(5)} label="Autorizações" />
+                            <FinChip on={subTab === 7} onClick={() => setSubTab(7)} label="Convênios cadastrados" />
+                        </div>
+                    )}
+                    {(subTab === 6 || subTab === 9) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
                             <FinChip on={subTab === 6} onClick={() => setSubTab(6)} label="Envios" />
                             <FinChip on={subTab === 9} onClick={() => setSubTab(9)} label="Rascunhos" count={insSummary?.actionQueue.draftSubmissions ?? draftSubmissionCount} warn={(insSummary?.actionQueue.draftSubmissions ?? draftSubmissionCount) > 0 && subTab !== 9} />
-                            <FinChip on={subTab === 7} onClick={() => setSubTab(7)} label="Convênios cadastrados" />
                         </div>
                     )}
                 </div>
@@ -1714,7 +1720,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                     <button type="button" onClick={() => setReceberLoteData({ dataRecebimento: yesterday })} className={chip(picked === yesterday)}>Ontem</button>
                                 </div>
                             </Field>
-                            <p className={`mt-3 text-xs leading-snug ${otherMonth ? 'font-semibold text-amber-700' : 'text-gray-500'}`}>
+                            <p className={`mt-3 text-xs leading-snug ${otherMonth ? 'font-semibold text-amber-700' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {!picked
                                     ? 'Use a data do extrato ou repasse da operadora. Ela define em qual dia o valor entra no caixa.'
                                     : otherMonth
@@ -1757,7 +1763,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             <Typography variant="body2" gutterBottom>Valor Recebido *</Typography>
                             <InputCurrency
                                 name=""
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
                                 value={receiveData.receivedAmount}
                                 onChange={(e) => setReceiveData({ ...receiveData, receivedAmount: Number(e.target.value) })}
                             />

@@ -1400,7 +1400,7 @@ const GuidePendingBillingSection = ({
 
     if (guides.length === 0 && orphanSessionsCount === 0) {
         return (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <Send className="w-16 h-16 mx-auto mb-4 opacity-20" />
                 <Typography variant="h6" color="text.secondary" gutterBottom>
                     {EMPTY_BY_PHASE[phase || 'pendingBilling'].title}
@@ -1449,7 +1449,7 @@ const GuidePendingBillingSection = ({
                 {providersWithoutDeadline > 0 && !readOnly && (
                     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
                         <span className="min-w-0 flex-1"><b>{providersWithoutDeadline} {providersWithoutDeadline === 1 ? 'convênio sem prazo de envio cadastrado' : 'convênios sem prazo de envio cadastrado'}.</b> Sem o prazo, a tela não consegue avisar antes da glosa.</span>
-                        {onConfigureConvenios && <button type="button" onClick={onConfigureConvenios} className="min-h-10 rounded-lg border border-amber-800 bg-white px-3 font-semibold text-amber-900 hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-600">Configurar prazos</button>}
+                        {onConfigureConvenios && <button type="button" onClick={onConfigureConvenios} className="min-h-10 rounded-lg border border-amber-800 bg-white dark:bg-gray-900 px-3 font-semibold text-amber-900 hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-600">Configurar prazos</button>}
                     </div>
                 )}
                 {/* ── Resumo por convênio ─────────────────────────────────── */}
@@ -1579,7 +1579,7 @@ const GuidePendingBillingSection = ({
                                                     <button type="button" disabled={detailsLoading}
                                                         onClick={(event) => { event.stopPropagation(); void openDrawer(`Todos os pacientes · ${patients}`, provider, allGuides, true); }}
                                                         onKeyDown={(event) => event.stopPropagation()}
-                                                        className="min-h-9 rounded-lg border border-emerald-700 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50">
+                                                        className="min-h-9 rounded-lg border border-emerald-700 bg-white dark:bg-gray-900 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50">
                                                         Preparar {sessions}
                                                     </button>
                                                 </Box>
