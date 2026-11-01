@@ -25,6 +25,7 @@ const ST: Record<Detalhe["status"], { label: string; cls: string }> = {
   pre: { label: "Pré", cls: "bg-amber-50 text-amber-700" },
   contato: { label: "Só contato", cls: "bg-slate-100 text-slate-500" },
 };
+const SDOT: Record<Detalhe["status"], string> = { agendou: "bg-emerald-500", pre: "bg-amber-500", contato: "bg-slate-300" };
 const fone = (p: string) => { const d = (p || "").replace(/\D/g, "").replace(/^55/, ""); return d.length >= 10 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : p; };
 const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || "";
 
@@ -120,19 +121,24 @@ export default function ConversionFunnelPanel({ startDate, endDate }: { startDat
                         <td className={`py-1.5 pl-2 text-right tabular-nums font-medium ${convTone(r.conversao)}`}>{pct(r.conversao)}</td>
                       </tr>
                       {isOpen && det.length > 0 && (
-                        <tr key={r.channel + "-det"} className="bg-slate-50/60">
-                          <td colSpan={5} className="px-2 py-2">
-                            <div className="rounded-lg border border-slate-100 bg-white divide-y divide-slate-50">
-                              {det.map((d, i) => (
-                                <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
-                                  <span className="text-slate-700 truncate">{d.nome || "— sem nome —"}</span>
-                                  <span className="flex items-center gap-2 shrink-0">
+                        <tr key={r.channel + "-det"} className="bg-slate-50/50">
+                          <td colSpan={5} className="p-0">
+                            <div className="mx-1.5 my-1.5 overflow-hidden rounded-lg border border-slate-200/70 bg-white">
+                              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-3 py-1.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Contatos · {ch(r.channel).label}</span>
+                                <span className="text-[10px] tabular-nums text-slate-400">{det.length}</span>
+                              </div>
+                              <ul className="max-h-64 divide-y divide-slate-50 overflow-auto">
+                                {det.map((d, i) => (
+                                  <li key={i} className="flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-slate-50">
+                                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${SDOT[d.status]}`} />
+                                    <span className="min-w-0 max-w-[48%] truncate text-slate-700">{d.nome || "— sem nome —"}</span>
                                     <a href={`https://wa.me/${(d.telefone || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                                      onClick={(e) => e.stopPropagation()} className="tabular-nums text-slate-500 hover:text-teal-600">{fone(d.telefone)}</a>
-                                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ST[d.status].cls}`}>{ST[d.status].label}</span>
-                                  </span>
-                                </div>
-                              ))}
+                                      onClick={(e) => e.stopPropagation()} className="shrink-0 tabular-nums text-xs text-slate-400 hover:text-teal-600">{fone(d.telefone)}</a>
+                                    <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${ST[d.status].cls}`}>{ST[d.status].label}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
                           </td>
                         </tr>
