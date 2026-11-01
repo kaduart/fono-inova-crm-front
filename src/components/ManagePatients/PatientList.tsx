@@ -213,7 +213,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
     const changeSort = (v: string) => { setSortBy(v); setPage(0); try { localStorage.setItem(SORT_KEY, v); } catch { /* ignore */ } };
     // Seleção em lote (TanStack Table): vale entre páginas e filtros, para montar uma lista de contato.
     const [picked, setPicked] = useState<Record<string, any>>({});
-    const rowId = (p: any) => String(p._id || p.patientId);
+    const rowId = (p: { _id?: string; patientId?: string }) => String(p._id || p.patientId);
     const rowSelection: RowSelectionState = Object.fromEntries(Object.keys(picked).map(k => [k, true]));
     const onRowSelectionChange = (u: Updater<RowSelectionState>) => {
         const next = typeof u === 'function' ? u(rowSelection) : u;
@@ -235,7 +235,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
         catch { toast.error('Não consegui copiar. Tente de novo.'); }
     };
     const downloadCsv = () => {
-        const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
         const rows = [['Nome', 'Telefone', 'E-mail', 'Tipo', 'Saldo devedor', 'Profissional'].map(esc).join(';'),
             ...pickedList.map(p => [p.fullName || p.name, formatPhone(p.phone) || '', p.email || '', typeOf(p).label,
                 debtOf(p).toFixed(2).replace('.', ','), p.doctorName || p.nextAppointment?.doctorName || p.lastAppointment?.doctorName || ''].map(esc).join(';'))];
@@ -282,7 +282,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
     useEffect(() => {
         let alive = true;
         const search = query ? { search: query } : {};
-        const count = async (key: TabType | 'debt', opts: Record<string, any>) => {
+        const count = async (key: TabType | 'debt', opts: Record<string, unknown>) => {
             try {
                 const r = await patientService.list({ limit: 1, ...opts, ...search });
                 if (alive) setCounts(c => ({ ...c, [key]: r.pagination?.total ?? 0 }));

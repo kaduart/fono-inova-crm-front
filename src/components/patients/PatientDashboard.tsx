@@ -88,7 +88,7 @@ export default function PatientDashboard() {
     time: '',
     reason: ''
   });
-  const [availableSlots, setAvailableSlots] = useState([]);
+  const [, setAvailableSlots] = useState([]);
   //const [appointments, setAppointments] = useState<ScheduleAppointment[]>([]);
   const [careTeam, setCareTeam] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
@@ -101,20 +101,13 @@ export default function PatientDashboard() {
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [liminarCreateTrigger, setLiminarCreateTrigger] = useState(0);
 
-  const [formData, setFormData] = useState({
-    patientId: '',
-    doctorId: '',
-    date: '',
-    time: '',
-    reason: '',
-    status: 'agendado'
-  });
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [, setMode] = useState<'create' | 'edit'>('create');
   const [patientAppointments, setPatientAppointments] = useState<IAppointment[]>([]);
-  const situation = usePatientSituation((patientInfo as any)?.patientId || patientId);
-  const nextSession = findNextSession(patientAppointments as any[], (patientInfo as any)?.nextAppointment);
+  const piLoose = patientInfo as unknown as { patientId?: string; nextAppointment?: Parameters<typeof findNextSession>[1] };
+  const situation = usePatientSituation(piLoose?.patientId || patientId);
+  const nextSession = findNextSession(patientAppointments as unknown as Parameters<typeof findNextSession>[0], piLoose?.nextAppointment);
 
   // 🎯 USA O CONTEXTO GLOBAL DE PACIENTES
   const { patients } = usePatients();
@@ -122,7 +115,6 @@ export default function PatientDashboard() {
   const {
     appointments,
     loading: appointmentsLoading,
-    fetchAppointments,
     fetchAppointmentsByPatient,
     createAppointment,
     getAvailableSlots,
@@ -511,7 +503,7 @@ export default function PatientDashboard() {
       style: 'currency', currency: 'BRL',
     });
     // Próxima sessão real (com horário e profissional) vinda da agenda do paciente.
-    const nextApt: any  = nextSession;
+    const nextApt       = nextSession;
     const nextAptDate   = nextApt?.date ? new Date(nextApt.date + 'T12:00:00') : null;
 
     return (
@@ -605,7 +597,7 @@ export default function PatientDashboard() {
                 {nextAptDate ? nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Sem agenda'}
               </p>
               <p className="mt-0.5 truncate text-2xs text-slate-500">
-                {nextAptDate ? [nextApt.time || 'Horário pendente', nextApt.serviceType === 'evaluation' ? 'Avaliação' : (nextApt.specialty || 'Sessão'), nextApt.doctorName].filter(Boolean).join(' · ') : 'Nenhuma sessão futura'}
+                {nextAptDate ? [nextApt?.time || 'Horário pendente', nextApt?.serviceType === 'evaluation' ? 'Avaliação' : (nextApt?.specialty || 'Sessão'), nextApt?.doctorName].filter(Boolean).join(' · ') : 'Nenhuma sessão futura'}
               </p>
             </div>
             <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Calendar size={18} /></div>
@@ -686,11 +678,11 @@ export default function PatientDashboard() {
                     <p className="text-3xs font-bold uppercase tracking-widest text-blue-400 mb-1">Próxima sessão</p>
                     <p className="text-sm font-bold text-blue-800">
                       {nextAptDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      {nextApt.time && ` às ${nextApt.time}`}
+                      {nextApt?.time && ` às ${nextApt?.time}`}
                     </p>
                     <p className="text-xs text-blue-600 mt-0.5">
-                      {nextApt.serviceType === 'evaluation' ? 'Avaliação' : nextApt.specialty || 'Sessão'}
-                      {nextApt.doctorName && ` · ${nextApt.doctorName}`}
+                      {nextApt?.serviceType === 'evaluation' ? 'Avaliação' : nextApt?.specialty || 'Sessão'}
+                      {nextApt?.doctorName && ` · ${nextApt?.doctorName}`}
                     </p>
                   </div>
                 ) : (
@@ -1074,7 +1066,7 @@ export default function PatientDashboard() {
             }
           }
         );
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error booking appointment:', error);
         toast.error('Erro ao criar agendamento. Tente novamente.');
       }
@@ -1149,8 +1141,8 @@ export default function PatientDashboard() {
         onClose={() => { setOpenSchedule(false); setScheduleError(null); }}
         onSave={handleNewAppointment}
         patients={patientInfo?._id ? [patientInfo, ...patients.filter((p) => p._id !== patientInfo._id)] : patients}
-        doctors={doctors as any}
-        initialData={{ patientId: patientInfo?._id || patientId || '', doctorId: '', date: toDateString(new Date()), time: '', sessionType: '', specialty: '', notes: '' } as any}
+        doctors={doctors as unknown as React.ComponentProps<typeof ScheduleAppointmentModal>['doctors']}
+        initialData={{ patientId: patientInfo?._id || patientId || '', doctorId: '', date: toDateString(new Date()), time: '', sessionType: '', specialty: '', notes: '' } as unknown as ScheduleAppointment}
         isLoading={scheduleSaving}
         erroMessage={scheduleError}
         closeModalSignal={closeScheduleSignal}

@@ -18,8 +18,9 @@ export default function DoctorViewPicker({ value, onChange, prominent = false }:
     useEffect(() => {
         let alive = true;
         doctorService.list({ status: 'active', limit: 200 })
-            .then((data: any) => {
-                const list: Doc[] = Array.isArray(data) ? data : data?.doctors || data?.items || [];
+            .then((data) => {
+                const d = data as unknown as Doc[] | { doctors?: Doc[] };
+                const list: Doc[] = Array.isArray(d) ? d : d?.doctors || [];
                 if (alive) setDocs(list.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '', 'pt-BR')));
             })
             .catch(() => alive && setError(true));

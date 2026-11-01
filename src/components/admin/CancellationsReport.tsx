@@ -21,7 +21,7 @@ function RemarcarButton({ it }: { it: CancellationDetailItem }) {
         const win = window.open('', WA_TAB);
         setBusy(true);
         try {
-            const p: any = await patientService.getById(it.patientId as string);
+            const p = (await patientService.getById(it.patientId as string)) as { fullName?: string; phone?: string } | null;
             const first = String(p?.fullName || it.patientName || '').split(' ')[0];
             const msg = `Olá${first ? `, ${first}` : ''}! Aqui é da Fono Inova. Vimos que a sessão de ${fmtDate(it.date)} foi cancelada. Quer remarcar? Temos horários amanhã à tarde ou na quinta de manhã. 💚`;
             const url = waLink(p?.phone, msg);

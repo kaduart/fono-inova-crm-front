@@ -1208,7 +1208,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de atendimento</label>
                   <select
                     value={commissionSessionFilters.origin}
-                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as any }))}
+                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as 'all' | 'particular' | 'convenio' | 'liminar' }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   >
                     <option value="all">Todos</option>
@@ -1278,7 +1278,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de atendimento</label>
                   <select
                     value={commissionSessionFilters.origin}
-                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as any }))}
+                    onChange={(e) => setCommissionSessionFilters(prev => ({ ...prev, origin: e.target.value as 'all' | 'particular' | 'convenio' | 'liminar' }))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   >
                     <option value="all">Todos</option>

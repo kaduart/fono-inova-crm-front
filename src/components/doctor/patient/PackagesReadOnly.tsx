@@ -3,22 +3,23 @@
 import { Package } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import packageService from '../../../services/packageService';
+import { toPackageList, type PackageLike } from '../../patients/PatientSituation';
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : 'Terapia');
 const STATUS: Record<string, string> = { active: 'Ativo', completed: 'Concluído', finished: 'Concluído', canceled: 'Cancelado', cancelled: 'Cancelado', pending: 'Aguardando', superseded: 'Substituído' };
 
 export default function PackagesReadOnly({ patientId }: { patientId?: string }) {
-    const [pkgs, setPkgs] = useState<any[] | null>(null);
+    const [pkgs, setPkgs] = useState<PackageLike[] | null>(null);
     const [error, setError] = useState(false);
 
     useEffect(() => {
         if (!patientId) return;
         let alive = true;
         setError(false);
-        packageService.listPackages({ page: 1, limit: 50, patientId } as any)
-            .then((raw: any) => {
-                const list = Array.isArray(raw) ? raw : raw?.packages || raw?.data?.packages || [];
-                if (alive) setPkgs(list.filter((p: any) => p && p.type !== 'liminar'));
+        packageService.listPackages({ page: 1, limit: 50, patientId })
+            .then((raw) => {
+                const list = toPackageList(raw as Parameters<typeof toPackageList>[0]);
+                if (alive) setPkgs(list.filter((p) => p.type !== 'liminar'));
             })
             .catch(() => alive && setError(true));
         return () => { alive = false; };
@@ -43,7 +44,7 @@ export default function PackagesReadOnly({ patientId }: { patientId?: string }) 
                                 <Package className="h-4 w-4 text-emerald-600" aria-hidden />
                                 Pacote de {cap(p.specialty || p.sessionType)}
                             </p>
-                            <span className="text-xs text-gray-500">{STATUS[p.status] || p.status}</span>
+                            <span className="text-xs text-gray-500">{STATUS[p.status || ''] || p.status}</span>
                         </div>
                         {total > 0 && (
                             <>

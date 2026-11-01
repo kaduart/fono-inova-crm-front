@@ -53,10 +53,32 @@ function initials(name?: string) {
 // Dados
 // ─────────────────────────────────────────────────────────────
 
+export interface PackageLike {
+  _id: string; status?: string; type?: string; totalSessions?: number; sessionsDone?: number;
+  remaining?: number; specialty?: string; sessionType?: string;
+}
+type PackageListResponse = PackageLike[] | { packages?: PackageLike[]; data?: { packages?: PackageLike[] } } | null | undefined;
+export const toPackageList = (raw: PackageListResponse): PackageLike[] =>
+  (Array.isArray(raw) ? raw : raw?.packages || raw?.data?.packages || []).filter(Boolean);
+
+interface AppointmentLike {
+  date?: string; time?: string; operationalStatus?: string; doctorName?: string;
+  doctor?: { fullName?: string; name?: string; specialty?: string };
+  specialty?: string; sessionType?: string; serviceType?: string;
+}
+type Money = number | undefined;
+export interface PatientLike {
+  fullName?: string; phone?: string; dateOfBirth?: string; legalGuardian?: string; guardianName?: string;
+  responsible?: { name?: string }; healthPlan?: { name?: string }; tags?: string[];
+  totalPendingParticular?: Money; convenioPendingAwaitingBilling?: Money; convenioPendingBilled?: Money; netAvailableCredit?: Money;
+  stats?: { totalPendingParticularNet?: Money; totalPendingConvenioAwaitingBilling?: Money; totalPendingConvenioBilled?: Money; netAvailableCredit?: Money };
+}
+type AlertMeta = { remainingDays?: number; remainingSessions?: number };
+
 export interface SituationData {
   guides: InsuranceGuide[];
   contracts: LiminarContract[];
-  packages: any[];
+  packages: PackageLike[];
   loaded: boolean;
 }
 
@@ -69,17 +91,14 @@ export function usePatientSituation(patientId?: string): SituationData {
     const [g, c, p] = await Promise.allSettled([
       getGuides(patientId),
       liminarContractService.list(patientId),
-      packageService.listPackages({ page: 1, limit: 50, patientId } as any),
+      packageService.listPackages({ page: 1, limit: 50, patientId }),
     ]);
-    const pkgRaw: any = p.status === 'fulfilled' ? p.value : null;
-    const pkgs = Array.isArray(pkgRaw) ? pkgRaw
-      : Array.isArray(pkgRaw?.packages) ? pkgRaw.packages
-        : pkgRaw?.data?.packages || [];
+    const pkgs = toPackageList(p.status === 'fulfilled' ? (p.value as PackageListResponse) : null);
     setData({
       guides: g.status === 'fulfilled' ? g.value : [],
       contracts: c.status === 'fulfilled' ? c.value : [],
       // Pacote liminar é legado (migrado para LiminarContract): fica fora.
-      packages: (pkgs || []).filter((pkg: any) => pkg && pkg.type !== 'liminar'),
+      packages: pkgs.filter((pkg) => pkg.type !== 'liminar'),
       loaded: true,
     });
   }, [patientId]);
@@ -101,11 +120,11 @@ export function usePatientSituation(patientId?: string): SituationData {
 }
 
 /** Próxima sessão real: a lista de agendamentos tem horário e profissional. */
-export function findNextSession(appointments: any[], fallback?: any) {
+export function findNextSession(appointments: AppointmentLike[], fallback?: AppointmentLike) {
   const now = new Date();
   const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const future = (appointments || [])
-    .filter((a) => a?.date && !CANCELED.has(a.operationalStatus))
+    .filter((a) => a?.date && !CANCELED.has(a.operationalStatus || ''))
     .map((a) => ({ a, key: `${String(a.date).slice(0, 10)} ${a.time || '23:59'}` }))
     .filter(({ key }) => key >= nowKey)
     .sort((x, y) => x.key.localeCompare(y.key));
@@ -147,7 +166,7 @@ function formatNext(n: ReturnType<typeof findNextSession>) {
 // ─────────────────────────────────────────────────────────────
 
 interface StripProps {
-  patient: any;
+  patient: PatientLike | null | undefined;
   situation: SituationData;
   nextSession: ReturnType<typeof findNextSession>;
   onReceive: () => void;
@@ -306,7 +325,7 @@ interface ActionsProps extends StripProps {
   totalAppointments: number;
 }
 
-const GUIDE_ALERT_TEXT: Record<string, (m: any) => string> = {
+const GUIDE_ALERT_TEXT: Record<string, (m: AlertMeta) => string> = {
   EXPIRED: () => 'venceu',
   EXPIRING_SOON: (m) => (m?.remainingDays != null ? `vence em ${m.remainingDays} dias` : 'vence em breve'),
   AUTHORIZATION_EXPIRED: () => 'autorização vencida',
@@ -347,7 +366,7 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
       const alerts = g.lifecycle?.alerts || [];
       const top = alerts.find((a) => a.severity === 'error') || alerts.find((a) => a.severity === 'warning');
       if (!top || !GUIDE_ALERT_TEXT[top.code]) return;
-      const meta: any = { ...(top.metadata || {}) };
+      const meta: AlertMeta = { ...((top.metadata || {}) as AlertMeta) };
       if (meta.remainingDays == null) { const d = daysUntil(g.expiresAt); if (d !== null && d >= 0) meta.remainingDays = d; }
       if (meta.remainingSessions == null && typeof g.remaining === 'number') meta.remainingSessions = g.remaining;
       out.push({
@@ -393,7 +412,7 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
     .forEach((pkg) => {
       const remaining = typeof pkg.remaining === 'number' ? pkg.remaining
         : (pkg.totalSessions ?? 0) - (pkg.sessionsDone ?? 0);
-      if (pkg.totalSessions > 0 && remaining <= 2) {
+      if ((pkg.totalSessions ?? 0) > 0 && remaining <= 2) {
         out.push({
           id: `pkg-${pkg._id}`, severity: 'medium', icon: <Package size={16} />,
           title: remaining <= 0 ? `Pacote de ${cap(pkg.specialty || pkg.sessionType) || 'terapia'} terminou` : `Pacote de ${cap(pkg.specialty || pkg.sessionType) || 'terapia'}: ${remaining === 1 ? 'resta 1 sessão' : `restam ${remaining} sessões`}`,
