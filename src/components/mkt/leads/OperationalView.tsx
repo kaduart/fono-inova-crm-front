@@ -3,7 +3,7 @@ import CommercialQuickReplies from './CommercialQuickReplies';
 import { Calendar, ChevronRight, MessageCircle, Plus, X } from 'lucide-react';
 import React, { useState } from 'react';
 import Skeleton from '../../ui/Skeleton';
-import { leadNextStep, leadSpecialty, waLink, WA_TAB } from '../../commercial/commercialCopy';
+import { leadFocus, leadNextStep, leadSpecialty, waLink, WA_TAB } from '../../commercial/commercialCopy';
 import LeadOriginChip from './LeadOriginChip';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { LeadsBoard, LeadSheet, type BoardLeadView } from './LeadsBoard';
@@ -374,7 +374,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
   const toView = (lead: any): BoardLeadView => {
     const op = normalizeLeadOperational(lead);
     const overdueDays = op.nextActionAt ? Math.floor((Date.now() - op.nextActionAt.getTime()) / 86_400_000) : 0;
-    const next = leadNextStep({ name: lead.name, reason: op.followupReason, pipeline: op.pipeline, overdueDays, specialty: leadSpecialty(lead) });
+    const next = leadNextStep({ name: lead.name, reason: op.followupReason, pipeline: op.pipeline, overdueDays, specialty: leadSpecialty(lead), focus: leadFocus(lead) });
     return {
       lead, phone: op.phone, pipeline: op.pipeline, badge: urgencyBadge(lead), nextText: next.text,
       waHref: op.phone ? (waLink(op.phone, next.message) || `https://wa.me/${op.phone.replace(/\D/g, '')}`) : null,
@@ -580,7 +580,7 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
                     : op.nextActionNote;
                   const urgency = classifyLead(lead);
                   const overdueDays = op.nextActionAt ? Math.floor((Date.now() - op.nextActionAt.getTime()) / 86_400_000) : 0;
-                  const next = leadNextStep({ name: lead.name, reason: op.followupReason, pipeline: op.pipeline, overdueDays, specialty: leadSpecialty(lead) });
+                  const next = leadNextStep({ name: lead.name, reason: op.followupReason, pipeline: op.pipeline, overdueDays, specialty: leadSpecialty(lead), focus: leadFocus(lead) });
 
                   return (
                     <tr
