@@ -48,7 +48,7 @@ export function statusChip(apt: any) {
 
 export function billingChip(apt: any) {
     const type = apt.billingType || (apt.liminarContract ? 'liminar' : apt.insuranceProvider ? 'convenio' : 'particular');
-    if (type === 'liminar') return <Chip tone="pur">Liminar</Chip>;
+    if (type === 'liminar') return <Chip tone="lim">Liminar</Chip>;
     if (type === 'convenio') return <Chip tone="info">Convênio{apt.insuranceProvider ? ` · ${apt.insuranceProvider}` : ''}</Chip>;
     if (apt.package) {
         const pk = typeof apt.package === 'object' ? apt.package : null;

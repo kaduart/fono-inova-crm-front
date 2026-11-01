@@ -2199,7 +2199,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </h1>
                         {currentViewDate && (
                             <p className="mt-0.5 text-sm text-gray-600">
-                                Visualizando: {currentViewDate}
+                                Visualizando: {/^\d{4}-\d{2}$/.test(currentViewDate) ? new Date(Number(currentViewDate.slice(0, 4)), Number(currentViewDate.slice(5, 7)) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : currentViewDate}
                             </p>
                         )}
                     </div>

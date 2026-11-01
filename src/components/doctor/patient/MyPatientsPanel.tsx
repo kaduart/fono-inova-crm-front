@@ -38,6 +38,7 @@ const chipTone = {
     warn: 'border-amber-200 bg-amber-50 text-amber-800',
     info: 'border-blue-200 bg-blue-50 text-blue-800',
     pur: 'border-purple-200 bg-purple-50 text-purple-800',
+    lim: 'border-orange-300 bg-orange-100 text-orange-800',
     neu: 'border-gray-300 bg-gray-50 text-gray-700',
 };
 export const Chip = ({ tone, children }: { tone: keyof typeof chipTone; children: React.ReactNode }) => (
@@ -85,7 +86,7 @@ export function nextLabel(apt?: { date: string; time?: string } | null) {
 }
 
 export function billingChip(p: Patient) {
-    if (p.billingType === 'liminar' || p.hasLiminar) return <Chip tone="pur">Liminar</Chip>;
+    if (p.billingType === 'liminar' || p.hasLiminar) return <Chip tone="lim">Liminar</Chip>;
     if (p.billingType === 'convenio') return <Chip tone="info">{p.insuranceProvider || 'Convênio'}</Chip>;
     if (p.billingType === 'particular') return <Chip tone="neu">Particular</Chip>;
     return p.insuranceProvider ? <Chip tone="info">{p.insuranceProvider}</Chip> : null;
