@@ -5,7 +5,7 @@
 // - Guias, contratos de liminar e pacotes são lidos das rotas v2 já usadas
 //   pelas abas; os alertas de guia vêm do lifecycle calculado pelo back.
 import {
-  AlertTriangle, ArrowRight, CalendarClock, CalendarPlus, CheckCircle2, Copy,
+  AlertTriangle, ArrowRight, Check, MessageCircle, CalendarClock, CalendarPlus, CheckCircle2, Copy,
   CreditCard, FileWarning, Gavel, Package, Phone, ReceiptText, UserRound, Wallet,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -16,6 +16,11 @@ import packageService from '../../services/packageService';
 import { subscribeToCacheInvalidation } from '../../utils/cacheManager';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import AnimatedValue from '../ui/insight/AnimatedValue';
+import { SidePanel } from '../commercial/CommercialParts';
+import {
+  collectMessage, confirmationNudgeMessage, genericWhen, openWhatsApp, reactivationMessage, renewalMessage, rescheduleMessage, waLink, firstName, specialtyText,
+} from '../commercial/commercialCopy';
+import { commercialService, type ContactKind } from '../../services/commercialService';
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : '');
@@ -62,7 +67,7 @@ export const toPackageList = (raw: PackageListResponse): PackageLike[] =>
   (Array.isArray(raw) ? raw : raw?.packages || raw?.data?.packages || []).filter(Boolean);
 
 interface AppointmentLike {
-  date?: string; time?: string; operationalStatus?: string; doctorName?: string;
+  date?: string; time?: string; operationalStatus?: string; status?: string; doctorName?: string;
   doctor?: { fullName?: string; name?: string; specialty?: string };
   specialty?: string; sessionType?: string; serviceType?: string;
 }
@@ -319,11 +324,24 @@ interface NextAction {
   detail?: string;
   cta: string;
   onClick: () => void;
+  /** Mensagem pronta para a família (valor antes do preço, horário genérico, 1 💚). */
+  wa?: { message: string; kind?: ContactKind; why: string };
 }
 
 interface ActionsProps extends StripProps {
   totalAppointments: number;
+  patientId?: string;
+  appointments?: AppointmentLike[];
 }
+
+const guideMessage = (name: string | undefined, specialty: string | undefined, what: string) => {
+  const n = firstName(name);
+  return `Oi! Aqui é da Clínica Fono Inova. A guia de ${specialtyText(specialty) || 'terapia'}${n ? ` de ${n}` : ''} ${what}. Para as sessões não pararem, peça ao convênio a nova autorização. Se precisar, a terapeuta faz o relatório para acompanhar o pedido. 💚`;
+};
+const liminarMessage = (name: string | undefined) => {
+  const n = firstName(name);
+  return `Oi! Aqui é da Clínica Fono Inova. O saldo da liminar${n ? ` de ${n}` : ''} está chegando ao fim. Vale avisar o advogado para pedir a recarga e o tratamento seguir sem pausa. 💚`;
+};
 
 const GUIDE_ALERT_TEXT: Record<string, (m: AlertMeta) => string> = {
   EXPIRED: () => 'venceu',
@@ -340,6 +358,17 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
   const particular = pi.stats?.totalPendingParticularNet ?? pi.totalPendingParticular ?? 0;
   const convAwaiting = pi.stats?.totalPendingConvenioAwaitingBilling ?? pi.convenioPendingAwaitingBilling ?? 0;
   const credit = pi.netAvailableCredit ?? pi.stats?.netAvailableCredit ?? 0;
+  const appts = p.appointments || [];
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const pastSorted = appts
+    .filter((a) => (a.date || '').slice(0, 10) <= todayYmd)
+    .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+  const lastSpecialty = pastSorted[0]?.specialty || pastSorted[0]?.sessionType;
+  const lastPast = pastSorted.find((a) => !CANCELED.has(a.operationalStatus || a.status || ''));
+  const lastStatus = lastPast?.operationalStatus || lastPast?.status;
+  const missDays = lastPast ? -(daysUntil(lastPast.date) ?? 0) : null;
+  const recentMiss = lastPast && (lastStatus === 'missed' || lastStatus === 'faltou') && missDays !== null && missDays <= 14
+    ? { days: missDays, specialty: lastPast.specialty || lastPast.sessionType } : null;
 
   if (particular > 0) {
     out.push({
@@ -347,6 +376,7 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
       title: `Receber ${brl(particular)} da família`,
       detail: 'Sessões particulares em aberto. Confira antes da próxima sessão.',
       cta: 'Receber', onClick: p.onReceive,
+      wa: { message: collectMessage({ name: pi.fullName, total: particular }), why: 'Cobrança gentil com a chave Pix.' },
     });
   }
 
@@ -356,6 +386,33 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
       title: p.totalAppointments > 0 ? 'Sem próxima sessão agendada' : 'Paciente ainda sem agendamento',
       detail: p.totalAppointments > 0 ? 'Risco de abandono: retomar contato e reagendar.' : 'Marcar a avaliação inicial.',
       cta: 'Agendar', onClick: p.onSchedule,
+      wa: p.totalAppointments > 0 ? { message: reactivationMessage({ name: pi.fullName, specialty: lastSpecialty }), kind: 'reactivation', why: 'Retomar antes que o paciente se desligue.' } : undefined,
+    });
+  } else {
+    // Próxima sessão em até 2 dias e ainda não confirmada: lembrar a família.
+    const dn = daysUntil(p.nextSession.date);
+    const nextRaw = (p.appointments || []).find((a) => a.date?.slice(0, 10) === p.nextSession?.date && a.time === p.nextSession?.time);
+    const st = nextRaw?.operationalStatus || nextRaw?.status;
+    if (dn !== null && dn >= 0 && dn <= 2 && st && st !== 'confirmed') {
+      out.push({
+        id: 'confirmar', severity: 'info', icon: <CalendarClock size={16} />,
+        title: `Confirmar a sessão de ${dn === 0 ? 'hoje' : dn === 1 ? 'amanhã' : 'depois de amanhã'}${p.nextSession.time ? ` às ${p.nextSession.time}` : ''}`,
+        detail: 'Ainda não confirmada. Confirmar evita horário vazio.',
+        cta: 'Agendar', onClick: p.onSchedule,
+        wa: { message: confirmationNudgeMessage({ name: pi.fullName, when: genericWhen(p.nextSession.date as string, p.nextSession.time || '') }), why: 'Lembrete com horário genérico, como manda a regra.' },
+      });
+    }
+  }
+
+  // Falta recente sem remarcação: oferecer novo horário.
+  const missed = recentMiss;
+  if (missed) {
+    out.push({
+      id: 'falta', severity: 'medium', icon: <CalendarClock size={16} />,
+      title: `Faltou ${missed.days === 0 ? 'hoje' : missed.days === 1 ? 'ontem' : `há ${missed.days} dias`}${missed.specialty ? ` em ${cap(missed.specialty)}` : ''}`,
+      detail: 'Oferecer remarcação para não perder a sequência.',
+      cta: 'Agendar', onClick: p.onSchedule,
+      wa: { message: rescheduleMessage({ name: pi.fullName, specialty: missed.specialty }), why: 'Remarcar com horário genérico.' },
     });
   }
 
@@ -374,6 +431,7 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
         title: `Guia ${g.number || ''} de ${cap(g.specialty)}: ${GUIDE_ALERT_TEXT[top.code](meta)}`.replace('Guia  ', 'Guia '),
         detail: `${p.patient?.healthPlan?.name || cap(g.insurance) || 'Convênio'} · pedir nova guia ao convênio antes de travar a agenda.`,
         cta: 'Ver guias', onClick: () => p.onGoTab('Insurance Guides'),
+        wa: { message: guideMessage(pi.fullName, g.specialty, GUIDE_ALERT_TEXT[top.code](meta)), why: 'A família pede a nova guia ao convênio.' },
       });
     });
 
@@ -395,6 +453,7 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
         title: `Saldo da liminar baixo: ${brl(c.creditBalance)} de ${brl(c.totalCredit)}`,
         detail: 'Avisar a família e o advogado para pedir recarga.',
         cta: 'Ver liminar', onClick: () => p.onGoTab('Liminar'),
+        wa: { message: liminarMessage(pi.fullName), why: 'A família aciona o advogado.' },
       });
     }
     if (days !== null && days <= 30) {
@@ -418,6 +477,7 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
           title: remaining <= 0 ? `Pacote de ${cap(pkg.specialty || pkg.sessionType) || 'terapia'} terminou` : `Pacote de ${cap(pkg.specialty || pkg.sessionType) || 'terapia'}: ${remaining === 1 ? 'resta 1 sessão' : `restam ${remaining} sessões`}`,
           detail: 'Oferecer renovação antes de acabar.',
           cta: 'Ver pacotes', onClick: () => p.onGoTab('Management Packages'),
+          wa: { message: renewalMessage({ name: pi.fullName, specialty: pkg.specialty || pkg.sessionType, remaining }), kind: 'renewal', why: 'Valor antes do preço: R$ 180 por sessão no pacote semanal.' },
         });
       }
     });
@@ -445,67 +505,130 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
 }
 
 const SEV: Record<Severity, { dot: string; icon: string; label: string }> = {
-  high: { dot: 'bg-red-500', icon: 'bg-red-50 text-red-600', label: 'Urgente' },
-  medium: { dot: 'bg-amber-500', icon: 'bg-amber-50 text-amber-600', label: 'Atenção' },
-  info: { dot: 'bg-blue-500', icon: 'bg-blue-50 text-blue-600', label: 'Acompanhar' },
-  good: { dot: 'bg-emerald-500', icon: 'bg-emerald-50 text-emerald-600', label: 'Oportunidade' },
+  high: { dot: 'bg-red-500', icon: 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300', label: 'Urgente' },
+  medium: { dot: 'bg-amber-500', icon: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', label: 'Atenção' },
+  info: { dot: 'bg-blue-500', icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300', label: 'Acompanhar' },
+  good: { dot: 'bg-emerald-500', icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300', label: 'Oportunidade' },
 };
+
+/** Painel lateral (mesmo do Dashboard admin): mensagem pronta editável, WhatsApp e "Contatado". */
+function ContactPanel({ action, patient, patientId, onClose }: { action: NextAction; patient: PatientLike | null | undefined; patientId?: string; onClose: () => void }) {
+  const [msg, setMsg] = useState(action.wa?.message || '');
+  const [state, setState] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle');
+  const phone = patient?.phone;
+  const hasPhone = !!waLink(phone);
+  const kind = action.wa?.kind;
+  const register = async () => {
+    if (!patientId || !kind) return;
+    setState('saving');
+    try {
+      await commercialService.registerContact({ targetType: 'patient', targetId: patientId, kind });
+      setState('ok');
+    } catch (e) {
+      console.error('[paciente] falha ao registrar contato', e);
+      setState('err');
+    }
+  };
+  return (
+    <SidePanel kicker="Precisa de você" title={action.title} subtitle={action.detail} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
+          <p className="font-semibold text-slate-900 dark:text-slate-100">{patient?.fullName || 'Paciente'}</p>
+          <p className="text-slate-600 dark:text-slate-400">{phone || 'Sem telefone no cadastro'}{(patient?.legalGuardian || patient?.guardianName || patient?.responsible?.name) ? ` · resp. ${patient?.legalGuardian || patient?.guardianName || patient?.responsible?.name}` : ''}</p>
+        </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Mensagem pronta</span>
+          <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={7}
+            className="w-full rounded-lg border border-slate-200 bg-white p-3 text-sm leading-relaxed text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
+          {action.wa?.why && <span className="text-xs text-slate-500 dark:text-slate-400">{action.wa.why} Dá para ajustar o texto antes de enviar.</span>}
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => openWhatsApp(phone, msg)} disabled={!hasPhone}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700">
+            <MessageCircle size={15} aria-hidden /> {hasPhone ? 'Abrir WhatsApp' : 'Sem telefone'}
+          </button>
+          {kind && patientId && (state === 'ok' ? (
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={15} aria-hidden /> Contato registrado</span>
+          ) : (
+            <button type="button" onClick={register} disabled={state === 'saving'}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+              <Check size={15} aria-hidden /> {state === 'saving' ? 'Salvando…' : 'Contatado'}
+            </button>
+          ))}
+          <button type="button" onClick={() => { onClose(); action.onClick(); }}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+            {action.cta} <ArrowRight size={13} aria-hidden />
+          </button>
+        </div>
+        {state === 'err' && <p className="text-xs text-red-600 dark:text-red-400">Não salvou o contato. Tente de novo.</p>}
+        {kind && <p className="text-xs text-slate-500 dark:text-slate-400">"Contatado" registra o contato e tira o paciente da fila do Dashboard por alguns dias.</p>}
+      </div>
+    </SidePanel>
+  );
+}
 
 export function PatientNextActions(props: ActionsProps) {
   const actions = useMemo(() => buildNextActions(props), [props]);
   const [showAll, setShowAll] = useState(false);
+  const [panel, setPanel] = useState<NextAction | null>(null);
   const [listRef] = useAutoAnimate<HTMLUListElement>();
   const visible = showAll ? actions : actions.slice(0, 4);
   const urgent = actions.filter((a) => a.severity === 'high').length;
 
   return (
-    <section aria-label="Próximas ações" className="mb-5 text-left overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+    <section aria-label="Precisa de você" className="mb-5 overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="rounded-lg bg-slate-900 p-1.5 text-white"><AlertTriangle size={15} /></div>
+          <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" aria-hidden />
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Próximas ações</h2>
-            <p className="text-2xs text-slate-500">
-              {!props.situation.loaded ? 'Analisando guias, liminar e pacotes…'
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">Precisa de você</h2>
+            <p className="text-2xs text-slate-500 dark:text-slate-400">
+              {!props.situation.loaded ? 'Analisando guias, liminar, pacotes e agenda…'
                 : actions.length === 0 ? 'Nada pendente para este paciente'
-                  : `${actions.length} ${actions.length === 1 ? 'item' : 'itens'}${urgent ? ` · ${urgent} urgente${urgent > 1 ? 's' : ''}` : ''}`}
+                  : `${actions.length} ${actions.length === 1 ? 'item' : 'itens'}${urgent ? ` · ${urgent} urgente${urgent > 1 ? 's' : ''}` : ''} · o botão verde abre a mensagem pronta`}
             </p>
           </div>
         </div>
       </header>
       {actions.length === 0 ? (
-        <div className="flex items-center gap-3 px-5 py-4 text-sm text-emerald-700">
+        <div className="flex items-center gap-3 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 size={18} /> Tudo em dia: sem débito, com sessão agendada e coberturas válidas.
         </div>
       ) : (
-        <ul ref={listRef} className="divide-y divide-slate-100">
+        <ul ref={listRef} className="divide-y divide-slate-100 dark:divide-slate-800">
           {visible.map((a) => (
-            <li key={a.id} className="flex items-center gap-3 px-5 py-3">
+            <li key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
               <div className={`shrink-0 rounded-lg p-2 ${SEV[a.severity].icon}`}>{a.icon}</div>
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <p className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${SEV[a.severity].dot}`} aria-hidden />
                   <span className="sr-only">{SEV[a.severity].label}: </span>
                   <span className="min-w-0">{a.title}</span>
                 </p>
-                {a.detail && <p className="mt-0.5 text-xs text-slate-500">{a.detail}</p>}
+                {a.detail && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{a.detail}</p>}
               </div>
-              <button
-                type="button"
-                onClick={a.onClick}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
-              >
-                {a.cta} <ArrowRight size={12} />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {a.wa && (
+                  <button type="button" onClick={() => setPanel(a)} title="Mensagem pronta para a família"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+                    <MessageCircle size={13} aria-hidden /> WhatsApp
+                  </button>
+                )}
+                <button type="button" onClick={a.onClick}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                  {a.cta} <ArrowRight size={12} />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
       )}
       {actions.length > 4 && (
-        <button type="button" onClick={() => setShowAll((v) => !v)} className="w-full border-t border-slate-100 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+        <button type="button" onClick={() => setShowAll((v) => !v)} className="w-full border-t border-slate-100 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800">
           {showAll ? 'Mostrar menos' : `Ver mais ${actions.length - 4}`}
         </button>
       )}
+      {panel && <ContactPanel action={panel} patient={props.patient} patientId={props.patientId} onClose={() => setPanel(null)} />}
     </section>
   );
 }

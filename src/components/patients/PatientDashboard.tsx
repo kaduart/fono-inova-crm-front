@@ -1,4 +1,4 @@
-import { Activity, Calendar, ChevronDown, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, Clock, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -28,6 +28,7 @@ import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
 import AnimatedValue from '../ui/insight/AnimatedValue';
 import { PatientNextActions, PatientSituationStrip, findNextSession, usePatientSituation } from './PatientSituation';
+import PatientInsights, { FoldSection } from './PatientInsights';
 import LiminarContractPanel from '../liminar/LiminarContractPanel';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { socketManager } from '../../utils/socketManager';
@@ -513,10 +514,14 @@ export default function PatientDashboard() {
         situation={situation}
         nextSession={nextSession}
         totalAppointments={totalApts}
+        patientId={piLoose?.patientId || patientId}
+        appointments={allAppointmentsById as unknown as React.ComponentProps<typeof PatientNextActions>['appointments']}
         onReceive={() => setShowBalanceModal(true)}
         onSchedule={() => setOpenSchedule(true)}
         onGoTab={setActiveTab}
       />
+
+      <PatientInsights appointments={allAppointmentsById} />
 
       {/* ── KPI strip ── */}
       <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3 sm:auto-rows-fr mb-5">
@@ -605,7 +610,9 @@ export default function PatientDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 mb-8">
+      <FoldSection icon={<Clock size={16} />} title="Hoje e atividades recentes"
+        meta={`${todaysAppointments?.length || 0} ${todaysAppointments?.length === 1 ? 'agendamento' : 'agendamentos'} hoje · ${recentActivities.length} ${recentActivities.length === 1 ? 'atividade recente' : 'atividades recentes'}`}>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         {/* Card Agendamentos para Hoje */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -788,14 +795,21 @@ export default function PatientDashboard() {
         </div>
       </div>
 
+      </FoldSection>
+
       {/* Tabela de todos os atendimentos com filtros por mês/dia */}
       <div className="mb-8">
         <PatientAppointmentsTable appointments={allAppointmentsById} patientId={patientId} onMoved={loadAllAppointments} />
       </div>
 
       {/* O restante do conteúdo permanece igual */}
-      {patientInfo?._id && <FutureSessionsCard patientId={patientInfo._id} />}
-      <div className="grid grid-cols-1 md:grid-cols-1 mb-5 gap-6">
+      {patientInfo?._id && (
+        <FoldSection icon={<Calendar size={16} />} title="Sessões futuras pagas" meta="Sessões adquiridas antecipadamente">
+          <FutureSessionsCard patientId={patientInfo._id} />
+        </FoldSection>
+      )}
+      <FoldSection icon={<FileText size={16} />} title="Avaliações" meta={`${evaluations.length} ${evaluations.length === 1 ? 'avaliação registrada' : 'avaliações registradas'}`}>
+      <div className="grid grid-cols-1 gap-6">
         <PatientAvailablesCard
           doctors={doctors}
           evaluations={evaluations}
@@ -806,6 +820,7 @@ export default function PatientDashboard() {
           onDelete={handleDelete}
         />
       </div>
+      </FoldSection>
 
       {prescriptions.length > 0 && <Card>
         <CardHeader icon={FileText}>
