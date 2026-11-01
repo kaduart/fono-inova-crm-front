@@ -1874,23 +1874,28 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           </Box>
         ) : (
           <>
-            {/* Resumo rápido */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mb: 2.5 }}>
-              {[
-                { label: 'Realizados', value: completedCount, color: '#2E7A5E', bg: '#EFF9F6' },
-                { label: 'Agendados',  value: scheduledCount, color: '#1B4D6E', bg: '#EEF4FB' },
-                { label: 'Cancelados', value: canceledCount,  color: '#C75146', bg: '#FDECEA' },
-              ].map(item => (
-                <Box key={item.label} sx={{ bgcolor: item.bg, borderRadius: '14px', py: 1.5, px: 1, textAlign: 'center' }}>
-                  <Typography sx={{ fontWeight: 700, fontSize: '1.35rem', color: item.color, lineHeight: 1.15 }}>
-                    {item.value}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.68rem', color: item.color, fontWeight: 600, opacity: 0.75, mt: 0.2, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                    {item.label}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+            {/* Resumo rápido: o mesmo vocabulário do card (autorizadas, realizadas, agendadas, restam) */}
+            {(() => {
+              const authorized = Number(guide.totalSessions) || 0;
+              const usedInGuide = Number(guide.usedSessions ?? completedCount) || 0;
+              const left = guide.remaining ?? Math.max(authorized - usedInGuide, 0);
+              const items = [
+                { label: 'Realizados', value: completedCount, c: 'text-emerald-700 dark:text-emerald-300' },
+                { label: 'Agendados', value: scheduledCount, c: 'text-blue-700 dark:text-blue-300' },
+                { label: 'Cancelados', value: canceledCount, c: 'text-red-600 dark:text-red-400' },
+                ...(authorized > 0 ? [{ label: 'Restam na guia', value: left, c: left <= 2 ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-slate-100' }] : []),
+              ];
+              return (
+                <dl className={`mb-5 grid gap-2 text-left ${items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+                  {items.map(item => (
+                    <div key={item.label} className="rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800/60">
+                      <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{item.label}</dt>
+                      <dd className={`mt-0.5 text-xl font-semibold tabular-nums ${item.c}`}><AnimatedValue value={Number(item.value) || 0} /></dd>
+                    </div>
+                  ))}
+                </dl>
+              );
+            })()}
 
             {modalPlanLoading && (
               <Box sx={{ mb: 2.5 }}>

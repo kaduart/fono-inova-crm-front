@@ -180,6 +180,22 @@ export default function ContractCard({ data, onRefresh }: Props) {
   const statusLabel = contract.status === 'active' ? 'Ativo'
     : contract.status === 'exhausted' ? 'Esgotado' : 'Cancelado';
 
+  // Esc fecha o modal do topo (o de edição de agendamento cuida do próprio Esc).
+  useEffect(() => {
+    const anyOpen = showRecharge || confirm.open || editTherapyModal.open || specialtyModal.open || menuOpen;
+    if (!anyOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || editingAppointment) return;
+      if (menuOpen) setMenuOpen(false);
+      else if (editTherapyModal.open) { if (!savingTherapy) setEditTherapyModal(p => ({ ...p, open: false })); }
+      else if (confirm.open) { if (!generating) setConfirm({ open: false }); }
+      else if (showRecharge) { if (!rechargingLoading) setShowRecharge(false); }
+      else if (specialtyModal.open) setSpecialtyModal(p => ({ ...p, open: false }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showRecharge, confirm.open, editTherapyModal.open, specialtyModal.open, menuOpen, editingAppointment, savingTherapy, generating, rechargingLoading]);
+
   async function openConfirm(weeks: number) {
     if (!plan) return;
     const allSpecialties: SpecialtyMeta[] = Object.entries(plan.therapies ?? {}).map(([key, cfg]: [string, any]) => ({
@@ -778,8 +794,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                   <button
                     onClick={() => openConfirm(generateWeeks)}
                     disabled={generating}
-                    className="flex-1 py-2 text-xs font-semibold rounded-xl text-white transition-all disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg, #1B4D6E 0%, #2563EB 100%)' }}
+                    className="flex-1 rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                   >
                     {generating ? '...' : <><Zap className="w-3 h-3 inline mr-1" />Gerar sessões</>}
                   </button>
@@ -800,7 +815,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
       {/* ── Modal: Adicionar Crédito ── */}
       {showRecharge && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div role="dialog" aria-modal="true" aria-label="Adicionar crédito" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-slate-800">Adicionar crédito</h3>
               <button onClick={() => setShowRecharge(false)} className="text-slate-400 hover:text-slate-600">
@@ -848,7 +863,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
 
         return (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 text-left">
+            <div role="dialog" aria-modal="true" aria-label="Gerar sessões do contrato" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 text-left">
               <div className="flex items-center gap-3 mb-4 text-left">
                 <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-indigo-600" />
@@ -1007,7 +1022,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
       {/* ── Modal: Editar Terapia ── */}
       {editTherapyModal.open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh] animate-fade-in">
+          <div role="dialog" aria-modal="true" aria-label="Editar terapia" className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh] animate-fade-in text-left">
             {/* Cabeçalho com gradiente, igual SessionModal */}
             <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative flex-shrink-0">
               <button
@@ -1197,11 +1212,18 @@ export default function ContractCard({ data, onRefresh }: Props) {
         }));
 
         return (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 sm:p-4">
-            <div className="bg-white sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto max-w-full sm:max-w-[min(1000px,94vw)] max-h-[100dvh] sm:max-h-[min(90vh,920px)] flex flex-col">
-              <div className="flex items-start sm:items-center justify-between gap-3 p-5 border-b border-slate-100 shrink-0">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
-                  <h3 className="font-bold text-slate-800 capitalize truncate">Sessões — {specialtyModal.specialty.replace(/_/g, ' ')}</h3>
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 sm:p-4" onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}>
+            <div role="dialog" aria-modal="true" aria-labelledby={`lim-sessions-${contract._id}`} onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-slate-900 text-left sm:rounded-xl shadow-2xl w-full h-full sm:h-auto max-w-full sm:max-w-[min(1000px,94vw)] max-h-[100dvh] sm:max-h-[min(90vh,920px)] flex flex-col">
+              <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <h3 id={`lim-sessions-${contract._id}`} className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                    <span className="capitalize">Sessões · {specialtyModal.specialty.replace(/_/g, ' ')}</span>
+                    {!specialtyModal.loading && (
+                      <span className="ml-2 text-sm font-normal tabular-nums text-slate-500">
+                        {specialtyModal.sessions.filter((x) => x.operationalStatus === 'completed').length} feitas · {specialtyModal.sessions.filter((x) => ['scheduled', 'confirmed', 'pre_agendado'].includes(x.operationalStatus)).length} agendadas
+                      </span>
+                    )}
+                  </h3>
                   <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} /> Realizada</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#3B82F6' }} /> Confirmada</span>
@@ -1209,8 +1231,8 @@ export default function ContractCard({ data, onRefresh }: Props) {
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#94A3B8' }} /> Cancelada</span>
                   </div>
                 </div>
-                <button onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
-                  className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 shrink-0">
+                <button type="button" aria-label="Fechar" onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}
+                  className="text-slate-400 hover:text-slate-700 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1234,8 +1256,10 @@ export default function ContractCard({ data, onRefresh }: Props) {
                       [&_.fc-button]:!rounded-lg [&_.fc-button]:!shadow-none [&_.fc-button]:!border-gray-200 [&_.fc-button]:!bg-white [&_.fc-button]:!text-gray-600 [&_.fc-button]:!text-xs [&_.fc-button]:!font-semibold [&_.fc-button]:!px-2.5 [&_.fc-button]:!py-1.5 [&_.fc-button]:!capitalize
                       [&_.fc-button:hover]:!bg-gray-50
                       [&_.fc-button:focus]:!shadow-none
-                      [&_.fc-button-active]:!bg-gray-800 [&_.fc-button-active]:!border-gray-800 [&_.fc-button-active]:!text-white
-                      [&_.fc-daygrid-day-frame]:min-h-[92px]
+                      [&_.fc-button-active]:!bg-violet-600 [&_.fc-button-active]:!border-violet-600 [&_.fc-button-active]:!text-white
+                      [&_.fc-daygrid-day-frame]:min-h-[76px]
+                      dark:[&_.fc-toolbar-title]:text-slate-100 dark:[&_.fc-button]:!bg-slate-800 dark:[&_.fc-button]:!border-slate-700 dark:[&_.fc-button]:!text-slate-200
+                      dark:[&_.fc-theme-standard_td]:!border-slate-700 dark:[&_.fc-theme-standard_th]:!border-slate-700 dark:[&_.fc-scrollgrid]:!border-slate-700
                       [&_.fc-col-header-cell-cushion]:py-2 [&_.fc-col-header-cell-cushion]:text-gray-500
                       [&_.fc-scrollgrid]:!rounded-lg [&_.fc-scrollgrid]:!border-gray-200
                       [&_.fc-event]:!border-0"
@@ -1250,6 +1274,15 @@ export default function ContractCard({ data, onRefresh }: Props) {
                       }}
                       locale={ptBR}
                       initialView="dayGridMonth"
+                      initialDate={(() => {
+                        // Abre no mês da próxima sessão (ou da última, se não houver futuras).
+                        const now = Date.now();
+                        const ts = events.map((e) => new Date(e.start).getTime()).filter(Number.isFinite);
+                        const fut = ts.filter((t) => t >= now).sort((a, b) => a - b);
+                        return fut.length ? new Date(fut[0]) : ts.length ? new Date(Math.max(...ts)) : undefined;
+                      })()}
+                      dayMaxEvents={2}
+                      buttonText={{ today: 'Hoje', month: 'Mês', week: 'Semana' }}
                       events={events}
                       height="auto"
                       eventDisplay="block"

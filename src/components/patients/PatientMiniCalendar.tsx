@@ -70,7 +70,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
             className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-3 sm:p-4
                 [&_.fc]:font-sans
                 [&_.fc-toolbar]:flex [&_.fc-toolbar]:flex-wrap [&_.fc-toolbar]:items-center [&_.fc-toolbar]:gap-2 [&_.fc-toolbar]:mb-3
-                [&_.fc-toolbar-title]:text-[0.95rem] [&_.fc-toolbar-title]:sm:text-lg [&_.fc-toolbar-title]:font-semibold [&_.fc-toolbar-title]:capitalize [&_.fc-toolbar-title]:text-gray-800 dark:[&_.fc-toolbar-title]:text-slate-100
+                [&_.fc-toolbar-title]:text-[0.95rem] [&_.fc-toolbar-title]:sm:text-lg [&_.fc-toolbar-title]:font-semibold [&_.fc-toolbar-title]:text-gray-800 dark:[&_.fc-toolbar-title]:text-slate-100
                 [&_.fc-button]:!rounded-lg [&_.fc-button]:!shadow-none [&_.fc-button]:!border-gray-200 [&_.fc-button]:!bg-white [&_.fc-button]:!text-gray-600 [&_.fc-button]:!text-xs [&_.fc-button]:!font-semibold [&_.fc-button]:!px-2.5 [&_.fc-button]:!py-1.5 [&_.fc-button]:!capitalize
                 [&_.fc-button:hover]:!bg-gray-50 dark:[&_.fc-button]:!bg-slate-800 dark:[&_.fc-button]:!border-slate-700 dark:[&_.fc-button]:!text-slate-200
                 [&_.fc-button:focus]:!shadow-none
