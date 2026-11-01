@@ -87,6 +87,7 @@ import { waitForCashflowLoad } from '../../../services/financialLoadCoordinator'
 import { GuideDetailLoadCache } from '../../../services/guideDetailLoadCache';
 import { notifyApiError } from '../../../utils/notifyApiError';
 import { sessoes } from '../../../utils/plural';
+import BarList from '../../../components/ui/insight/BarList';
 
 /**
  * ReadView V2 → shape que GuidePendingBillingSection já consome.
@@ -443,6 +444,20 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
         () => new Map(overdueGuidesList.map(g => [g.guideId, g.overdueValue])),
         [overdueGuidesList]
     );
+
+    // Novo design: quanto cada convênio deve (faturado) e já pagou (recebido) — ranking para cobrar.
+    const providerRanking = useMemo(() => {
+        const m = new Map<string, { billed: number; received: number }>();
+        allReceivables.forEach(group => {
+            const cur = m.get(group._id) || { billed: 0, received: 0 };
+            (group.patients || []).forEach(p => (p.payments || []).forEach(pay => {
+                if (pay.status === 'billed') cur.billed += Number(pay.grossAmount || 0);
+                else if (pay.status === 'received') cur.received += Number(pay.grossAmount || 0);
+            }));
+            m.set(group._id, cur);
+        });
+        return [...m.entries()].map(([id, v]) => ({ id, ...v })).filter(r => r.billed > 0 || r.received > 0);
+    }, [allReceivables]);
 
     // Faturado/Recebido vêm de allReceivables (provider→pacientes→payments) — precisa
     // achatar mantendo o nome do paciente junto, senão o modal não tem o que mostrar.
@@ -1342,6 +1357,21 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             <FinChip on={subTab === 3} onClick={() => setSubTab(3)} label="Recebidas" count={phaseStats?.received.guides ?? guidesByPhase.received.length} />
                             <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">contagem em guias · listas acumuladas, sem filtro de mês</span>
                         </div>
+                    )}
+                    {(subTab === 2 || subTab === 3) && providerRanking.length > 0 && (
+                        <details open className="rounded-xl border border-slate-200 p-2.5 dark:border-slate-700">
+                            <summary className="cursor-pointer text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                {subTab === 2 ? 'Faturado a receber por convênio' : 'Recebido por convênio'}
+                                <span className="ml-1 font-normal text-gray-500">· maiores primeiro</span>
+                            </summary>
+                            <div className="mt-2">
+                                <BarList color={subTab === 2 ? 'bg-amber-500/80 dark:bg-amber-500/60' : undefined}
+                                    items={[...providerRanking].sort((a, b) => (subTab === 2 ? b.billed - a.billed : b.received - a.received))
+                                        .filter(r => (subTab === 2 ? r.billed : r.received) > 0).slice(0, 8)
+                                        .map(r => ({ key: r.id, label: formatProviderName(r.id), value: subTab === 2 ? r.billed : r.received,
+                                            display: (subTab === 2 ? r.billed : r.received).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }))} />
+                            </div>
+                        </details>
                     )}
                     {(subTab === 5 || subTab === 7) && (
                         <div className="flex flex-wrap items-center gap-1.5">
