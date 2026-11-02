@@ -182,6 +182,8 @@ interface GuidePendingBillingSectionProps {
      */
     convenios: Convenio[];
     loadingConvenios?: boolean;
+    /** Sessões a faturar/aguardando sem evolução registrada (aviso, não bloqueia). */
+    missingEvolutionIds?: Set<string>;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -360,6 +362,7 @@ interface PatientDrawerProps {
     onEditGuide: (guide: PendingGuide) => void;
     onCloseGuide: (guide: PendingGuide) => void;
     onClose: () => void;
+    missingEvolutionIds?: Set<string>;
 }
 
 /**
@@ -387,7 +390,7 @@ function getBillingCycleReason(convenio: Convenio | undefined): string | null {
     }
 }
 
-export function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar', drawerAction, onDrawerAction, phase = 'pendingBilling' }: PatientDrawerProps) {
+export function PatientDrawer({ open, patientName, provider, guides, selectedGuides, convenios, onToggleGuide, onEditGuide, onCloseGuide, onClose, readOnly = false, phaseLabel = 'para faturar', drawerAction, onDrawerAction, phase = 'pendingBilling', missingEvolutionIds }: PatientDrawerProps) {
     const total = guides.reduce((s, g) => s + resolveGuidePendingTotal(g), 0);
     const sessions = guides.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
     const sessionAverage = (() => {
@@ -899,6 +902,14 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                             {s.doctorName && (
                                                 <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
                                             )}
+                                            {s.sessionId && missingEvolutionIds?.has(s.sessionId) && (
+                                                <span
+                                                    title="Sem evolução registrada para esta sessão. É só um aviso: o faturamento segue normal."
+                                                    className="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-px text-[0.63rem] font-semibold text-amber-800"
+                                                >
+                                                    evolução em falta{s.doctorName ? ` · ${s.doctorName.split(' ')[0]}` : ''}
+                                                </span>
+                                            )}
                                             {isMostRecent && (
                                                 <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                                                     mais recente
@@ -1181,6 +1192,7 @@ const GuidePendingBillingSection = ({
     phase = 'pendingBilling',
     convenios,
     loadingConvenios = false,
+    missingEvolutionIds,
 }: GuidePendingBillingSectionProps) => {
     const [expandedProviders, setExpandedProviders]             = useState<Record<string, boolean>>({});
     const [expandedOrphanProviders, setExpandedOrphanProviders] = useState<Record<string, boolean>>({});
@@ -1848,6 +1860,7 @@ const GuidePendingBillingSection = ({
                     onEditGuide={openEditGuide}
                     onCloseGuide={(guide) => setCloseGuideModal(guide)}
                     onClose={() => setDrawerPatient(null)}
+                    missingEvolutionIds={missingEvolutionIds}
                     readOnly={readOnly}
                     phaseLabel={phaseLabel}
                     drawerAction={drawerAction}
