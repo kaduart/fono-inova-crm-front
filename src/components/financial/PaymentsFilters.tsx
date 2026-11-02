@@ -54,7 +54,7 @@ export function PaymentsFilters({ doctors, payments, onFilter, onSort, initialFi
     // Aplica os filtros sempre que eles ou a lista de pagamentos mudar
     const filteredPayments = useMemo(() => {
         console.log('[PaymentsFilters] Aplicando filtros:', filters, 'em', safePayments.length, 'registros');
-        let result = safePayments.filter(payment => {
+        const result = safePayments.filter(payment => {
             // Filtro por profissional
             if (filters.doctorId) {
                 const paymentDoctorId = String(payment.doctor?.id || payment.doctor?._id || '');
