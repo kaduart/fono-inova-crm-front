@@ -11,6 +11,7 @@ import { useConvenios } from '../../hooks/useConvenios';
 import { toDateString } from '../../utils/dateUtils';
 import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types';
 import patientService from '../../services/patientService';
+import { PossibleDuplicatesNotice, usePossibleDuplicates } from './PossibleDuplicatesNotice';
 import doctorService from '../../services/doctorService';
 import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
@@ -88,6 +89,13 @@ const ScheduleAppointmentModal = ({
     const [newPatientName, setNewPatientName] = useState('');
     const [newPatientPhone, setNewPatientPhone] = useState('');
     const [newPatientBirthDate, setNewPatientBirthDate] = useState('');
+    // Aviso de possível duplicado no "novo paciente" inline (03/11/2026)
+    const [dupConfirmedDistinct, setDupConfirmedDistinct] = useState(false);
+    const { candidates: dupCandidates } = usePossibleDuplicates({
+        fullName: newPatientName,
+        phone: newPatientPhone,
+        dateOfBirth: newPatientBirthDate ? `${newPatientBirthDate}T00:00:00.000Z` : null,
+    }, isOpen && isNewPatient);
 
     // 👇 NOVO: Buscar doutores quando modal abrir (se não vier dos props)
     const [localDoctors, setLocalDoctors] = useState<IDoctor[]>([]);
@@ -320,6 +328,7 @@ const ScheduleAppointmentModal = ({
                     emergencyContact: { name: '', phone: '', relationship: '' },
                     appointments: [], imageAuthorization: false, birthCertificate: '',
                     packages: [], nextAppointment: '', lastAppointment: '',
+                    ...(dupCandidates.length && dupConfirmedDistinct ? { confirmNotDuplicate: true } : {}),
                 } as any);
                 // patientService.create() retorna { patient, isAsync, eventId }
                 const newId = created?.patient?._id
@@ -385,6 +394,7 @@ const ScheduleAppointmentModal = ({
         // Paciente: pode ser existente (patientId) ou novo (isNewPatient + nome + telefone)
         const patientReady = isNewPatient
             ? newPatientName.trim().length >= 2 && newPatientPhone.trim().length >= 8
+                && (dupCandidates.length === 0 || dupConfirmedDistinct)
             : !!formData.patientId;
 
         if (!patientReady || !formData.doctorId || !formData.date || !formData.time || !formData.sessionType) {
@@ -416,7 +426,7 @@ const ScheduleAppointmentModal = ({
         }
 
         return true;
-    }, [formData, packages, billingType, insuranceProvider]);
+    }, [formData, packages, billingType, insuranceProvider, isNewPatient, newPatientName, newPatientPhone, dupCandidates, dupConfirmedDistinct]);
 
     const handleFieldChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -593,6 +603,26 @@ const ScheduleAppointmentModal = ({
                                     value={newPatientBirthDate}
                                     onChange={(e) => setNewPatientBirthDate(e.target.value)}
                                     className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                />
+                                <PossibleDuplicatesNotice
+                                    candidates={dupCandidates}
+                                    confirmedDistinct={dupConfirmedDistinct}
+                                    onConfirmedDistinctChange={setDupConfirmedDistinct}
+                                    showError
+                                    onUseExisting={async (c) => {
+                                        setIsNewPatient(false);
+                                        setNewPatientName(''); setNewPatientPhone(''); setNewPatientBirthDate('');
+                                        setDupConfirmedDistinct(false);
+                                        setPatientSearch(c.fullName);
+                                        setFormData((prev) => ({ ...prev, patientId: c._id }));
+                                        try {
+                                            const full = await patientService.getById(c._id);
+                                            setSelectedPatient(full);
+                                            setPackages((full as { packages?: unknown[] })?.packages || []);
+                                        } catch {
+                                            setSelectedPatient({ _id: c._id, fullName: c.fullName } as unknown as IPatient);
+                                        }
+                                    }}
                                 />
                             </div>
                         )}

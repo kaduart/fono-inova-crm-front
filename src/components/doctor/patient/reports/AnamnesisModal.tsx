@@ -45,6 +45,108 @@ const steps: Step[] = [
     { label: "Conclusões", icon: FileText, textColor: "text-gray-600", bgColor: "bg-gray-50" },
 ];
 
+// ─── Etapas 3 a 7 (antes "Em breve") ─────────────────────────────────────
+// Campos descritos por configuração; as sugestões preenchem com um toque e tudo continua
+// editável. `single`: a sugestão substitui o valor; sem ele, acrescenta (separado por "; ").
+type FieldDef = {
+    path: string[];
+    label: string;
+    placeholder?: string;
+    rows?: number;
+    full?: boolean;
+    chips?: string[];
+    single?: boolean;
+    kind?: 'text' | 'yesno';
+};
+type StepDef = { title: string; hint?: string; fields: FieldDef[] };
+
+const EXTRA_STEPS: Record<number, StepDef> = {
+    2: {
+        title: 'Histórico Familiar',
+        fields: [
+            { path: ['familyHistory', 'parents', 'mother', 'age'], label: 'Mãe: idade', placeholder: 'Ex: 34' },
+            { path: ['familyHistory', 'parents', 'mother', 'occupation'], label: 'Mãe: profissão', placeholder: 'Ex: professora' },
+            { path: ['familyHistory', 'parents', 'mother', 'education'], label: 'Mãe: escolaridade', chips: ['Fundamental', 'Médio', 'Superior'], single: true },
+            { path: ['familyHistory', 'parents', 'mother', 'health'], label: 'Mãe: saúde', chips: ['Sem queixas'] },
+            { path: ['familyHistory', 'parents', 'father', 'age'], label: 'Pai: idade', placeholder: 'Ex: 36' },
+            { path: ['familyHistory', 'parents', 'father', 'occupation'], label: 'Pai: profissão', placeholder: 'Ex: motorista' },
+            { path: ['familyHistory', 'parents', 'father', 'education'], label: 'Pai: escolaridade', chips: ['Fundamental', 'Médio', 'Superior'], single: true },
+            { path: ['familyHistory', 'parents', 'father', 'health'], label: 'Pai: saúde', chips: ['Sem queixas'] },
+            { path: ['familyHistory', 'siblingsInfo'], label: 'Irmãos', placeholder: 'Idade, saúde e desenvolvimento de cada irmão', rows: 2, full: true, chips: ['Filho único', 'Irmãos sem queixas'] },
+            { path: ['familyHistory', 'familyDiseases'], label: 'Doenças ou queixas na família', rows: 2, full: true, chips: ['Atraso de fala', 'TEA', 'TDAH', 'Perda auditiva', 'Dislexia', 'Nenhuma conhecida'] },
+            { path: ['familyHistory', 'geneticConditions'], label: 'Condições genéticas', full: true, chips: ['Nenhuma conhecida'] },
+        ],
+    },
+    3: {
+        title: 'Desenvolvimento',
+        fields: [
+            { path: ['development', 'gestationalAge'], label: 'Idade gestacional', placeholder: 'Ex: 39 semanas', chips: ['A termo', 'Prematuro'], single: true },
+            { path: ['development', 'deliveryType'], label: 'Tipo de parto', chips: ['Normal', 'Cesárea', 'Fórceps'], single: true },
+            { path: ['development', 'prenatalCare'], label: 'Pré-natal', chips: ['Completo', 'Incompleto', 'Não fez'], single: true },
+            { path: ['development', 'apgarScore'], label: 'Apgar', placeholder: 'Ex: 9/10' },
+            { path: ['development', 'firstWordsAge'], label: 'Primeiras palavras (idade)', placeholder: 'Ex: 1 ano e 2 meses' },
+            { path: ['development', 'phraseFormationAge'], label: 'Primeiras frases (idade)', placeholder: 'Ex: 2 anos', chips: ['Ainda não forma frases'], single: true },
+            { path: ['development', 'currentSpeech'], label: 'Como fala hoje', rows: 2, full: true, chips: ['Palavras isoladas', 'Frases curtas', 'Frases completas', 'Ecolalia', 'Não verbal', 'Aponta para pedir'] },
+            { path: ['development', 'socialInteraction'], label: 'Interação social', rows: 2, full: true, chips: ['Interage bem', 'Pouco contato visual', 'Prefere adultos', 'Evita outras crianças'] },
+            { path: ['development', 'playHabits'], label: 'Brincar', rows: 2, full: true, chips: ['Brinca junto', 'Brinca sozinho', 'Faz de conta', 'Enfileira objetos', 'Uso repetitivo de brinquedos'] },
+        ],
+    },
+    4: {
+        title: 'Hábitos',
+        fields: [
+            { path: ['habits', 'feeding'], label: 'Alimentação', rows: 2, chips: ['Come bem', 'Seletivo', 'Só pastosos', 'Engasga'] },
+            { path: ['habits', 'sleep'], label: 'Sono', rows: 2, chips: ['Dorme bem', 'Acorda à noite', 'Demora a dormir', 'Dorme com os pais'] },
+            { path: ['habits', 'elimination'], label: 'Controle esfincteriano', chips: ['Desfralde completo', 'Em desfralde', 'Usa fralda', 'Fralda só à noite'], single: true },
+            { path: ['habits', 'oralHabits'], label: 'Hábitos orais', chips: ['Chupeta', 'Mamadeira', 'Chupa dedo', 'Rói unhas', 'Nenhum'] },
+            { path: ['habits', 'screenTime'], label: 'Tempo de tela por dia', full: true, chips: ['Até 1 h', '1 a 3 h', 'Mais de 3 h'], single: true },
+        ],
+    },
+    5: {
+        title: 'Aspectos Escolares',
+        fields: [
+            { path: ['school', 'attendsSchool'], label: 'Frequenta escola?', kind: 'yesno' },
+            { path: ['school', 'schoolName'], label: 'Escola', placeholder: 'Nome da escola' },
+            { path: ['school', 'grade'], label: 'Série / turma', placeholder: 'Ex: Maternal II' },
+            { path: ['school', 'teacher'], label: 'Professor(a)' },
+            { path: ['school', 'performance'], label: 'Desempenho', rows: 2, full: true, chips: ['Adequado para a idade', 'Abaixo do esperado', 'Professora relata dificuldade'] },
+            { path: ['school', 'difficulties'], label: 'Dificuldades', rows: 2, full: true, chips: ['Comunicação', 'Atenção', 'Leitura e escrita', 'Coordenação motora', 'Comportamento'] },
+            { path: ['school', 'relationshipPeers'], label: 'Relação com colegas', rows: 2, chips: ['Boa', 'Prefere brincar sozinho', 'Conflitos frequentes'] },
+            { path: ['school', 'relationshipTeachers'], label: 'Relação com professores', rows: 2, chips: ['Boa', 'Aceita com apoio', 'Resiste a comandos'] },
+            { path: ['school', 'adaptations'], label: 'Adaptações na escola', full: true, chips: ['Nenhuma', 'Mediador', 'Rotina visual', 'Atividade adaptada'] },
+        ],
+    },
+    6: {
+        title: 'Observações Comportamentais',
+        hint: 'O que você observou durante a entrevista e a avaliação.',
+        fields: [
+            { path: ['behavior', 'generalAppearance'], label: 'Aparência geral', chips: ['Bem cuidado', 'Ativo', 'Agitado', 'Apático'] },
+            { path: ['behavior', 'emotionalState'], label: 'Estado emocional', chips: ['Tranquilo', 'Ansioso', 'Irritado', 'Choroso'] },
+            { path: ['behavior', 'attention'], label: 'Atenção', chips: ['Adequada', 'Curta', 'Dispersa'], single: true },
+            { path: ['behavior', 'concentration'], label: 'Concentração', chips: ['Adequada', 'Precisa de apoio', 'Muito breve'], single: true },
+            { path: ['behavior', 'cooperation'], label: 'Colaboração', chips: ['Colaborativo', 'Com apoio', 'Recusou atividades'], single: true },
+            { path: ['behavior', 'behaviorDuringAssessment'], label: 'Comportamento na avaliação', rows: 3, full: true, placeholder: 'Como reagiu, o que chamou atenção, como foi a separação dos pais...' },
+        ],
+    },
+};
+
+type Tree = Record<string, unknown>;
+const getAt = (obj: unknown, path: string[]): unknown =>
+    path.reduce<unknown>((acc, k) => (acc && typeof acc === 'object' ? (acc as Tree)[k] : undefined), obj);
+function setAt<T>(obj: T, path: string[], value: unknown): T {
+    const [head, ...rest] = path;
+    const node = (obj && typeof obj === 'object' ? obj : {}) as Tree;
+    return { ...node, [head]: rest.length ? setAt(node[head], rest, value) : value } as T;
+}
+/** Acrescenta a sugestão ao texto (sem repetir) ou, em `single`, substitui. */
+function applyChip(current: string, chip: string, single?: boolean): string {
+    if (single) return current === chip ? '' : chip;
+    const parts = current.split(';').map(p => p.trim()).filter(Boolean);
+    if (parts.some(p => p.toLowerCase() === chip.toLowerCase())) return parts.filter(p => p.toLowerCase() !== chip.toLowerCase()).join('; ');
+    return [...parts, chip].join('; ');
+}
+const chipOn = (current: string, chip: string) =>
+    current.split(';').map(p => p.trim().toLowerCase()).includes(chip.toLowerCase());
+
 export default function AnamnesisModal({ open, onClose, onSave, patient, loading = false, initialData }: AnamnesisModalProps) {
     const [activeStep, setActiveStep] = useState(0);
     const [completed, setCompleted] = useState<{ [k: number]: boolean }>({});
@@ -77,6 +179,8 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
                 father: { age: '', education: '', occupation: '', health: '' }
             },
             siblings: [],
+            /** Irmãos em texto livre (idade, saúde, desenvolvimento). */
+            siblingsInfo: '',
             familyDiseases: '',
             geneticConditions: ''
         },
@@ -402,20 +506,70 @@ export default function AnamnesisModal({ open, onClose, onSave, patient, loading
             default: {
                 const current = steps[step];
                 const Icon = current.icon;
+                const def = EXTRA_STEPS[step];
+                if (!def) return null;
+                const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500';
 
                 return (
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <div className="flex items-center gap-3 mb-6">
+                        <div className="flex items-center gap-3 mb-2">
                             <div className={`p-2 ${current.bgColor} rounded-lg`}>
                                 <Icon className={`w-5 h-5 ${current.textColor}`} />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900">
-                                {current.label}
-                            </h3>
+                            <h3 className="text-lg font-semibold text-gray-900">{def.title}</h3>
                         </div>
+                        <p className="mb-5 text-sm text-gray-600">{def.hint || 'Toque nas sugestões para preencher mais rápido. Tudo continua editável.'}</p>
 
-                        <div className="text-center py-8">
-                            <p className="text-gray-500">Seção em desenvolvimento - Em breve disponível</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {def.fields.map(f => {
+                                const id = `anm-${f.path.join('-')}`;
+                                const raw = getAt(formData, f.path);
+                                if (f.kind === 'yesno') {
+                                    const yes = raw !== false;
+                                    return (
+                                        <div key={id} className={f.full ? 'md:col-span-2' : ''}>
+                                            <span className="form-label">{f.label}</span>
+                                            <div className="flex gap-2" role="group" aria-label={f.label}>
+                                                {[true, false].map(v => (
+                                                    <button key={String(v)} type="button" aria-pressed={yes === v}
+                                                        onClick={() => setFormData(prev => setAt(prev, f.path, v))}
+                                                        className={`min-h-10 rounded-lg border px-4 text-sm font-semibold transition-colors ${yes === v ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                                                        {v ? 'Sim' : 'Não'}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                const value = typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '';
+                                const setValue = (v: string) => setFormData(prev => setAt(prev, f.path, v));
+                                return (
+                                    <div key={id} className={f.full ? 'md:col-span-2' : ''}>
+                                        <label htmlFor={id} className="form-label">{f.label}</label>
+                                        {f.rows ? (
+                                            <textarea id={id} rows={f.rows} value={value} placeholder={f.placeholder}
+                                                onChange={(e) => setValue(e.target.value)} className={inputCls} />
+                                        ) : (
+                                            <input id={id} type="text" value={value} placeholder={f.placeholder}
+                                                onChange={(e) => setValue(e.target.value)} className={inputCls} />
+                                        )}
+                                        {f.chips && (
+                                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                {f.chips.map(c => {
+                                                    const on = f.single ? value === c : chipOn(value, c);
+                                                    return (
+                                                        <button key={c} type="button" aria-pressed={on}
+                                                            onClick={() => setValue(applyChip(value, c, f.single))}
+                                                            className={`min-h-7 rounded-full border px-2.5 text-xs font-semibold transition-colors ${on ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+                                                            {on ? '✓ ' : '+ '}{c}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 );

@@ -140,7 +140,9 @@ const PatientTable: React.FC<PatientTableProps> = ({
 
         const timer = setTimeout(fetchPatients, searchTerm.trim() ? 500 : 0);
         return () => clearTimeout(timer);
-    }, [searchTerm, onlyWithDebt]);
+        // initialPatients: quando o pai recarrega (excluiu, editou, criou paciente), a busca
+        // ativa é refeita — antes o paciente excluído continuava na lista até dar F5 (03/11).
+    }, [searchTerm, onlyWithDebt, initialPatients]);
 
     // ------------------------------------------------------------
     // Memo

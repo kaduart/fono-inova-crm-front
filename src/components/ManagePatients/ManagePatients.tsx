@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, Users } from 'lucide-react';
 import { IPatient } from '../../utils/types/types';
 import PatientList from './PatientList';
+import PatientDuplicatesPanel from './PatientDuplicatesPanel';
+import { useAuth } from '../../contexts/AuthContext';
 import { PatientModal } from '../patients/PatientModal';
 import { usePatients } from '../../hooks/usePatients';
 
@@ -34,6 +36,8 @@ const EMPTY_PATIENT: IPatient = {
 
 const ManagePatients: React.FC = () => {
     const { updatePatient, createPatient } = usePatients();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const [patientToEdit, setPatientToEdit] = useState<IPatient | undefined>();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -101,6 +105,8 @@ const ManagePatients: React.FC = () => {
                     Novo paciente
                 </button>
             </div>
+
+            {isAdmin && <PatientDuplicatesPanel onChanged={() => setRefreshSignal(s => s + 1)} />}
 
             <PatientList onEdit={openEdit} refreshSignal={refreshSignal} />
 

@@ -57,6 +57,32 @@ export interface PendingEvolution {
   fullName: string;
   lastCompletedDate: string;
   lastEvolutionDate: string | null;
+  /** Agendamento mais recente concluído: é nele que o rascunho fica preso */
+  lastAppointmentId?: string | null;
+  lastCompletedTime?: string | null;
+  /** Rascunho em andamento desse paciente (continua pendente até finalizar) */
+  draft?: { evolutionId: string; appointmentId: string | null; lastAutosaveAt: string | null } | null;
+}
+
+// ─── RASCUNHO (autosave) — ver back/docs/EVOLUTION_DRAFT.md ──────────────
+
+export interface EvolutionDraftPayload {
+  appointmentId: string;
+  /** lastAutosaveAt que este aparelho conhece; evita sobrescrever o que outro aparelho salvou */
+  baseAutosaveAt?: string | null;
+  [field: string]: unknown;
+}
+
+/** Salva (upsert) o rascunho do agendamento. Erros 409 vêm com error.code no response. */
+export async function saveEvolutionDraft(payload: EvolutionDraftPayload): Promise<{ draft: Evolution; lastAutosaveAt: string | null }> {
+  const res = await API.put(`${BASE_V2}/draft`, payload);
+  return { draft: res?.data?.data, lastAutosaveAt: res?.data?.meta?.lastAutosaveAt ?? res?.data?.data?.lastAutosaveAt ?? null };
+}
+
+/** Evolução (rascunho ou finalizada) de um agendamento; null se não houver. */
+export async function fetchEvolutionByAppointment(appointmentId: string): Promise<Evolution | null> {
+  const res = await API.get(`${BASE_V2}/appointment/${appointmentId}`);
+  return res?.data?.data ?? null;
 }
 
 /** Pacientes atendidos (últimos 90 dias) sem evolução registrada após o último atendimento. */
@@ -64,6 +90,60 @@ export async function fetchPendingEvolutions(doctorId?: string): Promise<Pending
   return handleV2Response<PendingEvolution[]>(
     API.get(`${BASE_V2}/pending`, { params: doctorId ? { doctorId } : {} })
   );
+}
+
+/** Coordenação (só admin): pendências da clínica por profissional. Ver back/docs/EVOLUTION_DRAFT.md. */
+export interface LateEvolutionItem extends PendingEvolution {
+  daysLate: number;
+}
+export interface LateEvolutionsByDoctor {
+  doctorId: string;
+  fullName: string;
+  specialty: string | null;
+  phoneNumber: string | null;
+  pendingCount: number;
+  draftCount: number;
+  oldestDaysLate: number;
+  items: LateEvolutionItem[];
+}
+export interface LateEvolutionsSummary {
+  doctors: LateEvolutionsByDoctor[];
+  total: number;
+  drafts: number;
+  oldestDaysLate: number;
+}
+
+export async function fetchLateEvolutionsByDoctor(): Promise<LateEvolutionsSummary> {
+  const res = await API.get(`${BASE_V2}/pending/by-doctor`);
+  const meta = res?.data?.meta || {};
+  return {
+    doctors: res?.data?.data || [],
+    total: meta.total || 0,
+    drafts: meta.drafts || 0,
+    oldestDaysLate: meta.oldestDaysLate || 0,
+  };
+}
+
+// ─── RESUMO PARA A FAMÍLIA (item 4) — ver back/docs/FAMILY_COMMUNICATION.md ───
+
+export interface FamilySummarySent { text: string; status: 'queued' | 'failed'; queuedAt?: string; phoneLast4?: string }
+export interface FamilySummaryInfo {
+  suggestion: string;
+  sent: FamilySummarySent | null;
+  canSend: boolean;
+  blockReason: string | null;
+  phoneLast4: string | null;
+}
+
+export async function fetchFamilySummary(evolutionId: string): Promise<FamilySummaryInfo> {
+  const res = await API.get(`${BASE_V2}/${evolutionId}/family-summary`);
+  return res.data.data;
+}
+
+/** Enfileira no WhatsApp; uma vez por evolução (o back é idempotente). */
+export async function sendFamilySummary(evolutionId: string, text: string): Promise<FamilySummarySent> {
+  const res = await API.post(`${BASE_V2}/${evolutionId}/family-summary/send`, { text });
+  return res.data.data;
 }
 
 // ─── WRITES (V2 síncrono — feedback imediato ao profissional) ─────────

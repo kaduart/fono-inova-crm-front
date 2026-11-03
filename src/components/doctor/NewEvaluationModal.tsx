@@ -10,7 +10,7 @@ import { Button } from '../ui/Button';
 // ============================================
 // TIPOS
 // ============================================
-type MetricType = {
+export type MetricType = {
     id: string;
     name: string;
     description: string;
@@ -19,7 +19,7 @@ type MetricType = {
     unit: string;
 };
 
-type AreaType = {
+export type AreaType = {
     id: string;
     name: string;
 };
@@ -32,10 +32,28 @@ export type NewEvaluationForm = {
     areaScores: Record<string, number>;
 };
 
+/** Rascunho guardado no aparelho e/ou no servidor (ver back/docs/EVOLUTION_DRAFT.md) */
+export type EvaluationDraftSnapshot = {
+    form: NewEvaluationForm;
+    areas: AreaType[];
+    metricDefs: MetricType[];
+    specialty: string;
+    savedAt: string; // ISO
+};
+
+export type DraftSyncError = 'offline' | 'finalized' | 'conflict' | 'error';
+
 type NewEvaluationModalProps = {
     open: boolean;
     onClose: () => void;
-    onSave: (data: NewEvaluationForm) => Promise<void> | void;
+    /** Retorne false quando não salvou (o rascunho do aparelho é mantido). */
+    onSave: (data: NewEvaluationForm) => Promise<void | boolean> | void | boolean;
+    /** Chave do rascunho no aparelho (ex.: "appt:<id>" ou "pac:<id>"). Sem chave, não há rascunho. */
+    draftKey?: string | null;
+    /** Envia o rascunho ao servidor (só quando há agendamento). Lança erro com .draftError. */
+    onAutosave?: (snapshot: EvaluationDraftSnapshot, baseAutosaveAt: string | null) => Promise<{ lastAutosaveAt: string | null }>;
+    /** Busca o rascunho do servidor ao abrir (só quando há agendamento). */
+    loadServerDraft?: () => Promise<(EvaluationDraftSnapshot & { lastAutosaveAt: string | null }) | null>;
     currentPlan?: any | null;
     objectives?: any[];
     protocols?: any[];
@@ -364,6 +382,9 @@ export function NewEvaluationModal({
     onSpecialtyChange,
     doctorSpecialty,
     patientName,
+    draftKey,
+    onAutosave,
+    loadServerDraft,
 }: NewEvaluationModalProps) {
     const [metrics, setMetrics] = useState<Record<string, number>>({});
     const [areaScores, setAreaScores] = useState<Record<string, number>>({});
@@ -387,23 +408,44 @@ export function NewEvaluationModal({
     useEffect(() => {
         if (!open) return;
 
-        const initialMetrics: Record<string, number> = {};
-        dynamicMetrics.forEach(m => {
-            initialMetrics[m.name] = 0;
+        // Mantém o que já tem valor (rascunho recuperado); o resto começa em 0.
+        setMetrics(prev => {
+            const next: Record<string, number> = {};
+            dynamicMetrics.forEach(m => { next[m.name] = prev[m.name] ?? 0; });
+            return next;
         });
-
-        const initialAreas: Record<string, number> = {};
-        dynamicAreas.forEach(t => {
-            initialAreas[t.id] = 0;
+        setAreaScores(prev => {
+            const next: Record<string, number> = {};
+            dynamicAreas.forEach(t => { next[t.id] = prev[t.id] ?? 0; });
+            return next;
         });
-
-        setMetrics(initialMetrics);
-        setAreaScores(initialAreas);
     }, [open, dynamicMetrics, dynamicAreas]);
+
+    // ── Rascunho (autosave) ──────────────────────────────────────────
+    type SaveState = 'idle' | 'local' | 'saving' | 'saved' | 'offline' | 'conflict' | 'finalized';
+    const [saveState, setSaveState] = useState<SaveState>('idle');
+    const [savedAt, setSavedAt] = useState<string | null>(null);
+    const restoredRef = useRef(false);
+    const baseRef = useRef<string | null>(null);
+    const unsyncedRef = useRef(false);
+    const stopSyncRef = useRef(false);
+    const syncingRef = useRef<Promise<void> | null>(null);
+    const storageKey = draftKey ? `evo-draft:${draftKey}` : null;
+
+    const readLocal = (): EvaluationDraftSnapshot | null => {
+        if (!storageKey) return null;
+        try { const raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : null; } catch { return null; }
+    };
+    const clearLocal = useCallback(() => {
+        if (!storageKey) return;
+        try { localStorage.removeItem(storageKey); } catch { /* sem storage: ok */ }
+    }, [storageKey]);
 
     // Reset / pré-preenchimento quando abre
     useEffect(() => {
-        if (!open) return;
+        if (!open) { restoredRef.current = false; return; }
+        // Rascunho recuperado nesta abertura manda: não apaga o que o terapeuta já escreveu.
+        if (restoredRef.current) return;
 
         // Horário: o da sessão pendente; sem sessão, a hora atual (antes era 10:00 fixo).
         setDate(defaultDate || format(new Date(), 'yyyy-MM-dd'));
@@ -426,18 +468,138 @@ export function NewEvaluationModal({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, lastEvolution, defaultDate, defaultTime]);
 
+    // Ao abrir: recupera o rascunho mais novo (aparelho ou servidor).
+    useEffect(() => {
+        if (!open || !storageKey) return;
+        let alive = true;
+        setSaveState('idle'); setSavedAt(null);
+        baseRef.current = null; unsyncedRef.current = false; stopSyncRef.current = false;
+        (async () => {
+            const local = readLocal();
+            let server: (EvaluationDraftSnapshot & { lastAutosaveAt: string | null }) | null = null;
+            try { server = loadServerDraft ? await loadServerDraft() : null; } catch { server = null; }
+            if (!alive) return;
+            if (server) baseRef.current = server.lastAutosaveAt;
+            const pick = local && (!server || new Date(local.savedAt) > new Date(server.savedAt)) ? local : server;
+            if (!pick) return;
+            restoredRef.current = true;
+            setContent(pick.form.content || '');
+            if (pick.form.date) setDate(pick.form.date);
+            if (pick.form.time) setTime(pick.form.time);
+            if (pick.specialty) setSelectedSpecialty(pick.specialty);
+            setMetrics(pick.form.metrics || {});
+            setAreaScores(pick.form.areaScores || {});
+            setDynamicMetrics(pick.metricDefs || []);
+            setDynamicAreas(pick.areas || []);
+            setSavedAt(pick.savedAt);
+            // Veio do aparelho e é mais novo que o servidor: precisa subir.
+            unsyncedRef.current = pick === local && !!onAutosave;
+            setSaveState(pick === local && onAutosave ? 'local' : 'saved');
+            toast.info('Rascunho recuperado: continue de onde parou.');
+        })();
+        return () => { alive = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, storageKey]);
+
     // Fechar com algo escrito pede confirmação (X, Cancelar, fundo ou Esc).
     const dirty = content.trim().length > 0
         || Object.values(metrics).some(v => v > 0) || Object.values(areaScores).some(v => v > 0);
+    const snapshot = (): EvaluationDraftSnapshot => ({
+        form: { date, time, content, metrics, areaScores },
+        areas: dynamicAreas,
+        metricDefs: dynamicMetrics,
+        specialty: selectedSpecialty,
+        savedAt: new Date().toISOString(),
+    });
+
+    // 1) Aparelho: grava a cada mudança (400 ms), mesmo sem internet.
+    useEffect(() => {
+        if (!open || !storageKey || !dirty || saveState === 'finalized') return;
+        const t = setTimeout(() => {
+            try { localStorage.setItem(storageKey, JSON.stringify(snapshot())); } catch { /* storage cheio/bloqueado */ }
+            unsyncedRef.current = true;
+            setSavedAt(new Date().toISOString());
+            setSaveState(s => (s === 'saving' || s === 'conflict' ? s : 'local'));
+        }, 400);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, storageKey, dirty, content, metrics, areaScores, dynamicAreas, dynamicMetrics, selectedSpecialty, date, time]);
+
+    // 2) Servidor: sobe a cada 10 s se houve mudança (só com agendamento).
+    const syncNow = useCallback(async () => {
+        if (!onAutosave || !unsyncedRef.current || stopSyncRef.current) return;
+        if (syncingRef.current) return syncingRef.current;
+        const run = (async () => {
+            setSaveState('saving');
+            unsyncedRef.current = false;
+            try {
+                const { lastAutosaveAt } = await onAutosave(snapshot(), baseRef.current);
+                baseRef.current = lastAutosaveAt;
+                setSavedAt(lastAutosaveAt || new Date().toISOString());
+                setSaveState('saved');
+            } catch (err: unknown) {
+                const kind: DraftSyncError = (err as { draftError?: DraftSyncError })?.draftError || 'error';
+                if (kind === 'finalized') { stopSyncRef.current = true; clearLocal(); setSaveState('finalized'); toast.warning('Essa evolução já foi finalizada. O rascunho não substitui o que foi salvo.'); }
+                else if (kind === 'conflict') { stopSyncRef.current = true; setSaveState('conflict'); toast.warning('Este rascunho foi alterado em outro aparelho. O texto daqui continua guardado neste aparelho.'); }
+                else { unsyncedRef.current = true; setSaveState('offline'); }
+            } finally {
+                syncingRef.current = null;
+            }
+        })();
+        syncingRef.current = run;
+        return run;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onAutosave, clearLocal, date, time, content, metrics, areaScores, dynamicAreas, dynamicMetrics, selectedSpecialty]);
+    const syncRef = useRef(syncNow);
+    syncRef.current = syncNow;
+    useEffect(() => {
+        if (!open || !onAutosave) return;
+        const id = setInterval(() => { syncRef.current(); }, 10000);
+        const onOnline = () => syncRef.current();
+        window.addEventListener('online', onOnline);
+        return () => { clearInterval(id); window.removeEventListener('online', onOnline); };
+    }, [open, onAutosave]);
+
+    // Fechar: com rascunho, guarda e fecha ("terminar depois"). Sem rascunho possível, pede confirmação.
     const confirmingRef = useRef(false);
     const requestClose = useCallback(async () => {
         if (saving || confirmingRef.current) return;
         if (!dirty) { onClose(); return; }
+        if (storageKey && saveState !== 'finalized') {
+            try { localStorage.setItem(storageKey, JSON.stringify(snapshot())); } catch { /* ok */ }
+            unsyncedRef.current = true;
+            await syncRef.current();
+            toast.success(onAutosave ? 'Rascunho salvo. Você pode terminar depois.' : 'Rascunho guardado neste aparelho. Você pode terminar depois.');
+            onClose();
+            return;
+        }
         confirmingRef.current = true;
         const ok = await confirmDialog('O que você escreveu nesta evolução será descartado.', { title: 'Fechar sem salvar?', confirmText: 'Descartar', cancelText: 'Continuar escrevendo' });
         confirmingRef.current = false;
         if (ok) onClose();
-    }, [dirty, saving, onClose]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dirty, saving, onClose, storageKey, saveState, onAutosave]);
+
+    const discardDraft = async () => {
+        const ok = await confirmDialog('O rascunho desta evolução será apagado deste aparelho.', { title: 'Descartar rascunho?', confirmText: 'Descartar', cancelText: 'Voltar' });
+        if (!ok) return;
+        clearLocal();
+        stopSyncRef.current = true;
+        onClose();
+    };
+
+    const saveLabel = (() => {
+        const hhmm = savedAt ? format(new Date(savedAt), 'HH:mm') : '';
+        switch (saveState) {
+            case 'saving': return 'Salvando…';
+            case 'saved': return `Rascunho salvo${hhmm ? ` às ${hhmm}` : ''}`;
+            case 'local': return onAutosave ? 'Salvo neste aparelho' : `Rascunho neste aparelho${hhmm ? ` · ${hhmm}` : ''}`;
+            case 'offline': return 'Sem internet · salvo neste aparelho';
+            case 'conflict': return 'Alterado em outro aparelho';
+            case 'finalized': return 'Já finalizada';
+            default: return '';
+        }
+    })();
     useEffect(() => {
         if (!open) return;
         const onKey = (e: KeyboardEvent) => {
@@ -526,13 +688,16 @@ export function NewEvaluationModal({
 
         try {
             setSaving(true);
-            await onSave({
+            stopSyncRef.current = true; // não deixa um autosave atrasado brigar com o salvar
+            const result = await onSave({
                 date,
                 time,
                 content: content.trim(),
                 metrics,
                 areaScores
             });
+            if (result === false) stopSyncRef.current = false;
+            else clearLocal();
         } finally {
             setSaving(false);
         }
@@ -572,6 +737,11 @@ export function NewEvaluationModal({
                         <p className="text-green-50 text-sm mt-1">
                             Escreva primeiro como foi a sessão; notas, áreas e protocolo são opcionais.
                         </p>
+                        {storageKey && saveLabel && (
+                            <p role="status" aria-live="polite" className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${saveState === 'offline' || saveState === 'conflict' ? 'bg-amber-100 text-amber-900' : 'bg-white/90 text-emerald-800'}`}>
+                                {saveLabel}
+                            </p>
+                        )}
                     </div>
 
                     {/* BODY */}
@@ -1077,21 +1247,26 @@ export function NewEvaluationModal({
 
                     {/* FOOTER */}
                     <div className="shrink-0 border-t-2 border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-white dark:from-slate-900 dark:to-slate-900 dark:border-slate-700 rounded-b-3xl">
-                        <div className="flex justify-end gap-4">
+                        <div className="flex flex-wrap items-center justify-end gap-4">
+                            {storageKey && dirty && saveState !== 'finalized' && (
+                                <button type="button" onClick={discardDraft} disabled={saving} className="mr-auto min-h-11 px-2 text-sm font-semibold text-gray-600 underline-offset-2 hover:underline">
+                                    Descartar rascunho
+                                </button>
+                            )}
                             <Button
                                 variant="outline"
                                 disabled={saving}
                                 onClick={requestClose}
                                 className="px-8 py-3 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold transition-all hover:scale-105"
                             >
-                                Cancelar
+                                {storageKey && dirty && saveState !== 'finalized' ? 'Fechar e terminar depois' : 'Cancelar'}
                             </Button>
                             <Button
                                 disabled={saving}
                                 onClick={handleSubmit}
                                 className="px-8 py-3 bg-gradient-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white shadow-lg hover:shadow-xl rounded-xl font-semibold transition-all hover:scale-105"
                             >
-                                {saving ? 'Salvando...' : '✓ Salvar evolução'}
+                                {saving ? 'Finalizando...' : 'Finalizar evolução'}
                             </Button>
                         </div>
                     </div>
