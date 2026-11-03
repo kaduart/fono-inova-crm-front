@@ -29,7 +29,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEvolution } from '../../hooks/useEvolution';
 import API from '../../services/api';
 import { fetchMyPatients } from '../../services/doctorService';
-import { fetchPendingEvolutions, type PendingEvolution } from '../../services/evolutionService';
+import { fetchEvolutionByAppointment, fetchPendingEvolutions, saveEvolutionDraft, type PendingEvolution } from '../../services/evolutionService';
 import patientService from '../../services/patientService';
 import { confirmToast } from '../../utils/confirmToast';
 import { confirmDialog } from '../ui/ConfirmHost';
@@ -39,7 +39,7 @@ import { toDateString } from '../../utils/dateUtils';
 import { IPatient } from '../../utils/types/types';
 import ProtocolAnalytics from '../protocols/ProtocolAnalytics';
 import EvolutionChart from './EvolutionChart';
-import { NewEvaluationForm, NewEvaluationModal } from './NewEvaluationModal';
+import { type EvaluationDraftSnapshot, NewEvaluationForm, NewEvaluationModal } from './NewEvaluationModal';
 import { ageLabel, billingChip, Chip, dayDiff, lastLabel, nextLabel } from './patient/MyPatientsPanel';
 
 type TherapyEvolutionProps = {
@@ -339,7 +339,7 @@ export default function TherapyEvolution({
     };
 
     const [isAdding, setIsAdding] = useState(false);
-    const [addDefaults, setAddDefaults] = useState<{ date?: string; time?: string }>({});
+    const [addDefaults, setAddDefaults] = useState<{ date?: string; time?: string; appointmentId?: string | null }>({});
     const [openIds, setOpenIds] = useState<Set<string>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [pdfId, setPdfId] = useState<string | null>(null);
@@ -452,12 +452,8 @@ export default function TherapyEvolution({
         }
     };
 
-    const handleSaveEvaluation = async (form: NewEvaluationForm) => {
-        if (!selectedPatientId) {
-            toast.warn('Selecione um paciente antes de salvar a avaliação.');
-            return;
-        }
-
+    // Monta o payload da evolução (usado no finalizar e no autosave do rascunho).
+    const buildEvolutionPayload = (form: NewEvaluationForm) => {
         const metricsArray = Object.entries(form.metrics || {})
             .filter(([_, value]) => value !== undefined && value !== null)
             .map(([name, value]) => ({ name: String(name), value: Number(value) }));
@@ -525,15 +521,75 @@ export default function TherapyEvolution({
             plan: '',
             treatmentStatus: 'in_progress',
             ...(therapeuticPlan && { therapeuticPlan }),
-            ...(protocolCode && { protocolCode })
+            ...(protocolCode && { protocolCode }),
+            // Com agendamento, o back finaliza o rascunho dele em vez de criar outra evolução.
+            ...(addDefaults.appointmentId && { appointmentId: addDefaults.appointmentId })
         };
+        return payload;
+    };
 
-        const result = await create(payload as any);
+    const handleSaveEvaluation = async (form: NewEvaluationForm) => {
+        if (!selectedPatientId) {
+            toast.warn('Selecione um paciente antes de salvar a avaliação.');
+            return false;
+        }
+        const result = await create(buildEvolutionPayload(form) as any);
         if (result.success) {
             setIsAdding(false);
             loadQueue();
             onEvolutionChanged?.();
+            return true;
         }
+        return false;
+    };
+
+    // Autosave no servidor: só existe quando a evolução é de um agendamento.
+    const handleAutosave = async (snap: EvaluationDraftSnapshot, baseAutosaveAt: string | null) => {
+        const appointmentId = addDefaults.appointmentId;
+        if (!appointmentId) return { lastAutosaveAt: null };
+        // patient e date vêm do agendamento no back; não são enviados.
+        const fields: any = { ...buildEvolutionPayload(snap.form) };
+        delete fields.patient; delete fields.date;
+        try {
+            return await saveEvolutionDraft({ ...fields, specialty: fields.specialty, appointmentId, baseAutosaveAt });
+        } catch (err: any) {
+            const code = err?.response?.data?.error?.code;
+            const e: any = new Error(code || err?.message || 'draft');
+            e.draftError = !err?.response ? 'offline'
+                : code === 'EVOLUTION_ALREADY_FINALIZED' ? 'finalized'
+                : code === 'DRAFT_CONFLICT' ? 'conflict' : 'error';
+            throw e;
+        }
+    };
+
+    // Rascunho do servidor convertido para o formato do modal.
+    const loadServerDraft = async () => {
+        const appointmentId = addDefaults.appointmentId;
+        if (!appointmentId) return null;
+        const evo: any = await fetchEvolutionByAppointment(appointmentId);
+        if (!evo || evo.status !== 'draft') return null;
+        const areas = (evo.evaluationAreas || []).filter((a: any) => a?.id).map((a: any) => ({ id: String(a.id), name: String(a.name || a.id) }));
+        const areaScores: Record<string, number> = {};
+        (evo.evaluationAreas || []).forEach((a: any) => { if (a?.id) areaScores[String(a.id)] = Number(a.score ?? 0); });
+        const metrics: Record<string, number> = {};
+        const metricDefs = (evo.metrics || []).filter((m: any) => m?.name).map((m: any) => {
+            metrics[String(m.name)] = Number(m.value ?? 0);
+            return { id: String(m.name), name: String(m.name), description: '', minValue: 0, maxValue: 10, unit: m.unit || '' };
+        });
+        return {
+            form: {
+                date: toDateString(typeof evo.date === 'string' ? evo.date : new Date(evo.date).toISOString()),
+                time: evo.time || '',
+                content: typeof evo.content === 'string' ? evo.content : '',
+                metrics,
+                areaScores,
+            },
+            areas,
+            metricDefs,
+            specialty: String(evo.specialty || '').toLowerCase().replace(/\s+/g, '_'),
+            savedAt: evo.lastAutosaveAt || evo.updatedAt || new Date(0).toISOString(),
+            lastAutosaveAt: evo.lastAutosaveAt || null,
+        };
     };
 
     const handleDeleteEvaluation = async (evaluationId: string) => {
@@ -634,7 +690,7 @@ export default function TherapyEvolution({
     const progress = Math.round(calculateProgress());
     const hasChart = !!(chartData && chartData.dates && chartData.dates.length > 0);
 
-    const openAdd = (defaults: { date?: string; time?: string } = {}) => { setAddDefaults(defaults); setIsAdding(true); };
+    const openAdd = (defaults: { date?: string; time?: string; appointmentId?: string | null } = {}) => { setAddDefaults(defaults); setIsAdding(true); };
     const toggleOpen = (id: string) => setOpenIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
     const queueRow = (p: { _id: string; fullName: string }, sub: React.ReactNode, aside?: React.ReactNode) => {
@@ -692,6 +748,10 @@ export default function TherapyEvolution({
                 patientName={resolvedPatient?.fullName}
                 defaultDate={addDefaults.date}
                 defaultTime={addDefaults.time}
+                // Rascunho: com agendamento sobe ao servidor; sem, fica só neste aparelho (por paciente).
+                draftKey={addDefaults.appointmentId ? `appt:${addDefaults.appointmentId}` : (selectedPatientId ? `pac:${selectedPatientId}` : null)}
+                onAutosave={addDefaults.appointmentId ? handleAutosave : undefined}
+                loadServerDraft={addDefaults.appointmentId ? loadServerDraft : undefined}
             />
 
             <div className="space-y-4 text-left">
@@ -755,7 +815,9 @@ export default function TherapyEvolution({
                                 {pendingShown.map(p => {
                                     const age = pendingAge(p.lastCompletedDate);
                                     return queueRow(p, `atendido ${lastLabel(p.lastCompletedDate)}`,
-                                        <span className={`shrink-0 rounded-full px-2 py-px text-xs font-semibold ${age.n >= 3 ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>{age.label}</span>);
+                                        p.draft
+                                            ? <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-px text-xs font-semibold text-emerald-800">Rascunho</span>
+                                            : <span className={`shrink-0 rounded-full px-2 py-px text-xs font-semibold ${age.n >= 3 ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>{age.label}</span>);
                                 })}
                             </ul>
 
@@ -830,10 +892,16 @@ export default function TherapyEvolution({
                                             <div role="status" className="mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900 sm:mx-5">
                                                 <span className="flex items-center gap-2">
                                                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-                                                    Sessão de {fmtDate(selectedPending.lastCompletedDate)} ({lastLabel(selectedPending.lastCompletedDate)}) ainda sem evolução.
+                                                    {selectedPending.draft
+                                                        ? <>Sessão de {fmtDate(selectedPending.lastCompletedDate)} com rascunho salvo, ainda não finalizado.</>
+                                                        : <>Sessão de {fmtDate(selectedPending.lastCompletedDate)} ({lastLabel(selectedPending.lastCompletedDate)}) ainda sem evolução.</>}
                                                 </span>
-                                                <button type="button" className={`${btnSoft} ${btnSm}`} onClick={() => openAdd({ date: toDateString(selectedPending.lastCompletedDate) })}>
-                                                    Registrar essa sessão
+                                                <button type="button" className={`${btnSoft} ${btnSm}`} onClick={() => openAdd({
+                                                    date: toDateString(selectedPending.lastCompletedDate),
+                                                    time: selectedPending.lastCompletedTime || undefined,
+                                                    appointmentId: selectedPending.draft?.appointmentId || selectedPending.lastAppointmentId || null,
+                                                })}>
+                                                    {selectedPending.draft ? 'Continuar rascunho' : 'Registrar essa sessão'}
                                                 </button>
                                             </div>
                                         )}

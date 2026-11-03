@@ -57,6 +57,32 @@ export interface PendingEvolution {
   fullName: string;
   lastCompletedDate: string;
   lastEvolutionDate: string | null;
+  /** Agendamento mais recente concluído: é nele que o rascunho fica preso */
+  lastAppointmentId?: string | null;
+  lastCompletedTime?: string | null;
+  /** Rascunho em andamento desse paciente (continua pendente até finalizar) */
+  draft?: { evolutionId: string; appointmentId: string | null; lastAutosaveAt: string | null } | null;
+}
+
+// ─── RASCUNHO (autosave) — ver back/docs/EVOLUTION_DRAFT.md ──────────────
+
+export interface EvolutionDraftPayload {
+  appointmentId: string;
+  /** lastAutosaveAt que este aparelho conhece; evita sobrescrever o que outro aparelho salvou */
+  baseAutosaveAt?: string | null;
+  [field: string]: any;
+}
+
+/** Salva (upsert) o rascunho do agendamento. Erros 409 vêm com error.code no response. */
+export async function saveEvolutionDraft(payload: EvolutionDraftPayload): Promise<{ draft: Evolution; lastAutosaveAt: string | null }> {
+  const res = await API.put(`${BASE_V2}/draft`, payload);
+  return { draft: res?.data?.data, lastAutosaveAt: res?.data?.meta?.lastAutosaveAt ?? res?.data?.data?.lastAutosaveAt ?? null };
+}
+
+/** Evolução (rascunho ou finalizada) de um agendamento; null se não houver. */
+export async function fetchEvolutionByAppointment(appointmentId: string): Promise<Evolution | null> {
+  const res = await API.get(`${BASE_V2}/appointment/${appointmentId}`);
+  return res?.data?.data ?? null;
 }
 
 /** Pacientes atendidos (últimos 90 dias) sem evolução registrada após o último atendimento. */
