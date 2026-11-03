@@ -46,8 +46,9 @@ function GroupCard({ group, onDone }: { group: DuplicateGroup; onDone: () => voi
       }
       toast.success('Cadastros mesclados');
       onDone();
-    } catch (err: any) {
-      const code = err?.response?.data?.code || err?.response?.data?.errorCode;
+    } catch (err) {
+      const data = (err as { response?: { data?: { code?: string; errorCode?: string } } })?.response?.data;
+      const code = data?.code || data?.errorCode;
       if (code === 'MERGE_DISABLED') {
         toast.info('Mesclar ainda está desligado neste ambiente. A prévia funcionou; peça a liberação para aplicar.');
       } else {

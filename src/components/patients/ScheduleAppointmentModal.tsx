@@ -618,9 +618,9 @@ const ScheduleAppointmentModal = ({
                                         try {
                                             const full = await patientService.getById(c._id);
                                             setSelectedPatient(full);
-                                            setPackages((full as any)?.packages || []);
+                                            setPackages((full as { packages?: unknown[] })?.packages || []);
                                         } catch {
-                                            setSelectedPatient({ _id: c._id, fullName: c.fullName } as any);
+                                            setSelectedPatient({ _id: c._id, fullName: c.fullName } as unknown as IPatient);
                                         }
                                     }}
                                 />
