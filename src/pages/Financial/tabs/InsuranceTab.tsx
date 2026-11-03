@@ -298,6 +298,8 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     // Números que dependem do mês (recebido pela data do depósito, NFs abertas, fila de ação).
     const [insSummary, setInsSummary] = useState<InsuranceSummary | null>(null);
     const [insSummaryError, setInsSummaryError] = useState(false);
+    // Aviso "evolução em falta" por sessão (lista vem pronta do back, só leitura).
+    const missingEvolutionIds = useMemo(() => new Set(insSummary?.sessionsWithoutEvolutionIds ?? []), [insSummary]);
     const navigate = useNavigate();
 
     // União deduplicada dos buckets. É o que resolve `selectedGuides` (Set de ids)
@@ -1249,6 +1251,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                     <div className="mb-3 space-y-3">
                         <KpiStrip
                             loading={!ps && loadingGuides}
+                            cols={5}
                             items={[
                                 {
                                     label: 'A faturar', value: ps ? brl(ps.pendingBilling.amount) : '—',
@@ -1273,6 +1276,18 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                         : insSummaryError ? 'não foi possível carregar' : undefined,
                                     onClick: () => setSubTab(3),
                                 },
+                                {
+                                    // Glosa = recusa do convênio (não é imposto retido). Somada no back.
+                                    label: 'Glosas do mês',
+                                    danger: (sm?.glosaInMonth?.amount ?? 0) > 0,
+                                    value: sm?.glosaInMonth ? brl(sm.glosaInMonth.amount) : (insSummaryError ? '—' : '…'),
+                                    sub: sm?.glosaInMonth
+                                        ? (sm.glosaInMonth.amount > 0
+                                            ? `${n(sm.glosaInMonth.sessions)} sessões glosadas · ${n(sm.glosaInMonth.batches)} lotes · recorrer no prazo do convênio`
+                                            : 'nenhuma glosa registrada no mês')
+                                        : undefined,
+                                    onClick: () => setSubTab(3),
+                                },
                             ]}
                         />
                         {insSummaryError && (
@@ -1292,6 +1307,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                 { key: 'conf', count: paymentIntegrityConflictCount, value: paymentIntegrityConflictCount * avg, estimate: true, tone: 'r', title: 'Sessões fora do faturamento', detail: 'Sem lançamento de convênio ou com lançamento duplicado', cta: 'Ver e corrigir', go: () => { setSubTab(0); setShowPaymentIntegrityConflicts(true); } },
                                 { key: 'orph', count: orphanCount, value: aq?.orphanSessionsValue ?? 0, estimate: false, tone: 'a', title: 'Sessões sem guia', detail: 'Vincular a uma guia válida para poder faturar', cta: 'Vincular guia', go: () => { setSubTab(0); void loadOrphanSessions().catch(() => undefined); } },
                                 { key: 'exp', count: aq?.guidesExpiringIn7Days ?? 0, value: 0, estimate: false, tone: 'a', title: 'Guias vencendo em 7 dias', detail: 'Pedir nova autorização antes de vencer', cta: 'Ver guias', go: () => setSubTab(5) },
+                                { key: 'evo', count: aq?.sessionsWithoutEvolution ?? 0, value: 0, estimate: false, tone: 'a', title: 'Sessões sem evolução', detail: `${(aq?.sessionsWithoutEvolutionByDoctor ?? []).filter(d => d.count > 0).slice(0, 3).map(d => `${d.doctorName ? `Dr(a). ${d.doctorName.split(' ')[0]}` : 'Sem terapeuta'} (${d.count})`).join(' · ') || 'A faturar ou aguardando NF'} · só aviso, o faturamento não trava`, cta: 'Ver sessões', go: () => setSubTab(0) },
                                 { key: 'draft', count: draftCount, value: 0, estimate: false, tone: 'a', title: 'Rascunhos travando sessões', detail: 'Envio começado e não concluído: as sessões ficam presas até finalizar ou descartar', cta: 'Ver rascunhos', go: () => setSubTab(9) },
                             ] as const;
                             const active = rows.filter(r => r.count > 0).sort((a, b) => b.value - a.value || b.count - a.count);
@@ -1580,6 +1596,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             convenios={convenios}
                             loadingConvenios={loadingConvenios}
                             onConfigureConvenios={() => setConvenioManagerOpen(true)}
+                            missingEvolutionIds={missingEvolutionIds}
                         />
                     ) : subTab === 2 || subTab === 3 ? (
                         // Faturados/Recebidos derivam da ReadView pelo bucket da fase.

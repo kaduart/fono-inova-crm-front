@@ -23,6 +23,7 @@ export interface BoardLeadView {
   reasonLabel: string;
   nextActionAt: Date | null;
   late: boolean;
+  origin?: React.ReactNode;
 }
 
 const ACTIVE_STAGES = [
@@ -67,7 +68,7 @@ function CardBody({ v, dragging }: { v: BoardLeadView; dragging?: boolean }) {
           {v.phone && <div className="text-[11px] text-slate-400">{fmtPhone(v.phone)}</div>}
         </div>
       </div>
-      <div className="mt-2">{v.badge}</div>
+      <div className="mt-2 flex flex-wrap gap-1">{v.badge}{v.origin}</div>
       <div className="mt-2 line-clamp-2 text-xs text-emerald-800 dark:text-emerald-300">→ {v.nextText}</div>
     </div>
   );
@@ -162,7 +163,7 @@ export function LeadSheet({
                 <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Fechar"><X size={18} /></button>
               </div>
 
-              <div>{v.badge}</div>
+              <div className="flex flex-wrap gap-1.5">{v.badge}{v.origin}</div>
 
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
                 <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">Próximo passo</div>

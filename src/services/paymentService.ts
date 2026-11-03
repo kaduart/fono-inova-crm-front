@@ -1151,7 +1151,14 @@ export interface InsuranceSummary {
     month: string;
     receivedInMonth: { sessions: number; gross: number; net: number; previousNet: number; previousMonth: string; changePercent: number | null };
     openInvoices: { count: number; pendingAmount: number; oldestDays: number | null };
-    actionQueue: { orphanSessions: number; orphanSessionsValue: number; draftSubmissions: number; guidesExpiringIn7Days: number };
+    actionQueue: {
+        orphanSessions: number; orphanSessionsValue: number; draftSubmissions: number; guidesExpiringIn7Days: number;
+        // Aviso: sessões a faturar/aguardando sem evolução (back antigo não manda).
+        sessionsWithoutEvolution?: number;
+        sessionsWithoutEvolutionByDoctor?: { doctorId: string | null; doctorName: string | null; count: number }[];
+    };
+    sessionsWithoutEvolutionIds?: string[];
+    glosaInMonth?: { amount: number; sessions: number; batches: number };
 }
 
 export const getInsuranceSummary = (month: string) =>

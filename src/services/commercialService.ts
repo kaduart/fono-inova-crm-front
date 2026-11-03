@@ -35,9 +35,21 @@ export interface PackageEndingItem {
     doctorName: string | null;
     remaining: number;
     totalSessions: number;
+    sessionsDone?: number;
+    /** renovar = gerar a cobrança do próximo mês; ultima = falta 1 sessão ou já acabou. */
+    stage?: 'renovar' | 'ultima' | 'ok';
     nextSessionAt: string | null;
     nextSessionTime: string | null;
     lastContactAt: string | null;
+}
+
+/** Risco de evasão: 14+ dias sem sessão futura (21 se quinzenal), sem falta justificada nem pausa. */
+export interface ChurnItem extends QueuePatient {
+    minDays: number;
+    severity: 'critical';
+    title: string;
+    /** Texto pronto do WhatsApp, montado no back. */
+    message: string;
 }
 
 export interface WaitingLead {
@@ -87,7 +99,7 @@ export interface NextDayItem {
 
 export interface NextDayQueue { date: string | null; total: number; confirmed: number; items: NextDayItem[] }
 
-export type ContactKind = 'reactivation' | 'renewal' | 'fit' | 'lead_reply' | 'evaluation' | 'evaluation_lost';
+export type ContactKind = 'reactivation' | 'renewal' | 'fit' | 'lead_reply' | 'evaluation' | 'evaluation_lost' | 'churn' | 'churn_pause';
 
 const unwrap = <T>(res: any): T => (res?.data?.data ?? res?.data) as T;
 
@@ -103,6 +115,10 @@ export const commercialService = {
     },
     async reactivation() {
         const d = unwrap<{ items?: QueuePatient[] }>(await API.get('/v2/commercial/reactivation'));
+        return Array.isArray(d?.items) ? d.items : [];
+    },
+    async churnRisk() {
+        const d = unwrap<{ items?: ChurnItem[] }>(await API.get('/v2/commercial/churn-risk'));
         return Array.isArray(d?.items) ? d.items : [];
     },
     async leadsWaiting(hours = 2) {
@@ -126,7 +142,8 @@ export const commercialService = {
     async confirmAttendance(appointmentId: string) {
         return unwrap(await API.patch(`/v2/appointments/${appointmentId}/attendance-confirmation`, { status: 'confirmed' }));
     },
-    async registerContact(p: { targetType: 'patient' | 'lead'; targetId: string; kind: ContactKind; note?: string }) {
+    /** `until` só em churn_pause: fim da pausa (até 90 dias). */
+    async registerContact(p: { targetType: 'patient' | 'lead'; targetId: string; kind: ContactKind; note?: string; until?: string }) {
         return unwrap(await API.post('/v2/commercial/contacts', p));
     },
 };
