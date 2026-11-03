@@ -14,20 +14,20 @@ interface HeaderNavButtonProps {
     title?: string;
 }
 
-const HeaderNavButton: React.FC<HeaderNavButtonProps> = ({ children, active, onClick, icon, hasChevron = false, open = false, badge, title }) => (
+const HeaderNavButton: React.FC<HeaderNavButtonProps> = ({ children, active, onClick, hasChevron = false, open = false, badge, title }) => (
     <button
         type="button"
         onClick={onClick}
         title={title}
         aria-current={active ? 'page' : undefined}
         aria-expanded={hasChevron ? open : undefined}
-        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 py-2 min-[1800px]:gap-2 min-[1800px]:px-2.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
             active
                 ? 'bg-[#fff] font-semibold text-[#065f46] shadow-[0_4px_12px_-6px_rgba(0,0,0,0.45)]'
                 : 'font-medium text-white/90 hover:bg-white/10 hover:text-white'
         }`}
     >
-        {icon && <span className="hidden h-4 w-4 min-[1800px]:flex items-center justify-center [&>svg]:h-4 [&>svg]:w-4" aria-hidden>{icon}</span>}
+        {/* Ícone não aparece: o app tem no máximo 1515px (#root em App.css) e com ícones os itens não cabem. */}
         <span>{children}</span>
         {badge}
         {hasChevron && <ChevronDown className={`h-3.5 w-3.5 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />}
