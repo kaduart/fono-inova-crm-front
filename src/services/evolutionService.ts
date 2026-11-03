@@ -124,6 +124,28 @@ export async function fetchLateEvolutionsByDoctor(): Promise<LateEvolutionsSumma
   };
 }
 
+// ─── RESUMO PARA A FAMÍLIA (item 4) — ver back/docs/FAMILY_COMMUNICATION.md ───
+
+export interface FamilySummarySent { text: string; status: 'queued' | 'failed'; queuedAt?: string; phoneLast4?: string }
+export interface FamilySummaryInfo {
+  suggestion: string;
+  sent: FamilySummarySent | null;
+  canSend: boolean;
+  blockReason: string | null;
+  phoneLast4: string | null;
+}
+
+export async function fetchFamilySummary(evolutionId: string): Promise<FamilySummaryInfo> {
+  const res = await API.get(`${BASE_V2}/${evolutionId}/family-summary`);
+  return res.data.data;
+}
+
+/** Enfileira no WhatsApp; uma vez por evolução (o back é idempotente). */
+export async function sendFamilySummary(evolutionId: string, text: string): Promise<FamilySummarySent> {
+  const res = await API.post(`${BASE_V2}/${evolutionId}/family-summary/send`, { text });
+  return res.data.data;
+}
+
 // ─── WRITES (V2 síncrono — feedback imediato ao profissional) ─────────
 
 export async function createEvolution(payload: CreateEvolutionPayload): Promise<Evolution> {

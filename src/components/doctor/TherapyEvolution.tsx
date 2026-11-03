@@ -9,8 +9,10 @@ import {
     ArrowDown,
     ArrowUp,
     BarChart3,
+    Check,
     ChevronDown,
     FileDown,
+    MessageCircle,
     GitBranch,
     Minus,
     MoreHorizontal,
@@ -39,6 +41,7 @@ import { toDateString } from '../../utils/dateUtils';
 import { IPatient } from '../../utils/types/types';
 import ProtocolAnalytics from '../protocols/ProtocolAnalytics';
 import EvolutionChart from './EvolutionChart';
+import FamilySummaryModal from './FamilySummaryModal';
 import { type DraftSyncError, type EvaluationDraftSnapshot, NewEvaluationForm, NewEvaluationModal } from './NewEvaluationModal';
 import { ageLabel, billingChip, Chip, dayDiff, lastLabel, nextLabel } from './patient/MyPatientsPanel';
 
@@ -343,6 +346,9 @@ export default function TherapyEvolution({
     const [openIds, setOpenIds] = useState<Set<string>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [pdfId, setPdfId] = useState<string | null>(null);
+    // Resumo para a família (item 4): abre sozinho depois de finalizar e pelo botão no histórico.
+    const [familyFor, setFamilyFor] = useState<{ id: string; afterFinalize: boolean } | null>(null);
+    const [familySent, setFamilySent] = useState<Set<string>>(new Set());
 
 
     const term = norm(patientSearch.trim());
@@ -536,6 +542,8 @@ export default function TherapyEvolution({
         const result = await create(buildEvolutionPayload(form) as any);
         if (result.success) {
             setIsAdding(false);
+            const newId = (result.data as { _id?: string } | null | undefined)?._id;
+            if (newId) setFamilyFor({ id: newId, afterFinalize: true });
             loadQueue();
             onEvolutionChanged?.();
             return true;
@@ -737,6 +745,9 @@ export default function TherapyEvolution({
                     </div>
                 </div>
             </ModalShell>
+            <FamilySummaryModal evolutionId={familyFor?.id || null} afterFinalize={familyFor?.afterFinalize}
+                patientName={resolvedPatient?.fullName} onClose={() => setFamilyFor(null)}
+                onSent={(id) => setFamilySent(prev => new Set(prev).add(id))} />
             <NewEvaluationModal
                 open={isAdding}
                 onClose={() => setIsAdding(false)}
@@ -1069,6 +1080,14 @@ export default function TherapyEvolution({
                                                                             <button type="button" className={`${btnGhost} ${btnSm}`} disabled={pdfId === evaluation._id} onClick={() => handleDownloadPdf(evaluation)} aria-label={`Baixar PDF da evolução de ${fmtDate(evaluation.date)}`}>
                                                                                 <FileDown className="h-4 w-4" aria-hidden />{pdfId === evaluation._id ? 'Gerando…' : 'PDF'}
                                                                             </button>
+                                                                            {canChangeEvolution(evaluation) && evaluation.status !== 'draft' && (
+                                                                                <button type="button" className={`${btnGhost} ${btnSm}`} onClick={() => setFamilyFor({ id: evaluation._id, afterFinalize: false })}
+                                                                                    aria-label={`Resumo para a família da evolução de ${fmtDate(evaluation.date)}`}>
+                                                                                    {evaluation.familySummary?.status === 'queued' || familySent.has(evaluation._id)
+                                                                                        ? <><Check className="h-4 w-4 text-emerald-600" aria-hidden />Família</>
+                                                                                        : <><MessageCircle className="h-4 w-4" aria-hidden />Família</>}
+                                                                                </button>
+                                                                            )}
                                                                             {canChangeEvolution(evaluation) && (
                                                                                 <EntryMenu label={fmtDate(evaluation.date)} deleting={deletingId === evaluation._id} onDelete={() => handleDeleteEvaluation(evaluation._id)}
                                                                                     onEdit={() => setEditing({ id: evaluation._id, label: fmtDate(evaluation.date), original: text, text })} />
