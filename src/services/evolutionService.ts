@@ -92,6 +92,38 @@ export async function fetchPendingEvolutions(doctorId?: string): Promise<Pending
   );
 }
 
+/** Coordenação (só admin): pendências da clínica por profissional. Ver back/docs/EVOLUTION_DRAFT.md. */
+export interface LateEvolutionItem extends PendingEvolution {
+  daysLate: number;
+}
+export interface LateEvolutionsByDoctor {
+  doctorId: string;
+  fullName: string;
+  specialty: string | null;
+  phoneNumber: string | null;
+  pendingCount: number;
+  draftCount: number;
+  oldestDaysLate: number;
+  items: LateEvolutionItem[];
+}
+export interface LateEvolutionsSummary {
+  doctors: LateEvolutionsByDoctor[];
+  total: number;
+  drafts: number;
+  oldestDaysLate: number;
+}
+
+export async function fetchLateEvolutionsByDoctor(): Promise<LateEvolutionsSummary> {
+  const res = await API.get(`${BASE_V2}/pending/by-doctor`);
+  const meta = res?.data?.meta || {};
+  return {
+    doctors: res?.data?.data || [],
+    total: meta.total || 0,
+    drafts: meta.drafts || 0,
+    oldestDaysLate: meta.oldestDaysLate || 0,
+  };
+}
+
 // ─── WRITES (V2 síncrono — feedback imediato ao profissional) ─────────
 
 export async function createEvolution(payload: CreateEvolutionPayload): Promise<Evolution> {
