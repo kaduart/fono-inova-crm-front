@@ -4,20 +4,22 @@
 // Dados: /v2/patients/:id (resumo: próxima/última sessão) + /patients/:id (cadastro e dados
 // clínicos, que o resumo não traz) + /patients/:id/appointments-summary (frequência).
 import {
-    Activity, ArrowLeft, BarChart3, Calendar, ClipboardList, FileText, IdCard, MapPin,
-    MessageCircle, Package, Phone, RefreshCw, School, Shield, Stethoscope,
+    Activity, ArrowLeft, BarChart3, Calendar, CalendarCheck, ClipboardList, FileText, IdCard, MapPin,
+    MessageCircle, Package, Phone, RefreshCw, School, Shield, Stethoscope, Target,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import API from '../../../services/api';
 import { getEvaluationsByPatient } from '../../../services/evaluationService';
 import PackagesReadOnly from './PackagesReadOnly';
+import PeiSection from './PeiSection';
+import MonthlyReportsSection from './MonthlyReportsSection';
 import MedicalReportsSection from './reports/MedicalReportsSection';
 import PatientInsights, { FoldSection } from '../../patients/PatientInsights';
 import PatientEvolution from '../../patients/PatientEvolution';
 import { waLink } from '../../commercial/commercialCopy';
 
-export type PatientSection = 'overview' | 'anamnesis' | 'school' | 'medical' | 'evolution' | 'packages';
+export type PatientSection = 'overview' | 'anamnesis' | 'school' | 'medical' | 'evolution' | 'pei' | 'monthly' | 'packages';
 
 interface PatientDetailProps {
     patientId?: string;
@@ -34,6 +36,8 @@ const SECTIONS: { id: PatientSection; label: string; icon: typeof BarChart3 }[] 
     { id: 'school', label: 'Rel. escolares', icon: School },
     { id: 'medical', label: 'Rel. médicos', icon: FileText },
     { id: 'evolution', label: 'Evolução', icon: Activity },
+    { id: 'pei', label: 'PEI', icon: Target },
+    { id: 'monthly', label: 'Rel. mensal', icon: CalendarCheck },
     { id: 'packages', label: 'Pacotes', icon: Package },
 ];
 const isSection = (v: string | null): v is PatientSection => !!v && SECTIONS.some(s => s.id === v);
@@ -225,6 +229,10 @@ export default function PatientDetail({ patientId, onBack, initialSection, creat
                     );
                 }
                 return <PatientEvolution patientId={pid!} patientName={patient.fullName} initialEvolutions={evolutions} />;
+            case 'pei':
+                return <PeiSection patientId={pid!} specialty={(patient as { specialty?: string }).specialty} />;
+            case 'monthly':
+                return <MonthlyReportsSection patientId={pid!} patientName={patient.fullName} />;
             case 'packages':
                 return <PackagesReadOnly patientId={pid} />;
             default:

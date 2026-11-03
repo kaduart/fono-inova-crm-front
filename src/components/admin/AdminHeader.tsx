@@ -173,7 +173,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
     return (
         <header className={HEADER_SHELL_CLASS}>
-            <div className="mx-auto max-w-[1440px] px-4 py-2.5 sm:px-6">
+            <div className="mx-auto max-w-[1600px] px-4 py-2.5 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between gap-4">
                     {/* Logo e nome da clínica */}
                     <NavLink
@@ -434,7 +434,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <button type="button" onClick={openCmdk} aria-label="Ir para uma tela (Ctrl + K)" title="Ir para… (Ctrl + K)"
                             className={`${HEADER_ICON_BUTTON_CLASS} xl:w-auto xl:gap-2 xl:px-3`}>
                             <Search size={18} />
-                            <span className="hidden text-sm font-medium min-[1800px]:inline">Ir para…</span>
+                            <span className="sr-only">Ir para…</span>
                             <kbd className="hidden rounded border border-white/25 px-1 text-[10px] font-sans text-white/80 xl:inline">Ctrl K</kbd>
                         </button>
                         <NotificationBellFixed />

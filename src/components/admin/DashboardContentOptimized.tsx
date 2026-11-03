@@ -21,6 +21,7 @@ import {
 import BirthdayList from './BirthdayList';
 import { ChurnPanel, EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
+import { LateEvolutionsPanel, lateEvolutionsDetail, useLateEvolutions } from './LateEvolutionsPanel';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 
 // Ordem aprovada pelo Kadu em 29/10 (mock "Dashboard do admin"):
@@ -581,7 +582,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     useEffect(() => { loadPreStats(); }, [loadPreStats]);
     const opCounts = useOperationalCounts();
     const commercial = useCommercialQueues();
-    const [queueOpen, setQueueOpen] = useState<'renewal' | 'churn' | 'reactivation' | 'evaluation' | 'nextDay' | null>(null);
+    const [queueOpen, setQueueOpen] = useState<'renewal' | 'churn' | 'reactivation' | 'evaluation' | 'nextDay' | 'lateEvo' | null>(null);
+    const lateEvo = useLateEvolutions();
 
     const handleRefreshAll = useCallback(() => {
         onRefresh();
@@ -589,7 +591,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         commercial.reload();
         if (aniversariantesFetched.current) loadAniversariantes(true);
         if (todayLoaded) loadTodaySessions(true);
-    }, [onRefresh, loadPreStats, commercial.reload, loadAniversariantes, todayLoaded, loadTodaySessions]);
+        lateEvo.reload();
+    }, [onRefresh, loadPreStats, commercial.reload, loadAniversariantes, todayLoaded, loadTodaySessions, lateEvo.reload]);
 
     const openBirthdays = useCallback(() => {
         setBirthdaySectionOpen(true);
@@ -633,6 +636,11 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             detail: preStats ? [preStats.semContato ? `${preStats.semContato} sem contato` : '', preStats.urgentes ? `${preStats.urgentes} urgentes` : ''].filter(Boolean).join(' · ') || 'a confirmar' : '',
             cta: 'Abrir pré-agendamentos', onClick: () => onNavigate?.('Pré-Agendamentos'),
             error: preStatsError, onRetry: loadPreStats,
+        },
+        {
+            key: 'lateEvo', count: lateEvo.data?.total || 0, tone: 'bad', title: 'Evoluções em atraso',
+            detail: lateEvolutionsDetail(lateEvo.data), cta: 'Ver por terapeuta', onClick: () => setQueueOpen('lateEvo'),
+            error: lateEvo.error, onRetry: lateEvo.reload,
         },
         {
             key: 'pay', count: stats?.pendingPayments || 0, tone: 'bad', title: 'Pagamentos em aberto',
@@ -752,6 +760,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
 
             {/* 1. Precisa de você */}
             <NeedsYou items={needItems} loading={!preStats} />
+            {queueOpen === 'lateEvo' && lateEvo.data && <LateEvolutionsPanel data={lateEvo.data} onClose={() => setQueueOpen(null)} />}
             {queueOpen === 'renewal' && <PackageEndingPanel items={commercial.packageEnding || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'churn' && <ChurnPanel items={commercial.churn || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'reactivation' && <ReactivationPanel items={commercial.reactivation || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}

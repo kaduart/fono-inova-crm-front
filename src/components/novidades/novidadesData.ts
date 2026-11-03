@@ -23,11 +23,13 @@ export interface NovidadesScreen {
 export const NOVIDADES_SCREENS: NovidadesScreen[] = [
     // ── Admin / secretária ───────────────────────────────────────────────
     {
-        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-11-01', tabs: ['Dashboard'],
+        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-11-03', tabs: ['Dashboard'],
         summary: 'O que precisa de você hoje fica logo no topo.',
         items: [
+            { title: 'Evoluções em atraso', what: 'Nova linha no "Precisa de você": quais terapeutas têm evoluções para fechar, há quantos dias e quantas estão em rascunho.', how: 'Abra a linha, filtre por "Mais de 2 dias" ou "Só rascunhos" e use Lembrar para mandar o lembrete pronto pelo WhatsApp.' },
+            { title: 'Tela inteira em monitores grandes', what: 'O sistema ocupa a tela toda, sem as faixas pretas dos lados. Agenda, Caixa, Convênios e Financeiro usam toda a largura; as outras telas ficam numa coluna centralizada para facilitar a leitura.', how: 'Nada a fazer.' },
             { title: 'Ir para… (Ctrl+K)', what: 'Um atalho para abrir qualquer tela do ERP digitando o nome, sem procurar no menu.', how: 'Aperte Ctrl+K (no Mac, Cmd+K), digite "caixa", "convênios", "agenda"… e dê Enter.' },
-            { title: 'Menu novo: Caixa, Convênios e Financeiro', what: 'O antigo Financeiro virou três botões no topo: Caixa (o dinheiro do dia e os recebimentos), Convênios (guias, faturamento e recebimento dos planos) e Financeiro (despesas, repasse, notas e resultados). Nada foi removido, só separado.', how: 'Links antigos levam sozinhos para o menu certo. Em telas menores os botões mostram só o nome; os ícones aparecem em telas largas.' },
+            { title: 'Menu novo: Caixa, Convênios e Financeiro', what: 'O antigo Financeiro virou três botões no topo: Caixa (o dinheiro do dia e os recebimentos), Convênios (guias, faturamento e recebimento dos planos) e Financeiro (despesas, repasse, notas e resultados). Nada foi removido, só separado.', how: 'Links antigos levam sozinhos para o menu certo. Os botões mostram só o nome, para caber em qualquer tela.' },
             { title: 'Avisos e confirmações novos', what: 'Os avisos aparecem no canto da tela e, em ações como remarcar ou remover pagamento, trazem o botão Desfazer. Confirmações de excluir/cancelar aparecem numa janela do próprio sistema.', how: 'Errou? Clique em Desfazer no aviso enquanto ele estiver na tela.' },
             { title: 'Números que se movem', what: 'Os valores dos cartões mudam com uma animação curta quando atualizam, para você perceber o que mudou.', how: 'Nada a fazer: é só leitura.' },
             { title: 'Pagamento pendente leva ao Caixa', what: 'Clicar em pagamentos em aberto no "Precisa de você hoje" agora abre o menu Caixa.', how: 'Clique no número para ir direto.' },
@@ -141,17 +143,22 @@ export const NOVIDADES_SCREENS: NovidadesScreen[] = [
         ],
     },
     {
-        id: 'doctor-pacientes', area: 'doctor', name: 'Meus pacientes', version: '2026-10-29', tabs: ['patients'],
+        id: 'doctor-pacientes', area: 'doctor', name: 'Meus pacientes', version: '2026-11-03', tabs: ['patients'],
         summary: 'Próxima sessão e status real de cada paciente.',
         items: [
+            { title: 'Anamnese completa', what: 'As etapas Histórico familiar, Desenvolvimento, Hábitos, Aspectos escolares e Observações agora têm campos, com sugestões de um toque. A anamnese e o relatório escolar passaram a salvar tudo o que foi preenchido.', how: 'No paciente, abra Anamnese. Toque numa sugestão para preencher e edite à vontade.' },
+            { title: 'PEI com metas', what: 'Nova seção PEI no paciente: metas por área com linha de base, alvo e critério. Cada medição atualiza a barra de avanço, e a meta vira "alcançada" quando bate o alvo.', how: 'No paciente, abra PEI, clique em Criar PEI e use "Registrar medição" em cada meta.' },
+            { title: 'Relatório mensal', what: 'Nova seção "Rel. mensal": gera o relatório do mês a partir das evoluções finalizadas, com presença, áreas e metas do PEI. Tem PDF e aviso para a família pelo WhatsApp.', how: 'Clique em Gerar, revise o resumo e os próximos passos, Aprove e depois baixe o PDF ou avise a família.' },
             { title: 'Filtros rápidos', what: 'Em atendimento, Sem próxima sessão, Evolução pendente, Aniversário no mês e Inativos, com contagem.', how: 'Clique no filtro para ver só esses pacientes.' },
             { title: 'Menu ⋯ do paciente', what: 'Registrar evolução, Agendar sessão e Ver relatórios na própria linha.', how: 'Clique nos três pontinhos da linha.' },
         ],
     },
     {
-        id: 'doctor-evolucao', area: 'doctor', name: 'Evolução', version: '2026-10-30', tabs: ['therapy'],
+        id: 'doctor-evolucao', area: 'doctor', name: 'Evolução', version: '2026-11-03', tabs: ['therapy'],
         summary: 'Fila de pendentes e gráfico por área.',
         items: [
+            { title: 'Rascunho salvo sozinho', what: 'A evolução é salva como rascunho enquanto você digita. Dá para fechar e terminar depois, inclusive em outro aparelho. Rascunho não entra em gráfico nem em relatório.', how: 'Feche quando quiser. Para concluir, abra de novo pela fila e clique em Finalizar evolução.' },
+            { title: 'Resumo da sessão para a família', what: 'Depois de finalizar, abre um resumo curto da sessão com o texto sugerido. Nada é enviado sem você revisar. Cada evolução envia uma vez só.', how: 'Ajuste o texto, troque o que estiver entre [colchetes] e clique em Enviar pelo WhatsApp. Também fica no botão Família de cada evolução.' },
             { title: 'Fila de pendentes', what: 'Ao abrir a aba aparecem as evoluções que faltam registrar.', how: 'Clique no paciente: o registro já abre com a data da sessão.' },
             { title: 'Gráfico por área', what: 'Uma linha por área, escala 0 a 10 e a meta do plano tracejada.', how: 'Troque entre Últimas 3, Últimas 6 ou Tudo; também dá para ver em tabela.' },
             { title: 'Linha do tempo', what: 'Texto clínico visível, nota por área e diferença para a sessão anterior. PDF por evolução.', how: 'Excluir fica no menu ⋯.' },
