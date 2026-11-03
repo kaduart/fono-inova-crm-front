@@ -107,9 +107,11 @@ export const NOVIDADES_SCREENS: NovidadesScreen[] = [
         ],
     },
     {
-        id: 'admin-pacientes', area: 'admin', name: 'Gestão · Pacientes', version: '2026-11-01', tabs: ['Add Paciente'],
+        id: 'admin-pacientes', area: 'admin', name: 'Gestão · Pacientes', version: '2026-11-03', tabs: ['Add Paciente'],
         summary: 'Ache quem deve e fale com vários de uma vez.',
         items: [
+            { title: 'Aviso de paciente já cadastrado', what: 'Ao digitar o nome no cadastro (e no "novo paciente" do agendamento), o sistema mostra cadastros parecidos: mesmo nome sem acento ou maiúscula, mesma data de nascimento ou telefone.', how: 'Abra a ficha existente. Se for mesmo outra pessoa, marque "Conferi: é outra pessoa" para salvar.' },
+            { title: 'Possíveis cadastros duplicados (admin)', what: 'Painel no topo da lista com os cadastros em dobro, quantos agendamentos cada um tem e qual sugerimos manter.', how: 'Escolha o que fica e clique em Mesclar: aparece a prévia do que muda antes de confirmar. Se forem pessoas diferentes, marque como tal.' },
             { title: 'Ordenar por saldo devedor', what: 'O seletor de ordem tem "Maior saldo devedor", que traz primeiro quem mais deve no particular.', how: 'Escolha a ordem no topo da lista.' },
             { title: 'Seleção em lote', what: 'Marque pacientes (a marcação continua ao trocar de página) e copie os telefones de todos ou baixe a planilha.', how: 'Use a barra verde que aparece ao marcar.' },
         ],

@@ -1,6 +1,6 @@
 import { ptBR } from 'date-fns/locale';
 import { ClipboardList, Heart, MapPin, Phone, ShieldCheck, User } from 'lucide-react';
-import { JSX } from 'react';
+import { JSX, useState } from 'react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Controller, useForm } from 'react-hook-form';
@@ -14,6 +14,7 @@ import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/TextArea';
 import { maskDateBR, pickerDateToStoredBirth, storedBirthToPickerDate } from '../../utils/dateOfBirth';
 import { IPatient } from '../../utils/types/types';
+import { PossibleDuplicatesNotice, usePossibleDuplicates } from '../../components/patients/PossibleDuplicatesNotice';
 
 type PatientFormData = z.infer<typeof any>;
 
@@ -23,12 +24,25 @@ interface PatientFormProps {
   isLoading?: boolean;
 }
 
+// Fora do componente: definido dentro, cada re-render (o aviso de duplicado observa os
+// campos) recriava o tipo e remontava os inputs, tirando o foco a cada tecla.
+const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: JSX.Element | JSX.Element[] }) => (
+  <Card className="border border-gray-200 shadow-sm rounded-xl mb-6 transition-all hover:shadow-md">
+    <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-50 to-white border-b border-gray-100 rounded-t-xl">
+      <Icon className="text-green-600 w-5 h-5" />
+      <h3 className="text-gray-700 font-medium">{title}</h3>
+    </div>
+    <CardContent className="p-6">{children}</CardContent>
+  </Card>
+);
+
 const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
   const {
     register,
     handleSubmit,
     formState: { errors },
     control,
+    watch,
   } = useForm<PatientFormData>({
     defaultValues: {
       ...(patient || {}),
@@ -36,21 +50,32 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
     }
   });
 
+  // Aviso de possível duplicado (03/11/2026): só no cadastro novo.
+  const existingId = patient?._id || (patient as any)?.patientId || (patient as any)?.id;
+  const [confirmedDistinct, setConfirmedDistinct] = useState(false);
+  const [showDupError, setShowDupError] = useState(false);
+  const { candidates } = usePossibleDuplicates({
+    fullName: watch('fullName'),
+    dateOfBirth: watch('dateOfBirth'),
+    phone: watch('phone'),
+    cpf: watch('cpf'),
+  }, !existingId);
+
   const onSubmit = (data: PatientFormData) => {
-    const id = patient?._id || (patient as any)?.patientId || (patient as any)?.id;
-    const fullData = { ...(id ? { _id: id } : {}), ...data };
+    const id = existingId;
+    if (!id && candidates.length && !confirmedDistinct) {
+      setShowDupError(true);
+      document.getElementById('patient-duplicates-notice')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    const fullData = {
+      ...(id ? { _id: id } : {}),
+      ...data,
+      ...(!id && candidates.length && confirmedDistinct ? { confirmNotDuplicate: true } : {}),
+    };
     onSuccess?.(fullData as PatientFormData);
   };
 
-  const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: JSX.Element | JSX.Element[] }) => (
-    <Card className="border border-gray-200 shadow-sm rounded-xl mb-6 transition-all hover:shadow-md">
-      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-50 to-white border-b border-gray-100 rounded-t-xl">
-        <Icon className="text-green-600 w-5 h-5" />
-        <h3 className="text-gray-700 font-medium">{title}</h3>
-      </div>
-      <CardContent className="p-6">{children}</CardContent>
-    </Card>
-  );
 
   const renderField = (label: string, field: JSX.Element, error?: string) => (
     <div className="space-y-1 w-full">
@@ -97,6 +122,17 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
             )}
           </div>
         </div>
+
+        {!existingId && candidates.length > 0 ? (
+          <div id="patient-duplicates-notice" className="mt-4">
+            <PossibleDuplicatesNotice
+              candidates={candidates}
+              confirmedDistinct={confirmedDistinct}
+              onConfirmedDistinctChange={setConfirmedDistinct}
+              showError={showDupError}
+            />
+          </div>
+        ) : <></>}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           {renderField(
