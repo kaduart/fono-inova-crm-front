@@ -537,8 +537,8 @@ export function NewEvaluationModal({
                 baseRef.current = lastAutosaveAt;
                 setSavedAt(lastAutosaveAt || new Date().toISOString());
                 setSaveState('saved');
-            } catch (err: any) {
-                const kind: DraftSyncError = err?.draftError || 'error';
+            } catch (err: unknown) {
+                const kind: DraftSyncError = (err as { draftError?: DraftSyncError })?.draftError || 'error';
                 if (kind === 'finalized') { stopSyncRef.current = true; clearLocal(); setSaveState('finalized'); toast.warning('Essa evolução já foi finalizada. O rascunho não substitui o que foi salvo.'); }
                 else if (kind === 'conflict') { stopSyncRef.current = true; setSaveState('conflict'); toast.warning('Este rascunho foi alterado em outro aparelho. O texto daqui continua guardado neste aparelho.'); }
                 else { unsyncedRef.current = true; setSaveState('offline'); }
