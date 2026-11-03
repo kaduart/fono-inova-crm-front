@@ -39,7 +39,7 @@ import { toDateString } from '../../utils/dateUtils';
 import { IPatient } from '../../utils/types/types';
 import ProtocolAnalytics from '../protocols/ProtocolAnalytics';
 import EvolutionChart from './EvolutionChart';
-import { type EvaluationDraftSnapshot, NewEvaluationForm, NewEvaluationModal } from './NewEvaluationModal';
+import { type DraftSyncError, type EvaluationDraftSnapshot, NewEvaluationForm, NewEvaluationModal } from './NewEvaluationModal';
 import { ageLabel, billingChip, Chip, dayDiff, lastLabel, nextLabel } from './patient/MyPatientsPanel';
 
 type TherapyEvolutionProps = {
@@ -548,14 +548,15 @@ export default function TherapyEvolution({
         const appointmentId = addDefaults.appointmentId;
         if (!appointmentId) return { lastAutosaveAt: null };
         // patient e date vêm do agendamento no back; não são enviados.
-        const fields: any = { ...buildEvolutionPayload(snap.form) };
+        const fields: Record<string, unknown> = { ...buildEvolutionPayload(snap.form) };
         delete fields.patient; delete fields.date;
         try {
-            return await saveEvolutionDraft({ ...fields, specialty: fields.specialty, appointmentId, baseAutosaveAt });
-        } catch (err: any) {
-            const code = err?.response?.data?.error?.code;
-            const e: any = new Error(code || err?.message || 'draft');
-            e.draftError = !err?.response ? 'offline'
+            return await saveEvolutionDraft({ ...fields, appointmentId, baseAutosaveAt });
+        } catch (err: unknown) {
+            const res = (err as { response?: { data?: { error?: { code?: string } } } })?.response;
+            const code = res?.data?.error?.code;
+            const e = new Error(code || (err as Error)?.message || 'draft') as Error & { draftError?: DraftSyncError };
+            e.draftError = !res ? 'offline'
                 : code === 'EVOLUTION_ALREADY_FINALIZED' ? 'finalized'
                 : code === 'DRAFT_CONFLICT' ? 'conflict' : 'error';
             throw e;
@@ -566,13 +567,18 @@ export default function TherapyEvolution({
     const loadServerDraft = async () => {
         const appointmentId = addDefaults.appointmentId;
         if (!appointmentId) return null;
-        const evo: any = await fetchEvolutionByAppointment(appointmentId);
+        type DraftArea = { id?: string; name?: string; score?: number };
+        type DraftMetric = { name?: string; value?: number; unit?: string };
+        const evo = (await fetchEvolutionByAppointment(appointmentId)) as unknown as {
+            status?: string; date: string | Date; time?: string; content?: unknown; specialty?: string;
+            evaluationAreas?: DraftArea[]; metrics?: DraftMetric[]; lastAutosaveAt?: string; updatedAt?: string;
+        } | null;
         if (!evo || evo.status !== 'draft') return null;
-        const areas = (evo.evaluationAreas || []).filter((a: any) => a?.id).map((a: any) => ({ id: String(a.id), name: String(a.name || a.id) }));
+        const areas = (evo.evaluationAreas || []).filter(a => a?.id).map(a => ({ id: String(a.id), name: String(a.name || a.id) }));
         const areaScores: Record<string, number> = {};
-        (evo.evaluationAreas || []).forEach((a: any) => { if (a?.id) areaScores[String(a.id)] = Number(a.score ?? 0); });
+        (evo.evaluationAreas || []).forEach(a => { if (a?.id) areaScores[String(a.id)] = Number(a.score ?? 0); });
         const metrics: Record<string, number> = {};
-        const metricDefs = (evo.metrics || []).filter((m: any) => m?.name).map((m: any) => {
+        const metricDefs = (evo.metrics || []).filter(m => m?.name).map(m => {
             metrics[String(m.name)] = Number(m.value ?? 0);
             return { id: String(m.name), name: String(m.name), description: '', minValue: 0, maxValue: 10, unit: m.unit || '' };
         });

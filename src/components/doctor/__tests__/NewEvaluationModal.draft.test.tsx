@@ -27,7 +27,7 @@ describe('NewEvaluationModal · rascunho', () => {
         vi.clearAllMocks();
         // tests/setup.ts troca o localStorage por mocks vazios; aqui ele guarda de verdade.
         const mem = new Map<string, string>();
-        const ls = window.localStorage as any;
+        const ls = window.localStorage as unknown as Record<'getItem' | 'setItem' | 'removeItem' | 'clear', ReturnType<typeof vi.fn>>;
         ls.getItem.mockImplementation((k: string) => (mem.has(k) ? mem.get(k) : null));
         ls.setItem.mockImplementation((k: string, v: string) => { mem.set(k, String(v)); });
         ls.removeItem.mockImplementation((k: string) => { mem.delete(k); });
@@ -81,7 +81,7 @@ describe('NewEvaluationModal · rascunho', () => {
     });
 
     it('se o servidor diz que já foi finalizada, para o autosave e limpa o aparelho', async () => {
-        const err: any = new Error('x'); err.draftError = 'finalized';
+        const err = Object.assign(new Error('x'), { draftError: 'finalized' });
         const onAutosave = vi.fn().mockRejectedValue(err);
         render(<NewEvaluationModal open onClose={vi.fn()} onSave={vi.fn()} draftKey={KEY} onAutosave={onAutosave} />);
         await flush(0);
@@ -96,7 +96,7 @@ describe('NewEvaluationModal · rascunho', () => {
     });
 
     it('sem internet mantém no aparelho e mostra o aviso', async () => {
-        const err: any = new Error('x'); err.draftError = 'offline';
+        const err = Object.assign(new Error('x'), { draftError: 'offline' });
         const onAutosave = vi.fn().mockRejectedValue(err);
         render(<NewEvaluationModal open onClose={vi.fn()} onSave={vi.fn()} draftKey={KEY} onAutosave={onAutosave} />);
         await flush(0);

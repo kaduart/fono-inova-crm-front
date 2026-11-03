@@ -70,7 +70,7 @@ export interface EvolutionDraftPayload {
   appointmentId: string;
   /** lastAutosaveAt que este aparelho conhece; evita sobrescrever o que outro aparelho salvou */
   baseAutosaveAt?: string | null;
-  [field: string]: any;
+  [field: string]: unknown;
 }
 
 /** Salva (upsert) o rascunho do agendamento. Erros 409 vêm com error.code no response. */
