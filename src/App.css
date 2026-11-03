@@ -1,5 +1,5 @@
 #root {
-  max-width: 1515px;
+  /* Sem limite de largura: o fundo ocupa a tela; cada tela limita o próprio miolo (ex.: AdminDashboard). */
   margin: 0 auto;
   text-align: center;
 }

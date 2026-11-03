@@ -173,7 +173,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
     return (
         <header className={HEADER_SHELL_CLASS}>
-            <div className="mx-auto max-w-[1440px] px-4 py-2.5 sm:px-6">
+            <div className="mx-auto max-w-[1600px] px-4 py-2.5 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between gap-4">
                     {/* Logo e nome da clínica */}
                     <NavLink

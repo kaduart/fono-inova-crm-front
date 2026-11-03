@@ -112,6 +112,9 @@ const FinancialDashboard = lazyWithRetry(() => import('../pages/Financial/Financ
 const FollowupPage = lazyWithRetry(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazyWithRetry(() => import('../pages/Secretaria/PreAgendamentosPage'));
 const ConvenioInteressePage = lazyWithRetry(() => import('../pages/Secretaria/ConvenioInteressePage'));
+
+// Telas de tabela/grade usam a largura toda; o resto fica numa coluna de até 1600px.
+const WIDE_TABS = new Set(['Calendário', 'Convenios', 'Financeiro', 'Caixa']);
 const EnhancedCalendar = lazyWithRetry(() => import('./calendar/EnhancedCalendar'));
 const SiteAnalyticsDashboard = lazyWithRetry(() => import('./Dashboard/SiteAnalyticsDashboard'));
 const MarketingDashboard = lazyWithRetry(() => import('./Dashboard/MarketingDashboard'));
@@ -1368,7 +1371,7 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
             />
 
-            <main className="w-full mx-auto px-2 sm:px-4 lg:px-8 py-3 md:py-4 overflow-x-hidden">
+            <main className={`w-full mx-auto px-2 sm:px-4 lg:px-8 py-3 md:py-4 overflow-x-hidden ${WIDE_TABS.has(activeTab) ? '' : 'max-w-[1600px]'}`}>
 
                 {/* <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
