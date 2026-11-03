@@ -173,7 +173,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
     return (
         <header className={HEADER_SHELL_CLASS}>
-            <div className="mx-auto max-w-[1440px] px-4 py-2.5 sm:px-6">
+            <div className="mx-auto max-w-[1440px] px-4 py-2.5 sm:px-6 min-[1800px]:max-w-[1760px]">
                 <div className="flex items-center justify-between gap-4">
                     {/* Logo e nome da clínica */}
                     <NavLink
@@ -432,10 +432,10 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
                     <div className="flex shrink-0 items-center gap-1.5">
                         <button type="button" onClick={openCmdk} aria-label="Ir para uma tela (Ctrl + K)" title="Ir para… (Ctrl + K)"
-                            className={`${HEADER_ICON_BUTTON_CLASS} xl:w-auto xl:gap-2 xl:px-3`}>
+                            className={`${HEADER_ICON_BUTTON_CLASS} min-[1600px]:w-auto min-[1600px]:gap-2 min-[1600px]:px-3`}>
                             <Search size={18} />
                             <span className="hidden text-sm font-medium min-[1800px]:inline">Ir para…</span>
-                            <kbd className="hidden rounded border border-white/25 px-1 text-[10px] font-sans text-white/80 xl:inline">Ctrl K</kbd>
+                            <kbd className="hidden rounded border border-white/25 px-1 text-[10px] font-sans text-white/80 min-[1600px]:inline">Ctrl K</kbd>
                         </button>
                         <NotificationBellFixed />
                         <NovidadesCenter area="admin" activeTab={activeTab} />

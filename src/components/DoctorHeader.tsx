@@ -92,7 +92,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
 
     return (
         <header className={HEADER_SHELL_CLASS}>
-            <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-6 min-[1800px]:max-w-[1760px]">
                 <div className="flex h-16 items-center justify-between gap-4">
                     {/* Logo e nome da clínica */}
                     <div className="flex items-center gap-3 cursor-pointer">
