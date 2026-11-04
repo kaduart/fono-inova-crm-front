@@ -76,3 +76,4 @@ Mock: https://claude.ai/artifact/F49SXKw6WVdNVc6FH1AunQ · crítica frontend-des
 - Cor = estado na tela inteira: âmbar para sem pagamento (antes vermelho na barra e no A receber), vermelho para falta, azul para convênio. "De onde veio o caixa" usa só tons de verde.
 - "O que fazer para não perder receita" passou a se chamar "Precisa de você" e vem ordenado pelo R$ em jogo. Pacotes, que não têm valor definido, ficam no fim. Os botões e ações são os mesmos.
 - Recebimentos: a data só aparece em períodos de vários dias, e a especialidade aparece legível (`specialtyText`).
+- 04/11 (Kadu: "primordial"): o número de agendamentos CRIADOS no período do filtro (dia, semana ou mês) virou um destaque verde clicável na linha Agenda: "N novos agendamentos criados no dia/período", com quantos são para o próprio período e quantos para datas futuras. O clique abre a lista com data, hora, profissional e WhatsApp.

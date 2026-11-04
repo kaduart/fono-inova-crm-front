@@ -633,7 +633,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             values={{ sem: data.pendentesCobranca?.length ? formatCurrency(data.pendentesCobranca.reduce((t, i) => t + (i.valor || 0), 0)) : undefined,
                                 conv: data.conveniosAtendidos?.length ? formatCurrency(data.conveniosAtendidos.reduce((t, i) => t + (i.valor || 0), 0)) : undefined,
                                 falta: data.agenda?.perdido ? formatCurrency(data.agenda.perdido) : undefined }} /> : undefined}
-                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData} hideAttendance={!isMultiDayRange && dayAppointments.length > 0}
+                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData} hideAttendance={!isMultiDayRange && dayAppointments.length > 0} createdItems={analyticsCreatedData?.all}
                             loading={analyticsLoading} error={!!analyticsError} createdTotal={analyticsCreatedSummary?.total}
                             createdLoading={analyticsCreatedLoading} createdError={!!analyticsCreatedError}
                             startDate={dateRange && !manualDateOverride ? dateRange.startDate : selectedDate}

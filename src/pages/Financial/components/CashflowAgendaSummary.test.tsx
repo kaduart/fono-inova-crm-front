@@ -14,7 +14,7 @@ describe('Resumo operacional do caixa', () => {
   expect(screen.getByRole('button', { name: 'Ver agendados: 17' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Ver aguardando: 5' })).toBeTruthy();
   expect(screen.getByText('(0 pré-agendados · 1 1ª consulta)')).toBeTruthy();
-  expect(screen.getByText('criados no período').parentElement!.textContent).toContain('8');
+  expect(screen.getByRole('button', { name: 'Ver 8 novos agendamentos criados no dia' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Ver agenda e atendimentos' }));
   expect(base.onAgenda).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: 'Ver atendidos: 12' }));
@@ -23,7 +23,7 @@ describe('Resumo operacional do caixa', () => {
  it('informa indisponibilidade sem apresentar zero como dado confirmado', () => {
   render(<CashflowAgendaSummary {...base} analytics={null} error createdError />);
   expect(screen.getByText(/Perfil da agenda indisponível/)).toBeTruthy();
-  expect(screen.getByText('criados no período').parentElement!.textContent).toContain('—');
+  expect(screen.getByText('novos agendamentos criados no dia').parentElement!.textContent).toContain('—');
  });
 });
 
