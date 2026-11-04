@@ -161,7 +161,7 @@ export const MonthCell: React.FC<{
     ].filter(Boolean) as { text: string; color: string }[];
     const segs = [
         { n: c.done, color: STATUS_COLOR.done },
-        { n: todo, color: '#cbd5e1' },
+        { n: todo, color: 'var(--fx-slate-300)' },
         { n: c.missed, color: STATUS_COLOR.missed },
         { n: c.canceled, color: STATUS_COLOR.canceled },
     ].filter(s => s.n > 0);

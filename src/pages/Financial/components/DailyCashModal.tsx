@@ -189,10 +189,10 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                 ) : (
                     <>
                         {/* RESUMO GERAL */}
-                        <Box p={3} bgcolor="#F9FAFB">
+                        <Box p={3} bgcolor="var(--fx-gray-50)">
                             <Grid container spacing={2}>
                                 <Grid item xs={12} md={4}>
-                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                         <Typography variant="caption" color="text.secondary">
                                             TOTAL DO DIA
                                         </Typography>
@@ -202,7 +202,7 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                                     </Box>
                                 </Grid>
                                 <Grid item xs={6} md={4}>
-                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                         <Typography variant="caption" color="text.secondary">
                                             QUANTIDADE
                                         </Typography>
@@ -215,7 +215,7 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                                     </Box>
                                 </Grid>
                                 <Grid item xs={6} md={4}>
-                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                                    <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                         <Typography variant="caption" color="text.secondary">
                                             TICKET MÉDIO
                                         </Typography>
@@ -236,14 +236,14 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                             </Typography>
                             <Grid container spacing={1.5}>
                                 {[
-                                    { key: 'pix', label: 'PIX', value: data.porMetodo.pix, color: '#0891B2', bg: '#E0F2FE' },
-                                    { key: 'cartao', label: 'Cartão', value: data.porMetodo.cartao, color: '#7C3AED', bg: '#EDE9FE' },
-                                    { key: 'dinheiro', label: 'Dinheiro', value: data.porMetodo.dinheiro, color: '#059669', bg: '#D1FAE5' },
-                                    { key: 'convenio', label: 'Convênio', value: data.porMetodo.convenio, color: '#D97706', bg: '#FEF3C7' },
-                                    { key: 'outros', label: 'Outros', value: data.porMetodo.outros, color: '#6B7280', bg: '#F3F4F6' },
+                                    { key: 'pix', label: 'PIX', value: data.porMetodo.pix, color: '#0891B2', bg: 'var(--fx-sky-100)' },
+                                    { key: 'cartao', label: 'Cartão', value: data.porMetodo.cartao, color: '#7C3AED', bg: 'var(--fx-violet-100)' },
+                                    { key: 'dinheiro', label: 'Dinheiro', value: data.porMetodo.dinheiro, color: '#059669', bg: 'var(--fx-emerald-100)' },
+                                    { key: 'convenio', label: 'Convênio', value: data.porMetodo.convenio, color: '#D97706', bg: 'var(--fx-amber-100)' },
+                                    { key: 'outros', label: 'Outros', value: data.porMetodo.outros, color: 'var(--fx-gray-500)', bg: 'var(--fx-gray-100)' },
                                 ].filter(item => item.value > 0).map(item => (
                                     <Grid item xs={6} sm={4} key={item.key}>
-                                        <Box p={1.5} borderRadius={1.5} border="1px solid #E5E7EB" bgcolor={item.bg}>
+                                        <Box p={1.5} borderRadius={1.5} border="1px solid var(--fx-gray-200)" bgcolor={item.bg}>
                                             <Typography variant="caption" color="text.secondary">{item.label}</Typography>
                                             <Typography variant="h6" fontWeight="bold" sx={{ color: item.color }}>
                                                 {formatCurrency(item.value)}
@@ -271,7 +271,7 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                             <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
                                 <Table size="small">
                                     <TableHead>
-                                        <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                                        <TableRow sx={{ bgcolor: 'var(--fx-gray-50)' }}>
                                             <TableCell sx={{ py: 1 }}>Paciente</TableCell>
                                             <TableCell sx={{ py: 1 }}>Hora</TableCell>
                                             <TableCell sx={{ py: 1 }}>Serviço</TableCell>
@@ -319,14 +319,14 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                                                                     <Chip 
                                                                         label="Convênio"
                                                                         size="small"
-                                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: '#FEF3C7', color: '#D97706' }}
+                                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: 'var(--fx-amber-100)', color: '#D97706' }}
                                                                     />
                                                                 )}
                                                                 {isPacote && (
                                                                     <Chip 
                                                                         label="Pacote"
                                                                         size="small"
-                                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: '#EDE9FE', color: '#7C3AED' }}
+                                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: 'var(--fx-violet-100)', color: '#7C3AED' }}
                                                                     />
                                                                 )}
                                                             </Box>
@@ -356,7 +356,7 @@ const DailyCashModal: React.FC<DailyCashModalProps> = ({
                         <Divider />
 
                         {/* OBSERVAÇÃO */}
-                        <Box p={3} bgcolor="#F9FAFB">
+                        <Box p={3} bgcolor="var(--fx-gray-50)">
                             <Alert severity="info" sx={{ mb: 2, borderRadius: 1.5, '& .MuiAlert-icon': { alignItems: 'center' } }}>
                                 Verifique todos os valores antes de fechar o caixa.
                             </Alert>

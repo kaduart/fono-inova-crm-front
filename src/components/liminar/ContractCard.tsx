@@ -38,19 +38,19 @@ import GenerationCancellationFlow from '../common/GenerationCancellationFlow';
 
 // Cor de "faltando/pendente de agenda" — neutra de propósito: não deve competir visualmente
 // com laranja/vermelho de risco real (saldo baixo, vencimento), que têm significado diferente.
-const NEUTRAL_MISSING_COLOR = { bar: '#94A3B8', text: '#475569', dot: '#94A3B8' };
+const NEUTRAL_MISSING_COLOR = { bar: 'var(--fx-slate-400)', text: 'var(--fx-slate-600)', dot: 'var(--fx-slate-400)' };
 
 const DAY_LABELS: Record<number, string> = {
   0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb',
 };
 
 const PALETTES = [
-  { from: '#B45309', to: '#D97706', bar: 'linear-gradient(90deg,#D97706aa,#D97706)', icon: '#D97706', badge: '#FFF7ED', badgeText: '#92400E', badgeBorder: '#FDE68A' },
+  { from: 'var(--fx-amber-700)', to: '#D97706', bar: 'linear-gradient(90deg,#D97706aa,#D97706)', icon: '#D97706', badge: 'var(--fx-orange-50)', badgeText: 'var(--fx-amber-800)', badgeBorder: 'var(--fx-amber-200)' },
   { from: '#0E7490', to: '#0891B2', bar: 'linear-gradient(90deg,#0891B2aa,#0891B2)', icon: '#0891B2', badge: '#ECFEFF', badgeText: '#164E63', badgeBorder: '#A5F3FC' },
-  { from: '#6D28D9', to: '#7C3AED', bar: 'linear-gradient(90deg,#7C3AEDaa,#7C3AED)', icon: '#7C3AED', badge: '#F5F3FF', badgeText: '#4C1D95', badgeBorder: '#DDD6FE' },
-  { from: '#047857', to: '#059669', bar: 'linear-gradient(90deg,#059669aa,#059669)', icon: '#059669', badge: '#ECFDF5', badgeText: '#064E3B', badgeBorder: '#A7F3D0' },
-  { from: '#B91C1C', to: '#DC2626', bar: 'linear-gradient(90deg,#DC2626aa,#DC2626)', icon: '#DC2626', badge: '#FEF2F2', badgeText: '#7F1D1D', badgeBorder: '#FECACA' },
-  { from: '#1D4ED8', to: '#2563EB', bar: 'linear-gradient(90deg,#2563EBaa,#2563EB)', icon: '#2563EB', badge: '#EFF6FF', badgeText: '#1E3A8A', badgeBorder: '#BFDBFE' },
+  { from: 'var(--fx-violet-700)', to: '#7C3AED', bar: 'linear-gradient(90deg,#7C3AEDaa,#7C3AED)', icon: '#7C3AED', badge: 'var(--fx-violet-50)', badgeText: '#4C1D95', badgeBorder: 'var(--fx-violet-200)' },
+  { from: 'var(--fx-emerald-700)', to: '#059669', bar: 'linear-gradient(90deg,#059669aa,#059669)', icon: '#059669', badge: 'var(--fx-emerald-50)', badgeText: 'var(--fx-emerald-900)', badgeBorder: 'var(--fx-emerald-200)' },
+  { from: 'var(--fx-red-700)', to: '#DC2626', bar: 'linear-gradient(90deg,#DC2626aa,#DC2626)', icon: '#DC2626', badge: 'var(--fx-red-50)', badgeText: 'var(--fx-red-900)', badgeBorder: 'var(--fx-red-200)' },
+  { from: 'var(--fx-blue-700)', to: '#2563EB', bar: 'linear-gradient(90deg,#2563EBaa,#2563EB)', icon: '#2563EB', badge: 'var(--fx-blue-50)', badgeText: 'var(--fx-blue-900)', badgeBorder: 'var(--fx-blue-200)' },
 ];
 
 interface Props {
@@ -90,10 +90,10 @@ function todayIsoDate(): string {
 // Theming do FullCalendar via CSS custom properties (v6+), escopado ao wrapper
 // do modal de sessões — mesmo tratamento usado em PatientMiniCalendar.tsx.
 const CALENDAR_THEME_VARS = {
-  '--fc-border-color': '#E5E7EB',
+  '--fc-border-color': 'var(--fx-gray-200)',
   '--fc-page-bg-color': '#FFFFFF',
-  '--fc-neutral-bg-color': '#F9FAFB',
-  '--fc-today-bg-color': '#EFF6FF',
+  '--fc-neutral-bg-color': 'var(--fx-gray-50)',
+  '--fc-today-bg-color': 'var(--fx-blue-50)',
   '--fc-now-indicator-color': '#2563EB',
 } as React.CSSProperties;
 
@@ -423,7 +423,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
               {menuOpen && (
                 <div
                   className="absolute right-0 z-20 rounded-2xl shadow-xl py-1 min-w-max"
-                  style={{ top: '110%', background: '#fff', border: '1px solid #EDF2F7', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+                  style={{ top: '110%', background: 'var(--fx-white)', border: '1px solid #EDF2F7', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
                 >
                   <button
                     onClick={() => { setMenuOpen(false); setShowRecharge(true); }}
@@ -510,10 +510,10 @@ export default function ContractCard({ data, onRefresh }: Props) {
         const confidenceLabel = proj.confidence === 'high' ? 'alta' : proj.confidence === 'medium' ? 'média' : 'baixa';
         const confidenceDot = proj.confidence === 'high' ? '#10B981' : proj.confidence === 'medium' ? '#F59E0B' : '#EF4444';
         const confidenceColor = proj.confidence === 'high'
-          ? { bg: '#D1FAE5', text: '#065F46' }
+          ? { bg: 'var(--fx-emerald-100)', text: 'var(--fx-emerald-800)' }
           : proj.confidence === 'medium'
-            ? { bg: '#FEF3C7', text: '#92400E' }
-            : { bg: '#FEE2E2', text: '#991B1B' };
+            ? { bg: 'var(--fx-amber-100)', text: 'var(--fx-amber-800)' }
+            : { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)' };
         const methodologyLabel = proj.methodology === 'scheduled_plan'
           ? 'agenda confirmada'
           : `histórico das últimas ${proj.sampleWeeks} semanas`;
@@ -611,9 +611,9 @@ export default function ContractCard({ data, onRefresh }: Props) {
               </span>
               {integrity && (() => {
                 const pct = integrity.summary.integrityPercent;
-                const color = pct >= 95 ? { bg: '#D1FAE5', text: '#065F46' }
-                  : pct >= 75 ? { bg: '#FEF3C7', text: '#92400E' }
-                  : { bg: '#FEE2E2', text: '#991B1B' };
+                const color = pct >= 95 ? { bg: 'var(--fx-emerald-100)', text: 'var(--fx-emerald-800)' }
+                  : pct >= 75 ? { bg: 'var(--fx-amber-100)', text: 'var(--fx-amber-800)' }
+                  : { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)' };
                 return (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: color.bg, color: color.text }}>
                     {pct >= 95 ? '🟢' : pct >= 75 ? '🟡' : '🔴'} {pct}%
@@ -703,16 +703,16 @@ export default function ContractCard({ data, onRefresh }: Props) {
                             <div className="flex items-center gap-3 text-xs flex-wrap">
                               <span className="flex items-center gap-1">
                                 <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
-                                <span style={{ color: '#065F46' }}><b>{completed}</b> concluídas</span>
+                                <span style={{ color: 'var(--fx-emerald-800)' }}><b>{completed}</b> concluídas</span>
                               </span>
                               <span className="flex items-center gap-1">
                                 <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#6366F1' }} />
-                                <span style={{ color: '#3730A3' }}><b>{scheduled}</b> agendadas</span>
+                                <span style={{ color: 'var(--fx-indigo-800)' }}><b>{scheduled}</b> agendadas</span>
                               </span>
                               {canceled > 0 && (
                                 <span className="flex items-center gap-1">
                                   <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#EF4444' }} />
-                                  <span style={{ color: '#B91C1C' }}><b>{canceled}</b> canceladas</span>
+                                  <span style={{ color: 'var(--fx-red-700)' }}><b>{canceled}</b> canceladas</span>
                                 </span>
                               )}
                               {missing > 0 ? (
@@ -721,7 +721,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                                   <span style={{ color: NEUTRAL_MISSING_COLOR.text }}><b>{missing}</b> faltando</span>
                                 </span>
                               ) : (
-                                <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#D1FAE5', color: '#065F46' }}>
+                                <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'var(--fx-emerald-100)', color: 'var(--fx-emerald-800)' }}>
                                   ✓ agenda ok
                                 </span>
                               )}
@@ -841,7 +841,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                 </button>
                 <button type="submit" disabled={rechargingLoading}
                   className="flex-1 py-2.5 text-sm text-white rounded-xl font-medium disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #B45309 0%, #D97706 100%)' }}>
+                  style={{ background: 'linear-gradient(135deg, var(--fx-amber-700) 0%, #D97706 100%)' }}>
                   {rechargingLoading ? 'Salvando...' : 'Confirmar'}
                 </button>
               </div>
@@ -1201,7 +1201,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
         const statusColor = (status: string) =>
           status === 'completed' ? '#10B981' :
           status === 'confirmed' ? '#3B82F6' :
-          isCanceled(status) ? '#94A3B8' :
+          isCanceled(status) ? 'var(--fx-slate-400)' :
           '#F59E0B';
         const events = specialtyModal.sessions.map((s: any) => ({
           id: s._id,
@@ -1228,7 +1228,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} /> Realizada</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#3B82F6' }} /> Confirmada</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} /> Agendada</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: '#94A3B8' }} /> Cancelada</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: 'var(--fx-slate-400)' }} /> Cancelada</span>
                   </div>
                 </div>
                 <button type="button" aria-label="Fechar" onClick={() => setSpecialtyModal((p) => ({ ...p, open: false }))}

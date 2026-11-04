@@ -390,8 +390,8 @@ export function DocumentSendDrawer({
                 {/* Header */}
                 <Box sx={{
                     px: 3, pt: 3, pb: 2.5,
-                    background: 'linear-gradient(135deg, #EDE9FE 0%, #fff 100%)',
-                    borderBottom: '2px solid #DDD6FE',
+                    background: 'linear-gradient(135deg, var(--fx-violet-100) 0%, #fff 100%)',
+                    borderBottom: '2px solid var(--fx-violet-200)',
                     position: 'relative'
                 }}>
                     <IconButton
@@ -401,14 +401,14 @@ export function DocumentSendDrawer({
                         <X size={18} />
                     </IconButton>
 
-                    <Typography fontWeight="800" fontSize="1.15rem" color="#0F172A" lineHeight={1.2}>
+                    <Typography fontWeight="800" fontSize="1.15rem" color="var(--fx-slate-900)" lineHeight={1.2}>
                         {communication?.patientName || 'Paciente'}
                     </Typography>
                     <Typography fontSize="0.82rem" color="#7C3AED" fontWeight={700}>
                         {communication?.insuranceName || communication?.insuranceProvider}
                     </Typography>
                     {communication?.specialty && (
-                        <Typography fontSize="0.75rem" color="#64748B">
+                        <Typography fontSize="0.75rem" color="var(--fx-slate-500)">
                             {communication.specialty} {communication.requestedSessions ? `· ${communication.requestedSessions} sessões` : ''}
                         </Typography>
                     )}
@@ -417,7 +417,7 @@ export function DocumentSendDrawer({
                         label={purposeLabels.title}
                         sx={{
                             mt: 1,
-                            bgcolor: '#DDD6FE',
+                            bgcolor: 'var(--fx-violet-200)',
                             color: '#7C3AED',
                             fontWeight: 700,
                             fontSize: '0.65rem'
@@ -438,7 +438,7 @@ export function DocumentSendDrawer({
                             value={drawerTab}
                             onChange={(_, v) => setDrawerTab(v)}
                             variant="fullWidth"
-                            sx={{ borderBottom: '1px solid #E2E8F0', minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 700, fontSize: '0.82rem' } }}
+                            sx={{ borderBottom: '1px solid var(--fx-slate-200)', minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 700, fontSize: '0.82rem' } }}
                         >
                             <Tab value="send" label={isAlreadySent ? 'Reenviar' : 'Enviar'} />
                             <Tab
@@ -453,7 +453,7 @@ export function DocumentSendDrawer({
                             os anexos já foram aceitos antes, então "Faltando" aqui seria enganoso. */}
                         {!isAlreadySent && requiredDocuments.length > 0 && (
                             <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                                <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A" className="mb-2">
+                                <Typography fontWeight={700} fontSize="0.85rem" color="var(--fx-slate-900)" className="mb-2">
                                     Documentos obrigatórios
                                 </Typography>
                                 <div className="space-y-1">
@@ -469,8 +469,8 @@ export function DocumentSendDrawer({
                                                     size="small"
                                                     label={selected ? 'Incluído' : hasDoc ? 'Disponível' : 'Faltando'}
                                                     sx={{
-                                                        bgcolor: selected ? '#D1FAE5' : hasDoc ? '#FEF3C7' : '#FEE2E2',
-                                                        color: selected ? '#065F46' : hasDoc ? '#B45309' : '#B91C1C',
+                                                        bgcolor: selected ? 'var(--fx-emerald-100)' : hasDoc ? 'var(--fx-amber-100)' : 'var(--fx-red-100)',
+                                                        color: selected ? 'var(--fx-emerald-800)' : hasDoc ? 'var(--fx-amber-700)' : 'var(--fx-red-700)',
                                                         fontWeight: 600,
                                                         fontSize: '0.65rem'
                                                     }}
@@ -526,18 +526,18 @@ export function DocumentSendDrawer({
 
                         {/* Documentos do paciente */}
                         <div>
-                            <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A" className="mb-2">
+                            <Typography fontWeight={700} fontSize="0.85rem" color="var(--fx-slate-900)" className="mb-2">
                                 Documentos do paciente
                             </Typography>
                             {documents.length === 0 ? (
-                                <Typography fontSize="0.8rem" color="#94A3B8">
+                                <Typography fontSize="0.8rem" color="var(--fx-slate-400)">
                                     Nenhum documento encontrado. Adicione ou cole um print.
                                 </Typography>
                             ) : (
                                 <div className="space-y-2">
                                     {Object.entries(groupedByType).map(([type, docs]) => (
                                         <div key={type} className="border border-gray-200 rounded-xl p-2">
-                                            <Typography fontSize="0.75rem" fontWeight={700} color="#64748B" className="mb-1 uppercase tracking-wider">
+                                            <Typography fontSize="0.75rem" fontWeight={700} color="var(--fx-slate-500)" className="mb-1 uppercase tracking-wider">
                                                 {DOCUMENT_TYPE_LABELS[type] || type}
                                             </Typography>
                                             {docs.map(doc => (
@@ -555,7 +555,7 @@ export function DocumentSendDrawer({
                                                         <Typography fontSize="0.8rem" fontWeight={500} noWrap>
                                                             {doc.name}
                                                         </Typography>
-                                                        <Typography fontSize="0.65rem" color="#94A3B8">
+                                                        <Typography fontSize="0.65rem" color="var(--fx-slate-400)">
                                                             {formatDate(doc.createdAt)}
                                                         </Typography>
                                                     </div>
@@ -571,7 +571,7 @@ export function DocumentSendDrawer({
 
                         {/* Preview do e-mail */}
                         <div>
-                            <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A" className="mb-2">
+                            <Typography fontWeight={700} fontSize="0.85rem" color="var(--fx-slate-900)" className="mb-2">
                                 E-mail a ser enviado
                             </Typography>
                             <TextField
@@ -634,15 +634,15 @@ export function DocumentSendDrawer({
                                                         <Chip
                                                             size="small"
                                                             label={CommunicationEmailTypeLabels[log.type] || log.type}
-                                                            sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontSize: '0.65rem', fontWeight: 700 }}
+                                                            sx={{ bgcolor: 'var(--fx-violet-100)', color: '#7C3AED', fontSize: '0.65rem', fontWeight: 700 }}
                                                         />
                                                     )}
                                                     <Chip
                                                         size="small"
                                                         label={log.status === 'success' ? 'Enviado' : log.status === 'pending' ? 'Processando…' : 'Erro'}
                                                         sx={{
-                                                            bgcolor: log.status === 'success' ? '#D1FAE5' : log.status === 'pending' ? '#FEF3C7' : '#FEE2E2',
-                                                            color: log.status === 'success' ? '#065F46' : log.status === 'pending' ? '#92400E' : '#B91C1C',
+                                                            bgcolor: log.status === 'success' ? 'var(--fx-emerald-100)' : log.status === 'pending' ? 'var(--fx-amber-100)' : 'var(--fx-red-100)',
+                                                            color: log.status === 'success' ? 'var(--fx-emerald-800)' : log.status === 'pending' ? 'var(--fx-amber-800)' : 'var(--fx-red-700)',
                                                             fontSize: '0.65rem'
                                                         }}
                                                     />

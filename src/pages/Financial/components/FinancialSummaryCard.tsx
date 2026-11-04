@@ -40,7 +40,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
   return (
     <Box
       sx={{
-        backgroundColor: 'white',
+        backgroundColor: 'var(--fx-white)',
         borderRadius: 3,
         boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
         p: 3,
@@ -65,7 +65,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
         <Grid item xs={12} sm={6} md={3}>
           <Box
             sx={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--fx-white)',
               borderRadius: 2,
               p: 3,
               height: '100%',
@@ -73,7 +73,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
               borderTop: '3px solid #059669',
             }}
           >
-            <Box sx={{ backgroundColor: '#ECFDF5', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+            <Box sx={{ backgroundColor: 'var(--fx-emerald-50)', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
               <DollarSign size={24} color="#059669" />
             </Box>
             <Typography variant="caption" color="grey.500" fontWeight={500}>
@@ -92,7 +92,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
         <Grid item xs={12} sm={6} md={3}>
           <Box
             sx={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--fx-white)',
               borderRadius: 2,
               p: 3,
               height: '100%',
@@ -119,7 +119,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
         <Grid item xs={12} sm={6} md={3}>
           <Box
             sx={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--fx-white)',
               borderRadius: 2,
               p: 3,
               height: '100%',
@@ -127,7 +127,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
               borderTop: '3px solid #D97706',
             }}
           >
-            <Box sx={{ backgroundColor: '#FFFBEB', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+            <Box sx={{ backgroundColor: 'var(--fx-amber-50)', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
               <Clock size={24} color="#D97706" />
             </Box>
             <Typography variant="caption" color="grey.500" fontWeight={500}>
@@ -146,7 +146,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
         <Grid item xs={12} sm={6} md={3}>
           <Box
             sx={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--fx-white)',
               borderRadius: 2,
               p: 3,
               height: '100%',
@@ -154,7 +154,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
               borderTop: '3px solid #7C3AED',
             }}
           >
-            <Box sx={{ backgroundColor: '#F5F3FF', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
+            <Box sx={{ backgroundColor: 'var(--fx-violet-50)', p: 1.5, borderRadius: '10px', width: 'fit-content', mb: 2 }}>
               <Clock size={24} color="#7C3AED" />
             </Box>
             <Typography variant="caption" color="grey.500" fontWeight={500}>
@@ -173,7 +173,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ data }) => 
       {/* Total em Caixa */}
       <Box sx={{
         p: 3,
-        bgcolor: '#F0FDF4',
+        bgcolor: 'var(--fx-green-50)',
         borderRadius: 2,
         border: '1.5px solid #16A34A',
         display: 'flex',

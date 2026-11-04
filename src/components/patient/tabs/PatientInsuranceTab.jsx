@@ -556,10 +556,10 @@ const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 
 // gradiente de especialidade. Um tom translúcido (ex: laranja 35%) sobre um card já
 // laranja praticamente some; um pill branco sólido + ponto colorido não depende da cor de fundo.
 const STATUS_SEVERITY_STYLE = {
-  success:  { bg: '#EFF9F6', color: '#15803D', dot: '#22C55E' },
-  warning:  { bg: '#FFF7ED', color: '#C2410C', dot: '#F97316' },
-  critical: { bg: '#FDECEA', color: '#B91C1C', dot: '#EF4444' },
-  neutral:  { bg: '#F1F5F9', color: '#4B5563', dot: '#9CA3AF' },
+  success:  { bg: '#EFF9F6', color: 'var(--fx-green-700)', dot: '#22C55E' },
+  warning:  { bg: 'var(--fx-orange-50)', color: 'var(--fx-orange-700)', dot: '#F97316' },
+  critical: { bg: '#FDECEA', color: 'var(--fx-red-700)', dot: '#EF4444' },
+  neutral:  { bg: 'var(--fx-slate-100)', color: 'var(--fx-gray-600)', dot: 'var(--fx-gray-400)' },
 };
 
 const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
@@ -987,7 +987,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                       <span
                         key={i}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold"
-                        style={{ backgroundColor: '#FFFFFF', color: theme.text, border: `1px solid ${theme.border}` }}
+                        style={{ backgroundColor: 'var(--fx-white)', color: theme.text, border: `1px solid ${theme.border}` }}
                       >
                         {DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek}
                         <span className="w-1 h-1 rounded-full opacity-40" style={{ backgroundColor: theme.text }} />
@@ -1206,7 +1206,7 @@ const PLAN_ACTION_CONFIG = {
   insurance_plan_created:  { label: 'Plano criado',      color: '#2E7A5E', bg: '#EFF9F6', Icon: CheckCircle },
   insurance_plan_updated:  { label: 'Plano atualizado',  color: '#1B4D6E', bg: '#EEF4FB', Icon: Edit2 },
   insurance_plan_canceled: { label: 'Plano cancelado',   color: '#C75146', bg: '#FDECEA', Icon: XOctagon },
-  insurance_plan_replaced: { label: 'Plano substituído', color: '#D97706', bg: '#FFFBEB', Icon: RefreshCw },
+  insurance_plan_replaced: { label: 'Plano substituído', color: '#D97706', bg: 'var(--fx-amber-50)', Icon: RefreshCw },
 };
 
 const DIFF_FIELD_LABELS = {
@@ -1259,8 +1259,8 @@ const PlanChangelogEntry = ({ entry }) => {
   }
 
   return (
-    <div className="flex gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.color}20` }}>
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${cfg.color}15` }}>
+    <div className="flex gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: cfg.bg, border: `1px solid color-mix(in srgb, ${cfg.color} 13%, transparent)` }}>
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${cfg.color} 8%, transparent)` }}>
         <Icon size={13} color={cfg.color} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
@@ -1288,15 +1288,15 @@ const APPT_STATUS_CONFIG = {
   completed:           { label: 'Realizado',    color: '#2E7A5E', bg: '#EFF9F6' },
   paid:                { label: 'Realizado',    color: '#2E7A5E', bg: '#EFF9F6' },
   scheduled:           { label: 'Agendado',     color: '#1B4D6E', bg: '#EEF4FB' },
-  pre_agendado:        { label: 'Pré-agendado', color: '#5B6E8C', bg: '#F1F5F9' },
+  pre_agendado:        { label: 'Pré-agendado', color: '#5B6E8C', bg: 'var(--fx-slate-100)' },
   confirmed:           { label: 'Confirmado',   color: '#1B4D6E', bg: '#EEF4FB' },
   canceled:            { label: 'Cancelado',    color: '#C75146', bg: '#FDECEA' },
   cancelled:           { label: 'Cancelado',    color: '#C75146', bg: '#FDECEA' },
   pending:             { label: 'Pendente',     color: '#ED6C02', bg: '#FFF3E0' },
   missed:              { label: 'Faltou',       color: '#C75146', bg: '#FDECEA' },
-  processing_create:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
-  processing_complete: { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
-  processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
+  processing_create:   { label: 'Processando',  color: '#8A99B0', bg: 'var(--fx-slate-100)' },
+  processing_complete: { label: 'Processando',  color: '#8A99B0', bg: 'var(--fx-slate-100)' },
+  processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: 'var(--fx-slate-100)' },
 };
 
 export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
@@ -1829,7 +1829,7 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="rounded-lg px-2 py-0.5 text-[0.6rem] font-semibold" style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+                        <span className="rounded-lg px-2 py-0.5 text-[0.6rem] font-semibold" style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid color-mix(in srgb, ${cfg.color} 19%, transparent)` }}>
                           {cfg.label}
                         </span>
                         <button type="button" onClick={() => openMove(appt)} disabled={isCompleted}

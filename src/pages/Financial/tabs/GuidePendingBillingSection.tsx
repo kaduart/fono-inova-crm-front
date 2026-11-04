@@ -1500,7 +1500,7 @@ const GuidePendingBillingSection = ({
                             {/* Header */}
                             <Box sx={{ px: 2.5, py: 1.15, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
                                 {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, minWidth: 200, pr: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', lg: 'block' }, width: 180, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regra da guia</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', md: 'block' }, width: 130, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mais antiga</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', lg: 'block' }, width: 220, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo de envio</Typography>
@@ -1574,7 +1574,8 @@ const GuidePendingBillingSection = ({
                                                     sx={{ p: 0.5, mr: 1 }}
                                                 />
                                             )}
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                                            {/* minWidth + wrap: em tela estreita o nome quebrava e o selo invadia a coluna "Regra da guia" (04/11). */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.5, flex: 1, minWidth: 200, pr: 2 }}>
                                                 <Typography fontWeight="700" fontSize="0.87rem" color="var(--fx-slate-900)">{formatProviderName(provider)}</Typography>
                                                 <BillingModeBadge mode={providerMode} />
                                             </Box>

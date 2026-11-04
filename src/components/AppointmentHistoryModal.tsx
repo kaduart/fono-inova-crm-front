@@ -123,14 +123,14 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                     <Box
                         textAlign="center"
                         py={6}
-                        sx={{ backgroundColor: '#f9fafb' }}
+                        sx={{ backgroundColor: 'var(--fx-gray-50)' }}
                     >
                         <Box
                             sx={{
                                 width: 80,
                                 height: 80,
                                 borderRadius: '50%',
-                                backgroundColor: '#eef2ff',
+                                backgroundColor: 'var(--fx-indigo-50)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -140,7 +140,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                         >
                             <Box component="span" sx={{ fontSize: '2rem' }}>📅</Box>
                         </Box>
-                        <Typography variant="h6" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                        <Typography variant="h6" sx={{ mb: 1, color: 'var(--fx-gray-700)', fontWeight: 600 }}>
                             Nenhum agendamento registrado
                         </Typography>
                         <Typography variant="body1" color="textSecondary" sx={{ maxWidth: 400, margin: '0 auto' }}>
@@ -158,7 +158,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                 }
                             }}
                         >
-                            <TableHead sx={{ backgroundColor: '#f8fafc' }}>
+                            <TableHead sx={{ backgroundColor: 'var(--fx-slate-50)' }}>
                                 <TableRow>
                                     <TableCell sx={{ py: 2, pl: 3, fontWeight: 600 }}>
                                         <Box
@@ -192,7 +192,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                         hover
                                         sx={{
                                             '&:hover': {
-                                                backgroundColor: '#f9fafb'
+                                                backgroundColor: 'var(--fx-gray-50)'
                                             }
                                         }}
                                     >
@@ -236,7 +236,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                                                     borderRadius: 12,
                                                     fontSize: '0.75rem',
                                                     fontWeight: 600,
-                                                    backgroundColor: `${getStatusColor(appt.operationalStatus)}20`,
+                                                    backgroundColor: `color-mix(in srgb, ${getStatusColor(appt.operationalStatus)} 13%, transparent)`,
                                                     color: getStatusColor(appt.operationalStatus),
                                                     border: `1px solid ${getStatusColor(appt.operationalStatus)}`,
                                                     minWidth: 90
@@ -254,7 +254,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
             </DialogContent>
 
             <Box sx={{
-                backgroundColor: '#f9fafb',
+                backgroundColor: 'var(--fx-gray-50)',
                 py: 2,
                 px: 3,
                 display: 'flex',
@@ -270,7 +270,7 @@ const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
                         size="small"
                         onClick={onClose}
                         sx={{
-                            backgroundColor: '#e0e7ff',
+                            backgroundColor: 'var(--fx-indigo-100)',
                             color: '#4f46e5',
                             borderRadius: '6px',
                             px: 2,

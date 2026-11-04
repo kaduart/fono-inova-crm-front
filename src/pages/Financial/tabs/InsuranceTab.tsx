@@ -1144,13 +1144,13 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                 <Grid container spacing={2} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
                     {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
                         <Grid size={{ xs: 12, md: 4 }} key={i}>
-                            <Card elevation={0} sx={{ border: `1px solid ${c.color}20`, borderRadius: 2 }}>
+                            <Card elevation={0} sx={{ border: `1px solid color-mix(in srgb, ${c.color} 13%, transparent)`, borderRadius: 2 }}>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                                         <Box sx={{ flex: 1 }}>
                                             <Skeleton variant="text" width="55%" height={20} />
-                                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                                             <Skeleton variant="text" width="45%" height={16} />
                                         </Box>
                                     </Box>
@@ -1162,7 +1162,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                 <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
                     <Box sx={{ display: 'flex', gap: 1, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                         {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
-                            <Skeleton key={i} variant="rounded" width={145} height={36} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton key={i} variant="rounded" width={145} height={36} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                         ))}
                     </Box>
                     <Box sx={{ p: 3 }}>

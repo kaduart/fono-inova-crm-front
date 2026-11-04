@@ -52,21 +52,21 @@ const FollowupTrendChart = () => {
                 <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid 
                         strokeDasharray="3 3" 
-                        stroke="#f1f5f9" 
+                        stroke="var(--fx-slate-100)" 
                         vertical={false}
                     />
                     <XAxis 
                         dataKey="_id" 
-                        stroke="#64748b"
+                        stroke="var(--fx-slate-500)"
                         fontSize={12}
                         tickLine={false}
-                        axisLine={{ stroke: "#e2e8f0" }}
+                        axisLine={{ stroke: "var(--fx-slate-200)" }}
                     />
                     <YAxis 
-                        stroke="#64748b"
+                        stroke="var(--fx-slate-500)"
                         fontSize={12}
                         tickLine={false}
-                        axisLine={{ stroke: "#e2e8f0" }}
+                        axisLine={{ stroke: "var(--fx-slate-200)" }}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend 

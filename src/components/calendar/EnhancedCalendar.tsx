@@ -197,50 +197,50 @@ export function getPaymentStatusConfigMap() {
                 label: "Pacote",
                 color: "#16a34a",
                 icon: CheckCircle,
-                bgColor: "#dcfce7",
-                textColor: "#166534",
+                bgColor: "var(--fx-green-100)",
+                textColor: "var(--fx-green-800)",
             },
             partial: {
                 label: "Parcial",
                 color: "#f59e0b",
                 icon: AlertCircle,
-                bgColor: "#fef9c3",
-                textColor: "#92400e",
+                bgColor: "var(--fx-yellow-100)",
+                textColor: "var(--fx-amber-800)",
             },
             advanced: {
                 label: "Adiantado",
                 color: "#2563eb",
                 icon: DollarSign,
-                bgColor: "#e0f2fe",
-                textColor: "#1e3a8a",
+                bgColor: "var(--fx-sky-100)",
+                textColor: "var(--fx-blue-900)",
             },
             canceled: {
                 label: "Cancelado",
                 color: "#dc2626",
                 icon: XCircle,
                 bgColor: "#a9afb9ff",
-                textColor: "#7f1d1d",
+                textColor: "var(--fx-red-900)",
             },
             pending: {
                 label: "Pendente",
                 color: "#d97706",
                 icon: DollarSign,
-                bgColor: "#fde68a",
-                textColor: "#92400e",
+                bgColor: "var(--fx-amber-200)",
+                textColor: "var(--fx-amber-800)",
             },
             pending_receipt: {
                 label: "Ag. Recibo",
                 color: "#f59e0b",
                 icon: Clock,
-                bgColor: "#fef3c7",
-                textColor: "#92400e",
+                bgColor: "var(--fx-amber-100)",
+                textColor: "var(--fx-amber-800)",
             },
             unknown: {
                 label: "Não verificado",
-                color: "#6b7280",
+                color: "var(--fx-gray-500)",
                 icon: Clock,
-                bgColor: "#f3f4f6",
-                textColor: "#374151",
+                bgColor: "var(--fx-gray-100)",
+                textColor: "var(--fx-gray-700)",
             },
         };
     }
@@ -273,7 +273,7 @@ export function getOperationalStatusVisualConfigMap() {
             },
             canceled: {
                 label: "Cancelado",
-                color: "#6b7280",
+                color: "var(--fx-gray-500)",
                 icon: XCircle,
             },
             absent: {
@@ -307,25 +307,25 @@ export function getVisualFlagConfigMap() {
             ok: {
                 label: 'Tudo Pago',
                 color: '#22c55e',
-                textColor: '#166534',
+                textColor: 'var(--fx-green-800)',
                 icon: CheckCircle,
             },
             partial: {
                 label: 'Parcial',
                 color: '#f59e0b',
-                textColor: '#92400e',
+                textColor: 'var(--fx-amber-800)',
                 icon: AlertCircle,
             },
             pending: {
                 label: 'A receber',
                 color: '#ef4444',
-                textColor: '#991b1b',
+                textColor: 'var(--fx-red-800)',
                 icon: Clock,
             },
             blocked: {
                 label: 'Cancelado',
-                color: '#991b1b',
-                textColor: '#7f1d1d',
+                color: 'var(--fx-red-800)',
+                textColor: 'var(--fx-red-900)',
                 icon: XCircle,
             },
         };
@@ -356,7 +356,7 @@ const getPaymentStatusConfig = (paymentStatus: string) => {
 const getOperationalStatusConfig = (operationalStatus: string) =>
     getOperationalStatusVisualConfigMap()[operationalStatus] || {
         label: 'Indefinido',
-        color: '#9ca3af',
+        color: 'var(--fx-gray-400)',
         icon: Clock,
     };
 
@@ -1296,7 +1296,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const getCardBackground = () => {
             if (isPackageSessionPending) return 'linear-gradient(135deg, #fde047 0%, #f97316 100%)';
             if (isLiminar) return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
-            if (hasPackage) return 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)';
+            if (hasPackage) return 'linear-gradient(135deg, #9333ea 0%, var(--fx-purple-700) 100%)';
             if (isConvenio) return 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
             return 'linear-gradient(135deg, #a2ddbfff 0%, #1aac68ff 100%)';
         };
@@ -1312,14 +1312,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             // Fundo = TIPO de atendimento (particular, convênio, pacote, liminar) em tom pastel, com texto escuro legível.
             // Faixa lateral = STATUS do atendimento (operationalConfig.color).
             const typeMeta = isPackageSessionPending
-                ? { label: 'Pacote', bg: 'linear-gradient(135deg, #fef9c3 0%, #fed7aa 100%)', chip: '#c2410c' }
+                ? { label: 'Pacote', bg: 'linear-gradient(135deg, var(--fx-yellow-100) 0%, var(--fx-orange-200) 100%)', chip: 'var(--fx-orange-700)' }
                 : isLiminar
-                    ? { label: 'Liminar', bg: 'linear-gradient(135deg, #ffedd5 0%, #fdba74 100%)', chip: '#c2410c' }
+                    ? { label: 'Liminar', bg: 'linear-gradient(135deg, var(--fx-orange-100) 0%, #fdba74 100%)', chip: 'var(--fx-orange-700)' }
                     : hasPackage
-                        ? { label: 'Pacote', bg: 'linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%)', chip: '#7e22ce' }
+                        ? { label: 'Pacote', bg: 'linear-gradient(135deg, var(--fx-purple-100) 0%, #d8b4fe 100%)', chip: 'var(--fx-purple-700)' }
                         : isConvenio
-                            ? { label: 'Convênio', bg: 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)', chip: '#1d4ed8' }
-                            : { label: 'Particular', bg: 'linear-gradient(135deg, #dcfce7 0%, #86efac 100%)', chip: '#047857' };
+                            ? { label: 'Convênio', bg: 'linear-gradient(135deg, var(--fx-blue-100) 0%, var(--fx-blue-300) 100%)', chip: 'var(--fx-blue-700)' }
+                            : { label: 'Particular', bg: 'linear-gradient(135deg, var(--fx-green-100) 0%, #86efac 100%)', chip: 'var(--fx-emerald-700)' };
             const packagePct = totalSessions && sessionsDone !== null
                 ? Math.min(100, Math.round((sessionsDone / totalSessions) * 100))
                 : null;
@@ -1726,12 +1726,12 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         // cortado na grade, sem o nome do paciente. Valor só para quem vê financeiro.
         if (arg.view.type === 'timeGridWeek' || arg.view.type === 'timeGridDay') {
             const typeTone = isLiminar
-                ? { bg: '#ffedd5', ink: '#9a3412', label: 'Liminar' }
+                ? { bg: 'var(--fx-orange-100)', ink: 'var(--fx-orange-800)', label: 'Liminar' }
                 : hasPackage
-                    ? { bg: '#f3e8ff', ink: '#6b21a8', label: 'Pacote' }
+                    ? { bg: 'var(--fx-purple-100)', ink: '#6b21a8', label: 'Pacote' }
                     : isConvenio
-                        ? { bg: '#dbeafe', ink: '#1e40af', label: insuranceProviderName || 'Convênio' }
-                        : { bg: '#dcfce7', ink: '#166534', label: 'Particular' };
+                        ? { bg: 'var(--fx-blue-100)', ink: 'var(--fx-blue-800)', label: insuranceProviderName || 'Convênio' }
+                        : { bg: 'var(--fx-green-100)', ink: 'var(--fx-green-800)', label: 'Particular' };
             const dimmed = CANCELED_LIKE_STATUSES.includes(operationalStatus) || operationalStatus === 'absent';
             const statusLabel = operationalConfig?.label || '';
             const range = fmtSlimTime(arg.timeText, arg.event.extendedProps.time);
@@ -2000,13 +2000,13 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             <div>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo (cor do card)</p>
                 <ul className="flex flex-col gap-1">
-                    {[['Particular', '#86efac'], ['Convênio', '#93c5fd'], ['Pacote', '#d8b4fe'], ['Liminar', '#fdba74']].map(([label, c]) => (
+                    {[['Particular', '#86efac'], ['Convênio', 'var(--fx-blue-300)'], ['Pacote', '#d8b4fe'], ['Liminar', '#fdba74']].map(([label, c]) => (
                         <li key={label} className="flex items-center gap-2"><span className="h-3.5 w-6 rounded" style={{ background: c }} />{label}</li>
                     ))}
                 </ul>
                 <p className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Barra do mês</p>
                 <ul className="flex flex-wrap gap-x-3 gap-y-1">
-                    {[['Realizadas', '#1baf7a'], ['A fazer', '#cbd5e1'], ['Faltas', '#eda100'], ['Canceladas', '#e5484d']].map(([label, c]) => (
+                    {[['Realizadas', '#1baf7a'], ['A fazer', 'var(--fx-slate-300)'], ['Faltas', '#eda100'], ['Canceladas', '#e5484d']].map(([label, c]) => (
                         <li key={label} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{label}</li>
                     ))}
                 </ul>
@@ -2098,42 +2098,42 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             <GlobalStyles
                 styles={{
                     '.fc-day-holiday': {
-                        backgroundColor: '#fef3c7 !important', // amber-100
+                        backgroundColor: 'var(--fx-amber-100) !important', // amber-100
                         '& .fc-daygrid-day-frame': {
-                            backgroundColor: '#fef3c7 !important',
+                            backgroundColor: 'var(--fx-amber-100) !important',
                         },
                         '& .fc-daygrid-day-top': {
-                            backgroundColor: '#fef3c7 !important',
+                            backgroundColor: 'var(--fx-amber-100) !important',
                         },
                         '& .fc-scrollgrid-sync-inner': {
-                            backgroundColor: '#fef3c7 !important',
+                            backgroundColor: 'var(--fx-amber-100) !important',
                         },
                     },
                     '.fc-day-holiday .fc-daygrid-day-number': {
-                        color: '#92400e !important', // amber-800
+                        color: 'var(--fx-amber-800) !important', // amber-800
                         fontWeight: 'bold !important',
                     },
                     // Hoje na semana/dia: só um tom leve na coluna (o verde forte cobria a grade inteira)
                     '.fc-timeGridWeek-view .fc-day-today, .fc-timeGridDay-view .fc-day-today': {
-                        backgroundColor: '#ecfdf5 !important',
+                        backgroundColor: 'var(--fx-emerald-50) !important',
                     },
                     // Linhas de 20 min com 24px: uma sessão de 40 min cabe em 2 linhas (horário + nome / status)
                     '.fc .fc-timegrid-slot': { height: '24px' },
                     '.fc .fc-timegrid-slot-minor': { borderTopStyle: 'dotted' },
-                    '.fc .fc-timegrid-slot-label-cushion': { fontSize: '12px', fontVariantNumeric: 'tabular-nums', color: '#475569' },
+                    '.fc .fc-timegrid-slot-label-cushion': { fontSize: '12px', fontVariantNumeric: 'tabular-nums', color: 'var(--fx-slate-600)' },
                     '.fc .fc-timegrid-event': { background: 'transparent', border: 'none', boxShadow: 'none' },
                     '.fc .fc-timegrid-event .fc-event-main': { padding: 0 },
                     // 🎯 Fundo verde para o dia de hoje no mês (sobrescreve amarelo padrão do FC)
                     '.fc-dayGridMonth-view .fc-day-today': {
-                        backgroundColor: '#d1fae5 !important', // emerald-100
+                        backgroundColor: 'var(--fx-emerald-100) !important', // emerald-100
                         '& .fc-daygrid-day-frame': {
-                            backgroundColor: '#d1fae5 !important',
+                            backgroundColor: 'var(--fx-emerald-100) !important',
                         },
                         '& .fc-daygrid-day-top': {
-                            backgroundColor: '#d1fae5 !important',
+                            backgroundColor: 'var(--fx-emerald-100) !important',
                         },
                         '& .fc-scrollgrid-sync-inner': {
-                            backgroundColor: '#d1fae5 !important',
+                            backgroundColor: 'var(--fx-emerald-100) !important',
                         },
                     },
                     // 🎯 Conteúdo do dia ocupa a célula inteira (permite centralizar o card de progresso)
@@ -2156,10 +2156,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         flex: '1 1 auto',
                     },
                     ...(isAdminMode ? {
-                        '.fc .fc-today-button': { background: 'transparent !important', color: '#047857 !important', border: '1px solid #10b981 !important', fontWeight: 600, opacity: '1 !important', textTransform: 'none' },
-                        '.fc .fc-today-button:disabled': { color: '#64748b !important', borderColor: '#cbd5e1 !important' },
+                        '.fc .fc-today-button': { background: 'transparent !important', color: 'var(--fx-emerald-700) !important', border: '1px solid #10b981 !important', fontWeight: 600, opacity: '1 !important', textTransform: 'none' },
+                        '.fc .fc-today-button:disabled': { color: 'var(--fx-slate-500) !important', borderColor: 'var(--fx-slate-300) !important' },
                         '.fc-dayGridMonth-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.07) !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
-                        '.fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: '#fffbeb !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
+                        '.fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: 'var(--fx-amber-50) !important', '& .fc-daygrid-day-frame, & .fc-daygrid-day-top, & .fc-scrollgrid-sync-inner': { backgroundColor: 'transparent !important' } },
                     } : {}),
                     // Tema escuro (mesma paleta do dark.css), vale para admin e terapeuta
                     'html.dark .fc': { '--fc-border-color': '#26312d', '--fc-page-bg-color': '#161d1b', '--fc-neutral-bg-color': '#1b2421', '--fc-today-bg-color': 'rgba(16,185,129,0.08)' },
@@ -2167,8 +2167,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     'html.dark .fc .fc-toolbar': { borderColor: '#26312d' },
                     'html.dark .fc .fc-scrollgrid-section-header th': { backgroundColor: '#1b2421' },
                     'html.dark .fc .fc-button': { background: '#1b2421', borderColor: '#33413c', color: '#cfd8d4' },
-                    'html.dark .fc .fc-button-primary:not(:disabled).fc-button-active': { background: '#047857', borderColor: '#047857', color: '#fff' },
-                    'html.dark .fc .fc-today-button': { color: '#6ee7b7 !important' },
+                    'html.dark .fc .fc-button-primary:not(:disabled).fc-button-active': { background: 'var(--fx-emerald-700)', borderColor: 'var(--fx-emerald-700)', color: '#fff' },
+                    'html.dark .fc .fc-today-button': { color: 'var(--fx-emerald-300) !important' },
                     'html.dark .fc .fc-timegrid-slot-label-cushion': { color: '#a9b5b0' },
                     'html.dark .fc-timeGridWeek-view .fc-day-today, html.dark .fc-timeGridDay-view .fc-day-today': { backgroundColor: 'rgba(16,185,129,0.06) !important' },
                     'html.dark .fc-dayGridMonth-view .fc-day-holiday': { backgroundColor: 'rgba(245,158,11,0.1) !important' },
@@ -2343,9 +2343,9 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </Box>
 
                         {/* Cabeçalho dos dias — 5 colunas (sem fim de semana) */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', borderTop: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', borderTop: '1px solid var(--fx-gray-200)', borderLeft: '1px solid var(--fx-gray-200)' }}>
                             {['SEG', 'TER', 'QUA', 'QUI', 'SEX'].map((d) => (
-                                <Box key={d} sx={{ borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', px: 1, py: 0.75, display: 'flex', justifyContent: 'center' }}>
+                                <Box key={d} sx={{ borderRight: '1px solid var(--fx-gray-200)', borderBottom: '1px solid var(--fx-gray-200)', px: 1, py: 0.75, display: 'flex', justifyContent: 'center' }}>
                                     <Skeleton variant="text" width={30} height={18} />
                                 </Box>
                             ))}
@@ -2353,7 +2353,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
                         {/* Grade de semanas: 5 linhas × 5 colunas */}
                         {Array.from({ length: 5 }).map((_, week) => (
-                            <Box key={week} sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', flex: 1, borderLeft: '1px solid #e5e7eb' }}>
+                            <Box key={week} sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', flex: 1, borderLeft: '1px solid var(--fx-gray-200)' }}>
                                 {Array.from({ length: 5 }).map((_, day) => {
                                     // Simula o cartão de progresso do dia (a maioria das células tem atendimentos)
                                     const hasBadge = (week * 5 + day) % 6 !== 0;
@@ -2361,8 +2361,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         <Box
                                             key={day}
                                             sx={{
-                                                borderRight: '1px solid #e5e7eb',
-                                                borderBottom: '1px solid #e5e7eb',
+                                                borderRight: '1px solid var(--fx-gray-200)',
+                                                borderBottom: '1px solid var(--fx-gray-200)',
                                                 minHeight: 80,
                                                 p: 0.75,
                                                 display: 'flex',
@@ -2375,7 +2375,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                             <Skeleton variant="circular" width={28} height={28} />
                                             {/* Cartão de progresso: x/y + barra + % */}
                                             {hasBadge && (
-                                                <Box sx={{ width: '88%', maxWidth: 150, my: 'auto', borderRadius: 3, border: '1px solid #e5e7eb', bgcolor: '#fff', px: 1.25, py: 0.75, boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>
+                                                <Box sx={{ width: '88%', maxWidth: 150, my: 'auto', borderRadius: 3, border: '1px solid var(--fx-gray-200)', bgcolor: 'var(--fx-white)', px: 1.25, py: 0.75, boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>
                                                     <Skeleton variant="text" width="45%" height={20} sx={{ mx: 'auto' }} />
                                                     <Skeleton variant="rounded" height={8} sx={{ borderRadius: 9, mt: 0.5 }} />
                                                     <Skeleton variant="text" width="60%" height={12} sx={{ mx: 'auto', mt: 0.5 }} />
@@ -2477,7 +2477,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                             width: 'calc(100% - 4px)',
                                             height: 'calc(100% - 4px)',
                                             boxSizing: 'border-box',
-                                            background: '#fef3c7', 
+                                            background: 'var(--fx-amber-100)', 
                                             border: '2px solid #f59e0b', 
                                             borderRadius: '8px', 
                                             padding: '12px', 
@@ -2488,10 +2488,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                             cursor: 'not-allowed'
                                         }}>
                                             <span style={{ fontSize: '24px', marginBottom: '8px' }}>🗓️</span>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#92400e', textAlign: 'center', lineHeight: 1.25 }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fx-amber-800)', textAlign: 'center', lineHeight: 1.25 }}>
                                                 {holidayName}
                                             </span>
-                                            <span style={{ fontSize: '12px', color: '#b45309', marginTop: '4px', textAlign: 'center', lineHeight: 1.5 }}>
+                                            <span style={{ fontSize: '12px', color: 'var(--fx-amber-700)', marginTop: '4px', textAlign: 'center', lineHeight: 1.5 }}>
                                                 Sem atendimento
                                             </span>
                                         </div>
@@ -2538,14 +2538,14 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     const pct = Math.round((doneCount / dayCount) * 100);
                                     // Verde = progresso (inclusive em dias passados); cinza = nada feito; verde escuro = dia 100%.
                                     const tone = doneCount === 0
-                                        ? { count: 'text-slate-700', pct: 'text-slate-400', fill: 'linear-gradient(90deg,#cbd5e1,#94a3b8)', ring: '#e2e8f0' }
+                                        ? { count: 'text-slate-700', pct: 'text-slate-400', fill: 'linear-gradient(90deg,#cbd5e1,#94a3b8)', ring: 'var(--fx-slate-200)' }
                                         : doneCount === dayCount
-                                            ? { count: 'text-emerald-700', pct: 'text-emerald-700', fill: 'linear-gradient(90deg,#10b981,#047857)', ring: '#6ee7b7' }
-                                            : { count: 'text-emerald-600', pct: 'text-emerald-600', fill: 'linear-gradient(90deg,#6ee7b7,#10b981)', ring: '#a7f3d0' };
+                                            ? { count: 'text-emerald-700', pct: 'text-emerald-700', fill: 'linear-gradient(90deg,#10b981,#047857)', ring: 'var(--fx-emerald-300)' }
+                                            : { count: 'text-emerald-600', pct: 'text-emerald-600', fill: 'linear-gradient(90deg,#6ee7b7,#10b981)', ring: 'var(--fx-emerald-200)' };
 // Legenda: só o que existe no dia. Cada fatia da barra tem a mesma cor do ponto.
                                     const legend = [
                                         { n: doneCount, text: `${doneCount} ${doneCount === 1 ? 'realizado' : 'realizados'}`, full: doneCount === 1 ? 'realizado' : 'realizados', color: '#10b981' },
-                                        { n: pendingCount, text: `${pendingCount} aguardando`, full: 'aguardando', color: '#94a3b8' },
+                                        { n: pendingCount, text: `${pendingCount} aguardando`, full: 'aguardando', color: 'var(--fx-slate-400)' },
                                         { n: missedCount, text: `${missedCount} ${missedCount === 1 ? 'falta' : 'faltas'}`, full: missedCount === 1 ? 'falta' : 'faltas', color: '#f59e0b' },
                                         { n: canceledCount, text: `${canceledCount} ${canceledCount === 1 ? 'cancelado' : 'cancelados'}`, full: canceledCount === 1 ? 'cancelado' : 'cancelados', color: '#f43f5e' },
                                     ].filter((i) => i.n > 0);
@@ -2568,7 +2568,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                                 <span className={`text-[10px] font-bold tabular-nums ${tone.pct}`}>{pct}%</span>
                                             </div>
                                             {/* Barra segmentada: feitos | aguardando | faltas | cancelados (proporcional ao total do dia) */}
-                                            <div className="mt-1.5 flex w-full overflow-hidden rounded-full" style={{ height: 8, background: '#e5e7eb', boxShadow: 'inset 0 1px 2px rgba(15,23,42,0.12)' }}>
+                                            <div className="mt-1.5 flex w-full overflow-hidden rounded-full" style={{ height: 8, background: 'var(--fx-gray-200)', boxShadow: 'inset 0 1px 2px rgba(15,23,42,0.12)' }}>
                                                 {doneCount > 0 && <div style={{ flex: doneCount, background: tone.fill, minWidth: 6 }} />}
                                                 {pendingCount > 0 && <div style={{ flex: pendingCount }} />}
                                                 {missedCount > 0 && <div style={{ flex: missedCount, background: '#fbbf24' }} />}
@@ -2652,10 +2652,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                             {[
-                                { label: 'Particular', bg: 'linear-gradient(135deg, #dcfce7 0%, #86efac 100%)', text: '#047857' },
-                                { label: 'Convênio', bg: 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)', text: '#1d4ed8' },
-                                { label: 'Pacote', bg: 'linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%)', text: '#7e22ce' },
-                                { label: 'Liminar', bg: 'linear-gradient(135deg, #ffedd5 0%, #fdba74 100%)', text: '#c2410c' },
+                                { label: 'Particular', bg: 'linear-gradient(135deg, var(--fx-green-100) 0%, #86efac 100%)', text: 'var(--fx-emerald-700)' },
+                                { label: 'Convênio', bg: 'linear-gradient(135deg, var(--fx-blue-100) 0%, var(--fx-blue-300) 100%)', text: 'var(--fx-blue-700)' },
+                                { label: 'Pacote', bg: 'linear-gradient(135deg, var(--fx-purple-100) 0%, #d8b4fe 100%)', text: 'var(--fx-purple-700)' },
+                                { label: 'Liminar', bg: 'linear-gradient(135deg, var(--fx-orange-100) 0%, #fdba74 100%)', text: 'var(--fx-orange-700)' },
                             ].map((t) => (
                                 <Box key={t.label} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <Box sx={{ width: 44, height: 24, borderRadius: 1, background: t.bg, border: '1px solid rgba(0,0,0,0.08)' }} />
@@ -2676,7 +2676,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             borderRadius: 2,
                             flex: 1,
                             minWidth: 300,
-                            background: "linear-gradient(135deg, #ffffff, #f9fafb)",
+                            background: "linear-gradient(135deg, #ffffff, var(--fx-gray-50))",
                         }}
                     >
                         <Typography variant="h6" fontWeight="bold" gutterBottom color="text.primary">
@@ -2701,11 +2701,11 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                             borderRadius: 2,
                                             px: 2,
                                             py: 1,
-                                            boxShadow: `0 0 8px ${config.color}30`,
+                                            boxShadow: `0 0 8px color-mix(in srgb, ${config.color} 19%, transparent)`,
                                             transition: "all 0.2s ease-in-out",
                                             "&:hover": {
                                                 transform: "scale(1.02)",
-                                                boxShadow: `0 0 10px ${config.color}60`,
+                                                boxShadow: `0 0 10px color-mix(in srgb, ${config.color} 38%, transparent)`,
                                             },
                                         }}
                                     >

@@ -87,7 +87,7 @@ const ACTION_COLORS: Record<string, string> = {
   RULE:    '#10b981', // verde
   HYBRID:  '#f59e0b', // âmbar
   AI:      '#6366f1', // índigo
-  unknown: '#9ca3af', // cinza
+  unknown: 'var(--fx-gray-400)', // cinza
 };
 
 const WINDOW_OPTIONS = [
@@ -197,7 +197,7 @@ const AmandaMetricsDashboard = () => {
                       <Chip
                         label={action}
                         size="small"
-                        sx={{ backgroundColor: ACTION_COLORS[action] || '#9ca3af', color: '#fff', fontWeight: 700 }}
+                        sx={{ backgroundColor: ACTION_COLORS[action] || 'var(--fx-gray-400)', color: '#fff', fontWeight: 700 }}
                       />
                       <Typography variant="body2" color="text.secondary">
                         {stat.count} · <strong>{stat.pct}%</strong>
@@ -209,9 +209,9 @@ const AmandaMetricsDashboard = () => {
                       sx={{
                         height: 8,
                         borderRadius: 4,
-                        backgroundColor: '#f3f4f6',
+                        backgroundColor: 'var(--fx-gray-100)',
                         '& .MuiLinearProgress-bar': {
-                          backgroundColor: ACTION_COLORS[action] || '#9ca3af',
+                          backgroundColor: ACTION_COLORS[action] || 'var(--fx-gray-400)',
                           borderRadius: 4,
                         },
                       }}
@@ -236,7 +236,7 @@ const AmandaMetricsDashboard = () => {
                     <Grid container spacing={1} sx={{ mb: 2 }}>
                       {(['avg', 'p50', 'p95', 'p99', 'max'] as const).map(k => (
                         <Grid item xs={4} sm={2.4} key={k}>
-                          <Paper elevation={0} sx={{ p: 1, textAlign: 'center', bgcolor: '#f9fafb', borderRadius: 2 }}>
+                          <Paper elevation={0} sx={{ p: 1, textAlign: 'center', bgcolor: 'var(--fx-gray-50)', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary" display="block">
                               {k.toUpperCase()}
                             </Typography>
@@ -249,7 +249,7 @@ const AmandaMetricsDashboard = () => {
                     </Grid>
                     {/* Por action */}
                     {Object.keys(data.latencyByAction).length > 0 && (
-                      <TableContainer component={Paper} elevation={0} sx={{ bgcolor: '#f9fafb' }}>
+                      <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'var(--fx-gray-50)' }}>
                         <Table size="small">
                           <TableHead>
                             <TableRow>
@@ -265,7 +265,7 @@ const AmandaMetricsDashboard = () => {
                                   <Chip
                                     label={action}
                                     size="small"
-                                    sx={{ backgroundColor: ACTION_COLORS[action] || '#9ca3af', color: '#fff' }}
+                                    sx={{ backgroundColor: ACTION_COLORS[action] || 'var(--fx-gray-400)', color: '#fff' }}
                                   />
                                 </TableCell>
                                 <TableCell align="right">{l.avg}ms</TableCell>

@@ -25,7 +25,7 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
           {Icon && (
             <div
               className="p-2.5 rounded-xl flex-shrink-0"
-              style={{ backgroundColor: `${iconColor}15`, color: iconColor }}
+              style={{ backgroundColor: `color-mix(in srgb, ${iconColor} 8%, transparent)`, color: iconColor }}
             >
               <Icon size={22} />
             </div>

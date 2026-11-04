@@ -254,7 +254,7 @@ const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
                             size="small"
                             sx={{
                                 fontWeight: 600,
-                                background: viewMode === 'today' ? '#DBEAFE' : '#EDF2F7',
+                                background: viewMode === 'today' ? 'var(--fx-blue-100)' : '#EDF2F7',
                                 color: viewMode === 'today' ? '#3B82F6' : '#4A5568'
                             }}
                         />
@@ -332,7 +332,7 @@ const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
                                     : alreadySent
                                         ? 'Mensagem de aniversário já enviada'
                                         : '';
-                            const accent = isToday ? '#F59E0B' : isPast ? '#CBD5E0' : '#93C5FD';
+                            const accent = isToday ? '#F59E0B' : isPast ? '#CBD5E0' : 'var(--fx-blue-300)';
 
                             return (
                                 <Box key={patient._id} sx={{ position: 'relative', opacity: isPast ? 0.55 : 1, transition: 'opacity 0.2s ease', '&:hover': isPast ? { opacity: 0.8 } : {} }}>
@@ -340,7 +340,7 @@ const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
                                         sx={{
                                             width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
                                             borderRadius: '16px', p: 0,
-                                            background: isToday ? 'linear-gradient(160deg, #FFFBEB 0%, #FEF3C7 100%)' : isPast ? '#F7F8FA' : '#fff',
+                                            background: isToday ? 'linear-gradient(160deg, var(--fx-amber-50) 0%, var(--fx-amber-100) 100%)' : isPast ? '#F7F8FA' : 'var(--fx-white)',
                                             border: '1px solid rgba(0,0,0,0.06)', borderTop: `4px solid ${accent}`,
                                             boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
                                             filter: isPast ? 'grayscale(40%)' : 'none',
@@ -350,13 +350,13 @@ const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
                                     >
                                         {isToday && <TodayBadge>HOJE</TodayBadge>}
                                         {isPast && (
-                                            <Box sx={{ position: 'absolute', top: 0, right: 0, background: '#e2e8f0', color: '#718096', borderRadius: '0 0 0 10px', fontSize: '0.62rem', fontWeight: 700, padding: '4px 8px', zIndex: 2, letterSpacing: '0.04em' }}>
+                                            <Box sx={{ position: 'absolute', top: 0, right: 0, background: 'var(--fx-slate-200)', color: '#718096', borderRadius: '0 0 0 10px', fontSize: '0.62rem', fontWeight: 700, padding: '4px 8px', zIndex: 2, letterSpacing: '0.04em' }}>
                                                 PASSOU
                                             </Box>
                                         )}
 
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: '18px 16px 12px' }}>
-                                            <Avatar sx={{ width: 52, height: 52, flexShrink: 0, bgcolor: isToday ? '#FBBF24' : '#CBD5E0', color: isToday ? '#78350F' : '#4A5568', fontWeight: 700, fontSize: '1.3rem' }}>
+                                            <Avatar sx={{ width: 52, height: 52, flexShrink: 0, bgcolor: isToday ? '#FBBF24' : '#CBD5E0', color: isToday ? 'var(--fx-amber-900)' : '#4A5568', fontWeight: 700, fontSize: '1.3rem' }}>
                                                 {patient.fullName.charAt(0)}
                                             </Avatar>
                                             <Box sx={{ minWidth: 0, flex: 1, pr: isToday || isPast ? 5 : 0 }}>
@@ -372,7 +372,7 @@ const BirthdayCard = ({ patients = [], onSent }: BirthdayCardProps) => {
 
                                         <Box sx={{ mx: 2, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Chip label={isToday ? `🎂 Faz ${age} anos hoje` : `${age} anos`} size="small"
-                                                sx={{ height: 24, fontWeight: 700, fontSize: '0.75rem', background: isToday ? 'rgba(245,158,11,0.18)' : 'rgba(66,153,225,0.15)', color: isToday ? '#92400E' : '#2B6CB0' }} />
+                                                sx={{ height: 24, fontWeight: 700, fontSize: '0.75rem', background: isToday ? 'rgba(245,158,11,0.18)' : 'rgba(66,153,225,0.15)', color: isToday ? 'var(--fx-amber-800)' : '#2B6CB0' }} />
                                         </Box>
 
                                         <Box sx={{ mx: 2, display: 'flex', alignItems: 'center', gap: 1.25, background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '12px', p: '8px 12px', minHeight: 44 }}>

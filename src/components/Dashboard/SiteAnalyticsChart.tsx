@@ -1,6 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
-const COLORS = ['#3b82f6', '#60a5fa', '#2563eb', '#93c5fd', '#bfdbfe', '#10b981', '#f59e0b'];
+const COLORS = ['#3b82f6', '#60a5fa', '#2563eb', 'var(--fx-blue-300)', 'var(--fx-blue-200)', '#10b981', '#f59e0b'];
 
 const SiteAnalyticsChart = ({ data }) => {
     const chartData = data.reduce((acc, e) => {

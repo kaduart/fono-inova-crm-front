@@ -159,7 +159,7 @@ export const NotificationBellDebug: React.FC = () => {
             position: 'absolute',
             top: '-2px',
             right: '-2px',
-            background: hasNewItems ? '#ef4444' : '#6b7280',
+            background: hasNewItems ? '#ef4444' : 'var(--fx-gray-500)',
             color: 'white',
             borderRadius: '50%',
             padding: '2px 6px',
@@ -183,7 +183,7 @@ export const NotificationBellDebug: React.FC = () => {
           right: 0,
           top: '45px',
           width: '350px',
-          background: 'white',
+          background: 'var(--fx-white)',
           borderRadius: '12px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
           zIndex: 9999,
@@ -197,8 +197,8 @@ export const NotificationBellDebug: React.FC = () => {
               <div key={p._id} style={{
                 padding: '8px',
                 marginBottom: '4px',
-                background: seenIds.has(p._id) ? '#f3f4f6' : '#fef2f2',
-                borderLeft: seenIds.has(p._id) ? '3px solid #9ca3af' : '3px solid #ef4444',
+                background: seenIds.has(p._id) ? 'var(--fx-gray-100)' : 'var(--fx-red-50)',
+                borderLeft: seenIds.has(p._id) ? '3px solid var(--fx-gray-400)' : '3px solid #ef4444',
               }}>
                 <strong>{p.patientInfo?.fullName}</strong>
                 <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>

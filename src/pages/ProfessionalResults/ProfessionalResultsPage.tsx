@@ -62,15 +62,15 @@ const KPICard: React.FC<{
     <div
       className={`rounded-2xl border p-5 shadow-sm transition-all ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
       style={{
-        borderColor: active ? color : `${color}30`,
-        backgroundColor: `${color}08`,
+        borderColor: active ? color : `color-mix(in srgb, ${color} 19%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${color} 3%, transparent)`,
         outline: active ? `2px solid ${color}` : 'none',
         outlineOffset: '2px',
       }}
       onClick={onClick}
     >
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 rounded-xl" style={{ backgroundColor: `${color}20`, color }}>
+        <div className="p-2 rounded-xl" style={{ backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)`, color }}>
           {icon}
         </div>
         <span className="text-sm font-medium text-gray-600">{title}</span>
@@ -345,7 +345,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
             <TabsContent value="result">
               {!selectedDoctorId ? (
                 <Box sx={{ textAlign: 'center', py: 8, color: 'grey.500' }}>
-                  <UserCircle size={48} color="#9ca3af" />
+                  <UserCircle size={48} color="var(--fx-gray-400)" />
                   <Typography variant="h6" sx={{ mt: 2 }}>
                     Selecione um profissional no Ranking
                   </Typography>
@@ -571,7 +571,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                               { label: 'Particular pendente', value: summary.receivables.particular, color: '#ef4444' },
                               { label: 'Convênio aguardando', value: summary.receivables.insurance, color: '#6366f1' },
                               { label: 'Liminar', value: summary.receivables.liminar, color: '#f59e0b' },
-                              { label: 'Pacotes pré-pagos (info)', value: summary.receivables.packageConsumed, color: '#9ca3af' },
+                              { label: 'Pacotes pré-pagos (info)', value: summary.receivables.packageConsumed, color: 'var(--fx-gray-400)' },
                             ].map(row => (
                               <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50">
                                 <div className="flex items-center gap-2">
@@ -734,7 +734,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
             <TabsContent value="patients">
               {!selectedDoctorId ? (
                 <Box sx={{ textAlign: 'center', py: 8, color: 'grey.500' }}>
-                  <Users size={48} color="#9ca3af" />
+                  <Users size={48} color="var(--fx-gray-400)" />
                   <Typography variant="h6" sx={{ mt: 2 }}>
                     Selecione um profissional no Ranking
                   </Typography>
@@ -751,7 +751,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
             <TabsContent value="settlements">
               {!selectedDoctorId ? (
                 <Box sx={{ textAlign: 'center', py: 8, color: 'grey.500' }}>
-                  <FileText size={48} color="#9ca3af" />
+                  <FileText size={48} color="var(--fx-gray-400)" />
                   <Typography variant="h6" sx={{ mt: 2 }}>
                     Selecione um profissional no Ranking
                   </Typography>
@@ -765,7 +765,7 @@ export const ProfessionalResultsPage: React.FC<ProfessionalResultsPageProps> = (
                     <button
                       onClick={handleOpenCloseModal}
                       className="px-4 py-2 rounded-xl text-white text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity"
-                      style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+                      style={{ background: 'linear-gradient(135deg, #059669 0%, var(--fx-emerald-700) 100%)' }}
                     >
                       <Lock className="w-4 h-4" />
                       Fechar {new Date(2000, currentMonth.month - 1).toLocaleString('pt-BR', { month: 'long' })}/{currentMonth.year}

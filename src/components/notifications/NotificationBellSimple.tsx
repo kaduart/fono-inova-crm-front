@@ -133,15 +133,15 @@ export const NotificationBellSimple: React.FC = () => {
           right: 0,
           top: '40px',
           width: '350px',
-          background: 'white',
+          background: 'var(--fx-white)',
           borderRadius: '12px',
           boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
           zIndex: 1000,
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--fx-gray-200)',
         }}>
           {/* Header */}
           <div style={{
-            background: 'linear-gradient(135deg, #059669, #047857)',
+            background: 'linear-gradient(135deg, #059669, var(--fx-emerald-700))',
             padding: '12px 16px',
             borderRadius: '12px 12px 0 0',
             color: 'white',
@@ -170,7 +170,7 @@ export const NotificationBellSimple: React.FC = () => {
           {/* Lista */}
           <div style={{ maxHeight: '300px', overflow: 'auto' }}>
             {notifications.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--fx-gray-500)' }}>
                 <Bell size={32} style={{ marginBottom: '8px', opacity: 0.3 }} />
                 <p>Nenhuma notificação pendente</p>
               </div>
@@ -181,19 +181,19 @@ export const NotificationBellSimple: React.FC = () => {
                   onClick={() => markAsRead(n.id)}
                   style={{
                     padding: '12px 16px',
-                    borderBottom: '1px solid #f3f4f6',
+                    borderBottom: '1px solid var(--fx-gray-100)',
                     cursor: 'pointer',
-                    ':hover': { background: '#f9fafb' },
+                    ':hover': { background: 'var(--fx-gray-50)' },
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <strong style={{ color: '#111827' }}>{n.data?.patientName || 'Paciente'}</strong>
-                    <span style={{ fontSize: '12px', color: '#6b7280' }}>{n.timeAgo}</span>
+                    <strong style={{ color: 'var(--fx-gray-900)' }}>{n.data?.patientName || 'Paciente'}</strong>
+                    <span style={{ fontSize: '12px', color: 'var(--fx-gray-500)' }}>{n.timeAgo}</span>
                   </div>
-                  <div style={{ fontSize: '14px', color: '#4b5563' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--fx-gray-600)' }}>
                     {n.data?.specialty} - {n.data?.time}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--fx-gray-400)', marginTop: '4px' }}>
                     {n.data?.source === 'amandaAI' ? '🤖 Amanda' : '📋 Sistema'}
                   </div>
                 </div>

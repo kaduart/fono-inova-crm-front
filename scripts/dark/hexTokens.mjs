@@ -19,13 +19,22 @@ if (process.argv.includes('--css')) {
   console.log('hex-tokens.css gerado');
   process.exit(0);
 }
+const CSSISH = /(color|bg|background|border|shadow|fill|stroke)/i;
+const pct = aa => Math.round(parseInt(aa, 16) / 255 * 100);
 const BG_KEY = /\b(bgcolor|background|backgroundColor)\s*:/;
 let total = 0;
 for (const file of process.argv.slice(2)) {
   const src = fs.readFileSync(file, 'utf8');
   let n = 0;
   const out = src.split('\n').map(line => {
-    let l = line.replace(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b(?![0-9A-Fa-f])/g, (m, _h, off, str) => {
+    let l = line;
+    // Alpha colado no fim da cor (`${cor}20`, cor + '20') só funciona com hex.
+    // color-mix funciona com hex E com var(--fx-*), então converte antes.
+    if (CSSISH.test(l)) {
+      l = l.replace(/\$\{([^{}`]+)\}([0-9A-Fa-f]{2})(?=[`\s,)])/g, (m, expr, aa) => { n++; return `color-mix(in srgb, \${${expr}} ${pct(aa)}%, transparent)`; });
+      l = l.replace(/([A-Za-z_$][\w$.]*(?:\([^()]*\))?)\s*\+\s*'([0-9A-Fa-f]{2})'/g, (m, expr, aa) => { n++; return `\`color-mix(in srgb, \${${expr}} ${pct(aa)}%, transparent)\``; });
+    }
+    l = l.replace(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b(?![0-9A-Fa-f])/g, (m, _h, off, str) => {
       if (m.length === 4 && m.toUpperCase() === '#FFF') return m; // texto branco curto: decide abaixo
       const v = cssVar(m);
       if (!v || m.toUpperCase() === '#FFFFFF') return m;

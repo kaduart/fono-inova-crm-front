@@ -46,7 +46,7 @@ export default function LiminarContractPanel({ patientId, doctors, createTrigger
         <h2 style={{ fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.05em', color: '#1A2C3E' }}>
           CONTRATOS LIMINARES
           {items.length > 0 && (
-            <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-xs font-semibold" style={{ background: '#FFF7ED', color: '#92400E' }}>
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-xs font-semibold" style={{ background: 'var(--fx-orange-50)', color: 'var(--fx-amber-800)' }}>
               {items.length}
             </span>
           )}

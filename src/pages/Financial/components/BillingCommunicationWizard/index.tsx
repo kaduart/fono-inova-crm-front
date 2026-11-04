@@ -633,7 +633,7 @@ export function BillingCommunicationWizard({
                             bgcolor: tone('var(--fx-amber-50)', 'rgba(245,158,11,0.12)'), border: '1px solid', borderColor: tone('var(--fx-amber-200)', 'rgba(245,158,11,0.35)'), borderRadius: 2, p: 1.5
                         }}>
                             <AlertCircle size={17} style={{ color: 'var(--fx-amber-700)', marginTop: 2, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ color: tone('var(--fx-amber-800)', '#FCD34D') }}>
+                            <Typography variant="body2" sx={{ color: tone('var(--fx-amber-800)', 'var(--fx-amber-300)') }}>
                                 <strong>Enviar documentos não fatura.</strong> Somente as ações “Faturar” criam os lotes e alteram o estado financeiro das sessões.
                             </Typography>
                         </Box>
@@ -641,7 +641,7 @@ export function BillingCommunicationWizard({
                         <Card variant="outlined" sx={{ borderRadius: 3, borderColor: tone('var(--fx-indigo-100)', 'rgba(129,140,248,0.3)'), bgcolor: tone('#F8FAFF', 'rgba(99,102,241,0.08)') }}>
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Avatar sx={{ width: 38, height: 38, fontSize: '0.8rem', fontWeight: 700, bgcolor: tone('var(--fx-indigo-50)', 'rgba(99,102,241,0.2)'), color: tone('#4F46E5', '#A5B4FC') }}>
+                                    <Avatar sx={{ width: 38, height: 38, fontSize: '0.8rem', fontWeight: 700, bgcolor: tone('var(--fx-indigo-50)', 'rgba(99,102,241,0.2)'), color: tone('#4F46E5', 'var(--fx-indigo-300)') }}>
                                         {initials(patientName(submission))}
                                     </Avatar>
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -811,7 +811,7 @@ export function BillingCommunicationWizard({
             </DialogActions>
         </Dialog>
         <Dialog open={sendErrorModal.open} onClose={() => setSendErrorModal(prev => ({ ...prev, open: false }))} maxWidth="sm" fullWidth>
-            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, color: tone("var(--fx-amber-700)", "#FCD34D"), bgcolor: tone("var(--fx-amber-50)", "rgba(245,158,11,0.12)") }}>
+            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, color: tone("var(--fx-amber-700)", "var(--fx-amber-300)"), bgcolor: tone("var(--fx-amber-50)", "rgba(245,158,11,0.12)") }}>
                 <AlertCircle size={22} />
                 Atenção: email não enviado
             </DialogTitle>

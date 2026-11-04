@@ -404,7 +404,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               <Card variant="outlined" sx={{ borderRadius: 2 }}>
                 <CardContent sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: `${color}15` }} />
+                    <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: `color-mix(in srgb, ${color} 8%, transparent)` }} />
                     <Box sx={{ flex: 1 }}>
                       <Skeleton variant="text" width="60%" />
                       <Skeleton variant="text" width="75%" height={30} />
@@ -545,7 +545,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             <div className="p-4 bg-white">
               <div className="flex items-end justify-between mb-3">
                 <p className="text-3xs font-black uppercase tracking-widest text-gray-400">Cobertura da Meta</p>
-                <span className="text-3xl font-black leading-none" style={{ color: strategic.coveragePct >= 100 ? '#10B981' : '#1F2937' }}>
+                <span className="text-3xl font-black leading-none" style={{ color: strategic.coveragePct >= 100 ? '#10B981' : 'var(--fx-gray-800)' }}>
                   {strategic.coveragePct.toFixed(0)}%
                 </span>
               </div>
@@ -577,7 +577,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
             {/* Card 1: Meta */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #6B7280' }}>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid var(--fx-gray-500)' }}>
               <span className="text-3xs font-black uppercase tracking-widest text-gray-500">Meta</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.revenueGoal)}</div>
               <div className="text-3xs text-gray-400">objetivo do mês</div>
@@ -702,10 +702,10 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 fontWeight: 600,
                 textTransform: 'none',
                 fontSize: '0.875rem',
-                color: '#6B7280',
+                color: 'var(--fx-gray-500)',
                 '&.Mui-selected': {
                   color: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#8B5CF6',
-                  bgcolor: 'white',
+                  bgcolor: 'var(--fx-white)',
                 },
               },
               '& .MuiTabs-indicator': {
@@ -753,7 +753,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           </Tabs>
         </Box>
 
-        <Box sx={{ p: 2.5, bgcolor: 'white' }}>
+        <Box sx={{ p: 2.5, bgcolor: 'var(--fx-white)' }}>
           {/* TAB: MENSAL */}
           {selectedTab === 'monthly' && (
             <Box>
@@ -912,7 +912,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#8B5CF6', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ bgcolor: 'white', color: '#8B5CF6', width: 32, height: 32 }}>
+            <Avatar sx={{ bgcolor: 'var(--fx-white)', color: '#8B5CF6', width: 32, height: 32 }}>
               <Add />
             </Avatar>
             <Typography variant="h6">Criar Novo Planejamento</Typography>
@@ -1173,7 +1173,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </Typography>
               <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                 <Table size="small">
-                  <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                  <TableHead sx={{ bgcolor: 'var(--fx-gray-50)' }}>
                     <TableRow>
                       <TableCell><strong>Paciente</strong></TableCell>
                       <TableCell align="right"><strong>Total Pago</strong></TableCell>
@@ -1197,7 +1197,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                           {formatCurrency(item.totalPago)}
                         </TableCell>
                         <TableCell align="center">
-                          <Chip size="small" label={item.pagamentos.length} sx={{ bgcolor: '#F3F4F6' }} />
+                          <Chip size="small" label={item.pagamentos.length} sx={{ bgcolor: 'var(--fx-gray-100)' }} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1221,7 +1221,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </Typography>
               <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                 <Table size="small">
-                  <TableHead sx={{ bgcolor: '#F9FAFB' }}>
+                  <TableHead sx={{ bgcolor: 'var(--fx-gray-50)' }}>
                     <TableRow>
                       <TableCell><strong>Paciente</strong></TableCell>
                       <TableCell><strong>Sessões</strong></TableCell>
@@ -1280,7 +1280,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       <Dialog open={openEditModal} onClose={() => setOpenEditModal(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#8B5CF6', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ bgcolor: 'white', color: '#8B5CF6', width: 32, height: 32 }}>
+            <Avatar sx={{ bgcolor: 'var(--fx-white)', color: '#8B5CF6', width: 32, height: 32 }}>
               <Edit />
             </Avatar>
             <Typography variant="h6">Editar Planejamento</Typography>
@@ -1388,7 +1388,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       <Dialog open={openDeleteModal} onClose={() => setOpenDeleteModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: '#EF4444', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ bgcolor: 'white', color: '#EF4444', width: 32, height: 32 }}>
+            <Avatar sx={{ bgcolor: 'var(--fx-white)', color: '#EF4444', width: 32, height: 32 }}>
               <Delete />
             </Avatar>
             <Typography variant="h6">Confirmar Exclusão</Typography>
@@ -1465,7 +1465,7 @@ const PlanningCard = ({
       ? { main: '#F59E0B', bg: '#F59E0B10', border: '#F59E0B50' }
       : isDaily
         ? { main: '#3B82F6', bg: '#3B82F610', border: '#3B82F650' }
-        : { main: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB' };
+        : { main: 'var(--fx-gray-500)', bg: 'var(--fx-gray-100)', border: 'var(--fx-gray-200)' };
 
   return (
     <Grid size={{ xs: 12, md: isMonthly ? 12 : 6, lg: isMonthly ? 12 : 4 }}>
@@ -1475,10 +1475,10 @@ const PlanningCard = ({
           border: '2px solid',
           borderColor: typeColors.border,
           borderRadius: 2,
-          bgcolor: isMonthly ? 'white' : typeColors.bg,
+          bgcolor: isMonthly ? 'var(--fx-white)' : typeColors.bg,
           transition: 'all 0.2s',
           '&:hover': {
-            boxShadow: `0 4px 12px ${typeColors.main}20`,
+            boxShadow: `0 4px 12px color-mix(in srgb, ${typeColors.main} 13%, transparent)`,
             borderColor: typeColors.main,
           },
         }}
@@ -1518,13 +1518,13 @@ const PlanningCard = ({
                 {formatCurrency(planning.targets?.expectedRevenue || 0)}
               </div>
             </div>
-            <div className="rounded-xl border-2 p-3" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+            <div className="rounded-xl border-2 p-3" style={{ borderColor: '#10B981', backgroundColor: 'var(--fx-green-50)' }}>
               <div className="text-3xs font-black uppercase tracking-widest text-emerald-600 mb-1">Resultado</div>
               <div className="text-base font-black text-gray-900 tracking-tight leading-none">
                 {formatCurrency(dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? planning.actual?.actualRevenue ?? 0)}
               </div>
             </div>
-            <div className="rounded-xl border-2 p-3" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+            <div className="rounded-xl border-2 p-3" style={{ borderColor: '#3B82F6', backgroundColor: 'var(--fx-blue-50)' }}>
               <div className="text-3xs font-black uppercase tracking-widest text-blue-600 mb-1">Caixa</div>
               <div className="text-base font-black text-gray-900 tracking-tight leading-none">
                 {formatCurrency(dashData?.resumo?.caixa || 0)}
@@ -1568,7 +1568,7 @@ const PlanningCard = ({
 
           {/* Expandir detalhes */}
           <Collapse in={expanded}>
-            <Box sx={{ mt: 2, p: 1.5, bgcolor: '#F9FAFB', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 1.5, bgcolor: 'var(--fx-gray-50)', borderRadius: 1 }}>
               <Typography variant="subtitle2" gutterBottom fontWeight="600">
                 Detalhes
               </Typography>
@@ -1625,7 +1625,7 @@ const PlanningCard = ({
             </Button>
             <Box>
               <Tooltip title="Ver pagamentos, pacientes e pacotes do período">
-                <Button size="small" onClick={() => onViewDetails(planning)} sx={{ textTransform: 'none', color: '#047857', minWidth: 0, mr: 0.5 }}>
+                <Button size="small" onClick={() => onViewDetails(planning)} sx={{ textTransform: 'none', color: 'var(--fx-emerald-700)', minWidth: 0, mr: 0.5 }}>
                   Detalhes
                 </Button>
               </Tooltip>

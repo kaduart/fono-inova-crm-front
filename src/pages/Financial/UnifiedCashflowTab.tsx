@@ -60,7 +60,7 @@ const CashflowCardsSkeleton = () => {
             {/* 4 cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
                 {cardColors.map((color, i) => (
-                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${color}40`, backgroundColor: `${color}12` }}>
+                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `color-mix(in srgb, ${color} 25%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 7%, transparent)` }}>
                         <div className="flex items-center gap-3 mb-4">
                             <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, ...s }} />
                             <div className="flex-1">
@@ -687,7 +687,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-5'}`}>
 
                         {/* ── Caixa Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: 'var(--fx-green-50)' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
                                     <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
@@ -754,7 +754,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
 
                         {/* ── Produção Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: 'var(--fx-blue-50)' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                                     <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
@@ -831,7 +831,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         {!isMultiDayRange && (() => {
                             const attendance = data.atendimentos;
                             return (
-                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}>
+                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: 'var(--fx-sky-50)' }}>
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
                                             <CalendarTodayIcon style={{ fontSize: 20 }} className="text-sky-600" />
@@ -908,7 +908,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         })()}
 
                         {/* ── Pendências Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: 'var(--fx-amber-50)' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                                     <WarningIcon style={{ fontSize: 20 }} className="text-amber-600" />

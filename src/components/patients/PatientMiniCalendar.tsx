@@ -10,24 +10,24 @@ import { getSpecialtyLabel } from '../../constants/specialties';
 import { AppointmentOrigin } from './AppointmentOrigin';
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  completed:    { bg: '#D1FAE5', text: '#065F46', label: 'Realizado' },
-  paid:         { bg: '#D1FAE5', text: '#065F46', label: 'Realizado' },
-  confirmed:    { bg: '#DBEAFE', text: '#1E40AF', label: 'Confirmado' },
-  scheduled:    { bg: '#FEF3C7', text: '#92400E', label: 'Agendado' },
-  pre_agendado: { bg: '#E0E7FF', text: '#3730A3', label: 'Pré-agendado' },
-  canceled:     { bg: '#FEE2E2', text: '#991B1B', label: 'Cancelado' },
-  cancelled:    { bg: '#FEE2E2', text: '#991B1B', label: 'Cancelado' },
-  missed:       { bg: '#FEE2E2', text: '#991B1B', label: 'Faltou' },
+  completed:    { bg: 'var(--fx-emerald-100)', text: 'var(--fx-emerald-800)', label: 'Realizado' },
+  paid:         { bg: 'var(--fx-emerald-100)', text: 'var(--fx-emerald-800)', label: 'Realizado' },
+  confirmed:    { bg: 'var(--fx-blue-100)', text: 'var(--fx-blue-800)', label: 'Confirmado' },
+  scheduled:    { bg: 'var(--fx-amber-100)', text: 'var(--fx-amber-800)', label: 'Agendado' },
+  pre_agendado: { bg: 'var(--fx-indigo-100)', text: 'var(--fx-indigo-800)', label: 'Pré-agendado' },
+  canceled:     { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Cancelado' },
+  cancelled:    { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Cancelado' },
+  missed:       { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Faltou' },
 };
-const DEFAULT_STYLE = { bg: '#F3F4F6', text: '#374151', label: '' };
+const DEFAULT_STYLE = { bg: 'var(--fx-gray-100)', text: 'var(--fx-gray-700)', label: '' };
 
 // Theming do FullCalendar via CSS custom properties (suportado nativamente desde
 // o v6) — aplicado só no wrapper deste componente, nunca em `.fc` global.
 const CALENDAR_THEME_VARS = {
-    '--fc-border-color': '#E5E7EB',
+    '--fc-border-color': 'var(--fx-gray-200)',
     '--fc-page-bg-color': '#FFFFFF',
-    '--fc-neutral-bg-color': '#F9FAFB',
-    '--fc-today-bg-color': '#EFF6FF',
+    '--fc-neutral-bg-color': 'var(--fx-gray-50)',
+    '--fc-today-bg-color': 'var(--fx-blue-50)',
     '--fc-now-indicator-color': '#2563EB',
 } as React.CSSProperties;
 

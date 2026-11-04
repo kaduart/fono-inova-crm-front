@@ -484,12 +484,12 @@ const DoctorFinancialTab: React.FC<DoctorFinancialTabProps> = ({
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: 'var(--fx-gray-500)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: 'var(--fx-gray-500)' }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) =>
@@ -500,16 +500,16 @@ const DoctorFinancialTab: React.FC<DoctorFinancialTabProps> = ({
                 formatter={(value: number) => formatCurrency(value)}
                 contentStyle={{
                   borderRadius: '12px',
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid var(--fx-gray-200)',
                   boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                 }}
-                labelStyle={{ color: '#374151', fontWeight: 600 }}
+                labelStyle={{ color: 'var(--fx-gray-700)', fontWeight: 600 }}
               />
               <Bar dataKey="received" radius={[6, 6, 0, 0]} maxBarSize={50}>
                 {monthlyChart.map((_entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={index === monthlyChart.length - 1 ? '#10b981' : '#6ee7b7'}
+                    fill={index === monthlyChart.length - 1 ? '#10b981' : 'var(--fx-emerald-300)'}
                   />
                 ))}
               </Bar>

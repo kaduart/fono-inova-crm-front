@@ -118,7 +118,7 @@ export const NotificationBellWorking: React.FC = () => {
       contatado: '#3b82f6',
       confirmado: '#10b981'
     };
-    return colors[status] || '#6b7280';
+    return colors[status] || 'var(--fx-gray-500)';
   };
 
   const getStatusLabel = (item: any) => {
@@ -162,7 +162,7 @@ export const NotificationBellWorking: React.FC = () => {
             position: 'absolute',
             top: '-2px',
             right: '-2px',
-            background: hasNewItems ? '#ef4444' : '#6b7280',
+            background: hasNewItems ? '#ef4444' : 'var(--fx-gray-500)',
             color: 'white',
             borderRadius: '50%',
             padding: '2px 6px',
@@ -188,16 +188,16 @@ export const NotificationBellWorking: React.FC = () => {
           right: 0,
           top: '45px',
           width: '400px',
-          background: 'white',
+          background: 'var(--fx-white)',
           borderRadius: '12px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
           zIndex: 9999,
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--fx-gray-200)',
           overflow: 'hidden',
         }}>
           {/* Header */}
           <div style={{
-            background: 'linear-gradient(135deg, #059669, #047857)',
+            background: 'linear-gradient(135deg, #059669, var(--fx-emerald-700))',
             padding: '14px 16px',
             color: 'white',
           }}>
@@ -251,11 +251,11 @@ export const NotificationBellWorking: React.FC = () => {
           {/* Lista */}
           <div style={{ maxHeight: '400px', overflow: 'auto' }}>
             {loading ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--fx-gray-500)' }}>
                 <div style={{
                   width: '24px',
                   height: '24px',
-                  border: '3px solid #e5e7eb',
+                  border: '3px solid var(--fx-gray-200)',
                   borderTopColor: '#059669',
                   borderRadius: '50%',
                   margin: '0 auto 10px',
@@ -264,7 +264,7 @@ export const NotificationBellWorking: React.FC = () => {
                 Carregando...
               </div>
             ) : preAgendamentos.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--fx-gray-500)' }}>
                 <Bell size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
                 <p style={{ fontSize: '14px' }}>Nenhum pré-agendamento pendente</p>
               </div>
@@ -276,9 +276,9 @@ export const NotificationBellWorking: React.FC = () => {
                     key={p._id}
                     style={{
                       padding: '12px 16px',
-                      borderBottom: '1px solid #f3f4f6',
+                      borderBottom: '1px solid var(--fx-gray-100)',
                       cursor: 'pointer',
-                      background: novo ? '#fef2f2' : 'white', // Fundo vermelho claro se for novo
+                      background: novo ? 'var(--fx-red-50)' : 'var(--fx-white)', // Fundo vermelho claro se for novo
                       borderLeft: novo ? '3px solid #ef4444' : '3px solid transparent',
                     }}
                     onClick={() => {
@@ -286,7 +286,7 @@ export const NotificationBellWorking: React.FC = () => {
                       setSeenIds(prev => new Set([...prev, p._id]));
                     }}
                     onMouseEnter={(e) => {
-                      if (!novo) e.currentTarget.style.background = '#f9fafb';
+                      if (!novo) e.currentTarget.style.background = 'var(--fx-gray-50)';
                     }}
                     onMouseLeave={(e) => {
                       if (!novo) e.currentTarget.style.background = 'white';
@@ -295,7 +295,7 @@ export const NotificationBellWorking: React.FC = () => {
                     {/* Header do item */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <strong style={{ color: '#111827', fontSize: '14px' }}>
+                        <strong style={{ color: 'var(--fx-gray-900)', fontSize: '14px' }}>
                           {p.patientInfo?.fullName || 'Paciente'}
                         </strong>
                         {novo && (
@@ -316,7 +316,7 @@ export const NotificationBellWorking: React.FC = () => {
                         fontWeight: 'bold',
                         padding: '2px 8px',
                         borderRadius: '12px',
-                        background: getStatusBadge(p) + '20',
+                        background: `color-mix(in srgb, ${getStatusBadge(p)} 13%, transparent)`,
                         color: getStatusBadge(p),
                         textTransform: 'uppercase',
                       }}>
@@ -325,7 +325,7 @@ export const NotificationBellWorking: React.FC = () => {
                     </div>
                     
                     {/* Info */}
-                    <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#4b5563', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: 'var(--fx-gray-600)', marginBottom: '4px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <User size={12} />
                         {p.specialty}
@@ -341,7 +341,7 @@ export const NotificationBellWorking: React.FC = () => {
                     </div>
                     
                     {/* Origem */}
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--fx-gray-400)', marginTop: '4px' }}>
                       {p.source === 'amandaAI' ? '🤖 Amanda AI' : 
                        p.source === 'whatsapp' ? '💬 WhatsApp' : 
                        p.source === 'site' ? '🌐 Site' : '📋 ' + p.source}
@@ -355,8 +355,8 @@ export const NotificationBellWorking: React.FC = () => {
           {/* Footer */}
           <div style={{
             padding: '10px 16px',
-            background: '#f9fafb',
-            borderTop: '1px solid #e5e7eb',
+            background: 'var(--fx-gray-50)',
+            borderTop: '1px solid var(--fx-gray-200)',
             textAlign: 'center',
           }}>
             <a 

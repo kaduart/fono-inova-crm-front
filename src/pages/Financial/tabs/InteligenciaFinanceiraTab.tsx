@@ -39,7 +39,7 @@ const MetricCard = ({ title, value, subtitle, icon, color, trend }: any) => (
     <Card variant="outlined" sx={{ width: '100%', borderRadius: 3, border: '1px solid #edf2f7' }}>
         <CardContent sx={{ p: 2.5 }}>
             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                <Box sx={{ p: 1, borderRadius: 2, bgcolor: `${color}15`, color: color }}>{icon}</Box>
+                <Box sx={{ p: 1, borderRadius: 2, bgcolor: `color-mix(in srgb, ${color} 8%, transparent)`, color: color }}>{icon}</Box>
                 {trend && <Chip label={trend} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#e6fffa', color: '#285e61' }} />}
             </Box>
             <Typography variant="body2" color="text.secondary">{title}</Typography>

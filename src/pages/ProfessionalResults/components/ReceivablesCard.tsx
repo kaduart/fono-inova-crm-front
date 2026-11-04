@@ -52,8 +52,8 @@ export const ReceivablesCard: React.FC<ReceivablesCardProps> = ({ receivables })
                 sx={{
                   p: 2,
                   borderRadius: 2,
-                  bgcolor: `${item.color}10`,
-                  border: `1px solid ${item.color}30`,
+                  bgcolor: `color-mix(in srgb, ${item.color} 6%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${item.color} 19%, transparent)`,
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: item.color }}>

@@ -159,7 +159,7 @@ export const NotificationBellFixed: React.FC = () => {
       contatado: '#3b82f6',
       confirmado: '#10b981'
     };
-    return colors[status] || '#6b7280';
+    return colors[status] || 'var(--fx-gray-500)';
   };
 
   const getStatusLabel = (item: any) => {
@@ -253,14 +253,14 @@ export const NotificationBellFixed: React.FC = () => {
           right: '8px',
           top: '60px',
           width: 'min(380px, calc(100vw - 16px))',
-          background: 'white',
+          background: 'var(--fx-white)',
           borderRadius: '12px',
           boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
           zIndex: 9999,
           overflow: 'hidden',
         }}>
           <div style={{
-            background: 'linear-gradient(135deg, #059669, #047857)',
+            background: 'linear-gradient(135deg, #059669, var(--fx-emerald-700))',
             padding: '14px 16px',
             color: 'white',
           }}>
@@ -299,8 +299,8 @@ export const NotificationBellFixed: React.FC = () => {
                   key={p._id}
                   style={{
                     padding: '12px 16px',
-                    borderBottom: '1px solid #f3f4f6',
-                    background: isNew(p._id) ? '#fef2f2' : 'white',
+                    borderBottom: '1px solid var(--fx-gray-100)',
+                    background: isNew(p._id) ? 'var(--fx-red-50)' : 'var(--fx-white)',
                     borderLeft: isNew(p._id) ? '3px solid #ef4444' : '3px solid transparent',
                   }}
                 >
@@ -313,7 +313,7 @@ export const NotificationBellFixed: React.FC = () => {
                       fontSize: '10px',
                       padding: '2px 8px',
                       borderRadius: '12px',
-                      background: getStatusBadge(p) + '20',
+                      background: `color-mix(in srgb, ${getStatusBadge(p)} 13%, transparent)`,
                       color: getStatusBadge(p),
                     }}>
                       {getStatusLabel(p)}
@@ -352,7 +352,7 @@ function PostList({ posts, label }: { posts: GmbPostSample[]; label: string }) {
   if (!posts.length) return null;
   return (
     <div style={{ marginTop: '8px' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--fx-amber-800)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
         {label}
       </div>
       {posts.map(p => (
@@ -362,7 +362,7 @@ function PostList({ posts, label }: { posts: GmbPostSample[]; label: string }) {
           padding: '6px 8px',
           marginBottom: '4px',
           fontSize: '11px',
-          color: '#78350f',
+          color: 'var(--fx-amber-900)',
         }}>
           <div style={{ fontWeight: 600, marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {p.title || p.theme || '(sem título)'}
@@ -372,7 +372,7 @@ function PostList({ posts, label }: { posts: GmbPostSample[]; label: string }) {
             {p.retryCount != null && p.retryCount > 0 && <span>🔁 {p.retryCount}x</span>}
           </div>
           {p.error && (
-            <div style={{ marginTop: '2px', color: '#b45309', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ marginTop: '2px', color: 'var(--fx-amber-700)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {p.error.slice(0, 80)}
             </div>
           )}
@@ -392,8 +392,8 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
 
   return (
     <div style={{
-      borderBottom: '1px solid #f3f4f6',
-      background: '#fff7ed',
+      borderBottom: '1px solid var(--fx-gray-100)',
+      background: 'var(--fx-orange-50)',
       borderLeft: '3px solid #f97316',
     }}>
       {/* Cabeçalho clicável */}
@@ -402,8 +402,8 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
         style={{ padding: '12px 16px', cursor: hasDetails ? 'pointer' : 'default', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
       >
         <div>
-          <strong style={{ color: '#9a3412', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
-          <div style={{ fontSize: '12px', color: '#9a3412', marginTop: '4px' }}>
+          <strong style={{ color: 'var(--fx-orange-800)', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
+          <div style={{ fontSize: '12px', color: 'var(--fx-orange-800)', marginTop: '4px' }}>
             {alert.failed > 0    && <div>❌ {alert.failed} post(s) com falha permanente</div>}
             {alert.unconfirmed > 0 && <div>❓ {alert.unconfirmed} post(s) sem confirmação do Make — pode já ter publicado, checar no Google</div>}
             {alert.retrying > 0  && <div>🔄 {alert.retrying} falhando repetidamente no Google</div>}
@@ -412,7 +412,7 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
           </div>
         </div>
         {hasDetails && (
-          <span style={{ fontSize: '11px', color: '#b45309', marginLeft: '8px', marginTop: '2px', flexShrink: 0 }}>
+          <span style={{ fontSize: '11px', color: 'var(--fx-amber-700)', marginLeft: '8px', marginTop: '2px', flexShrink: 0 }}>
             {open ? '▲ fechar' : '▼ detalhes'}
           </span>
         )}
