@@ -40,6 +40,12 @@ import GenerationCancellationFlow from '../common/GenerationCancellationFlow';
 // com laranja/vermelho de risco real (saldo baixo, vencimento), que têm significado diferente.
 const NEUTRAL_MISSING_COLOR = { bar: 'var(--fx-slate-400)', text: 'var(--fx-slate-600)', dot: 'var(--fx-slate-400)' };
 
+const SHORT_SPECIALTY: Record<string, string> = {
+  fonoaudiologia: 'fono', psicologia: 'psicologia', psicopedagogia: 'psicopedagogia',
+  terapia_ocupacional: 'TO', fisioterapia: 'fisio', psicomotricidade: 'psicomotricidade',
+  neuropsicologia: 'neuropsicologia', musicoterapia: 'musicoterapia',
+};
+
 const DAY_LABELS: Record<number, string> = {
   0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb',
 };
@@ -162,6 +168,15 @@ export default function ContractCard({ data, onRefresh }: Props) {
   // Cor da barra pela saúde do saldo, não pela ordem do card.
   const balanceHealth: 'ok' | 'mid' | 'low' = balancePct >= 50 ? 'ok' : balancePct >= 25 ? 'mid' : 'low';
   const barColor = balanceHealth === 'ok' ? '#7C3AED' : balanceHealth === 'mid' ? '#D97706' : '#DC2626';
+  // Composição do total liberado (valores do back): usado + reservado na agenda + livre.
+  const reserved = Math.max(0, committed?.committed ?? 0);
+  const pctOf = (v: number) => (contract.totalCredit > 0 ? Math.max(0, Math.min(100, (v / contract.totalCredit) * 100)) : 0);
+  const usedPct = pctOf(contract.usedCredit);
+  const reservedPct = Math.min(pctOf(reserved), 100 - usedPct);
+  // Quantas sessões o valor livre ainda paga, por especialidade do plano (o crédito é único, não dividido).
+  const sessionsLeft = Object.entries(plan?.therapies ?? {})
+    .filter(([, cfg]) => cfg?.sessionValue > 0)
+    .map(([sp, cfg]) => ({ label: SHORT_SPECIALTY[sp] ?? sp.replace(/_/g, ' '), count: Math.floor(Math.max(0, available) / cfg.sessionValue) }));
 
   const handleInactivate = async () => {
     setIsInactivating(true);
@@ -457,26 +472,70 @@ export default function ContractCard({ data, onRefresh }: Props) {
 
       {/* ══ Camada 2: Summary — saldo do contrato (valores do back, só reorganizados) ══ */}
       <div className="space-y-3 px-4 pb-4 pt-1 sm:px-5">
-        <dl className="grid grid-cols-3 gap-2">
+        {/* Onde está o dinheiro da liminar: usado + reservado na agenda + livre = total liberado. */}
+        <div>
+          <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Livre para novas sessões</p>
+          <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+            <span className={`text-2xl font-bold tabular-nums ${available < 0 || balanceHealth === 'low' ? 'text-red-600 dark:text-red-400' : 'text-violet-700 dark:text-violet-300'}`}>
+              <AnimatedValue value={`R$ ${fmt(available)}`} />
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">de R$ {fmt(contract.totalCredit)} liberados</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+            Saldo do contrato <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">R$ {fmt(contract.creditBalance)}</span>
+            {reserved > 0 && <>, dos quais <span className="tabular-nums">R$ {fmt(reserved)}</span> já estão na agenda</>}
+          </p>
+          {committed?.projection && contract.creditBalance > 0 && (() => {
+            const proj = committed.projection;
+            const end = new Date(proj.estimatedExhaustionDate);
+            if (Number.isNaN(end.getTime())) return null;
+            const day = end.getDate();
+            const part = day <= 10 ? 'início' : day <= 20 ? 'meados' : 'fim';
+            const month = end.toLocaleDateString('pt-BR', { month: 'long' });
+            const perWeek = Math.round(proj.averageSessionsPerWeek);
+            return (
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                No ritmo atual, de umas {perWeek} {perWeek === 1 ? 'sessão' : 'sessões'} por semana, o saldo dura até{' '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{part} de {month} de {end.getFullYear()}</span>.
+              </p>
+            );
+          })()}
+        </div>
+        <div
+          className="flex h-3 w-full overflow-hidden rounded-full bg-violet-100 dark:bg-violet-500/15"
+          role="img"
+          aria-label={`Usado ${usedPct.toFixed(0)}%, reservado na agenda ${reservedPct.toFixed(0)}%, livre ${balancePct.toFixed(0)}%`}
+        >
+          <div style={{ width: `${usedPct}%`, background: '#6D28D9', transition: 'width 0.5s' }} />
+          <div style={{ width: `${reservedPct}%`, background: 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)', transition: 'width 0.5s' }} />
+          <div style={{ width: `${balancePct}%`, background: barColor, opacity: 0.35, transition: 'width 0.5s' }} />
+        </div>
+        <dl className="space-y-1.5 text-xs">
           {[
-            { k: 'Disponível', v: `R$ ${fmt(available)}`, c: available >= 0 ? (balanceHealth === 'low' ? 'text-red-600 dark:text-red-400' : 'text-violet-700 dark:text-violet-300') : 'text-red-600' },
-            { k: 'Agendado', v: `R$ ${fmt(committed?.committed ?? 0)}`, c: 'text-amber-700 dark:text-amber-300' },
-            { k: 'Utilizado', v: `R$ ${fmt(contract.usedCredit)}`, c: 'text-slate-900 dark:text-slate-100' },
-          ].map(f => (
-            <div key={f.k} className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
-              <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{f.k}</dt>
-              <dd className={`mt-0.5 text-sm font-semibold tabular-nums ${f.c}`}><AnimatedValue value={f.v} /></dd>
+            { k: 'Já usado em sessões realizadas', v: contract.usedCredit, pct: usedPct, swatch: { background: '#6D28D9' } },
+            { k: 'Reservado para sessões agendadas', v: reserved, pct: reservedPct, swatch: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
+            { k: 'Livre', v: available, pct: balancePct, swatch: { background: barColor, opacity: 0.35 } },
+          ].map(row => (
+            <div key={row.k} className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={row.swatch} aria-hidden />
+              <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
+              <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">R$ {fmt(row.v)}</dd>
+              <dd className="w-9 shrink-0 text-right tabular-nums text-slate-500 dark:text-slate-400">{row.pct.toFixed(0)}%</dd>
             </div>
           ))}
         </dl>
-        <div>
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(balancePct)} aria-label="Saldo disponível do contrato">
-            <div style={{ width: `${balancePct}%`, height: '100%', background: barColor, borderRadius: 9999, transition: 'width 0.5s' }} />
-          </div>
-          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
-            {balancePct.toFixed(0)}% disponível de R$ {fmt(contract.totalCredit)}
+        {sessionsLeft.length > 0 && available > 0 && (
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            O valor livre paga cerca de{' '}
+            {sessionsLeft.map((s, i) => (
+              <span key={s.label}>
+                {i > 0 && (i === sessionsLeft.length - 1 ? ' ou ' : ', ')}
+                <b className="font-semibold text-slate-900 dark:text-slate-100">{s.count} de {s.label}</b>
+              </span>
+            ))}
+            .
           </p>
-        </div>
+        )}
         {contract.status === 'active' && balanceHealth === 'low' && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
             Saldo baixo: avise a família e o jurídico para pedir novo crédito antes de acabar.
@@ -487,7 +546,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
             { k: 'Contrato', state: contract.status === 'active' ? 'done' : 'warn', sub: contract.processNumber ? `proc. ${lastDigits(contract.processNumber)}` : statusLabel.toLowerCase() },
             { k: 'Plano', state: plan ? 'done' : contract.status === 'active' ? 'current' : 'todo', sub: plan ? 'ativo' : 'falta criar' },
             { k: 'Sessões', state: (committed?.committed ?? 0) > 0 ? 'done' : plan ? 'current' : 'todo', sub: (committed?.committed ?? 0) > 0 ? 'agendadas' : plan ? 'gerar' : '—' },
-            { k: 'Consumo', state: balanceHealth === 'low' ? 'warn' : 'current', sub: `${(100 - balancePct).toFixed(0)}% usado` },
+            { k: 'Consumo', state: balanceHealth === 'low' ? 'warn' : 'current', sub: `${usedPct.toFixed(0)}% usado` },
           ];
           const dot: Record<string, string> = { done: 'bg-violet-600 text-white', current: 'bg-white text-violet-700 ring-2 ring-violet-600 dark:bg-slate-900 dark:text-violet-300', warn: 'bg-amber-500 text-white', todo: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
           return (

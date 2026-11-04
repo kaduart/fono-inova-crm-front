@@ -17,6 +17,10 @@ interface Props {
     onProfile?: (title: string, items: any[]) => void;
     /** Com a Régua do dia na tela, atendidos/aguardando/faltas já aparecem na legenda dela (mesmos cliques). */
     hideAttendance?: boolean;
+    /** Agendamentos criados no período (mode createdAt), para a lista do clique. */
+    createdItems?: { date?: unknown }[];
+    /** Mesma API (by-type, mode createdAt): quem AGENDOU no período e é cliente novo ou nova terapia. */
+    createdAnalytics?: AppointmentsByTypeData | null;
 }
 const link = 'min-h-10 rounded-md px-2 text-left text-sm text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950';
 const tone = { g: 'text-emerald-700 dark:text-emerald-300', a: 'text-amber-700 dark:text-amber-300', r: 'text-red-700 dark:text-red-400' };
@@ -48,6 +52,15 @@ export default function CashflowAgendaSummary(p: Props) {
         { label: 'Recorrentes', count: onDate(p.analytics?.recorrentes).length, action: list('Recorrentes', onDate(p.analytics?.recorrentes)) },
         { label: 'Tratamentos por liminar', count: onDate(p.analytics?.continuousTreatment).length, action: list('Tratamentos por liminar', onDate(p.analytics?.continuousTreatment)) },
     ];
+    const created = p.createdItems || [];
+    const createdInRange = onDate(created).length;
+    const createdWhen = p.startDate === p.endDate ? 'criados no dia' : 'criados no período';
+    // Novos clientes (como em out/2026, antes da reforma de 30/10): pela data em que o agendamento foi CRIADO.
+    // Paciente novo = nunca teve agendamento na clínica (pré-agendado + 1ª consulta); nova terapia = já era paciente e começou outra especialidade.
+    const newLeads = p.createdAnalytics?.leads || [];
+    const newFirst = p.createdAnalytics?.novos || [];
+    const newSpecialty = p.createdAnalytics?.novosEspecialidade || [];
+    const newClients = newLeads.length + newFirst.length;
     const attendance = p.data.atendimentos;
     // Visual aprovado em 31/10: uma linha de chips clicáveis no lugar do bloco alto.
     const chips: { label: string; value?: number; tone?: 'g' | 'a' | 'r'; detail?: string; onClick?: () => void }[] = [
@@ -64,8 +77,31 @@ export default function CashflowAgendaSummary(p: Props) {
         <div className={row}>
             <span className={rowLabel}>Agenda</span>
             {chips.filter(c => !p.hideAttendance || c.label === 'agendados').map(c => <Chip key={c.label} label={c.label} value={c.value} t={c.tone} onClick={c.onClick} />)}
-            <Chip label="criados no período" value={p.createdLoading || p.createdError ? undefined : p.createdTotal} detail={p.createdLoading ? 'consultando…' : p.createdError ? 'indisponível' : 'inclui datas futuras'} />
+            {/* Primordial para o Kadu (04/11): quantos agendamentos foram CRIADOS no dia/semana/mês do filtro. Destacado e clicável. */}
+            {p.createdLoading || p.createdError || p.createdTotal == null
+                ? <Chip label={`novos agendamentos ${createdWhen}`} detail={p.createdLoading ? 'consultando…' : 'indisponível'} />
+                : <button type="button" onClick={list(`Novos agendamentos ${createdWhen}`, created)} aria-label={`Ver ${p.createdTotal} novos agendamentos ${createdWhen}`}
+                    className="inline-flex min-h-10 items-baseline gap-1.5 rounded-full border-2 border-emerald-600 bg-emerald-50 px-3.5 py-1 text-sm font-medium text-emerald-900 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-100 dark:hover:bg-emerald-500/25">
+                    <b className="text-lg font-extrabold tabular-nums">{p.createdTotal}</b> novos agendamentos {createdWhen}
+                    {created.length > 0 && <span className="text-xs text-emerald-800 dark:text-emerald-200">({createdInRange} para {period === 'do dia' ? 'o dia' : 'o período'}, {created.length - createdInRange} para datas futuras)</span>}
+                </button>}
             <button type="button" className={`${link} ml-auto`} onClick={() => p.onAgenda()}>Ver agenda e atendimentos</button>
+        </div>
+        <div className={row}>
+            <span className={rowLabel}>Novos</span>
+            {p.createdLoading ? <span role="status" className="text-sm text-gray-600 dark:text-gray-300">Consultando novos clientes…</span>
+                : p.createdError || !p.createdAnalytics ? <span role="status" className="text-sm text-gray-600 dark:text-gray-300">Novos clientes indisponíveis. Atualize para tentar novamente.</span>
+                : <>
+                    <button type="button" onClick={list(`Pacientes novos ${createdWhen.replace('criados', 'que agendaram')}`, [...newLeads, ...newFirst])} aria-label={`Ver ${newClients} pacientes novos`}
+                        className="inline-flex min-h-10 items-baseline gap-1.5 rounded-full border-2 border-fuchsia-600 bg-fuchsia-50 px-3.5 py-1 text-sm font-medium text-fuchsia-900 hover:bg-fuchsia-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-600 dark:border-fuchsia-400 dark:bg-fuchsia-500/15 dark:text-fuchsia-100">
+                        <b className="text-lg font-extrabold tabular-nums">{newClients}</b> {newClients === 1 ? 'paciente novo agendou' : 'pacientes novos agendaram'}
+                        <span className="text-xs">({newLeads.length} pré-agendado{newLeads.length !== 1 ? 's' : ''}, {newFirst.length} 1ª consulta)</span>
+                    </button>
+                    <button type="button" onClick={list(`Nova terapia ${createdWhen.replace('criados', 'agendada')}`, newSpecialty)} aria-label={`Ver ${newSpecialty.length} em nova terapia`}
+                        className="inline-flex min-h-10 items-baseline gap-1.5 rounded-full border-2 border-violet-600 bg-violet-50 px-3.5 py-1 text-sm font-medium text-violet-900 hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:border-violet-400 dark:bg-violet-500/15 dark:text-violet-100">
+                        <b className="text-lg font-extrabold tabular-nums">{newSpecialty.length}</b> em nova terapia <span className="text-xs">(já eram pacientes)</span>
+                    </button>
+                </>}
         </div>
         <div className={row}>
             <span className={rowLabel}>Perfil</span>

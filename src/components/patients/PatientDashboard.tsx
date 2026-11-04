@@ -1,5 +1,5 @@
 import { Activity, Calendar, ChevronDown, Clock, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -23,6 +23,11 @@ import { PatientAvailablesCard } from './PatientAvailablesCard';
 import { PatientAppointmentsTable } from './PatientAppointmentsTable';
 import PatientEvolution from './PatientEvolution';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
+import { PatientAgendaSummary } from './PatientAgendaSummary';
+import RescheduleDialog, { type RescheduleTarget } from '../calendar/RescheduleDialog';
+import API from '../../services/api';
+import appointmentService from '../../services/appointmentService';
+import { getSpecialtyLabel } from '../../constants/specialties';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
@@ -121,6 +126,56 @@ export default function PatientDashboard() {
     getAvailableSlots,
     pollingState
   } = useAppointments();
+
+  // Remarcar pelo calendário da aba Agenda: mesma janela e mesma rota da Agenda geral.
+  const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
+  type CalendarAppt = { _id?: string; id?: string; status?: string; operationalStatus?: string; doctor?: { _id?: string; fullName?: string }; doctorId?: string; start?: string; date?: string | Date; time?: string; specialty?: string; sessionType?: string };
+  const openReschedule = (appt: CalendarAppt) => {
+    const status = String(appt?.operationalStatus || appt?.status || '');
+    if (!['scheduled', 'confirmed', 'pre_agendado'].includes(status)) {
+      toast.info('Só dá para mudar data e hora de sessão agendada, confirmada ou pré-agendada.');
+      return;
+    }
+    const doctorId = String(appt.doctor?._id || appt.doctorId || '');
+    if (!doctorId) {
+      toast.error('Sessão sem profissional vinculado. Remarque pela Agenda geral.');
+      return;
+    }
+    const currentDate = appt.start ? new Date(appt.start).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : String(appt.date || '').substring(0, 10);
+    const currentTime = appt.time || (appt.start ? new Date(appt.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '');
+    setRescheduleTarget({
+      id: String(appt._id || appt.id),
+      patientName: patientInfo?.fullName || '',
+      doctorId,
+      doctorName: appt.doctor?.fullName || '',
+      specialtyLabel: getSpecialtyLabel(appt.specialty || appt.sessionType),
+      currentDate,
+      currentTime,
+    });
+  };
+  // Estável (sem deps): o hook de agendamentos troca `loading` a cada busca, o que
+  // re-renderiza o painel; uma função nova a cada render refazia a busca sem parar.
+  const fetchRescheduleSlots = useCallback(async ({ doctorId, date }: { doctorId: string; date: string }) => {
+    try {
+      const response = await appointmentService.getAvailableSlots({ doctorId, date });
+      return response.data as unknown as string[];
+    } catch {
+      toast.error('Erro ao buscar horários disponíveis');
+      return [];
+    }
+  }, []);
+  // Erro volta para a janela (mensagem inline), igual à Agenda geral.
+  const confirmReschedule = async (id: string, data: { date: string; time: string; reason?: string }) => {
+    const response = await API.patch(`/v2/appointments/${id}/reschedule`, data);
+    if (response?.data?.success !== true) {
+      throw new Error(response?.data?.error || response?.data?.message || 'Falha ao remarcar');
+    }
+    const [y, m, d] = data.date.split('-');
+    toast.success(`Remarcado para ${d}/${m}/${y} às ${data.time}`);
+    setRescheduleTarget(null);
+    await loadAllAppointments();
+    window.dispatchEvent(new CustomEvent('appointments:data-updated', { detail: { appointmentId: id, timestamp: Date.now(), reason: 'reschedule' } }));
+  };
 
   const loadAllAppointments = async () => {
     if (!patientId) return;
@@ -1090,9 +1145,18 @@ export default function PatientDashboard() {
     return (
       <div>
         {appointments && (
-          <PatientMiniCalendar appointments={allAppointmentsById} />
-        )
-        }
+          <>
+            <PatientAgendaSummary appointments={allAppointmentsById} />
+            <PatientMiniCalendar appointments={allAppointmentsById} onEventClick={openReschedule} />
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Clique numa sessão agendada, confirmada ou pré-agendada para mudar a data ou o horário.</p>
+            <RescheduleDialog
+              target={rescheduleTarget}
+              onClose={() => setRescheduleTarget(null)}
+              onFetchAvailableSlots={fetchRescheduleSlots}
+              onConfirm={confirmReschedule}
+            />
+          </>
+        )}
       </div>
     );
   };

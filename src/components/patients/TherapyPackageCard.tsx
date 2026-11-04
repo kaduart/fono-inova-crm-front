@@ -3,7 +3,7 @@ import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, More
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { toast } from '../../utils/toast';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
@@ -548,7 +548,6 @@ export default function TherapyPackageCard({
   const sessionsLeft = Math.max(totalSessions - Number(completedSessions || 0), 0);
   const toSchedule = Math.max(sessionsLeft - scheduledSessions.length, 0);
   const nearEnd = isActive && totalSessions > 0 && sessionsLeft <= 2;
-  const progressPct = totalSessions > 0 ? Math.min(((completedSessions || 0) / totalSessions) * 100, 100) : 0;
   const totalValue = Number(pack.totalValue || 0);
   // Mesmos números que o card já mostrava (resumo financeiro do back); só reorganizados.
   const paidShown = isFullyPaid ? (particularPaid > 0 ? particularPaid : (pack.totalPaid || totalValue)) : particularPaid;
@@ -658,26 +657,64 @@ export default function TherapyPackageCard({
           </dl>
         )}
 
-        {/* Progresso clínico */}
-        <div>
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="font-medium text-slate-600 dark:text-slate-300">Sessões</span>
-            <span className={`font-semibold tabular-nums ${nearEnd ? 'text-amber-700 dark:text-amber-300' : 'text-slate-700 dark:text-slate-200'}`}>
-              <AnimatedValue value={Number(completedSessions || 0)} /> de {totalSessions}
-            </span>
-          </div>
-          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={totalSessions} aria-valuenow={Number(completedSessions || 0)} aria-label="Sessões realizadas">
-            <div className={`h-full rounded-full transition-[width] duration-700 ease-out ${isLegacyConvenio ? 'bg-blue-500' : nearEnd ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${progressPct}%` }} />
-          </div>
-          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
-            {[
-              scheduledSessions.length > 0 ? `${scheduledSessions.length} agendada${scheduledSessions.length === 1 ? '' : 's'}` : null,
-              isActive && toSchedule > 0 ? `${toSchedule} a agendar` : null,
-              (pack.sessionsCanceled ?? 0) > 0 ? `${pack.sessionsCanceled} cancelada${pack.sessionsCanceled === 1 ? '' : 's'}` : null,
-              nearEnd ? (sessionsLeft === 0 ? 'pacote no fim, hora de renovar' : `faltam ${sessionsLeft}, hora de falar em renovação`) : null,
-            ].filter(Boolean).join(' · ') || `${sessionsLeft} restante${sessionsLeft === 1 ? '' : 's'}`}
-          </p>
-        </div>
+        {/* Progresso clínico — onde estão as sessões do pacote: feitas + agendadas + a agendar = total */}
+        {(() => {
+          const done = Math.min(Number(completedSessions || 0), totalSessions || Number(completedSessions || 0));
+          const sched = Math.min(scheduledSessions.length, sessionsLeft);
+          const free = Math.max(sessionsLeft - sched, 0);
+          const pct = (v: number) => (totalSessions > 0 ? Math.max(0, Math.min(100, (v / totalSessions) * 100)) : 0);
+          const fmtD = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          const lastDate = scheduledSessions
+            .map(x => new Date(x.date as string))
+            .filter(d => !Number.isNaN(d.getTime()))
+            .sort((a, b) => b.getTime() - a.getTime())[0];
+          const doneBar = isLegacyConvenio ? 'bg-blue-600' : 'bg-emerald-600';
+          const freeBar = isLegacyConvenio ? 'bg-blue-500/35' : 'bg-emerald-500/35';
+          const striped = 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)';
+          let insight: string | null = null;
+          if (isActive && sessionsLeft === 0) insight = 'Pacote no fim. Hora de renovar.';
+          else if (isActive && free === 0 && lastDate) insight = `Todas as sessões já estão na agenda. A última é em ${fmtD(lastDate)}, então fale em renovação antes disso.`;
+          else if (isActive && lastDate && free > 0) insight = `A agenda vai até ${fmtD(lastDate)} e ainda ${free === 1 ? 'falta agendar 1 sessão' : `faltam agendar ${free} sessões`}.`;
+          else if (isActive && free > 0) insight = `Nenhuma sessão na agenda. ${free === 1 ? 'Falta agendar 1' : `Faltam agendar ${free}`}.`;
+          else if (nearEnd) insight = `Faltam ${sessionsLeft}. Hora de falar em renovação.`;
+          return (
+            <div className="space-y-2">
+              <div>
+                <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Sessões restantes no pacote</p>
+                <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+                  <span className={`text-2xl font-bold tabular-nums ${nearEnd ? 'text-amber-700 dark:text-amber-300' : isLegacyConvenio ? 'text-blue-700 dark:text-blue-300' : 'text-emerald-700 dark:text-emerald-300'}`}><AnimatedValue value={sessionsLeft} /></span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">de {totalSessions} do pacote</span>
+                </p>
+              </div>
+              <div
+                className={`flex h-3 w-full overflow-hidden rounded-full ${isLegacyConvenio ? 'bg-blue-100 dark:bg-blue-500/15' : 'bg-emerald-100 dark:bg-emerald-500/15'}`}
+                role="img"
+                aria-label={`Feitas ${done}, agendadas ${sched}, a agendar ${free}, de ${totalSessions}`}
+              >
+                <div className={doneBar} style={{ width: `${pct(done)}%`, transition: 'width 0.5s' }} />
+                <div style={{ width: `${pct(sched)}%`, background: striped, transition: 'width 0.5s' }} />
+                <div className={freeBar} style={{ width: `${pct(free)}%`, transition: 'width 0.5s' }} />
+              </div>
+              <dl className="space-y-1.5 text-xs">
+                {[
+                  { k: 'Feitas', v: done, cls: doneBar, style: undefined as CSSProperties | undefined },
+                  { k: 'Agendadas', v: sched, cls: '', style: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
+                  { k: 'A agendar', v: free, cls: freeBar, style: undefined },
+                  ...((pack.sessionsCanceled ?? 0) > 0 ? [{ k: 'Canceladas (não contam)', v: Number(pack.sessionsCanceled), cls: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
+                ].map(row => (
+                  <div key={row.k} className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${row.cls}`} style={row.style} aria-hidden />
+                    <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
+                    <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">{row.v}</dd>
+                  </div>
+                ))}
+              </dl>
+              {insight && (
+                <p className={`text-xs ${nearEnd ? 'text-amber-800 dark:text-amber-300' : 'text-slate-600 dark:text-slate-300'}`}>{insight}</p>
+              )}
+            </div>
+          );
+        })()}
 
         {canReceive && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
