@@ -10,8 +10,22 @@ const DONE = new Set(['completed', 'paid']);
 const MISSED = new Set(['missed', 'no_show']);
 const CANCELED = new Set(['canceled', 'cancelled', 'force_cancelled']);
 const OPEN = new Set(['scheduled', 'confirmed', 'pre_agendado']);
-const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const DAY = 86400000;
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const WEEKDAY_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+// Cor fixa por terapia (tokens --fx-* já trocam no tema escuro).
+const SPEC_TONE: Record<string, string> = {
+  fonoaudiologia: 'emerald', psicologia: 'violet', terapia_ocupacional: 'sky', psicopedagogia: 'amber',
+  fisioterapia: 'rose', musicoterapia: 'teal', neuropsicologia: 'indigo', aba: 'orange',
+};
+const FALLBACK_TONES = ['blue', 'teal', 'orange', 'indigo', 'rose'];
+function toneOf(sp: string, i: number) {
+  const t = SPEC_TONE[sp] || FALLBACK_TONES[i % FALLBACK_TONES.length];
+  const fg = t === 'rose' ? 'var(--fx-rose-700)' : `var(--fx-${t}-700)`;
+  return { fg, bg: `var(--fx-${t}-50)` };
+}
+const initials = (name: string) => name.trim().split(/\s+/).filter(Boolean).map(w => w[0]).filter((_, i, a) => i === 0 || i === a.length - 1).join('').toUpperCase();
 
 function apptDate(a: Appointment): Date | null {
   const raw = a.start || `${String(a.date || '').substring(0, 10)}T${a.time || '00:00'}`;
@@ -83,9 +97,25 @@ export function PatientAgendaSummary({ appointments }: { appointments: Appointme
         return { sp, slots, doctor, perWeek };
       })
       .filter(r => r.slots.length > 0)
-      .sort((a, b) => b.perWeek - a.perWeek);
+      .sort((a, b) => b.perWeek - a.perWeek)
+      .map((r, i) => ({ ...r, tone: toneOf(r.sp, i) }));
 
-    return { now, next, in4w: in4w.length, unconfirmed, done, missed, canceled, presence, noClosure, routine };
+    // Semana típica: os horários da rotina agrupados por dia; conflito = duas terapias no mesmo dia e hora.
+    const week = new Map<number, { hh: string; sp: string; tone: { fg: string; bg: string } }[]>();
+    const seen = new Map<string, Set<string>>();
+    for (const r of routine) for (const sl of r.slots) {
+      const list = week.get(sl.dow) ?? [];
+      list.push({ hh: sl.hh, sp: r.sp, tone: r.tone });
+      week.set(sl.dow, list);
+      const k = `${sl.dow}|${sl.hh}`;
+      seen.set(k, (seen.get(k) ?? new Set()).add(r.sp));
+    }
+    for (const list of week.values()) list.sort((a, b) => a.hh.localeCompare(b.hh));
+    const clashes = [...seen.values()].filter(v => v.size > 1).length;
+    const days = WEEK_ORDER.filter(d => (d >= 1 && d <= 5) || week.has(d));
+    const perWeekTotal = routine.reduce((sum, r) => sum + r.slots.length, 0);
+
+    return { now, next, in4w: in4w.length, unconfirmed, done, missed, canceled, presence, noClosure, routine, week, days, clashes, perWeekTotal };
   }, [appointments]);
 
   const fmtDay = (d: Date) => d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
@@ -140,14 +170,61 @@ export function PatientAgendaSummary({ appointments }: { appointments: Appointme
       )}
 
       {data.routine.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
-          <p className="flex items-center gap-1.5 text-2xs font-medium text-slate-500 dark:text-slate-400"><Repeat className="h-3.5 w-3.5" aria-hidden />Rotina do paciente</p>
-          <ul className="mt-1.5 space-y-1 text-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <Repeat className="h-4 w-4 text-slate-400" aria-hidden />Rotina da semana
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{data.perWeekTotal}</span> {data.perWeekTotal === 1 ? 'sessão' : 'sessões'} por semana em {data.routine.length} {data.routine.length === 1 ? 'terapia' : 'terapias'}
+              {data.clashes > 0 && <span className="ml-2 font-semibold text-red-700 dark:text-red-300">{data.clashes === 1 ? '1 horário com duas terapias' : `${data.clashes} horários com duas terapias`}</span>}
+            </p>
+          </div>
+
+          {/* Semana típica: uma coluna por dia, horários na cor da terapia */}
+          <div className="-mx-4 mt-3 overflow-x-auto px-4 pb-1 [scroll-snap-type:x_mandatory]">
+            <ol className="grid min-w-[560px] gap-2" style={{ gridTemplateColumns: `repeat(${data.days.length}, minmax(0, 1fr))` }}>
+              {data.days.map(dow => {
+                const items = data.week.get(dow) ?? [];
+                const isToday = data.now.getDay() === dow;
+                return (
+                  <li key={dow} className={`rounded-lg p-2 [scroll-snap-align:start] ${isToday ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:ring-emerald-500/30' : 'bg-slate-50 dark:bg-slate-800/60'}`}>
+                    <p className={`text-xs font-semibold ${isToday ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-300'}`}>
+                      {WEEKDAY_FULL[dow]}{isToday && <span className="ml-1 font-normal">· hoje</span>}
+                    </p>
+                    {items.length === 0 ? (
+                      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">Livre</p>
+                    ) : (
+                      <ul className="mt-1.5 space-y-1">
+                        {items.map(it => (
+                          <li key={`${it.hh}-${it.sp}`} className="rounded-md bg-white py-1 pl-2 pr-1.5 shadow-[0_0_0_1px_var(--fx-slate-200)] dark:bg-slate-900" style={{ borderLeft: `3px solid ${it.tone.fg}` }}>
+                            <span className="block text-xs font-semibold tabular-nums text-slate-900 dark:text-slate-100">{it.hh}</span>
+                            <span className="block truncate text-2xs text-slate-600 dark:text-slate-300">{getSpecialtyLabel(it.sp)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+
+          {/* Quem atende e com que frequência */}
+          <ul className="mt-3 grid gap-x-6 gap-y-2 border-t border-slate-100 pt-3 sm:grid-cols-2 dark:border-slate-800">
             {data.routine.map(r => (
-              <li key={r.sp} className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-semibold text-slate-900 dark:text-slate-100">{getSpecialtyLabel(r.sp)}</span>
-                <span className="text-slate-600 dark:text-slate-300">{r.slots.map(s => `${WEEKDAYS[s.dow]} ${s.hh}`).join(', ')}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">{r.perWeek >= 0.95 ? `${Math.round(r.perWeek)}×/semana` : 'quinzenal ou irregular'}{r.doctor ? ` · ${r.doctor}` : ''}</span>
+              <li key={r.sp} className="flex items-center gap-2.5 text-sm">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.tone.fg }} aria-hidden />
+                <span className="min-w-0 flex-1 truncate font-semibold text-slate-900 dark:text-slate-100">{getSpecialtyLabel(r.sp)}</span>
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-2xs font-semibold tabular-nums" style={{ backgroundColor: r.tone.bg, color: r.tone.fg }}>
+                  {r.perWeek >= 0.95 ? `${Math.round(r.perWeek)}× por semana` : 'quinzenal'}
+                </span>
+                {r.doctor && (
+                  <span className="flex min-w-0 shrink items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300" title={r.doctor}>
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-100 text-[0.6rem] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300" aria-hidden>{initials(r.doctor)}</span>
+                    <span className="truncate">{r.doctor}</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
