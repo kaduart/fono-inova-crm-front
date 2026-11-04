@@ -22,6 +22,9 @@ import appointmentService from '../../services/appointmentService';
 import packageService from '../../services/packageService';
 import API from '../../services/api';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
+import { confirmDialog } from '../ui/ConfirmHost';
+
+const todayLocalISO = () => fmtDate(new Date(), 'yyyy-MM-dd');
 
 import { doctorHandlesSpecialty } from '../../utils/doctorSpecialty';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
@@ -767,6 +770,20 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         e.preventDefault();
 
         if (!validateAll()) return;
+
+        // Pagamento com data futura não entra no caixa de hoje — confirmar antes de salvar.
+        if (!isEditing && formData.paymentType !== 'per-session') {
+            const hoje = todayLocalISO();
+            const futuros = payments.filter(p => Number(p.amount) > 0 && p.date && String(p.date).substring(0, 10) > hoje);
+            if (futuros.length > 0) {
+                const datas = [...new Set(futuros.map(p => String(p.date).substring(0, 10).split('-').reverse().join('/')))].join(', ');
+                const ok = await confirmDialog(
+                    `A data do pagamento (${datas}) é depois de hoje. Ele só vai aparecer no caixa desse dia, não no de hoje. Se o pagamento foi feito hoje, volte e corrija a data.`,
+                    { title: 'Pagamento com data futura', confirmText: 'Manter data futura', cancelText: 'Corrigir data', confirmColor: 'teal' }
+                );
+                if (!ok) return;
+            }
+        }
         setIsLoading(true);
 
         // No handleSave, antes de gerar as datas:
@@ -940,11 +957,14 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         return dateObj.toLocaleDateString('pt-BR');
     };
 
+    // Data do pagamento começa em HOJE (dia local). Antes vinha vazia e o comercial
+    // digitava à mão — caso André Cunha Ferraz 04/11/2026: lançou 05/11 (dia da 1ª
+    // sessão) e o recebimento sumiu do caixa do dia.
     const [payments, setPayments] = useState([
         {
             id: 1,
             amount: 0,
-            date: '',
+            date: todayLocalISO(),
             method: '',
             description: ''
         }
@@ -962,7 +982,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
             {
                 id: Date.now(),
                 amount: 0,
-                date: '',
+                date: todayLocalISO(),
                 method: '',
                 description: ''
             }
@@ -1970,7 +1990,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                                 selected={payment.date ? buildLocalDateOnly(payment.date) : null}
                                                                 onChange={(date: Date | null) => {
                                                                     if (!date) return;
-                                                                    const formattedDate = date.toISOString().split('T')[0];
+                                                                    // Dia local (não UTC): toISOString desloca o dia em fuso ≠ BRT.
+                                                                    const formattedDate = fmtDate(date, 'yyyy-MM-dd');
                                                                     updatePayment(payment.id, 'date', formattedDate);
                                                                 }}
                                                                 customInput={
