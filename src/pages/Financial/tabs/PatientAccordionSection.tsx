@@ -36,7 +36,7 @@ function daysSince(dateStr: string): number {
 function urgencyColor(days: number): string {
     if (days > 60) return '#EF4444';
     if (days > 30) return '#F59E0B';
-    return '#6B7280';
+    return 'var(--fx-gray-500)';
 }
 
 function urgencyLabel(days: number, status: string): string {
@@ -141,11 +141,11 @@ function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment,
         <TableContainer component={Paper} variant="outlined" className="rounded-xl overflow-hidden">
             <Table size="small" sx={{ tableLayout: 'fixed' }}>
                 <TableHead>
-                    <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                    <TableRow sx={{ bgcolor: 'var(--fx-gray-50)' }}>
                         <TableCell sx={{ width: 40 }} />
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280' }}>Mês</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', width: 90 }}>Atend.</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', width: 130 }}>Valor</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--fx-gray-500)' }}>Mês</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--fx-gray-500)', width: 90 }}>Atend.</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--fx-gray-500)', width: 130 }}>Valor</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -160,18 +160,18 @@ function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment,
                                             {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                         </IconButton>
                                     </TableCell>
-                                    <TableCell className="capitalize whitespace-nowrap" sx={{ fontSize: '0.85rem', color: '#374151' }}>
+                                    <TableCell className="capitalize whitespace-nowrap" sx={{ fontSize: '0.85rem', color: 'var(--fx-gray-700)' }}>
                                         {fmtMonthShort(monthKey)}
                                     </TableCell>
-                                    <TableCell align="center" sx={{ fontSize: '0.85rem', color: '#6B7280' }}>{payments.length}</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.85rem', color: '#111827' }}>
+                                    <TableCell align="center" sx={{ fontSize: '0.85rem', color: 'var(--fx-gray-500)' }}>{payments.length}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--fx-gray-900)' }}>
                                         R$ {total.toLocaleString('pt-BR')}
                                     </TableCell>
                                 </TableRow>
                                 <TableRow>
                                     <TableCell colSpan={4} sx={{ p: 0, border: 0 }}>
                                         <Collapse in={isOpen} timeout="auto" unmountOnExit>
-                                            <Box sx={{ bgcolor: '#F8FAFC', px: 2, py: 1 }}>
+                                            <Box sx={{ bgcolor: 'var(--fx-slate-50)', px: 2, py: 1 }}>
                                                 {payments.map((payment) => (
                                                     <Box
                                                         key={payment.paymentId}
@@ -181,9 +181,9 @@ function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment,
                                                             alignItems: 'center',
                                                             p: 1.25,
                                                             mb: 0.75,
-                                                            bgcolor: selectedPayments.has(payment.paymentId) ? '#F0F9FF' : 'white',
+                                                            bgcolor: selectedPayments.has(payment.paymentId) ? 'var(--fx-sky-50)' : 'var(--fx-white)',
                                                             borderRadius: 1,
-                                                            border: selectedPayments.has(payment.paymentId) ? '2px solid #3B82F6' : '1px solid #E5E7EB'
+                                                            border: selectedPayments.has(payment.paymentId) ? '2px solid #3B82F6' : '1px solid var(--fx-gray-200)'
                                                         }}
                                                     >
                                                         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
@@ -228,10 +228,10 @@ function MonthlyPaymentTable({ monthlyGroups, selectedPayments, onTogglePayment,
                                                                     <Box sx={{
                                                                         display: 'inline-flex', alignItems: 'center', gap: 0.5,
                                                                         px: 0.75, py: 0.25, mt: 0.25,
-                                                                        bgcolor: '#F0FDF4', border: '1px solid #BBF7D0',
+                                                                        bgcolor: 'var(--fx-green-50)', border: '1px solid var(--fx-green-200)',
                                                                         borderRadius: 1
                                                                     }}>
-                                                                        <Typography fontSize="0.63rem" fontWeight={700} color="#15803D">
+                                                                        <Typography fontSize="0.63rem" fontWeight={700} color="var(--fx-green-700)">
                                                                             ✓ caixa {formatDateBR(payment.paidAt)}
                                                                         </Typography>
                                                                     </Box>
@@ -406,8 +406,8 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     cursor: 'pointer',
-                    bgcolor: (isAllSelected || isIndeterminate) ? '#F0F9FF' : 'inherit',
-                    '&:hover': { bgcolor: '#F3F4F6' }
+                    bgcolor: (isAllSelected || isIndeterminate) ? 'var(--fx-sky-50)' : 'inherit',
+                    '&:hover': { bgcolor: 'var(--fx-gray-100)' }
                 }}
                 onClick={openDrawer}
             >
@@ -430,7 +430,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                         />
                     )}
                     <Avatar
-                        sx={{ bgcolor: '#E5E7EB', width: 40, height: 40 }}
+                        sx={{ bgcolor: 'var(--fx-gray-200)', width: 40, height: 40 }}
                         onClick={(e) => { e.stopPropagation(); onOpen360(patient.patientId); }}
                     >
                         <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -459,7 +459,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                         <IconButton
                             size="small"
                             onClick={(e) => { e.stopPropagation(); onCloseGuide(closeableGuides); }}
-                            sx={{ color: '#94A3B8', '&:hover': { color: '#B45309', bgcolor: '#FEF3C7' } }}
+                            sx={{ color: 'var(--fx-slate-400)', '&:hover': { color: 'var(--fx-amber-700)', bgcolor: 'var(--fx-amber-100)' } }}
                             title={closeableGuides.length === 1
                                 ? `Finalizar guia ${closeableGuides[0].guideNumber || closeableGuides[0].guideId} (cancela agendamentos pendentes)`
                                 : `Finalizar ${closeableGuides.length} guias (cancela agendamentos pendentes)`}
@@ -472,7 +472,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                             sx={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                color: '#9CA3AF',
+                                color: 'var(--fx-gray-400)',
                                 cursor: 'default'
                             }}
                             title={closedGuides.length === 1
@@ -493,9 +493,9 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                 patientName={patient.patientName}
                 provider={provider}
                 subtitle={subtitle}
-                headerColor="#F0FDF4"
+                headerColor="var(--fx-green-50)"
             >
-                <Box sx={{ bgcolor: 'white', minHeight: '100%' }}>
+                <Box sx={{ bgcolor: 'var(--fx-white)', minHeight: '100%' }}>
                     {/* Tabs */}
                     <Tabs
                         value={activeTab}
@@ -519,7 +519,7 @@ export const PatientAccordionSection: React.FC<PatientAccordionSectionProps> = (
                                         <Chip
                                             size="small"
                                             label={groupedBySpecialty[specialty].length}
-                                            sx={{ height: 16, fontSize: '10px', bgcolor: '#E5E7EB' }}
+                                            sx={{ height: 16, fontSize: '10px', bgcolor: 'var(--fx-gray-200)' }}
                                         />
                                     </Box>
                                 }

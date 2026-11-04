@@ -630,18 +630,18 @@ export function BillingCommunicationWizard({
                     <Stack spacing={2.5}>
                         <Box sx={{
                             display: 'flex', alignItems: 'flex-start', gap: 1.25,
-                            bgcolor: tone('#FFFBEB', 'rgba(245,158,11,0.12)'), border: '1px solid', borderColor: tone('#FDE68A', 'rgba(245,158,11,0.35)'), borderRadius: 2, p: 1.5
+                            bgcolor: tone('var(--fx-amber-50)', 'rgba(245,158,11,0.12)'), border: '1px solid', borderColor: tone('var(--fx-amber-200)', 'rgba(245,158,11,0.35)'), borderRadius: 2, p: 1.5
                         }}>
-                            <AlertCircle size={17} style={{ color: '#B45309', marginTop: 2, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ color: tone('#92400E', '#FCD34D') }}>
+                            <AlertCircle size={17} style={{ color: 'var(--fx-amber-700)', marginTop: 2, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ color: tone('var(--fx-amber-800)', '#FCD34D') }}>
                                 <strong>Enviar documentos não fatura.</strong> Somente as ações “Faturar” criam os lotes e alteram o estado financeiro das sessões.
                             </Typography>
                         </Box>
 
-                        <Card variant="outlined" sx={{ borderRadius: 3, borderColor: tone('#E0E7FF', 'rgba(129,140,248,0.3)'), bgcolor: tone('#F8FAFF', 'rgba(99,102,241,0.08)') }}>
+                        <Card variant="outlined" sx={{ borderRadius: 3, borderColor: tone('var(--fx-indigo-100)', 'rgba(129,140,248,0.3)'), bgcolor: tone('#F8FAFF', 'rgba(99,102,241,0.08)') }}>
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Avatar sx={{ width: 38, height: 38, fontSize: '0.8rem', fontWeight: 700, bgcolor: tone('#EEF2FF', 'rgba(99,102,241,0.2)'), color: tone('#4F46E5', '#A5B4FC') }}>
+                                    <Avatar sx={{ width: 38, height: 38, fontSize: '0.8rem', fontWeight: 700, bgcolor: tone('var(--fx-indigo-50)', 'rgba(99,102,241,0.2)'), color: tone('#4F46E5', '#A5B4FC') }}>
                                         {initials(patientName(submission))}
                                     </Avatar>
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -659,7 +659,7 @@ export function BillingCommunicationWizard({
                         </Card>
 
                         <Box sx={{
-                            bgcolor: tone('#F8FAFC', 'rgba(148,163,184,0.08)'), border: '1px solid', borderColor: tone('#E5E7EB', 'rgba(148,163,184,0.2)'), borderRadius: 2, p: 1.75
+                            bgcolor: tone('var(--fx-slate-50)', 'rgba(148,163,184,0.08)'), border: '1px solid', borderColor: tone('var(--fx-gray-200)', 'rgba(148,163,184,0.2)'), borderRadius: 2, p: 1.75
                         }}>
                             <Typography fontWeight={700} mb={0.5}>Como as sessões serão faturadas?</Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -676,7 +676,7 @@ export function BillingCommunicationWizard({
                                 const document = allocation.invoice?.documentId;
                                 const filename = typeof document === 'string' ? 'NF anexada' : document?.originalName || document?.name;
                                 return (
-                                    <Card key={allocation._id || index} variant="outlined" sx={{ borderRadius: 3, borderColor: allocation.invoice?.documentId ? tone('#BBF7D0', 'rgba(34,197,94,0.35)') : tone('#E5E7EB', 'rgba(148,163,184,0.2)') }}>
+                                    <Card key={allocation._id || index} variant="outlined" sx={{ borderRadius: 3, borderColor: allocation.invoice?.documentId ? tone('var(--fx-green-200)', 'rgba(34,197,94,0.35)') : tone('var(--fx-gray-200)', 'rgba(148,163,184,0.2)') }}>
                                       <CardContent sx={{ p: 2.25, '&:last-child': { pb: 2.25 } }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 1.5 }}>
                                             <Box>
@@ -730,10 +730,10 @@ export function BillingCommunicationWizard({
                         <Box>
                             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 1 }}>
                                 {slots.map(slot => (
-                                    <Box key={slot.type} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, p: 1.25, borderRadius: 2, bgcolor: slot.documents.length ? tone('#F0FDF4', 'rgba(34,197,94,0.1)') : tone('#F8FAFC', 'rgba(148,163,184,0.08)'), border: '1px solid', borderColor: slot.documents.length ? tone('#BBF7D0', 'rgba(34,197,94,0.35)') : tone('#F1F5F9', 'rgba(148,163,184,0.2)') }}>
+                                    <Box key={slot.type} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, p: 1.25, borderRadius: 2, bgcolor: slot.documents.length ? tone('var(--fx-green-50)', 'rgba(34,197,94,0.1)') : tone('var(--fx-slate-50)', 'rgba(148,163,184,0.08)'), border: '1px solid', borderColor: slot.documents.length ? tone('var(--fx-green-200)', 'rgba(34,197,94,0.35)') : tone('var(--fx-slate-100)', 'rgba(148,163,184,0.2)') }}>
                                         <Box display="flex" alignItems="center" justifyContent="space-between" gap={1.5}>
                                             <Box display="flex" alignItems="center" gap={1} minWidth={0}>
-                                                <FileText size={16} style={{ color: slot.documents.length ? '#16A34A' : '#64748B', flexShrink: 0 }} />
+                                                <FileText size={16} style={{ color: slot.documents.length ? '#16A34A' : 'var(--fx-slate-500)', flexShrink: 0 }} />
                                                 <Typography variant="body2" fontWeight={600}>{slot.label}{slot.required ? ' *' : ''}</Typography>
                                             </Box>
                                             <Button component="label" size="small" variant="outlined" disabled={busy} startIcon={uploadingKey === slot.type ? <CircularProgress size={13} /> : <Upload size={14} />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, flexShrink: 0 }}>
@@ -762,8 +762,8 @@ export function BillingCommunicationWizard({
                             </Box>
                         </Box>
 
-                        <Box sx={{ bgcolor: tone('#F0FDF4', 'rgba(34,197,94,0.1)'), border: '1px solid', borderColor: tone('#BBF7D0', 'rgba(34,197,94,0.35)'), borderRadius: 2, p: 1.75 }}>
-                            <Typography variant="body2" fontWeight={700} sx={{ color: tone('#166534', '#86EFAC'), mb: 0.5 }}>Canal de envio</Typography>
+                        <Box sx={{ bgcolor: tone('var(--fx-green-50)', 'rgba(34,197,94,0.1)'), border: '1px solid', borderColor: tone('var(--fx-green-200)', 'rgba(34,197,94,0.35)'), borderRadius: 2, p: 1.75 }}>
+                            <Typography variant="body2" fontWeight={700} sx={{ color: tone('var(--fx-green-800)', '#86EFAC'), mb: 0.5 }}>Canal de envio</Typography>
                             <RadioGroup row value={deliveryMethod} onChange={event => setDeliveryMethod(event.target.value as 'email' | 'external')}>
                                 <FormControlLabel value="email" control={<Radio size="small" />} label={<Typography variant="body2">E-mail pela aplicação</Typography>} disabled={busy} />
                                 <FormControlLabel value="external" control={<Radio size="small" />} label={<Typography variant="body2">Registrar envio externo</Typography>} disabled={busy} />
@@ -771,7 +771,7 @@ export function BillingCommunicationWizard({
                             <Stack spacing={1.5} sx={{ mt: 1 }}>
                                 {deliveryMethod === 'email' ? (
                                     <>
-                                        <TextField label="Destinatário (convênio) *" value={to} onChange={event => setTo(event.target.value)} fullWidth size="small" disabled={busy} InputProps={{ startAdornment: <InputAdornment position="start"><Mail size={16} color="#9CA3AF" /></InputAdornment> }} />
+                                        <TextField label="Destinatário (convênio) *" value={to} onChange={event => setTo(event.target.value)} fullWidth size="small" disabled={busy} InputProps={{ startAdornment: <InputAdornment position="start"><Mail size={16} color="var(--fx-gray-400)" /></InputAdornment> }} />
                                         <TextField label="Assunto" value={subject} onChange={event => setSubject(event.target.value)} fullWidth size="small" disabled={busy} />
                                         <TextField label="Corpo do e-mail" value={message} onChange={event => setMessage(event.target.value)} fullWidth multiline minRows={4} size="small" disabled={busy} />
                                     </>
@@ -811,7 +811,7 @@ export function BillingCommunicationWizard({
             </DialogActions>
         </Dialog>
         <Dialog open={sendErrorModal.open} onClose={() => setSendErrorModal(prev => ({ ...prev, open: false }))} maxWidth="sm" fullWidth>
-            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, color: tone("#B45309", "#FCD34D"), bgcolor: tone("#FFFBEB", "rgba(245,158,11,0.12)") }}>
+            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, color: tone("var(--fx-amber-700)", "#FCD34D"), bgcolor: tone("var(--fx-amber-50)", "rgba(245,158,11,0.12)") }}>
                 <AlertCircle size={22} />
                 Atenção: email não enviado
             </DialogTitle>
@@ -819,8 +819,8 @@ export function BillingCommunicationWizard({
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     O faturamento foi concluído e os lotes foram criados, mas o envio do email ao convênio <strong>não foi confirmado</strong>. O parceiro pode não ter recebido a documentação.
                 </Typography>
-                <Box sx={{ bgcolor: tone("#FEF2F2", "rgba(239,68,68,0.12)"), border: "1px solid", borderColor: tone("#FECACA", "rgba(239,68,68,0.35)"), borderRadius: 2, p: 1.5 }}>
-                    <Typography variant="body2" sx={{ color: tone("#991B1B", "#FCA5A5") }} fontWeight={600}>
+                <Box sx={{ bgcolor: tone("var(--fx-red-50)", "rgba(239,68,68,0.12)"), border: "1px solid", borderColor: tone("var(--fx-red-200)", "rgba(239,68,68,0.35)"), borderRadius: 2, p: 1.5 }}>
+                    <Typography variant="body2" sx={{ color: tone("var(--fx-red-800)", "#FCA5A5") }} fontWeight={600}>
                         {sendErrorModal.message}
                     </Typography>
                 </Box>

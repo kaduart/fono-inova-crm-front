@@ -57,6 +57,9 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
                 text: { primary: '#eef3f1', secondary: '#a9b5b0' },
                 divider: '#26312d',
             },
+            // O MUI clareia o Paper elevado no escuro (overlay branco): modal e
+            // gaveta ficavam cinza-azulados, destoando das superfícies do app.
+            components: { MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } } },
         })
         : baseTheme), [mode]);
 

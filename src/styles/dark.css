@@ -1,3 +1,4 @@
+@import "./hex-tokens.css"; /* tokens --fx-* das cores fixas do MUI (scripts/dark/hexTokens.mjs) */
 /* src/styles/dark.css — tema escuro do ERP (ligado por <html class="dark">, ver ThemeModeContext).
    Camada de compatibilidade: escurece as classes Tailwind mais usadas nas telas antigas sem mexer
    em cada arquivo. Telas novas podem usar dark: direto. Gerado; ajuste a paleta nas variáveis. */

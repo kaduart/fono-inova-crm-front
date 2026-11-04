@@ -101,7 +101,7 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
     return (
         <div className="p-4">
             <div className="mb-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#B45309' }}>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--fx-amber-700)' }}>
                     <FileClock className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -141,7 +141,7 @@ export default function RascunhosTab({ onChanged, onCountChange, patientFilter =
                                 className="relative rounded-2xl border border-slate-200 bg-white dark:bg-gray-900 overflow-hidden"
                                 style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
                             >
-                                <div className="absolute inset-y-0 left-0 w-[3px]" style={{ background: alerta ? '#D97706' : '#94A3B8' }} />
+                                <div className="absolute inset-y-0 left-0 w-[3px]" style={{ background: alerta ? '#D97706' : 'var(--fx-slate-400)' }} />
                                 <div className="pl-5 pr-4 py-3.5 flex items-start justify-between gap-3 flex-wrap">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">

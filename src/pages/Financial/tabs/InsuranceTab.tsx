@@ -1167,8 +1167,8 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                     </Box>
                     <Box sx={{ p: 3 }}>
                         {Array.from({ length: 4 }).map((_, i) => (
-                            <Box key={i} sx={{ mb: 2, border: '1px solid #E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: '#F9FAFB' }}>
+                            <Box key={i} sx={{ mb: 2, border: '1px solid var(--fx-gray-200)', borderRadius: 2, overflow: 'hidden' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'var(--fx-gray-50)' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                         <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F615' }} />
                                         <Box>
@@ -1406,25 +1406,25 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                 {subTab === 0 && paymentIntegrityConflictCount > 0 && (
                     <Paper elevation={0} sx={{
                         mx: { xs: 1.5, sm: 2 }, mt: 1.5, px: 1.5, py: 1,
-                        bgcolor: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px'
+                        bgcolor: 'var(--fx-orange-50)', border: '1px solid var(--fx-orange-200)', borderRadius: '10px'
                     }}>
                         <Box
                             onClick={() => setShowPaymentIntegrityConflicts(v => !v)}
                             sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
                         >
-                            <AlertCircle size={18} color="#C2410C" />
-                            <Typography fontSize="0.75rem" lineHeight={1.5} color="#9A3412" fontWeight={600} sx={{ flex: 1 }}>
+                            <AlertCircle size={18} color="var(--fx-orange-700)" />
+                            <Typography fontSize="0.75rem" lineHeight={1.5} color="var(--fx-orange-800)" fontWeight={600} sx={{ flex: 1 }}>
                                 {paymentIntegrityConflictCount} {sessoes(paymentIntegrityConflictCount)}
                                 {' '}{paymentIntegrityConflictCount !== 1 ? 'ficaram' : 'ficou'} fora do faturamento: sem lançamento de convênio ou com lançamento duplicado.
                                 Corrija o lançamento de cada uma para ela entrar na lista.
                                 {' '}{showPaymentIntegrityConflicts ? 'Ocultar detalhes.' : 'Ver detalhes.'}
                             </Typography>
-                            <ChevronDown size={16} color="#9A3412" style={{ transform: showPaymentIntegrityConflicts ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s', flexShrink: 0 }} />
+                            <ChevronDown size={16} color="var(--fx-orange-800)" style={{ transform: showPaymentIntegrityConflicts ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s', flexShrink: 0 }} />
                         </Box>
                         <Collapse in={showPaymentIntegrityConflicts}>
-                            <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #FED7AA', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                            <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid var(--fx-orange-200)', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                                 {paymentIntegrityConflicts.map(c => (
-                                    <Box key={c.sessionId} sx={{ fontSize: '0.72rem', color: '#7C2D12', display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'baseline' }}>
+                                    <Box key={c.sessionId} sx={{ fontSize: '0.72rem', color: 'var(--fx-orange-900)', display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'baseline' }}>
                                         <Typography component="span" fontWeight={700} fontSize="inherit">
                                             {c.patientName || 'Paciente desconhecido'}
                                         </Typography>
@@ -1449,8 +1449,8 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                         px: 1.5, py: 1, mx: 2, mt: 1.5,
                         width: activeSelectionCount > 0 ? 'auto' : 'fit-content',
                         maxWidth: 'calc(100% - 32px)',
-                        bgcolor: activeSelectionCount > 0 ? '#F0F9FF' : '#F9FAFB',
-                        border: `1px solid ${activeSelectionCount > 0 ? '#3B82F6' : '#E5E7EB'}`,
+                        bgcolor: activeSelectionCount > 0 ? 'var(--fx-sky-50)' : 'var(--fx-gray-50)',
+                        border: `1px solid ${activeSelectionCount > 0 ? '#3B82F6' : 'var(--fx-gray-200)'}`,
                         borderRadius: 2
                     }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
@@ -1515,7 +1515,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                             size="small"
                                             startIcon={<CheckCircle size={16} />}
                                             onClick={() => handleOpenReceberLoteModal()}
-                                            sx={{ bgcolor: '#047857', '&:hover': { bgcolor: '#065F46' }, borderRadius: 2 }}
+                                            sx={{ bgcolor: 'var(--fx-emerald-700)', '&:hover': { bgcolor: 'var(--fx-emerald-800)' }, borderRadius: 2 }}
                                         >
                                             Receber selecionados
                                         </Button>
@@ -1650,9 +1650,9 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                             Se não houver mais atendimentos previstos nesta guia, você pode encerrá-la agora. Sessões pendentes futuras serão canceladas.
                         </Typography>
 
-                        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: '#FEF3C7', border: '1px solid #F59E0B' }}>
-                            <AlertCircle size={16} style={{ color: '#92400E', marginTop: 2, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ color: '#92400E' }}>
+                        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', p: 1.5, borderRadius: 2, bgcolor: 'var(--fx-amber-100)', border: '1px solid #F59E0B' }}>
+                            <AlertCircle size={16} style={{ color: 'var(--fx-amber-800)', marginTop: 2, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ color: 'var(--fx-amber-800)' }}>
                                 Ao finalizar, os agendamentos futuros pendentes serão cancelados e a guia será encerrada. Esta ação não pode ser desfeita.
                             </Typography>
                         </Box>
@@ -1673,7 +1673,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                             borderRadius: 2,
                                             border: '1px solid',
                                             borderColor: selectedCloseGuides.has(g.guideId) ? '#7C3AED' : 'grey.200',
-                                            bgcolor: selectedCloseGuides.has(g.guideId) ? '#F5F3FF' : 'background.paper'
+                                            bgcolor: selectedCloseGuides.has(g.guideId) ? 'var(--fx-violet-50)' : 'background.paper'
                                         }}
                                     >
                                         <input
@@ -1714,7 +1714,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                         onClick={handleFinalizarGuiasAposFaturamento}
                         disabled={postFaturamentoCloseLoading || selectedCloseGuides.size === 0}
                         startIcon={postFaturamentoCloseLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
-                        sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' } }}
+                        sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: 'var(--fx-violet-700)' } }}
                     >
                         {postFaturamentoCloseLoading ? 'Finalizando...' : `Finalizar ${selectedCloseGuides.size} guia(s)`}
                     </Button>

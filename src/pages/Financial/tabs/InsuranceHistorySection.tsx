@@ -47,12 +47,12 @@ function fmtMonthShort(monthKey: string) {
 }
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-    pending_batch:   { label: 'Aguardando Lote',  color: '#92400E', bg: '#FEF3C7', dot: '#F59E0B' },
-    billed:          { label: 'Faturado',         color: '#1E40AF', bg: '#EFF6FF', dot: '#3B82F6' },
-    received:        { label: 'Recebido',         color: '#065F46', bg: '#ECFDF5', dot: '#10B981' },
-    partial_billed:  { label: 'Parcialmente Faturado', color: '#1E40AF', bg: '#EFF6FF', dot: '#3B82F6' },
-    partial_received:{ label: 'Parcialmente Recebido', color: '#065F46', bg: '#ECFDF5', dot: '#10B981' },
-    mixed:           { label: 'Misto',            color: '#475569', bg: '#F1F5F9', dot: '#94A3B8' },
+    pending_batch:   { label: 'Aguardando Lote',  color: 'var(--fx-amber-800)', bg: 'var(--fx-amber-100)', dot: '#F59E0B' },
+    billed:          { label: 'Faturado',         color: 'var(--fx-blue-800)', bg: 'var(--fx-blue-50)', dot: '#3B82F6' },
+    received:        { label: 'Recebido',         color: 'var(--fx-emerald-800)', bg: 'var(--fx-emerald-50)', dot: '#10B981' },
+    partial_billed:  { label: 'Parcialmente Faturado', color: 'var(--fx-blue-800)', bg: 'var(--fx-blue-50)', dot: '#3B82F6' },
+    partial_received:{ label: 'Parcialmente Recebido', color: 'var(--fx-emerald-800)', bg: 'var(--fx-emerald-50)', dot: '#10B981' },
+    mixed:           { label: 'Misto',            color: 'var(--fx-slate-600)', bg: 'var(--fx-slate-100)', dot: 'var(--fx-slate-400)' },
 };
 
 function computeGuideStatus(sessions: InsurancePatientSession[]) {
@@ -84,10 +84,10 @@ interface MetricStatsProps {
 }
 function MetricStats({ production, billed, received, pending, onStatClick }: MetricStatsProps) {
     const stats = [
-        { label: 'Produção' as const, value: production, color: '#6366F1', bg: '#F5F3FF' },
-        { label: 'Faturado' as const, value: billed,     color: '#3B82F6', bg: '#EFF6FF' },
-        { label: 'Recebido' as const, value: received,   color: '#10B981', bg: '#F0FDF4' },
-        { label: 'Pendente' as const, value: pending,    color: '#F59E0B', bg: '#FFFBEB' },
+        { label: 'Produção' as const, value: production, color: '#6366F1', bg: 'var(--fx-violet-50)' },
+        { label: 'Faturado' as const, value: billed,     color: '#3B82F6', bg: 'var(--fx-blue-50)' },
+        { label: 'Recebido' as const, value: received,   color: '#10B981', bg: 'var(--fx-green-50)' },
+        { label: 'Pendente' as const, value: pending,    color: '#F59E0B', bg: 'var(--fx-amber-50)' },
     ];
     return (
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
@@ -104,10 +104,10 @@ function MetricStats({ production, billed, received, pending, onStatClick }: Met
                         '&:hover': onStatClick ? { boxShadow: '0 4px 12px rgba(0,0,0,0.08)', transform: 'translateY(-1px)' } : undefined,
                     }}
                 >
-                    <Typography fontSize="0.67rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
+                    <Typography fontSize="0.67rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
                         {s.label}
                     </Typography>
-                    <Typography fontSize="0.92rem" fontWeight={800} color="#0F172A">{fmtBRL(s.value)}</Typography>
+                    <Typography fontSize="0.92rem" fontWeight={800} color="var(--fx-slate-900)">{fmtBRL(s.value)}</Typography>
                     {production > 0 && (
                         <Typography fontSize="0.65rem" fontWeight={600} color={s.color}>
                             {((s.value / production) * 100).toFixed(0)}%
@@ -468,7 +468,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
     if (rows.length === 0) {
         return (
             <Box sx={{ p: 2 }}>
-                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum registro encontrado.</Box>
+                <Box sx={{ py: 6, textAlign: 'center', color: 'var(--fx-slate-400)', fontSize: '0.85rem' }}>Nenhum registro encontrado.</Box>
             </Box>
         );
     }
@@ -513,7 +513,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                     <Chip
                         size="small"
                         label="Modelo legado: guia reutilizada em múltiplos lotes"
-                        sx={{ height: 20, fontSize: '0.62rem', bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 700 }}
+                        sx={{ height: 20, fontSize: '0.62rem', bgcolor: 'var(--fx-amber-100)', color: 'var(--fx-amber-800)', fontWeight: 700 }}
                     />
                 </Box>
             )}
@@ -525,7 +525,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         defaultExpanded={gidx === 0}
                         elevation={0}
                         sx={{
-                            border: '1.5px solid #E2E8F0',
+                            border: '1.5px solid var(--fx-slate-200)',
                             borderRadius: '12px !important',
                             overflow: 'hidden',
                             boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -534,7 +534,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         }}
                     >
                         <AccordionSummary
-                            expandIcon={<ChevronDown size={18} color="#64748B" />}
+                            expandIcon={<ChevronDown size={18} color="var(--fx-slate-500)" />}
                             sx={{
                                 px: 2,
                                 py: 0.5,
@@ -543,14 +543,14 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                             }}
                         >
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography fontWeight={700} fontSize="0.85rem" color="#0F172A">
+                                <Typography fontWeight={700} fontSize="0.85rem" color="var(--fx-slate-900)">
                                     {group.type === 'batch' && (group.batchNumber || group.batchId)
                                         ? `Lote ${group.batchNumber || group.batchId}`
                                         : group.type === 'batch'
                                         ? `Competência ${fmtMonthShort(group.competenceMonth || '')}`
                                         : `Guia ${group.guideNumber || 'sem número'}`}
                                 </Typography>
-                                <Typography fontSize="0.68rem" color="#64748B">
+                                <Typography fontSize="0.68rem" color="var(--fx-slate-500)">
                                     {group.type === 'batch' && group.guideNumber && (
                                         <>Guia {group.guideNumber} · </>
                                     )}
@@ -565,20 +565,20 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textAlign: 'right' }}>
                                 <StatusBadge status={group.summary?.status || computeGuideStatus(group.sessions)} />
-                                <Typography fontWeight={800} fontSize="0.9rem" color="#0F172A">{fmtBRL(group.summary?.grossAmount ?? group.total ?? 0)}</Typography>
+                                <Typography fontWeight={800} fontSize="0.9rem" color="var(--fx-slate-900)">{fmtBRL(group.summary?.grossAmount ?? group.total ?? 0)}</Typography>
                                 {group.sessions.some(s => s.appointmentId) && (
                                     <IconButton
                                         size="small"
                                         onClick={(e) => handleOpenGuideMenu(e, group)}
                                         sx={{ p: 0.5 }}
                                     >
-                                        <MoreVertical size={14} color="#64748B" />
+                                        <MoreVertical size={14} color="var(--fx-slate-500)" />
                                     </IconButton>
                                 )}
                             </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ px: 2, pb: 2, pt: 0 }}>
-                            <Box sx={{ borderTop: '1px solid #F1F5F9', pt: 1.5 }}>
+                            <Box sx={{ borderTop: '1px solid var(--fx-slate-100)', pt: 1.5 }}>
                                 {group.sessions.map((s, sidx) => {
                                     const isLast = sidx === group.sessions.length - 1;
                                     return (
@@ -588,7 +588,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 py: 0.6,
-                                                borderBottom: isLast ? 'none' : '1px dashed #F1F5F9',
+                                                borderBottom: isLast ? 'none' : '1px dashed var(--fx-slate-100)',
                                             }}
                                         >
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -596,28 +596,28 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                                     <Box sx={{
                                                         width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        bgcolor: '#E2E8F0', color: '#64748B',
+                                                        bgcolor: 'var(--fx-slate-200)', color: 'var(--fx-slate-500)',
                                                         fontSize: '0.62rem', fontWeight: 700,
                                                     }}>
                                                         {sidx + 1}
                                                     </Box>
-                                                    <Typography fontSize="0.78rem" color="#475569" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>
+                                                    <Typography fontSize="0.78rem" color="var(--fx-slate-600)" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>
                                                         {fmtDateTime(String(s.date), s.time)}
                                                     </Typography>
                                                     {s.doctor?.fullName && (
-                                                        <Typography fontSize="0.71rem" color="#94A3B8" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        <Typography fontSize="0.71rem" color="var(--fx-slate-400)" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             · {s.doctor.fullName}
                                                         </Typography>
                                                     )}
                                                 </Box>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                                                    <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">{fmtBRL(s.value)}</Typography>
+                                                    <Typography fontSize="0.78rem" fontWeight={700} color="var(--fx-slate-800)">{fmtBRL(s.value)}</Typography>
                                                     {s.professionalPaymentStatus === 'non_payable' && (
                                                         <Chip
                                                             size="small"
                                                             icon={<UserX size={12} />}
                                                             label="Não remunerado"
-                                                            sx={{ height: 18, fontSize: '0.58rem', bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 600, '& .MuiChip-icon': { color: '#92400E' } }}
+                                                            sx={{ height: 18, fontSize: '0.58rem', bgcolor: 'var(--fx-amber-100)', color: 'var(--fx-amber-800)', fontWeight: 600, '& .MuiChip-icon': { color: 'var(--fx-amber-800)' } }}
                                                         />
                                                     )}
                                                     <StatusBadge status={s.billingStatus} />
@@ -627,7 +627,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                                             onClick={(e) => handleOpenMenu(e, s)}
                                                             sx={{ p: 0.5, ml: 0.5 }}
                                                         >
-                                                            <MoreVertical size={14} color="#64748B" />
+                                                            <MoreVertical size={14} color="var(--fx-slate-500)" />
                                                         </IconButton>
                                                     )}
                                                 </Box>
@@ -635,10 +635,10 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                             {(s.invoiceNumber || s.billedAt || s.receivedAt) && (
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, ml: 3.25, flexWrap: 'wrap' }}>
                                                     {s.invoiceNumber && (
-                                                        <Chip size="small" label={`NF ${s.invoiceNumber}`} sx={{ height: 16, fontSize: '0.58rem', bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600 }} />
+                                                        <Chip size="small" label={`NF ${s.invoiceNumber}`} sx={{ height: 16, fontSize: '0.58rem', bgcolor: 'var(--fx-violet-50b)', color: 'var(--fx-violet-700)', fontWeight: 600 }} />
                                                     )}
                                                     {s.billedAt && (
-                                                        <Typography fontSize="0.63rem" color="#64748B">Faturado em {fmtDateShort(s.billedAt)}</Typography>
+                                                        <Typography fontSize="0.63rem" color="var(--fx-slate-500)">Faturado em {fmtDateShort(s.billedAt)}</Typography>
                                                     )}
                                                     {s.receivedAt && (
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -646,7 +646,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                                                                 Recebido em {fmtDateShort(s.receivedAt)}
                                                             </Typography>
                                                             {(s.grossAmount || s.receivedAmount) && (
-                                                                <Typography fontSize="0.63rem" color="#64748B">
+                                                                <Typography fontSize="0.63rem" color="var(--fx-slate-500)">
                                                                     Bruto {fmtBRL(s.grossAmount || s.receivedAmount || 0)}
                                                                     {s.issAmount ? ` · ISS ${fmtBRL(s.issAmount)}` : ''}
                                                                     {s.receivedAmount ? ` · Líquido ${fmtBRL(s.receivedAmount)}` : ''}
@@ -666,10 +666,10 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 1, mt: 1 }}>
-                <Typography fontSize="0.72rem" fontWeight={700} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <Typography fontSize="0.72rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Total · {totalSessions} {sessoes(totalSessions)}
                 </Typography>
-                <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A">{fmtBRL(total)}</Typography>
+                <Typography fontWeight={800} fontSize="0.95rem" color="var(--fx-slate-900)">{fmtBRL(total)}</Typography>
             </Box>
 
             <Menu
@@ -687,7 +687,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                     </MenuItem>
                 ) : (
                     <MenuItem onClick={handleToggleDialog} sx={{ gap: 1.5, fontSize: '0.85rem', py: 1 }}>
-                        <UserX size={16} color="#92400E" />
+                        <UserX size={16} color="var(--fx-amber-800)" />
                         Não remunerar profissional
                     </MenuItem>
                 )}
@@ -708,7 +708,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                     </MenuItem>
                 ) : (
                     <MenuItem onClick={handleToggleGuideDialog} sx={{ gap: 1.5, fontSize: '0.85rem', py: 1 }}>
-                        <UserX size={16} color="#92400E" />
+                        <UserX size={16} color="var(--fx-amber-800)" />
                         Não remunerar profissional (guia)
                     </MenuItem>
                 )}
@@ -721,7 +721,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         : 'Desabilitar remuneração do profissional'}
                 </DialogTitle>
                 <DialogContent sx={{ pb: 1 }}>
-                    <Typography fontSize="0.85rem" color="#475569" sx={{ mb: 2 }}>
+                    <Typography fontSize="0.85rem" color="var(--fx-slate-600)" sx={{ mb: 2 }}>
                         {menuSession?.professionalPaymentStatus === 'non_payable'
                             ? 'A sessão voltará a gerar comissão ao profissional no fechamento.'
                             : 'A sessão continuará faturada/recebida pela clínica, mas não gerará comissão ao profissional.'}
@@ -766,7 +766,7 @@ function PatientSessionDetails({ rows, patientId, provider }: PatientSessionDeta
                         : 'Desabilitar remuneração do profissional (guia)'}
                 </DialogTitle>
                 <DialogContent sx={{ pb: 1 }}>
-                    <Typography fontSize="0.85rem" color="#475569" sx={{ mb: 2 }}>
+                    <Typography fontSize="0.85rem" color="var(--fx-slate-600)" sx={{ mb: 2 }}>
                         {guideMenuGroup?.sessions.every(s => s.professionalPaymentStatus === 'non_payable')
                             ? 'Todas as sessões desta guia voltarão a gerar comissão ao profissional no fechamento.'
                             : 'Todas as sessões desta guia continuarão faturadas/recebidas pela clínica, mas não gerarão comissão ao profissional.'}
@@ -1117,7 +1117,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                 <button
                                     onClick={() => setMetricsOpen(o => !o)}
                                     className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-2 transition-all shadow-sm border border-indigo-200 hover:brightness-95"
-                                    style={{ background: 'linear-gradient(90deg, #F5F3FF 0%, #EFF6FF 100%)' }}
+                                    style={{ background: 'linear-gradient(90deg, var(--fx-violet-50) 0%, var(--fx-blue-50) 100%)' }}
                                 >
                                     <div className="flex items-center gap-3 flex-wrap">
                                         <span className="text-sm font-black text-indigo-700 uppercase tracking-widest">Resumo</span>
@@ -1160,11 +1160,11 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                     minWidth: 220,
                                     '& .MuiOutlinedInput-root': {
                                         borderRadius: 999,
-                                        bgcolor: '#F8FAFC',
+                                        bgcolor: 'var(--fx-slate-50)',
                                         fontSize: '0.85rem',
-                                        '& fieldset': { borderColor: '#E2E8F0' },
-                                        '&:hover fieldset': { borderColor: '#CBD5E1' },
-                                        '&.Mui-focused': { bgcolor: 'white' },
+                                        '& fieldset': { borderColor: 'var(--fx-slate-200)' },
+                                        '&:hover fieldset': { borderColor: 'var(--fx-slate-300)' },
+                                        '&.Mui-focused': { bgcolor: 'var(--fx-white)' },
                                         '&.Mui-focused fieldset': { borderColor: '#6366F1', borderWidth: 1.5 },
                                     },
                                 }}
@@ -1229,7 +1229,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                 { label: 'Especialidade', value: filterSpecialty, set: setFilterSpecialty, options: [['all', 'Todas'], ...specialties.map(s => [s, getSpecialtyLabel(s)] as [string, string])] as [string, string][], capitalize: false },
                             ].map(f => (
                                 <FormControl key={f.label} size="small" sx={{ minWidth: 160 }}>
-                                    <Typography fontSize="0.65rem" fontWeight={800} color="#94A3B8" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
+                                    <Typography fontSize="0.65rem" fontWeight={800} color="var(--fx-slate-400)" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5 }}>
                                         {f.label}
                                     </Typography>
                                     <Select
@@ -1238,9 +1238,9 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                         sx={{
                                             borderRadius: 2.5,
                                             fontSize: '0.85rem',
-                                            bgcolor: f.value !== 'all' ? '#EEF2FF' : '#F8FAFC',
-                                            '& .MuiOutlinedInput-notchedOutline': { borderColor: f.value !== 'all' ? '#C7D2FE' : '#E2E8F0' },
-                                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#A5B4FC' },
+                                            bgcolor: f.value !== 'all' ? 'var(--fx-indigo-50)' : 'var(--fx-slate-50)',
+                                            '& .MuiOutlinedInput-notchedOutline': { borderColor: f.value !== 'all' ? 'var(--fx-indigo-200)' : 'var(--fx-slate-200)' },
+                                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--fx-indigo-300)' },
                                             '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366F1', borderWidth: 1.5 },
                                         }}
                                     >
@@ -1257,44 +1257,44 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
 
                     {/* ── NÍVEL 1: Convênios ───────────────────────────────────────── */}
                     {level === 1 && (
-                        <Box sx={{ border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
+                        <Box sx={{ border: '1.5px solid var(--fx-slate-200)', borderRadius: 3, overflow: 'hidden' }}>
                             {/* cabeçalho */}
-                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 60, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sess.</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Produção</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Faturado</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recebido</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pendente</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 90, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Enviado</Typography>
+                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 60, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sess.</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Produção</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Faturado</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recebido</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pendente</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 90, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Enviado</Typography>
                                 <Box sx={{ width: 24 }} />
                             </Box>
                             {providerSummary.length === 0 ? (
-                                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum convênio encontrado.</Box>
+                                <Box sx={{ py: 6, textAlign: 'center', color: 'var(--fx-slate-400)', fontSize: '0.85rem' }}>Nenhum convênio encontrado.</Box>
                             ) : providerSummary.map((p, idx) => (
                                 <Box key={p.provider} onClick={() => drillToProvider(p.provider)} sx={{
                                     px: 2.5, py: 1.5, display: 'flex', alignItems: 'center',
-                                    borderBottom: idx < providerSummary.length - 1 ? '1px solid #F8FAFC' : 'none',
-                                    cursor: 'pointer', bgcolor: 'white',
+                                    borderBottom: idx < providerSummary.length - 1 ? '1px solid var(--fx-slate-50)' : 'none',
+                                    cursor: 'pointer', bgcolor: 'var(--fx-white)',
                                     borderLeft: '3px solid transparent',
                                     transition: 'all 0.12s',
-                                    '&:hover': { bgcolor: '#F8FAFC', borderLeft: '3px solid #6366F1' }
+                                    '&:hover': { bgcolor: 'var(--fx-slate-50)', borderLeft: '3px solid #6366F1' }
                                 }}>
-                                    <Typography fontWeight={700} fontSize="0.87rem" color="#0F172A" sx={{ flex: 1 }}>{p.provider}</Typography>
-                                    <Typography fontSize="0.83rem" color="#64748B" sx={{ width: 60, textAlign: 'center' }}>{p.sessions}</Typography>
-                                    <Typography fontWeight={800} fontSize="0.87rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>{fmtBRL(p.producao)}</Typography>
+                                    <Typography fontWeight={700} fontSize="0.87rem" color="var(--fx-slate-900)" sx={{ flex: 1 }}>{p.provider}</Typography>
+                                    <Typography fontSize="0.83rem" color="var(--fx-slate-500)" sx={{ width: 60, textAlign: 'center' }}>{p.sessions}</Typography>
+                                    <Typography fontWeight={800} fontSize="0.87rem" color="var(--fx-slate-900)" sx={{ width: 110, textAlign: 'right' }}>{fmtBRL(p.producao)}</Typography>
                                     <Typography fontSize="0.83rem" color="#2563EB" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.faturado)}</Typography>
                                     <Typography fontSize="0.83rem" color="#059669" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.recebido)}</Typography>
                                     <Typography fontSize="0.83rem" color="#D97706" sx={{ width: 100, textAlign: 'right' }}>{fmtBRL(p.pendente)}</Typography>
                                     <Typography
                                         fontSize="0.75rem"
-                                        color={p.lastSentAt ? '#64748B' : '#CBD5E1'}
+                                        color={p.lastSentAt ? 'var(--fx-slate-500)' : 'var(--fx-slate-300)'}
                                         sx={{ width: 90, textAlign: 'right' }}
                                         title={p.lastSentAt ? `Envio mais recente — pode haver guias mais antigas enviadas em outra data` : 'Nenhum envio registrado'}
                                     >
                                         {p.lastSentAt ? new Date(p.lastSentAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
                                     </Typography>
-                                    <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: '#CBD5E1' }}>
+                                    <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: 'var(--fx-slate-300)' }}>
                                         <ChevronRight size={16} />
                                     </Box>
                                 </Box>
@@ -1304,17 +1304,17 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
 
                     {/* ── NÍVEL 2: Pacientes ───────────────────────────────────────── */}
                     {level === 2 && (
-                        <Box sx={{ border: '1.5px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
+                        <Box sx={{ border: '1.5px solid var(--fx-slate-200)', borderRadius: 3, overflow: 'hidden' }}>
                             {/* cabeçalho */}
-                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Paciente</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 60, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sess.</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 130, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</Typography>
+                            <Box sx={{ px: 2.5, py: 1.25, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Paciente</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 60, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sess.</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 130, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</Typography>
                                 <Box sx={{ width: 24 }} />
                             </Box>
                             {patientSummary.length === 0 ? (
-                                <Box sx={{ py: 6, textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Nenhum paciente encontrado.</Box>
+                                <Box sx={{ py: 6, textAlign: 'center', color: 'var(--fx-slate-400)', fontSize: '0.85rem' }}>Nenhum paciente encontrado.</Box>
                             ) : patientSummary.map((p, idx) => {
                                 const initials = p.name.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase();
                                 const sStyle = STATUS_STYLE[p.status] || STATUS_STYLE.pending_batch;
@@ -1324,31 +1324,31 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                         openPatientDrawer(p.name, p.patientId, selectedProvider!, rows[0]?.providerSlug, rows);
                                     }} sx={{
                                         px: 2.5, py: 1.5, display: 'flex', alignItems: 'center',
-                                        borderBottom: idx < patientSummary.length - 1 ? '1px solid #F8FAFC' : 'none',
-                                        cursor: 'pointer', bgcolor: 'white',
+                                        borderBottom: idx < patientSummary.length - 1 ? '1px solid var(--fx-slate-50)' : 'none',
+                                        cursor: 'pointer', bgcolor: 'var(--fx-white)',
                                         borderLeft: '3px solid transparent',
                                         transition: 'all 0.12s',
-                                        '&:hover': { bgcolor: '#F8FAFC', borderLeft: `3px solid ${sStyle.dot}` }
+                                        '&:hover': { bgcolor: 'var(--fx-slate-50)', borderLeft: `3px solid ${sStyle.dot}` }
                                     }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1, minWidth: 0 }}>
                                             <Box sx={{
                                                 width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                                                bgcolor: '#F1F5F9', border: '1.5px solid #E2E8F0',
+                                                bgcolor: 'var(--fx-slate-100)', border: '1.5px solid var(--fx-slate-200)',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                                             }}>
-                                                <Typography fontSize="0.65rem" fontWeight={700} color="#64748B">{initials}</Typography>
+                                                <Typography fontSize="0.65rem" fontWeight={700} color="var(--fx-slate-500)">{initials}</Typography>
                                             </Box>
                                             <Box sx={{ minWidth: 0 }}>
-                                                <Typography fontWeight={600} fontSize="0.85rem" color="#1E293B" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</Typography>
-                                                {p.phone && <Typography fontSize="0.7rem" color="#94A3B8">{p.phone}</Typography>}
+                                                <Typography fontWeight={600} fontSize="0.85rem" color="var(--fx-slate-800)" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</Typography>
+                                                {p.phone && <Typography fontSize="0.7rem" color="var(--fx-slate-400)">{p.phone}</Typography>}
                                             </Box>
                                         </Box>
-                                        <Typography fontSize="0.83rem" color="#64748B" sx={{ width: 60, textAlign: 'center' }}>{p.sessions}</Typography>
-                                        <Typography fontWeight={700} fontSize="0.87rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>{fmtBRL(p.value)}</Typography>
+                                        <Typography fontSize="0.83rem" color="var(--fx-slate-500)" sx={{ width: 60, textAlign: 'center' }}>{p.sessions}</Typography>
+                                        <Typography fontWeight={700} fontSize="0.87rem" color="var(--fx-slate-900)" sx={{ width: 110, textAlign: 'right' }}>{fmtBRL(p.value)}</Typography>
                                         <Box sx={{ width: 130, display: 'flex', justifyContent: 'center' }}>
                                             <StatusBadge status={p.status} />
                                         </Box>
-                                        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: '#CBD5E1' }}>
+                                        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center', color: 'var(--fx-slate-300)' }}>
                                             <ChevronRight size={16} />
                                         </Box>
                                     </Box>
@@ -1364,12 +1364,12 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                             onClose={() => setDrawerPatient(null)}
                             patientName={drawerPatient.name}
                             provider={drawerPatient.provider}
-                            headerColor="#EFF6FF"
+                            headerColor="var(--fx-blue-50)"
                             stats={[
                                 {
                                     label: 'Sessões',
                                     value: String(drawerPatient.rows.reduce((s, r) => s + (r.sessions || 0), 0)),
-                                    color: '#6B7280'
+                                    color: 'var(--fx-gray-500)'
                                 },
                                 {
                                     label: 'Especialidades',

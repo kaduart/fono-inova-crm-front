@@ -57,12 +57,12 @@ let _authStatusConfigCache: Record<CommunicationStatus, { label: string; color: 
 function getAuthStatusConfigMap() {
     if (!_authStatusConfigCache) {
         _authStatusConfigCache = {
-            draft: { label: 'Rascunho', color: '#6B7280', bg: '#F3F4F6', icon: <Clock size={14} /> },
-            ready: { label: 'Pronta', color: '#F59E0B', bg: '#FEF3C7', icon: <Clock size={14} /> },
-            sending: { label: 'Enviando', color: '#8B5CF6', bg: '#EDE9FE', icon: <Send size={14} /> },
-            sent: { label: 'Enviada', color: '#3B82F6', bg: '#DBEAFE', icon: <Send size={14} /> },
-            approved: { label: 'Aprovada', color: '#10B981', bg: '#D1FAE5', icon: <CheckCircle size={14} /> },
-            denied: { label: 'Negada', color: '#EF4444', bg: '#FEE2E2', icon: <XCircle size={14} /> }
+            draft: { label: 'Rascunho', color: 'var(--fx-gray-500)', bg: 'var(--fx-gray-100)', icon: <Clock size={14} /> },
+            ready: { label: 'Pronta', color: '#F59E0B', bg: 'var(--fx-amber-100)', icon: <Clock size={14} /> },
+            sending: { label: 'Enviando', color: '#8B5CF6', bg: 'var(--fx-violet-100)', icon: <Send size={14} /> },
+            sent: { label: 'Enviada', color: '#3B82F6', bg: 'var(--fx-blue-100)', icon: <Send size={14} /> },
+            approved: { label: 'Aprovada', color: '#10B981', bg: 'var(--fx-emerald-100)', icon: <CheckCircle size={14} /> },
+            denied: { label: 'Negada', color: '#EF4444', bg: 'var(--fx-red-100)', icon: <XCircle size={14} /> }
         };
     }
     return _authStatusConfigCache;
@@ -249,7 +249,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                                     elevation={0}
                                     sx={{
                                         borderRadius: 3,
-                                        border: '1.5px solid #E2E8F0',
+                                        border: '1.5px solid var(--fx-slate-200)',
                                         overflow: 'hidden',
                                         '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }
                                     }}
@@ -257,14 +257,14 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                                     <CardContent sx={{ p: 2.5 }}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
-                                                <Avatar sx={{ bgcolor: '#E0E7FF', color: '#4F46E5', width: 40, height: 40 }}>
+                                                <Avatar sx={{ bgcolor: 'var(--fx-indigo-100)', color: '#4F46E5', width: 40, height: 40 }}>
                                                     {auth.patientName?.charAt(0) || '?'}
                                                 </Avatar>
                                                 <div>
-                                                    <Typography fontWeight={700} fontSize="0.95rem" color="#0F172A">
+                                                    <Typography fontWeight={700} fontSize="0.95rem" color="var(--fx-slate-900)">
                                                         {auth.patientName || 'Paciente'}
                                                     </Typography>
-                                                    <Typography fontSize="0.82rem" color="#64748B">
+                                                    <Typography fontSize="0.82rem" color="var(--fx-slate-500)">
                                                         {auth.insuranceName || auth.insuranceProvider} · {auth.specialty}
                                                         {auth.requestedSessions ? ` · ${auth.requestedSessions} sessões` : ''}
                                                     </Typography>
@@ -277,8 +277,8 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                                                         size="small"
                                                         label="Falha no envio"
                                                         sx={{
-                                                            bgcolor: '#FEE2E2',
-                                                            color: '#B91C1C',
+                                                            bgcolor: 'var(--fx-red-100)',
+                                                            color: 'var(--fx-red-700)',
                                                             fontWeight: 600,
                                                             borderRadius: 1.5
                                                         }}
