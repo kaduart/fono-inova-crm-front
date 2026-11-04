@@ -536,6 +536,19 @@ export default function ContractCard({ data, onRefresh }: Props) {
             .
           </p>
         )}
+        {/* Insight de duração: mesma projeção do back (Previsão de término), em uma frase. */}
+        {contract.status === 'active' && contract.creditBalance > 0 && committed?.projection?.estimatedExhaustionDate && (() => {
+          const proj = committed.projection;
+          const end = new Date(proj.estimatedExhaustionDate);
+          const pace = Number(proj.averageSessionsPerWeek).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+          return (
+            <p className="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-100">
+              No ritmo atual, de umas <b className="font-semibold">{pace} sessões por semana</b>, o saldo dura até{' '}
+              <b className="font-semibold">{end.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</b>
+              {' '}(por volta de {end.toLocaleDateString('pt-BR')}).
+            </p>
+          );
+        })()}
         {contract.status === 'active' && balanceHealth === 'low' && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
             Saldo baixo: avise a família e o jurídico para pedir novo crédito antes de acabar.
