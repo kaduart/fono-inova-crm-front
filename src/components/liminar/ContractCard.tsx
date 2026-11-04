@@ -485,6 +485,21 @@ export default function ContractCard({ data, onRefresh }: Props) {
             Saldo do contrato <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">R$ {fmt(contract.creditBalance)}</span>
             {reserved > 0 && <>, dos quais <span className="tabular-nums">R$ {fmt(reserved)}</span> já estão na agenda</>}
           </p>
+          {committed?.projection && contract.creditBalance > 0 && (() => {
+            const proj = committed.projection;
+            const end = new Date(proj.estimatedExhaustionDate);
+            if (Number.isNaN(end.getTime())) return null;
+            const day = end.getDate();
+            const part = day <= 10 ? 'início' : day <= 20 ? 'meados' : 'fim';
+            const month = end.toLocaleDateString('pt-BR', { month: 'long' });
+            const perWeek = Math.round(proj.averageSessionsPerWeek);
+            return (
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                No ritmo atual, de umas {perWeek} {perWeek === 1 ? 'sessão' : 'sessões'} por semana, o saldo dura até{' '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{part} de {month} de {end.getFullYear()}</span>.
+              </p>
+            );
+          })()}
         </div>
         <div
           className="flex h-3 w-full overflow-hidden rounded-full bg-violet-100 dark:bg-violet-500/15"
