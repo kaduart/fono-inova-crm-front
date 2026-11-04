@@ -571,7 +571,6 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
     remaining,
     usedSessions,
     totalSessions,
-    progressPct,
     isUsable,
     isCancelled,
     statusLabel,
@@ -814,30 +813,71 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
         {/* ── Números da guia + trilha Guia → Plano → Sessões → Faturamento ── */}
         <div className="mx-4 mb-3 space-y-3">
-          <dl className="grid grid-cols-3 gap-2">
-            {[
-              { k: 'Autorizadas', v: totalSessions, c: 'text-slate-900 dark:text-slate-100' },
-              { k: 'Usadas', v: usedSessions, c: 'text-blue-700 dark:text-blue-300' },
-              { k: 'Restam', v: remaining, c: isUsable && remaining <= 2 ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-slate-100' },
-            ].map(f => (
-              <div key={f.k} className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
-                <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{f.k}</dt>
-                <dd className={`mt-0.5 text-sm font-semibold tabular-nums ${f.c}`}><AnimatedValue value={Number(f.v) || 0} /></dd>
+          {(() => {
+            // Onde estão as sessões autorizadas: usadas + agendadas + livres = autorizadas (valores do back, só reorganizados).
+            const total = Number(totalSessions) || 0;
+            const used = Number(usedSessions) || 0;
+            const left = Math.max(Number(remaining) || 0, 0);
+            const scheduled = Math.min(Number(guide.scheduledCount) || 0, left);
+            const free = Math.max(left - scheduled, 0);
+            const pct = (v) => (total > 0 ? Math.max(0, Math.min(100, (v / total) * 100)) : 0);
+            const low = isUsable && left <= 2;
+            // Previsão pelo ritmo do plano: quando as sessões acabam e se alguma vence sem uso.
+            const perWeek = Number(plan?.sessionsPerWeek) || 0;
+            let forecast = null;
+            if (isUsable && perWeek > 0 && left > 0) {
+              const now = Date.now();
+              const end = new Date(now + (left / perWeek) * 7 * 86400000);
+              const exp = guide.expiresAt ? new Date(guide.expiresAt) : null;
+              const fmtD = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+              if (exp && !Number.isNaN(exp.getTime()) && end > exp) {
+                const fit = Math.max(Math.floor(((exp.getTime() - now) / (7 * 86400000)) * perWeek), 0);
+                const lost = Math.max(left - fit, 0);
+                forecast = { warn: true, text: `No ritmo do plano (${perWeek}×/sem), ${lost} ${lost === 1 ? 'sessão vence' : 'sessões vencem'} sem uso em ${fmtD(exp)}. Vale antecipar ou pedir prorrogação.` };
+              } else {
+                forecast = { warn: false, text: `No ritmo do plano (${perWeek}×/sem), as sessões da guia acabam por volta de ${fmtD(end)}. Peça a renovação antes disso.` };
+              }
+            }
+            return (
+              <div className="space-y-2">
+                <div>
+                  <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Sessões restantes na guia</p>
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+                    <span className={`text-2xl font-bold tabular-nums ${low ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300'}`}><AnimatedValue value={left} /></span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">de {total} autorizadas</span>
+                  </p>
+                </div>
+                <div
+                  className="flex h-3 w-full overflow-hidden rounded-full bg-blue-100 dark:bg-blue-500/15"
+                  role="img"
+                  aria-label={`Usadas ${used}, agendadas ${scheduled}, livres ${free}, de ${total} autorizadas`}
+                >
+                  <div style={{ width: `${pct(used)}%`, transition: 'width 0.5s' }} className="bg-blue-700" />
+                  <div style={{ width: `${pct(scheduled)}%`, background: 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)', transition: 'width 0.5s' }} />
+                  <div style={{ width: `${pct(free)}%`, transition: 'width 0.5s' }} className="bg-blue-500/35" />
+                </div>
+                <dl className="space-y-1.5 text-xs">
+                  {[
+                    { k: 'Usadas em sessões realizadas', v: used, sw: 'bg-blue-700', style: undefined },
+                    { k: 'Agendadas', v: scheduled, sw: '', style: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
+                    { k: 'Livres para agendar', v: free, sw: 'bg-blue-500/35', style: undefined },
+                    ...(guide.canceledCount > 0 ? [{ k: 'Canceladas (não contam)', v: guide.canceledCount, sw: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
+                  ].map(row => (
+                    <div key={row.k} className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${row.sw}`} style={row.style} aria-hidden />
+                      <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
+                      <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">{Number(row.v) || 0}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {forecast ? (
+                  <p className={`text-xs ${forecast.warn ? 'rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>{forecast.text}</p>
+                ) : low && left > 0 ? (
+                  <p className="text-xs text-amber-800 dark:text-amber-300">Restam {left}. Hora de pedir renovação.</p>
+                ) : null}
               </div>
-            ))}
-          </dl>
-          <div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={totalSessions} aria-valuenow={usedSessions} aria-label="Sessões usadas da guia">
-              <div className={`h-full rounded-full transition-[width] duration-700 ${isUsable && remaining <= 2 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${progressPct}%` }} />
-            </div>
-            <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
-              {[
-                guide.scheduledCount > 0 ? `${guide.scheduledCount} agendada${guide.scheduledCount !== 1 ? 's' : ''}` : null,
-                guide.canceledCount > 0 ? `${guide.canceledCount} cancelada${guide.canceledCount !== 1 ? 's' : ''}` : null,
-                isUsable && remaining > 0 && remaining <= 2 ? 'hora de pedir renovação' : null,
-              ].filter(Boolean).join(' · ') || `${usedSessions} de ${totalSessions} usadas`}
-            </p>
-          </div>
+            );
+          })()}
           {(() => {
             const sessionsDone = totalSessions > 0 && usedSessions >= totalSessions;
             const steps = [
