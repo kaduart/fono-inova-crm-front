@@ -25,5 +25,13 @@ describe('Resumo operacional do caixa', () => {
   expect(screen.getByText(/Perfil da agenda indisponível/)).toBeTruthy();
   expect(screen.getByText('novos agendamentos criados no dia').parentElement!.textContent).toContain('—');
  });
+ it('mostra pacientes novos e nova terapia de quem AGENDOU no dia (mode createdAt)', () => {
+  const onProfile = vi.fn();
+  const createdAnalytics = { leads: [{ date: '2026-11-10' }], novos: [{ date: '2026-10-30' }, { date: '2026-11-05' }], novosEspecialidade: [{ date: '2026-11-06' }], retornos45: [], recorrentes: [], continuousTreatment: [], all: [] } as any;
+  render(<CashflowAgendaSummary {...base} createdAnalytics={createdAnalytics} onProfile={onProfile} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Ver 3 pacientes novos' }));
+  expect(onProfile).toHaveBeenLastCalledWith('Pacientes novos que agendaram no dia', [...createdAnalytics.leads, ...createdAnalytics.novos]);
+  fireEvent.click(screen.getByRole('button', { name: 'Ver 1 em nova terapia' }));
+  expect(onProfile).toHaveBeenLastCalledWith('Nova terapia agendada no dia', createdAnalytics.novosEspecialidade);
+ });
 });
-
