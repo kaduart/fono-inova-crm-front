@@ -1,5 +1,6 @@
 // src/components/patient/tabs/PatientInsuranceTab.jsx
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import GenerationCancellationFlow from '../../common/GenerationCancellationFlow';
 import { AppointmentOrigin } from '../../patients/AppointmentOrigin';
 import {
@@ -1484,6 +1485,8 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     // passar pelos botões da lista.
     const status = appt.operationalStatus || appt.status;
     if (status === 'completed') {
+      // Concluída: admin/secretária caem direto no "Desfazer: foi falta".
+      if (canRevertCompleted) { openRevert(appt); return; }
       toast('Sessão já concluída — não pode ser editada/cancelada por aqui', { icon: 'ℹ️' });
       return;
     }
@@ -2076,7 +2079,9 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     </ModalShell>
 
     {/* ── Modal de edição de agendamento (mesmo AppointmentDetailModal do calendário/Liminar) ── */}
-    {editingAppointment && (
+    {/* Portal no body: sem isso o modal fica preso no stacking context do painel
+        (framer-motion/transform) e abre ATRÁS do "Detalhes da Guia" (z 1300). */}
+    {editingAppointment && createPortal(
       <AppointmentDetailModal
         isOpen={!!editingAppointment}
         onClose={() => setEditingAppointment(null)}
@@ -2087,7 +2092,8 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         onEditAppointment={handleEditFromModal}
         // Precisa ficar acima do modal "Detalhes da Guia" que o abre (ModalShell usa z-index 1300).
         zIndex={1400}
-      />
+      />,
+      document.body
     )}
 
     <ModalShell open={!!movingAppt} onClose={() => setMovingAppt(null)} labelledBy="move-title" className="w-full max-w-md rounded-2xl">
