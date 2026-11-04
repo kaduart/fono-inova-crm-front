@@ -54,6 +54,7 @@ import InputCurrency from '../../../components/ui/InputCurrency';
 import { PatientAccordionSection } from './PatientAccordionSection';
 import GuidePendingBillingSection, { PendingGuide } from './GuidePendingBillingSection';
 import InsuranceHistorySection from './InsuranceHistorySection';
+import { selectBillingSessions } from './billingSessionSelection';
 import ConvenioManagerModal from '../components/ConvenioManagerModal';
 import BreakdownDetailsModal, { BreakdownRow, BreakdownTab } from '../components/BreakdownDetailsModal';
 import {
@@ -945,22 +946,21 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                 return false;
             }
 
-            const isMonthlyBilling = selected.every(guide => guide.billingMode === 'per_month');
-            const billingCompetence = competenceOverride || selectedMonthYear;
             selected = await ensureGuideDetails(selected.map(guide => guide.guideId), expectedPhase);
-            const sessionIds = [...new Set(selected.flatMap(guide =>
-                (guide.sessions || [])
-                    // POR MÊS: a competência clínica define automaticamente o
-                    // conjunto. POR GUIA: a guia acumula sessões de qualquer
-                    // data até ser faturada. Em ambos os casos persistimos os
-                    // sessionIds exatos no submission.
-                    .filter(session => session.phase === expectedPhase
-                        && (!isMonthlyBilling || String(session.date).slice(0, 7) === billingCompetence))
-                    .map(session => session.sessionId)
-            ))];
+            // POR MÊS: 1 lote por competência; sem competência explícita, usa a
+            // do filtro se houver sessão nela, senão a mais antiga pendente.
+            // POR GUIA: a guia acumula sessões de qualquer data. Em ambos os
+            // casos persistimos os sessionIds exatos no submission.
+            const { sessionIds, billingCompetence, remainingCompetences } = selectBillingSessions(
+                selected, expectedPhase, selectedMonthYear, competenceOverride
+            );
             if (sessionIds.length === 0) {
                 toast.error('Nenhuma sessão pendente encontrada nas guias selecionadas');
                 return false;
+            }
+            if (remainingCompetences.length > 0) {
+                const fmt = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`;
+                toast.info(`Preparando a competência ${fmt(billingCompetence)}. Depois prepare também: ${remainingCompetences.map(fmt).join(', ')}`);
             }
 
             const convenio = await getConvenio(selected[0].insurance);
