@@ -18,7 +18,19 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
   canceled:     { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Cancelado' },
   cancelled:    { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Cancelado' },
   missed:       { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Faltou' },
+  no_show:      { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Faltou' },
+  force_cancelled: { bg: 'var(--fx-red-100)', text: 'var(--fx-red-800)', label: 'Cancelado' },
 };
+const OPEN_STATUS = new Set(['scheduled', 'confirmed', 'pre_agendado']);
+// Passou do horário (1h de folga) e segue aberto: ninguém concluiu nem marcou falta.
+const NO_CLOSURE_STYLE = { bg: 'var(--fx-amber-50)', text: 'var(--fx-amber-800)', label: 'Sem baixa' };
+const LEGEND = [
+  { label: 'Realizado', style: STATUS_STYLE.completed },
+  { label: 'Confirmado', style: STATUS_STYLE.confirmed },
+  { label: 'Agendado', style: STATUS_STYLE.scheduled },
+  { label: 'Pré-agendado', style: STATUS_STYLE.pre_agendado },
+  { label: 'Falta ou cancelado', style: STATUS_STYLE.missed },
+];
 const DEFAULT_STYLE = { bg: 'var(--fx-gray-100)', text: 'var(--fx-gray-700)', label: '' };
 
 // Theming do FullCalendar via CSS custom properties (suportado nativamente desde
@@ -29,6 +41,10 @@ const CALENDAR_THEME_VARS = {
     '--fc-neutral-bg-color': 'var(--fx-gray-50)',
     '--fc-today-bg-color': 'var(--fx-blue-50)',
     '--fc-now-indicator-color': '#2563EB',
+    // O cartão pinta o próprio fundo; o azul padrão do FullCalendar vazava por baixo
+    // das cores translúcidas do tema escuro.
+    '--fc-event-bg-color': 'transparent',
+    '--fc-event-border-color': 'transparent',
 } as React.CSSProperties;
 
 interface PatientMiniCalendarProps {
@@ -46,7 +62,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
         start: appt.start || `${(appt.date || '').substring(0, 10)}T${appt.time || '08:00'}`,
         end: appt.end,
         extendedProps: {
-            operationalStatus: appt.operationalStatus,
+            operationalStatus: appt.operationalStatus || appt.status,
             appt,
         }
     }));
@@ -78,7 +94,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                 [&_.fc-daygrid-day-frame]:min-h-[76px] dark:[&_.fc-theme-standard_td]:!border-slate-700 dark:[&_.fc-theme-standard_th]:!border-slate-700 dark:[&_.fc-scrollgrid]:!border-slate-700 dark:[&_.fc-day-today]:!bg-emerald-500/10 [&_.fc-day-today]:!bg-emerald-50/60 [&_.fc-daygrid-more-link]:text-xs [&_.fc-daygrid-more-link]:font-semibold [&_.fc-daygrid-more-link]:text-emerald-700
                 [&_.fc-col-header-cell-cushion]:py-2 [&_.fc-col-header-cell-cushion]:text-gray-500
                 [&_.fc-scrollgrid]:!rounded-lg [&_.fc-scrollgrid]:!border-gray-200
-                [&_.fc-event]:!border-0"
+                [&_.fc-event]:!border-0 [&_.fc-event]:!bg-transparent [&_.fc-event]:!shadow-none"
             style={CALENDAR_THEME_VARS}
         >
             <FullCalendar
@@ -92,7 +108,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                 locale={ptBrLocale}
                 initialView="dayGridMonth"
                 initialDate={smartInitialDate}
-                dayMaxEvents={2}
+                dayMaxEvents={3}
                 buttonText={{ today: 'Hoje', month: 'Mês', week: 'Semana' }}
                 weekends
                 events={events}
@@ -102,7 +118,9 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                 eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
                 eventContent={(arg) => {
                     const status = arg.event.extendedProps.operationalStatus || '';
-                    const cfg = STATUS_STYLE[status] || DEFAULT_STYLE;
+                    const startMs = arg.event.start ? arg.event.start.getTime() : NaN;
+                    const noClosure = OPEN_STATUS.has(status) && startMs < Date.now() - 3600000;
+                    const cfg = noClosure ? NO_CLOSURE_STYLE : (STATUS_STYLE[status] || DEFAULT_STYLE);
                     const clickable = Boolean(onEventClick);
                     const appt = arg.event.extendedProps.appt as Appointment & { sessionType?: string; serviceType?: string };
                     const specialtyLabel = getSpecialtyLabel(appt?.specialty || appt?.sessionType);
@@ -115,6 +133,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                                 backgroundColor: cfg.bg,
                                 color: cfg.text,
                                 borderLeft: `3px solid ${cfg.text}`,
+                                ...(noClosure ? { outline: `1.5px dashed ${cfg.text}`, outlineOffset: '-1.5px' } : {}),
                                 cursor: clickable ? 'pointer' : 'default',
                             }}
                         >
@@ -129,7 +148,7 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                                 <span className="text-[0.68rem] leading-tight opacity-80 truncate">{doctorName}</span>
                             )}
                             {cfg.label && (
-                                <span className="text-[0.68rem] leading-tight opacity-75">{cfg.label}</span>
+                                <span className={`text-[0.68rem] leading-tight ${noClosure ? 'font-bold' : 'opacity-75'}`} title={noClosure ? 'Passou do horário e ninguém concluiu nem marcou falta' : undefined}>{cfg.label}</span>
                             )}
                             <AppointmentOrigin appointment={appt} />
                         </div>
@@ -149,6 +168,18 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                 )}
                 eventClassNames="cursor-pointer"
             />
+            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-2xs text-gray-600 dark:text-slate-400" aria-label="Legenda do calendário">
+                {LEGEND.map(l => (
+                    <li key={l.label} className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: l.style.bg, borderLeft: `3px solid ${l.style.text}` }} aria-hidden />
+                        {l.label}
+                    </li>
+                ))}
+                <li className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: NO_CLOSURE_STYLE.bg, outline: `1.5px dashed ${NO_CLOSURE_STYLE.text}`, outlineOffset: '-1.5px' }} aria-hidden />
+                    Sem baixa (passou e ninguém fechou)
+                </li>
+            </ul>
         </div>
     );
 };

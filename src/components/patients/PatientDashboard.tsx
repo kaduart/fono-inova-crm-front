@@ -23,6 +23,7 @@ import { PatientAvailablesCard } from './PatientAvailablesCard';
 import { PatientAppointmentsTable } from './PatientAppointmentsTable';
 import PatientEvolution from './PatientEvolution';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
+import { PatientAgendaSummary } from './PatientAgendaSummary';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
@@ -1090,9 +1091,11 @@ export default function PatientDashboard() {
     return (
       <div>
         {appointments && (
-          <PatientMiniCalendar appointments={allAppointmentsById} />
-        )
-        }
+          <>
+            <PatientAgendaSummary appointments={allAppointmentsById} />
+            <PatientMiniCalendar appointments={allAppointmentsById} />
+          </>
+        )}
       </div>
     );
   };
