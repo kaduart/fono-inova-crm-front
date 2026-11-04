@@ -37,7 +37,7 @@ const EMPTY_PATIENT: IPatient = {
 const ManagePatients: React.FC = () => {
     const { updatePatient, createPatient } = usePatients();
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const canSeeDuplicates = ['admin', 'secretary'].includes(String(user?.role));
     const [patientToEdit, setPatientToEdit] = useState<IPatient | undefined>();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -106,7 +106,7 @@ const ManagePatients: React.FC = () => {
                 </button>
             </div>
 
-            {isAdmin && <PatientDuplicatesPanel onChanged={() => setRefreshSignal(s => s + 1)} />}
+            {canSeeDuplicates && <PatientDuplicatesPanel onChanged={() => setRefreshSignal(s => s + 1)} />}
 
             <PatientList onEdit={openEdit} refreshSignal={refreshSignal} />
 
