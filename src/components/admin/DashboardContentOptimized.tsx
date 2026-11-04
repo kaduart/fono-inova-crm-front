@@ -1,6 +1,6 @@
 import {
-    AlertCircle, BarChart3, Cake, CalendarClock, ChevronDown, ChevronRight,
-    Clock, CreditCard, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
+    CalendarCheck, CalendarPlus, CalendarX, Cake, CalendarClock, ChevronDown, ChevronRight, ClipboardCheck,
+    Clock, FileClock, MessageCircle, Package, UserMinus, Wallet, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
 } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent } from '@mui/material';
@@ -112,29 +112,72 @@ interface TodayAppt {
     professional?: string; doctor?: { _id?: string; fullName?: string };
 }
 
-// --- StatTile: número em tinta normal, rótulo e detalhe ---
+// --- Números: sem caixa em volta. Faixa "Hoje" no topo (números grandes) e linha de números menores. ---
+// Redesign 04/11 (Kadu: "monte de card"): mesmos números de antes, agora sempre visíveis e sem borda por item.
 
 const StatTile = memo<{
     label: string; value: React.ReactNode; detail?: React.ReactNode; onClick?: () => void; action?: React.ReactNode;
 }>(({ label, value, detail, onClick, action }) => {
-    const Tag: any = onClick ? 'button' : 'div';
-    return (
-        <Tag
-            type={onClick ? 'button' : undefined}
-            onClick={onClick}
-            className={`group relative flex min-w-0 flex-col items-start rounded-xl border border-gray-200 bg-white p-4 text-left dark:border-gray-700 dark:bg-gray-900 ${onClick ? 'transition-colors hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:border-emerald-700' : ''}`}
-        >
-            <span className="flex w-full items-center justify-between gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+    const body = (
+        <>
+            <span className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
                 {label}
-                {onClick && <ChevronRight size={15} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" aria-hidden />}
-                {action}
+                {onClick && <ChevronRight size={13} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" aria-hidden />}
             </span>
-            <span className="mt-1.5 text-2xl font-bold leading-none tabular-nums text-gray-900 dark:text-gray-50">{value}</span>
-            {detail && <span className="mt-1.5 text-xs leading-4 text-gray-600 dark:text-gray-400">{detail}</span>}
-        </Tag>
+            <span className="mt-1 text-xl font-bold leading-none tabular-nums text-gray-900 dark:text-gray-50">{value}</span>
+            {detail && <span className="mt-1 text-xs leading-4 text-gray-600 dark:text-gray-400">{detail}</span>}
+        </>
+    );
+    return (
+        <div className="relative flex min-w-0 items-start justify-between gap-2 px-4 py-3">
+            {onClick ? (
+                <button type="button" onClick={onClick} className="group flex min-w-0 flex-col items-start rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    {body}
+                </button>
+            ) : <div className="flex min-w-0 flex-col items-start">{body}</div>}
+            {action}
+        </div>
     );
 });
 StatTile.displayName = 'StatTile';
+
+/** Número grande da faixa "Hoje". */
+const HeroFigure = ({ label, value, detail, tone = 'ink', onClick, children }: {
+    label: string; value: React.ReactNode; detail?: React.ReactNode; tone?: 'ink' | 'money'; onClick?: () => void; children?: React.ReactNode;
+}) => {
+    const inner = (
+        <>
+            <span className="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-300">
+                {label}
+                {onClick && <ChevronRight size={15} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" aria-hidden />}
+            </span>
+            <span className={`mt-1.5 text-2xl sm:text-[2rem] font-extrabold leading-none tracking-tight tabular-nums ${tone === 'money' ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{value}</span>
+            {children}
+            {detail && <span className="mt-1.5 text-xs text-gray-600 dark:text-gray-400">{detail}</span>}
+        </>
+    );
+    return onClick ? (
+        <button type="button" onClick={onClick} className="group flex w-full min-w-0 flex-col items-start rounded-lg p-4 text-left transition-colors hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:bg-gray-900/50">{inner}</button>
+    ) : <div className="flex min-w-0 flex-col items-start p-4">{inner}</div>;
+};
+
+/** Barra do dia: realizadas, faltas, canceladas, pré e a fazer (mesma quebra do modal). */
+const TodayBar = ({ s }: { s: Record<TodayBucket, number> }) => {
+    const total = s.done + s.missed + s.canceled + s.pre + s.todo;
+    if (!total) return null;
+    const seg: Array<[number, string]> = [
+        [s.done, 'bg-emerald-600 dark:bg-emerald-500'],
+        [s.missed, 'bg-amber-500 dark:bg-amber-400'],
+        [s.canceled, 'bg-red-500 dark:bg-red-400'],
+        [s.pre, 'bg-violet-400 dark:bg-violet-400'],
+        [s.todo, 'bg-gray-300 dark:bg-gray-600'],
+    ];
+    return (
+        <span className="mt-3 flex h-2 w-full max-w-md gap-0.5 overflow-hidden rounded-full" aria-hidden>
+            {seg.filter(([n]) => n > 0).map(([n, c]) => <span key={c} className={c} style={{ flex: n }} />)}
+        </span>
+    );
+};
 
 // Recorrência — só exibe o que o backend calculou; o seletor escolhe a janela já calculada.
 type RecurringStats = NonNullable<DashboardStats['recurring']>;
@@ -223,23 +266,27 @@ interface SectionProps {
     note?: React.ReactNode;
 }
 
+// Seção sem caixa: título, meta e recolher. Separação por espaço e linha fina, não por borda.
 const Section = memo<SectionProps>(({ id, title, isOpen, onToggle, children, icon, meta, note }) => (
-    <section id={id} className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+    <section id={id} className="border-t border-gray-200 pt-1 dark:border-gray-800">
         <button
             type="button"
-            className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-gray-800/60"
+            className="flex w-full items-center gap-3 rounded-lg px-1 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             onClick={onToggle}
             aria-expanded={isOpen}
         >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" aria-hidden>{icon}</span>
+            <span className="shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden>{icon}</span>
             <span className="min-w-0 flex-1">
-                <span className="block font-semibold text-gray-900 dark:text-gray-50">{title}</span>
-                {meta && <span className="block text-xs text-gray-600 dark:text-gray-400">{meta}</span>}
+                <span className="text-base font-bold text-gray-900 dark:text-gray-50">{title}</span>
+                {meta && <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{meta}</span>}
             </span>
             {!isOpen && note}
-            <ChevronDown size={18} className={`shrink-0 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
+            <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                {isOpen ? 'Recolher' : 'Mostrar'}
+                <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
+            </span>
         </button>
-        {isOpen && <div className="border-t border-gray-100 p-4 dark:border-gray-800">{children}</div>}
+        {isOpen && <div className="pb-2 pt-1">{children}</div>}
     </section>
 ));
 Section.displayName = 'Section';
@@ -248,65 +295,82 @@ Section.displayName = 'Section';
 
 interface NeedItem { key: string; count: number; title: string; detail: string; cta: string; onClick: () => void; tone: 'warn' | 'bad' | 'info' | 'pink'; error?: boolean; onRetry?: () => void }
 
-const TONE: Record<NeedItem['tone'], string> = {
-    warn: 'text-amber-700 dark:text-amber-400',
-    bad: 'text-red-700 dark:text-red-400',
-    info: 'text-blue-700 dark:text-blue-400',
-    pink: 'text-pink-700 dark:text-pink-400',
+// Cor por urgência: vermelho = dinheiro/paciente indo embora, âmbar = venda/agenda para fechar, azul = confirmar/retornar.
+const TONE: Record<NeedItem['tone'], { tile: string; icon: string; num: string; btn: string }> = {
+    bad: { tile: 'bg-red-50/70 ring-red-100 dark:bg-red-500/[0.07] dark:ring-red-500/20', icon: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300', num: 'text-red-700 dark:text-red-300', btn: 'bg-white text-red-700 ring-red-200 hover:bg-red-600 hover:text-white dark:bg-gray-900 dark:text-red-300 dark:ring-red-500/30 dark:hover:bg-red-500 dark:hover:text-gray-950' },
+    warn: { tile: 'bg-amber-50/70 ring-amber-100 dark:bg-amber-500/[0.07] dark:ring-amber-500/20', icon: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300', num: 'text-amber-800 dark:text-amber-300', btn: 'bg-white text-amber-800 ring-amber-200 hover:bg-amber-600 hover:text-white dark:bg-gray-900 dark:text-amber-300 dark:ring-amber-500/30 dark:hover:bg-amber-400 dark:hover:text-gray-950' },
+    info: { tile: 'bg-blue-50/70 ring-blue-100 dark:bg-blue-500/[0.07] dark:ring-blue-500/20', icon: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300', num: 'text-blue-700 dark:text-blue-300', btn: 'bg-white text-blue-700 ring-blue-200 hover:bg-blue-600 hover:text-white dark:bg-gray-900 dark:text-blue-300 dark:ring-blue-500/30 dark:hover:bg-blue-500 dark:hover:text-gray-950' },
+    pink: { tile: 'bg-pink-50/70 ring-pink-100 dark:bg-pink-500/[0.07] dark:ring-pink-500/20', icon: 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-300', num: 'text-pink-700 dark:text-pink-300', btn: 'bg-white text-pink-700 ring-pink-200 hover:bg-pink-600 hover:text-white dark:bg-gray-900 dark:text-pink-300 dark:ring-pink-500/30 dark:hover:bg-pink-500 dark:hover:text-gray-950' },
 };
+const NEED_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
+    evaluation: ClipboardCheck, nextDay: CalendarCheck, pre: CalendarPlus, lateEvo: FileClock, pay: Wallet,
+    leads: MessageCircle, renewal: Package, churn: UserMinus, reactivation: CalendarX, bday: Cake,
+};
+const TONE_ORDER: Record<NeedItem['tone'], number> = { bad: 0, warn: 1, info: 2, pink: 3 };
 
+// Grade de 4 por linha (pedido do Kadu 04/11): ícone + número grande, o que é, detalhe e um botão de ação.
+// Ordem: mais urgente primeiro (vermelho, âmbar, azul, rosa).
 const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading }) => {
-    // AutoAnimate: card que zera sai deslizando, card novo entra suave.
-    const [animRef] = useAutoAnimate<HTMLDivElement>();
+    const [animRef] = useAutoAnimate<HTMLUListElement>();
     // Erro ≠ zero: fila que não carregou aparece como "não carregou", nunca some como se estivesse em dia.
-    const visible = items.filter(i => i.count > 0 || i.error);
-    const cols = visible.length > 4 ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4';
+    // Aniversário não é pendência de dinheiro/agenda: vira um lembrete no título e a grade fica em linhas de 4.
+    const bday = items.find(i => i.key === 'bday' && i.count > 0);
+    const visible = items.filter(i => i.key !== 'bday' && (i.count > 0 || i.error))
+        .map((i, idx) => ({ i, idx }))
+        .sort((x, y) => (TONE_ORDER[x.i.tone] - TONE_ORDER[y.i.tone]) || (x.idx - y.idx))
+        .map(x => x.i);
     return (
-        <section aria-labelledby="precisa-de-voce" className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-            <div className="mb-3 flex items-center gap-2">
-                <AlertCircle size={18} className="text-amber-600 dark:text-amber-400" aria-hidden />
+        <section aria-labelledby="precisa-de-voce">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
                 <h2 id="precisa-de-voce" className="text-base font-bold text-gray-900 dark:text-gray-50">Precisa de você hoje</h2>
+                {visible.length > 0 && <span className="text-sm text-gray-600 dark:text-gray-400">{plural(visible.length, 'fila com pendência', 'filas com pendência')} · as mais urgentes primeiro</span>}
+                {bday && (
+                    <button type="button" onClick={bday.onClick} className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full bg-pink-50 px-3 text-sm font-semibold text-pink-700 ring-1 ring-inset ring-pink-200 hover:bg-pink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-pink-500/10 dark:text-pink-300 dark:ring-pink-500/30">
+                        <Cake size={15} aria-hidden />
+                        {bday.count} {bday.title.toLowerCase()}: {bday.detail} · {bday.cta}
+                        <ChevronRight size={15} aria-hidden />
+                    </button>
+                )}
             </div>
-            {loading && visible.length === 0 ? (
+            {loading && visible.length === 0 && !bday ? (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    {[0, 1, 2, 3].map(i => <div key={i} className="h-[92px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}
+                    {[0, 1, 2, 3].map(i => <div key={i} className="h-[150px] animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />)}
                 </div>
-            ) : visible.length === 0 ? (
+            ) : visible.length === 0 && !bday ? (
                 <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, avaliações, confirmações, pacotes, retornos e aniversários estão em dia.</p>
             ) : (
-                <div ref={animRef} className={`grid gap-3 ${cols}`}>
-                    {visible.map(item => item.error && !item.count ? (
-                        <button
-                            key={item.key}
-                            type="button"
-                            onClick={item.onRetry}
-                            className="group flex min-w-0 flex-col items-start rounded-lg border border-dashed border-amber-300 p-3.5 text-left transition-colors hover:bg-amber-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-amber-500/40 dark:hover:bg-amber-500/5"
-                        >
-                            <span className="flex items-baseline gap-2">
-                                <span className="text-2xl font-bold text-gray-400" aria-hidden>—</span>
-                                <span className="font-semibold text-gray-900 dark:text-gray-50">{item.title}</span>
-                            </span>
-                            <span className="mt-0.5 text-sm text-amber-800 dark:text-amber-300">Não foi possível carregar.</span>
-                            <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">Tentar de novo</span>
-                        </button>
-                    ) : (
-                        <button
-                            key={item.key}
-                            type="button"
-                            onClick={item.onClick}
-                            className="group flex min-w-0 flex-col items-start rounded-lg border border-gray-200 p-3.5 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-500/5"
-                        >
-                            <span className="flex items-baseline gap-2">
-                                <span className={`text-2xl font-bold tabular-nums ${TONE[item.tone]}`}>{item.count}</span>
-                                <span className="font-semibold text-gray-900 dark:text-gray-50">{item.title}</span>
-                            </span>
-                            <span className="mt-0.5 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">{item.detail}</span>
-                            <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                                {item.cta} <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-                            </span>
-                        </button>
-                    ))}
-                </div>
+                <ul ref={animRef} className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
+                    {visible.map((item, idx) => {
+                        const Icon = NEED_ICON[item.key] || ClipboardCheck;
+                        // Última linha incompleta no desktop: 1 sobrando ocupa a linha toda (deitado), 2 sobrando dividem a linha.
+                        const rest = visible.length % 4, inLast = idx >= visible.length - rest;
+                        const wide = inLast && rest === 1, half = inLast && rest === 2;
+                        const failed = item.error && !item.count;
+                        const t = TONE[item.tone];
+                        return (
+                            <li key={item.key} className={`flex min-w-0 flex-col rounded-xl p-3 ring-1 sm:p-4 ring-inset ${wide ? 'col-span-2 xl:col-span-4 xl:flex-row xl:items-center xl:gap-4' : half ? 'xl:col-span-2' : ''} ${failed ? 'bg-white ring-gray-200 dark:bg-gray-900 dark:ring-gray-700' : t.tile}`}>
+                                <div className="flex items-center gap-3">
+                                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${failed ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : t.icon}`} aria-hidden><Icon size={19} /></span>
+                                    <span className={`text-2xl font-extrabold leading-none tabular-nums sm:text-3xl ${failed ? 'text-gray-400' : t.num}`}>{failed ? '—' : item.count}</span>
+                                </div>
+                                <div className={wide ? 'min-w-0 xl:flex-1' : 'contents'}>
+                                <h3 className={`font-semibold leading-snug text-gray-900 dark:text-gray-50 ${wide ? 'mt-3 xl:mt-0' : 'mt-3'}`}>{item.title}</h3>
+                                <p className={`mt-0.5 line-clamp-2 text-xs text-gray-600 sm:text-sm dark:text-gray-400 ${wide ? 'xl:min-h-0' : 'mb-3 min-h-[2rem] sm:min-h-[2.5rem]'}`} title={item.detail}>
+                                    {failed ? 'Não foi possível carregar.' : item.detail}
+                                </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={failed ? item.onRetry : item.onClick}
+                                    className={`mt-auto inline-flex min-h-10 w-full items-center text-center leading-tight ${wide ? 'xl:mt-0 xl:w-56 xl:shrink-0' : ''} justify-center gap-1 rounded-lg px-3 text-sm font-semibold ring-1 ring-inset transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${failed ? 'ring-gray-300 text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800' : t.btn}`}
+                                >
+                                    {failed ? 'Tentar de novo' : item.cta}
+                                    {!failed && <ChevronRight size={16} aria-hidden />}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
             )}
         </section>
     );
@@ -326,7 +390,7 @@ const DayBars = memo<{ title: string; rows: Array<{ date: string; value: number 
     const total = rows.reduce((s, r) => s + r.value, 0);
 
     return (
-        <figure className="min-w-0 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+        <figure className="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/40">
             <figcaption className="mb-1 flex items-baseline justify-between gap-2">
                 <span className="font-semibold text-gray-900 dark:text-gray-50">{title}</span>
                 <span className="text-xs text-gray-600 dark:text-gray-400">{rows.length} dias úteis · total {fmt(total)}</span>
@@ -386,7 +450,7 @@ DayBars.displayName = 'DayBars';
 const HBars = memo<{ title: string; rows: Array<{ label: string; value: number }>; empty: string }>(({ title, rows, empty }) => {
     const max = Math.max(1, ...rows.map(r => r.value));
     return (
-        <div className="min-w-0 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+        <div className="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/40">
             <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">{title}</h3>
             {rows.length === 0 ? (
                 <p className="py-6 text-center text-sm text-gray-600 dark:text-gray-400">{empty}</p>
@@ -421,6 +485,8 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
     </button>
 );
 
+type PanTab = 'today' | 'upcoming' | 'charts' | 'mix' | 'bday';
+
 // --- Main Component ---
 
 const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
@@ -443,13 +509,10 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     onNavigate,
 }) => {
     // Só a lista de pacientes abre por padrão (decisão do Kadu, 29/10).
-    const [birthdaySectionOpen, setBirthdaySectionOpen] = useState(false);
     const [patientsTableOpen, setPatientsTableOpen] = useState(true);
-    const [numbersOpen, setNumbersOpen] = useState(false);
-    const [chartsOpen, setChartsOpen] = useState(false);
-    const [todayByDoctorOpen, setTodayByDoctorOpen] = useState(false);
-    const [upcomingOpen, setUpcomingOpen] = useState(false);
-    const [mixOpen, setMixOpen] = useState(false);
+    // Redesign 04/11: as 5 seções recolhidas viraram abas de um só painel ("Panorama").
+    const [panTab, setPanTab] = useState<PanTab>('today');
+    const birthdaySectionOpen = panTab === 'bday';
     const [showAllDoctors, setShowAllDoctors] = useState(false);
     const [upcomingFilter, setUpcomingFilter] = useState<'all' | 'today' | 'tomorrow' | 'unconfirmed'>('all');
 
@@ -482,9 +545,11 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         }
     }, [todayLoaded]);
 
+    // A faixa "Hoje" mostra a quebra do dia: busca logo depois da carga inicial.
     useEffect(() => {
-        if (numbersOpen || todayByDoctorOpen) loadTodaySessions();
-    }, [numbersOpen, todayByDoctorOpen, loadTodaySessions]);
+        const t = setTimeout(() => { loadTodaySessions(); }, 800);
+        return () => clearTimeout(t);
+    }, [loadTodaySessions]);
 
     const todaySummary = useMemo(() => {
         const s = { done: 0, missed: 0, canceled: 0, pre: 0, todo: 0 };
@@ -595,8 +660,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }, [onRefresh, loadPreStats, commercial.reload, loadAniversariantes, todayLoaded, loadTodaySessions, lateEvo.reload]);
 
     const openBirthdays = useCallback(() => {
-        setBirthdaySectionOpen(true);
-        requestAnimationFrame(() => document.getElementById('dash-aniversariantes')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        setPanTab('bday');
+        requestAnimationFrame(() => document.getElementById('dash-panorama')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }, []);
 
     // O back não manda daysUntil: hoje = mesmo dia/mês (UTC) do nascimento
@@ -734,7 +799,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }
 
     return (
-        <div className="space-y-3 p-4 text-left sm:p-5">
+        <div className="space-y-6 p-4 text-left sm:p-5">
             {/* Topo */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -758,7 +823,46 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 0. Lead novo esperando resposta (aprovado em 30/10) */}
             <LeadsWaitingStrip items={commercial.leadsWaiting} onOpenLeads={onNavigate ? () => onNavigate('Leads') : undefined} onChanged={commercial.reloadLeads} />
 
-            {/* 1. Precisa de você */}
+            {/* 1. Hoje: os números que antes ficavam recolhidos em "Números da clínica", agora sempre à vista */}
+            {stats ? (
+                <section aria-label="Hoje" className="overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/40">
+                    <div className="grid grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+                        <div className="col-span-2 lg:col-span-1">
+                            <HeroFigure
+                                label="Sessões hoje"
+                                value={stats.todayAppointments}
+                                onClick={openTodaySessionsModal}
+                                detail={todayLoading && !todayLoaded ? 'carregando…' : todayError && !todayLoaded ? 'não foi possível carregar a quebra do dia' : `${plural(todaySummary.done, 'realizada', 'realizadas')} · ${plural(todaySummary.missed, 'falta', 'faltas')} · ${todaySummary.todo + todaySummary.pre} a fazer`}
+                            >
+                                {todayLoaded && <TodayBar s={todaySummary} />}
+                            </HeroFigure>
+                        </div>
+                        <HeroFigure label="Caixa hoje" value={formatCurrency(stats.todayRevenue)} tone="money" detail="recebido hoje" />
+                        <HeroFigure label="Caixa do mês" value={formatCurrency(stats.monthRevenue)} detail="recebido no mês (regra do caixa)" />
+                    </div>
+                    <div className="grid grid-cols-2 border-t border-gray-200/80 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-700/60">
+                        <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem as canceladas" />
+                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Caixa') : undefined} />
+                        <StatTile label="Leads do mês" value={stats.monthLeads} detail="novos interessados" onClick={onNavigate ? () => onNavigate('Leads') : undefined} />
+                        <StatTile
+                            label="Pacientes"
+                            value={stats.totalPatients.toLocaleString('pt-BR')}
+                            detail={`cadastrados · ${stats.totalDoctors} profissionais`}
+                            action={
+                                <span className="flex shrink-0 gap-0.5">
+                                    <button type="button" onClick={handleAddPatient} title="Novo paciente" aria-label="Novo paciente" className="rounded-md p-1.5 text-gray-500 hover:bg-white hover:text-emerald-700 dark:hover:bg-gray-900"><UserPlus size={16} /></button>
+                                    <button type="button" onClick={handleAddProfessional} title="Novo profissional" aria-label="Novo profissional" className="rounded-md p-1.5 text-gray-500 hover:bg-white hover:text-emerald-700 dark:hover:bg-gray-900"><Stethoscope size={16} /></button>
+                                </span>
+                            }
+                        />
+                        {stats.recurring && <RecurringPatientsTile recurring={stats.recurring} />}
+                    </div>
+                </section>
+            ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">Sem números para mostrar agora.</p>
+            )}
+
+            {/* 2. Precisa de você */}
             <NeedsYou items={needItems} loading={!preStats} />
             {queueOpen === 'lateEvo' && lateEvo.data && <LateEvolutionsPanel data={lateEvo.data} onClose={() => setQueueOpen(null)} />}
             {queueOpen === 'renewal' && <PackageEndingPanel items={commercial.packageEnding || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
@@ -767,106 +871,34 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {queueOpen === 'evaluation' && commercial.evaluation && <EvaluationPanel queue={commercial.evaluation} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'nextDay' && commercial.nextDay && <NextDayConfirmPanel queue={commercial.nextDay} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} onOpenAgenda={onNavigate ? () => { setQueueOpen(null); onNavigate('Calendário'); } : undefined} />}
 
-            {/* 2. Aniversariantes */}
-            <Section
-                id="dash-aniversariantes"
-                title="Aniversariantes"
-                meta={aniversariantesFetched.current ? `${aniversariantes.length} no mês${aniversariantesMeta.todayTotal ? ` · ${aniversariantesMeta.todayTotal} hoje` : ''}` : undefined}
-                isOpen={birthdaySectionOpen}
-                onToggle={() => setBirthdaySectionOpen(v => !v)}
-                icon={<Cake size={17} />}
-                note={aniversariantesMeta.todayPending > 0 ? (
-                    <span role="status" className="hidden items-center gap-1.5 rounded-full bg-pink-50 px-3 py-1 text-sm font-semibold text-pink-700 sm:inline-flex dark:bg-pink-500/15 dark:text-pink-300">
-                        <Cake size={14} aria-hidden />
-                        {aniversariantesMeta.todayPending === 1 ? '1 aniversariante hoje' : `${aniversariantesMeta.todayPending} aniversariantes hoje`}
-                    </span>
-                ) : undefined}
-            >
-                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayList patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
-            </Section>
-
-            {/* 3. Lista de pacientes */}
-            <Section
-                title="Lista de pacientes"
-                meta={stats?.totalPatients ? `${stats.totalPatients.toLocaleString('pt-BR')} cadastrados` : undefined}
-                isOpen={patientsTableOpen}
-                onToggle={() => setPatientsTableOpen(v => !v)}
-                icon={<Users size={17} />}
-            >
-                <PatientTable
-                    patients={safePatients}
-                    isRefreshing={loading}
-                    onEditPatient={(patient) => { setPatientToEdit(patient); setIsModalOpen(true); }}
-                    onPaymentAdvancedSuccess={(patient) => { setShowAdvancedPayment?.(true); setSelectedPatient?.(patient); }}
-                    onRegisterPayment={(patient) => { setPaymentContext?.({ mode: 'create', patient }); setPaymentModalOpen?.(true); }}
-                    onDeletePatient={onDeletePatient}
-                    totalCount={stats?.totalPatients}
-                    noNextCount={commercial.reactivation?.length || 0}
-                    onOpenNoNext={() => setQueueOpen('reactivation')}
-                />
-            </Section>
-
-            {/* 4. Números */}
-            <Section
-                title="Números da clínica"
-                meta={stats ? `${stats.todayAppointments} sessões hoje · ${formatCurrency(stats.monthRevenue)} de caixa no mês` : undefined}
-                isOpen={numbersOpen}
-                onToggle={() => setNumbersOpen(v => !v)}
-                icon={<BarChart3 size={17} />}
-            >
-                {stats ? (
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                        <StatTile
-                            label="Sessões hoje"
-                            value={stats.todayAppointments}
-                            detail={todayLoading && !todayLoaded ? 'carregando…' : todayError && !todayLoaded ? 'não foi possível carregar a quebra do dia' : `${plural(todaySummary.done,'realizada','realizadas')} · ${plural(todaySummary.missed,'falta','faltas')} · ${todaySummary.todo} a fazer`}
-                            onClick={openTodaySessionsModal}
-                        />
-                        <StatTile label="Semana até hoje" value={stats.weekAppointments} detail="sessões, sem as canceladas" />
-                        <StatTile label="Caixa hoje" value={formatCurrency(stats.todayRevenue)} detail="recebido hoje" />
-                        <StatTile label="Caixa do mês" value={formatCurrency(stats.monthRevenue)} detail="recebido no mês (regra do caixa)" />
-                        <StatTile label="Pagamentos em aberto" value={stats.pendingPayments} detail="quantidade, pendentes ou parciais" onClick={onNavigate ? () => onNavigate('Caixa') : undefined} />
-                        <StatTile label="Leads do mês" value={stats.monthLeads} detail="novos interessados" onClick={onNavigate ? () => onNavigate('Leads') : undefined} />
-                        <StatTile
-                            label="Pacientes"
-                            value={stats.totalPatients.toLocaleString('pt-BR')}
-                            detail={`cadastrados · ${stats.totalDoctors} profissionais`}
-                            action={
-                                <span className="flex gap-1">
-                                    <button type="button" onClick={handleAddPatient} title="Novo paciente" aria-label="Novo paciente" className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-emerald-700 dark:hover:bg-gray-800"><UserPlus size={15} /></button>
-                                    <button type="button" onClick={handleAddProfessional} title="Novo profissional" aria-label="Novo profissional" className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-emerald-700 dark:hover:bg-gray-800"><Stethoscope size={15} /></button>
-                                </span>
-                            }
-                        />
-                        {stats.recurring && <RecurringPatientsTile recurring={stats.recurring} />}
-                    </div>
-                ) : (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Sem números para mostrar agora.</p>
-                )}
-            </Section>
-
-            {/* 5. Gráficos */}
-            <Section
-                title="Sessões e caixa por dia"
-                meta="últimos 14 dias, sem fim de semana"
-                isOpen={chartsOpen}
-                onToggle={() => setChartsOpen(v => !v)}
-                icon={<LineChart size={17} />}
-            >
-                <div className="grid gap-3 lg:grid-cols-2">
-                    <DayBars title="Sessões por dia" rows={sessionsRows} fmt={v => String(v)} unit="sessões" />
-                    <DayBars title="Caixa por dia" rows={cashRows} fmt={formatCurrencyShort} unit="recebidos" />
+            {/* 3. Panorama: agenda de hoje, próximas, gráficos, origem/especialidade e aniversariantes em abas */}
+            <section id="dash-panorama" aria-label="Panorama" className="border-t border-gray-200 pt-4 dark:border-gray-800">
+                <div role="tablist" aria-label="Panorama" className="-mx-1 flex gap-1 overflow-x-auto border-b border-gray-200 px-1 dark:border-gray-800">
+                    {([
+                        ['today', 'Agenda de hoje', <CalendarClock key="i" size={15} />, todayByDoctor.length ? `${todayByDoctor.length} prof.` : null],
+                        ['upcoming', 'Próximas sessões', <Clock key="i" size={15} />, upcomingCount('unconfirmed') ? `${upcomingCount('unconfirmed')} sem confirmar` : null],
+                        ['charts', 'Sessões e caixa por dia', <LineChart key="i" size={15} />, null],
+                        ['mix', 'Leads e especialidades', <PieChart key="i" size={15} />, null],
+                        ['bday', 'Aniversariantes', <Cake key="i" size={15} />, aniversariantesMeta.todayPending ? `${aniversariantesMeta.todayPending} hoje` : null],
+                    ] as Array<[PanTab, string, React.ReactNode, string | null]>).map(([key, label, icon, badge]) => (
+                        <button
+                            key={key}
+                            type="button"
+                            role="tab"
+                            aria-selected={panTab === key}
+                            onClick={() => setPanTab(key)}
+                            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${panTab === key
+                                ? 'border-emerald-600 text-emerald-800 dark:border-emerald-400 dark:text-emerald-300'
+                                : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'}`}
+                        >
+                            <span aria-hidden>{icon}</span>{label}
+                            {badge && <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${key === 'bday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>{badge}</span>}
+                        </button>
+                    ))}
                 </div>
-            </Section>
-
-            {/* 6. Agenda de hoje por profissional */}
-            <Section
-                title="Agenda de hoje por profissional"
-                meta={`${safeDoctors.length} profissionais`}
-                isOpen={todayByDoctorOpen}
-                onToggle={() => setTodayByDoctorOpen(v => !v)}
-                icon={<CalendarClock size={17} />}
-            >
+                <div role="tabpanel" className="pt-4">
+                    {panTab === 'today' && (
+                        <>
                 {todayLoading && !todayLoaded ? (
                     <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />)}</div>
                 ) : (
@@ -905,9 +937,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         {safeDoctors.length > 0 && (
                             <div>
                                 <h3 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-50">Pacientes por profissional</h3>
-                                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                <ul className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
                                     {displayedDoctors.map((doctor, index) => (
-                                        <li key={doctor._id || index} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
+                                        <li key={doctor._id || index} className="flex items-center gap-3 border-b border-gray-100 py-2 dark:border-gray-800">
                                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{getInitials(doctor.name)}</span>
                                             <span className="min-w-0 flex-1">
                                                 <span className="block truncate text-sm font-medium text-gray-900 dark:text-gray-100">{doctor.name}</span>
@@ -926,16 +958,11 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         )}
                     </div>
                 )}
-            </Section>
-
-            {/* 7. Próximas sessões */}
-            <Section
-                title="Próximas sessões"
-                meta={`${upcomingCount('all')} nos próximos 7 dias · ${upcomingCount('unconfirmed')} não confirmadas`}
-                isOpen={upcomingOpen}
-                onToggle={() => setUpcomingOpen(v => !v)}
-                icon={<Clock size={17} />}
-            >
+                        </>
+                    )}
+                    {panTab === 'upcoming' && (
+                        <>
+                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">{upcomingCount('all')} nos próximos 7 dias · {upcomingCount('unconfirmed')} não confirmadas</p>
                 <div className="mb-3 flex flex-wrap gap-2">
                     <Chip active={upcomingFilter === 'all'} onClick={() => setUpcomingFilter('all')}>Todas <b className="tabular-nums">{upcomingCount('all')}</b></Chip>
                     <Chip active={upcomingFilter === 'today'} onClick={() => setUpcomingFilter('today')}>Hoje <b className="tabular-nums">{upcomingCount('today')}</b></Chip>
@@ -974,20 +1001,54 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         })}
                     </ul>
                 )}
-            </Section>
-
-            {/* 8. Leads e especialidades */}
-            <Section
-                title="Leads por origem e pacientes por especialidade"
-                meta="leads do mês · pacientes atendidos em 30 dias"
-                isOpen={mixOpen}
-                onToggle={() => setMixOpen(v => !v)}
-                icon={<PieChart size={17} />}
-            >
-                <div className="grid gap-3 lg:grid-cols-2">
-                    <HBars title="Leads dos últimos 30 dias por origem" rows={originRows} empty="Nenhum lead nos últimos 30 dias." />
-                    <HBars title="Pacientes por especialidade" rows={specialtyRows} empty="Sem atendimentos nos últimos 30 dias." />
+                        </>
+                    )}
+                    {panTab === 'charts' && (
+                        <>
+                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">Últimos 14 dias, sem fim de semana.</p>
+                            <div className="grid gap-3 lg:grid-cols-2">
+                                <DayBars title="Sessões por dia" rows={sessionsRows} fmt={v => String(v)} unit="sessões" />
+                                <DayBars title="Caixa por dia" rows={cashRows} fmt={formatCurrencyShort} unit="recebidos" />
+                            </div>
+                        </>
+                    )}
+                    {panTab === 'mix' && (
+                        <>
+                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">Leads do mês · pacientes atendidos em 30 dias.</p>
+                            <div className="grid gap-3 lg:grid-cols-2">
+                                <HBars title="Leads dos últimos 30 dias por origem" rows={originRows} empty="Nenhum lead nos últimos 30 dias." />
+                                <HBars title="Pacientes por especialidade" rows={specialtyRows} empty="Sem atendimentos nos últimos 30 dias." />
+                            </div>
+                        </>
+                    )}
+                    {panTab === 'bday' && (
+                        <>
+                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">{aniversariantes.length} no mês{aniversariantesMeta.todayTotal ? ` · ${aniversariantesMeta.todayTotal} hoje` : ''}</p>
+                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayList patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
+                        </>
+                    )}
                 </div>
+            </section>
+
+            {/* 4. Lista de pacientes (aberta por padrão, decisão do Kadu 29/10) */}
+            <Section
+                title="Lista de pacientes"
+                meta={stats?.totalPatients ? `${stats.totalPatients.toLocaleString('pt-BR')} cadastrados` : undefined}
+                isOpen={patientsTableOpen}
+                onToggle={() => setPatientsTableOpen(v => !v)}
+                icon={<Users size={18} />}
+            >
+                <PatientTable
+                    patients={safePatients}
+                    isRefreshing={loading}
+                    onEditPatient={(patient) => { setPatientToEdit(patient); setIsModalOpen(true); }}
+                    onPaymentAdvancedSuccess={(patient) => { setShowAdvancedPayment?.(true); setSelectedPatient?.(patient); }}
+                    onRegisterPayment={(patient) => { setPaymentContext?.({ mode: 'create', patient }); setPaymentModalOpen?.(true); }}
+                    onDeletePatient={onDeletePatient}
+                    totalCount={stats?.totalPatients}
+                    noNextCount={commercial.reactivation?.length || 0}
+                    onOpenNoNext={() => setQueueOpen('reactivation')}
+                />
             </Section>
 
             {/* Modal: Sessões de hoje (todas, paginadas) */}
