@@ -481,6 +481,10 @@ export default function ContractCard({ data, onRefresh }: Props) {
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400">de R$ {fmt(contract.totalCredit)} liberados</span>
           </p>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+            Saldo do contrato <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">R$ {fmt(contract.creditBalance)}</span>
+            {reserved > 0 && <>, dos quais <span className="tabular-nums">R$ {fmt(reserved)}</span> já estão na agenda</>}
+          </p>
         </div>
         <div
           className="flex h-3 w-full overflow-hidden rounded-full bg-violet-100 dark:bg-violet-500/15"
@@ -527,7 +531,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
             { k: 'Contrato', state: contract.status === 'active' ? 'done' : 'warn', sub: contract.processNumber ? `proc. ${lastDigits(contract.processNumber)}` : statusLabel.toLowerCase() },
             { k: 'Plano', state: plan ? 'done' : contract.status === 'active' ? 'current' : 'todo', sub: plan ? 'ativo' : 'falta criar' },
             { k: 'Sessões', state: (committed?.committed ?? 0) > 0 ? 'done' : plan ? 'current' : 'todo', sub: (committed?.committed ?? 0) > 0 ? 'agendadas' : plan ? 'gerar' : '—' },
-            { k: 'Consumo', state: balanceHealth === 'low' ? 'warn' : 'current', sub: `${(100 - balancePct).toFixed(0)}% usado` },
+            { k: 'Consumo', state: balanceHealth === 'low' ? 'warn' : 'current', sub: `${usedPct.toFixed(0)}% usado` },
           ];
           const dot: Record<string, string> = { done: 'bg-violet-600 text-white', current: 'bg-white text-violet-700 ring-2 ring-violet-600 dark:bg-slate-900 dark:text-violet-300', warn: 'bg-amber-500 text-white', todo: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
           return (
