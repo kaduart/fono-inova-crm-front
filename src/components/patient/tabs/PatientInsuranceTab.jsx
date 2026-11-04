@@ -1343,11 +1343,11 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   // precisar reimplementar nada disso aqui (bloqueador 4 do review 2026-08-15).
   const { completeAppointment: completeAppointmentCtx } = useAppointmentsContext();
 
-  // 🆕 (2026-11-04, caso Ícaro Lima) "Desfazer: foi falta" — só admin. Sessão de convênio
+  // 🆕 (2026-11-04, caso Ícaro Lima) "Desfazer: foi falta" — admin e secretária (Kadu, 04/11). Sessão de convênio
   // concluída por engano (ex.: confirmada em lote) vira cancelada e devolve 1 sessão à guia.
   // O back recusa se a sessão está em lote ou o Payment já foi faturado/recebido.
   const { user: authUser } = useAuth();
-  const isAdmin = ['admin', 'superadmin'].includes(String(authUser?.role || '').toLowerCase());
+  const canRevertCompleted = ['admin', 'superadmin', 'secretary'].includes(String(authUser?.role || '').toLowerCase());
   const [revertingAppt, setRevertingAppt] = useState(null);
   const [revertRequester, setRevertRequester] = useState('patient');
   const [revertReason, setRevertReason] = useState('Paciente faltou');
@@ -1905,7 +1905,7 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                           className="rounded-md p-1.5 text-slate-400 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-300 dark:disabled:text-slate-600">
                           <ArrowRightLeft size={13} aria-hidden />
                         </button>
-                        {isCompleted && isAdmin && (
+                        {isCompleted && canRevertCompleted && (
                           <button type="button" onClick={() => openRevert(appt)}
                             title="Desfazer: foi falta (devolve a sessão para a guia)"
                             aria-label="Desfazer: foi falta"
