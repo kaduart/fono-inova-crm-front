@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import CashflowAgendaSummary from './CashflowAgendaSummary';
+import type { AppointmentsByTypeData } from '../../../hooks/useAppointmentsByType';
 const base = {
  data: { atendimentos: { total: 17, realizados: 12, faltantes: 5 }, agenda: { faltasOuCancelados: 2 } } as any,
  analytics: { novos: [{ date: '2026-10-30' }, { date: '2026-11-02' }], leads: [], novosEspecialidade: [], retornos45: [], recorrentes: [], continuousTreatment: [], all: [] } as any,
@@ -27,7 +28,7 @@ describe('Resumo operacional do caixa', () => {
  });
  it('mostra pacientes novos e nova terapia de quem AGENDOU no dia (mode createdAt)', () => {
   const onProfile = vi.fn();
-  const createdAnalytics = { leads: [{ date: '2026-11-10' }], novos: [{ date: '2026-10-30' }, { date: '2026-11-05' }], novosEspecialidade: [{ date: '2026-11-06' }], retornos45: [], recorrentes: [], continuousTreatment: [], all: [] } as any;
+  const createdAnalytics = { leads: [{ date: '2026-11-10' }], novos: [{ date: '2026-10-30' }, { date: '2026-11-05' }], novosEspecialidade: [{ date: '2026-11-06' }], retornos45: [], recorrentes: [], continuousTreatment: [], all: [] } as unknown as AppointmentsByTypeData;
   render(<CashflowAgendaSummary {...base} createdAnalytics={createdAnalytics} onProfile={onProfile} />);
   fireEvent.click(screen.getByRole('button', { name: 'Ver 3 pacientes novos' }));
   expect(onProfile).toHaveBeenLastCalledWith('Pacientes novos que agendaram no dia', [...createdAnalytics.leads, ...createdAnalytics.novos]);
