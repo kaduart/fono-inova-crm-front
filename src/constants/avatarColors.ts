@@ -10,12 +10,12 @@ export interface AvatarColor {
 }
 
 export const AVATAR_COLORS: readonly AvatarColor[] = [
-    { bg: '#E0E7FF', text: '#4F46E5' },
+    { bg: 'var(--fx-indigo-100)', text: '#4F46E5' },
     { bg: '#FCE7F3', text: '#BE185D' },
-    { bg: '#D1FAE5', text: '#047857' },
-    { bg: '#FEF3C7', text: '#B45309' },
-    { bg: '#E0F2FE', text: '#0369A1' },
-    { bg: '#F3E8FF', text: '#7C3AED' }
+    { bg: 'var(--fx-emerald-100)', text: 'var(--fx-emerald-700)' },
+    { bg: 'var(--fx-amber-100)', text: 'var(--fx-amber-700)' },
+    { bg: 'var(--fx-sky-100)', text: 'var(--fx-sky-700)' },
+    { bg: 'var(--fx-purple-100)', text: '#7C3AED' }
 ];
 
 export const getAvatarColor = (name?: string): AvatarColor => {

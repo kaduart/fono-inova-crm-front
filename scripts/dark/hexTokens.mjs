@@ -28,6 +28,8 @@ for (const file of process.argv.slice(2)) {
   let n = 0;
   const out = src.split('\n').map(line => {
     let l = line;
+    // Linha que já escolhe cor própria do escuro: não mexe.
+    if (/html\.dark|isDark|mode === 'dark'|palette\.mode/.test(l)) return l;
     // Alpha colado no fim da cor (`${cor}20`, cor + '20') só funciona com hex.
     // color-mix funciona com hex E com var(--fx-*), então converte antes.
     if (CSSISH.test(l)) {
