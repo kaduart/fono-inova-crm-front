@@ -149,7 +149,7 @@ export type CancelParams = {
     /** ISO — quando o pedido realmente chegou (default: agora). */
     cancelRequestedAt?: string;
     notifyPatient?: boolean;
-    /** Admin/secretária: desfaz sessão de convênio já concluída (vira falta e devolve a sessão à guia). */
+    /** Só admin: desfaz sessão de convênio já concluída (vira falta e devolve a sessão à guia). */
     revertCompletedConvenio?: boolean;
     paymentMethod?: string;
     billingType?: string;

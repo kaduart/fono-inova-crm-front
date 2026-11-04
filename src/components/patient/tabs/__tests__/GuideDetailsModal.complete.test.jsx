@@ -53,7 +53,7 @@ vi.mock('../../../../services/appointmentService', () => ({
 const completeCtxMock = vi.fn();
 // "Desfazer: foi falta" (04/11) usa useAuth para saber se é admin.
 vi.mock('../../../../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { role: 'secretary' } }),
+  useAuth: () => ({ user: { role: 'admin' } }),
 }));
 vi.mock('../../../../contexts/AppointmentsContext', () => ({
   useAppointmentsContext: () => ({ completeAppointment: completeCtxMock }),

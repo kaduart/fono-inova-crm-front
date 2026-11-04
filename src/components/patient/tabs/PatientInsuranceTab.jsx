@@ -1348,7 +1348,7 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   // concluída por engano (ex.: confirmada em lote) vira cancelada e devolve 1 sessão à guia.
   // O back recusa se a sessão está em lote ou o Payment já foi faturado/recebido.
   const { user: authUser } = useAuth();
-  const canRevertCompleted = ['admin', 'superadmin', 'secretary'].includes(String(authUser?.role || '').toLowerCase());
+  const canRevertCompleted = ['admin', 'superadmin'].includes(String(authUser?.role || '').toLowerCase());
   const [revertingAppt, setRevertingAppt] = useState(null);
   const [revertRequester, setRevertRequester] = useState('patient');
   const [revertReason, setRevertReason] = useState('Paciente faltou');
