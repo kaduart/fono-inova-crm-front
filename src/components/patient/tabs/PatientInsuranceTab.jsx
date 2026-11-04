@@ -25,8 +25,10 @@ import {
   XOctagon,
   Info,
   AlertTriangle,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Undo2
 } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1341,6 +1343,40 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   // precisar reimplementar nada disso aqui (bloqueador 4 do review 2026-08-15).
   const { completeAppointment: completeAppointmentCtx } = useAppointmentsContext();
 
+  // 🆕 (2026-11-04, caso Ícaro Lima) "Desfazer: foi falta" — só admin. Sessão de convênio
+  // concluída por engano (ex.: confirmada em lote) vira cancelada e devolve 1 sessão à guia.
+  // O back recusa se a sessão está em lote ou o Payment já foi faturado/recebido.
+  const { user: authUser } = useAuth();
+  const isAdmin = ['admin', 'superadmin'].includes(String(authUser?.role || '').toLowerCase());
+  const [revertingAppt, setRevertingAppt] = useState(null);
+  const [revertRequester, setRevertRequester] = useState('patient');
+  const [revertReason, setRevertReason] = useState('Paciente faltou');
+  const [revertSubmitting, setRevertSubmitting] = useState(false);
+  const openRevert = (appt) => {
+    setRevertingAppt(appt);
+    setRevertRequester('patient');
+    setRevertReason('Paciente faltou');
+  };
+  const confirmRevert = async () => {
+    if (!revertReason.trim()) { toast.error('Informe o motivo'); return; }
+    setRevertSubmitting(true);
+    try {
+      await appointmentService.cancel(revertingAppt._id, {
+        reason: revertReason.trim(),
+        cancelRequester: revertRequester,
+        revertCompletedConvenio: true,
+      });
+      toast.success('Sessão desfeita: virou falta e voltou para a guia');
+      setRevertingAppt(null);
+      await loadAppointments(guide._id);
+      onUpdate?.();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || 'Não foi possível desfazer a sessão');
+    } finally {
+      setRevertSubmitting(false);
+    }
+  };
+
   // 🚨 FIX (2026-08-15): dialog de edição simples trocado por AppointmentDetailModal
   // (mesmo padrão já usado em ContractCard.tsx/Liminar) — corrige rótulo de status
   // errado ("Agendado" pra sessão completed, por normalizeEditStatus cair no fallback)
@@ -1869,6 +1905,14 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                           className="rounded-md p-1.5 text-slate-400 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-300 dark:disabled:text-slate-600">
                           <ArrowRightLeft size={13} aria-hidden />
                         </button>
+                        {isCompleted && isAdmin && (
+                          <button type="button" onClick={() => openRevert(appt)}
+                            title="Desfazer: foi falta (devolve a sessão para a guia)"
+                            aria-label="Desfazer: foi falta"
+                            className="rounded-md p-1.5 text-slate-400 hover:text-amber-700">
+                            <Undo2 size={13} aria-hidden />
+                          </button>
+                        )}
                         <button type="button" onClick={() => openEdit(appt)} disabled={isCompleted}
                           title={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
                           aria-label={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
@@ -2076,6 +2120,38 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         <button type="button" onClick={() => setMovingAppt(null)} disabled={moveSubmitting} className={btnOutline}>Cancelar</button>
         <button type="button" onClick={confirmMove} disabled={moveSubmitting || !moveTargetGuideId} className={`${btnPrimary} min-w-[110px] bg-blue-700 hover:bg-blue-800`}>
           {moveSubmitting ? <Spinner size={16} light /> : 'Confirmar'}
+        </button>
+      </div>
+    </ModalShell>
+
+    <ModalShell open={!!revertingAppt} onClose={() => !revertSubmitting && setRevertingAppt(null)} labelledBy="revert-title" className="w-full max-w-md rounded-2xl">
+      <h2 id="revert-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Desfazer: foi falta</h2>
+      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
+        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
+          {revertingAppt?.date ? format(parseISO(revertingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
+          {revertingAppt?.time ? ` às ${revertingAppt.time}` : ''} · Guia #{guide?.number}
+        </p>
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          A sessão sai de "realizada", vira cancelada e <strong>volta para a guia</strong>. Depois use "Gerar sessões" para marcar uma data nova.
+          Não funciona se a sessão já está em lote de faturamento ou se o convênio já pagou.
+        </p>
+        <label className={labelCls}>
+          Quem avisou / solicitou
+          <select value={revertRequester} onChange={e => setRevertRequester(e.target.value)} className={fieldCls}>
+            <option value="patient">Paciente</option>
+            <option value="professional">Profissional</option>
+            <option value="clinic">Clínica</option>
+          </select>
+        </label>
+        <label className={labelCls}>
+          Motivo
+          <input type="text" value={revertReason} onChange={e => setRevertReason(e.target.value)} className={fieldCls} />
+        </label>
+      </div>
+      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
+        <button type="button" onClick={() => setRevertingAppt(null)} disabled={revertSubmitting} className={btnOutline}>Voltar</button>
+        <button type="button" onClick={confirmRevert} disabled={revertSubmitting || !revertReason.trim()} className={`${btnPrimary} min-w-[110px] bg-amber-600 hover:bg-amber-700`}>
+          {revertSubmitting ? <Spinner size={16} light /> : 'Desfazer sessão'}
         </button>
       </div>
     </ModalShell>
