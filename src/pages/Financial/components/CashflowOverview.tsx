@@ -7,7 +7,9 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 const button = 'min-h-10 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950';
 const primary = 'min-h-10 rounded-lg border border-emerald-700 bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2';
 interface Props {
-    agendaSummary?: ReactNode; onMetric?: (key: 'caixa' | 'previsto' | 'receber' | 'ticket') => void; data: CashflowV2Data; periodLabel: string; patientsWithoutNext: number; patientsLoading: boolean; patientsError: boolean;
+    agendaSummary?: ReactNode;
+    /** Régua do dia (mock v3, 04/11): entra logo abaixo dos cards e do "Do previsto ao caixa". */
+    ruler?: ReactNode; onMetric?: (key: 'caixa' | 'previsto' | 'receber' | 'ticket') => void; data: CashflowV2Data; periodLabel: string; patientsWithoutNext: number; patientsLoading: boolean; patientsError: boolean;
     patientsImpact: number; recurrent: number; onSchedule: () => void; onCollect: () => void;
     onBill: () => void; slotsAtRisk: number; slotImpact: number; onFit: () => void; onContact: (phone: string, text?: string) => void;
     /** Faltas/cancelamentos do dia: abre a lista com "oferecer remarcação". */
@@ -56,6 +58,15 @@ export default function CashflowOverview(p: Props) {
         return `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` e mais ${names.length - 3}` : ''}`;
     }, [pending]);
     const topWithoutNext = (p.patientsTop || []).slice(0, 3).map(item => item.name).filter(Boolean).join(', ');
+    // Mock v3: fila ordenada pelo R$ em jogo; cor do número = estado (âmbar sem pagamento, vermelho falta, azul convênio).
+    const actions: (Parameters<typeof Action>[0] & { key: string; sort: number })[] = [];
+    if (pending.length > 0) actions.push({ key: 'cobrar', sort: pendingTotal, n: pending.length, tone: 'a', primary: true, title: pending.length === 1 ? 'Atendido sem pagamento' : 'Atendidos sem pagamento', detail: pendingNames, value: money(pendingTotal), label: 'Cobrar', onClick: p.onCollect });
+    if (missed > 0) actions.push({ key: 'remarcar', sort: missedValue, n: missed, tone: 'r', title: 'Faltas para remarcar', detail: 'Remarcar ainda esta semana recupera a sessão', value: missedValue > 0 ? money(missedValue) : '', label: 'Remarcar', onClick: p.onMissed || (() => undefined) });
+    if (!p.patientsLoading && !p.patientsError && p.patientsWithoutNext > 0) actions.push({ key: 'agendar', sort: p.patientsImpact, n: p.patientsWithoutNext, tone: 'n', title: 'Pacientes sem próxima sessão', detail: `${plural(p.recurrent, 'recorrente', 'recorrentes')}${topWithoutNext ? `: ${topWithoutNext}` : ''}`, value: `${money(p.patientsImpact)}/mês`, label: 'Agendar', onClick: p.onSchedule });
+    if (packageState === 'ready' && packages.length > 0) actions.push({ key: 'renovar', sort: -1, n: packages.length, tone: 'n', title: `${packages.length === 1 ? 'Pacote acabando' : 'Pacotes acabando'} (até 2 sessões)`, detail: `${lastOne ? `${lastOne} na última sessão. ` : ''}${bySpecialty}. Valor da nova oferta a definir`, value: '', label: showPackages ? 'Fechar' : 'Renovar', onClick: () => setShowPackages(open => !open) });
+    if (p.slotsAtRisk > 0) actions.push({ key: 'encaixar', sort: p.slotImpact, n: p.slotsAtRisk, tone: 'n', title: 'Horários críticos na grade', detail: 'Grade atual. Confirme a vaga e os candidatos antes de oferecer', value: `${money(p.slotImpact)}/mês em risco`, label: 'Encaixar', onClick: p.onFit });
+    if (bills.length > 0) actions.push({ key: 'faturar', sort: billsTotal, n: bills.length, tone: 'b', title: 'Convênio para faturar', detail: 'Consultar os atendimentos e suas guias', value: money(billsTotal), label: 'Faturar', onClick: p.onBill });
+    actions.sort((x, y) => y.sort - x.sort);
     const atStake = pendingTotal + missedValue + (p.patientsWithoutNext > 0 ? p.patientsImpact : 0) + billsTotal;
     // Visual aprovado em 31/10: o caixa é o destaque (número grande + barra do previsto).
     const cell = (key: 'caixa' | 'previsto' | 'receber' | 'ticket') => p.onMetric ? {
@@ -68,7 +79,7 @@ export default function CashflowOverview(p: Props) {
     // Do previsto ao caixa: só soma números que o banco já devolve; o resto é "sem explicação".
     const entrou = Math.min(caixa, previsto);
     const bridge: [string, number, string][] = [
-        ['entrou no caixa', entrou, 'bg-emerald-600'], ['atendido sem pagamento', pendingTotal, 'bg-red-600'], ['convênio a faturar', billsTotal, 'bg-blue-600'],
+        ['entrou no caixa', entrou, 'bg-emerald-600'], ['atendido sem pagamento', pendingTotal, 'bg-amber-500 dark:bg-amber-400'], ['convênio a faturar', billsTotal, 'bg-blue-600 dark:bg-blue-500'],
     ];
     const explained = bridge.reduce((s, [, v]) => s + v, 0);
     const rest = Math.max(0, previsto - explained);
@@ -92,7 +103,7 @@ export default function CashflowOverview(p: Props) {
             </div>
             <div {...cell('receber')} className={`${cellCls} lg:border-r`}>
                 <dt className={label}>A receber {p.periodLabel.toLowerCase()}</dt>
-                <dd className={`mt-2 text-xl font-bold tabular-nums ${pendingTotal > 0 ? 'text-red-700 dark:text-red-400' : ''}`}>{money(pendingTotal)}</dd>
+                <dd className={`mt-2 text-xl font-bold tabular-nums ${pendingTotal > 0 ? 'text-amber-700 dark:text-amber-300' : ''}`}>{money(pendingTotal)}</dd>
                 <dd className="mt-1 text-xs text-gray-600 dark:text-gray-300">{plural(pending.length, 'atendido sem pagamento', 'atendidos sem pagamento')}</dd>
                 {more('Ver quem cobrar')}
             </div>
@@ -114,21 +125,17 @@ export default function CashflowOverview(p: Props) {
                 {caixa > previsto && <li className="text-gray-600 dark:text-gray-300">+ {money(caixa - previsto)} acima do previsto (pacotes e pagamentos antecipados)</li>}
             </ul>
         </section>}
+        {p.ruler && <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">{p.ruler}</div>}
         {p.agendaSummary}
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <section aria-labelledby="cashflow-actions" className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <h3 id="cashflow-actions" className="text-sm font-semibold">O que fazer para não perder receita</h3>
-                {atStake > 0 && <span className="text-xs text-gray-600 dark:text-gray-300">{money(atStake)} em jogo{packages.length ? ' · pacotes fora (valor a definir)' : ''}</span>}
+                <h3 id="cashflow-actions" className="text-base font-bold">Precisa de você</h3>
+                {atStake > 0 && <span className="text-xs text-gray-600 dark:text-gray-300">{money(atStake)} em jogo, do maior para o menor{packages.length ? '. Pacotes sem valor definido ficam no fim' : ''}</span>}
             </div>
             <div className="px-4">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {pending.length > 0 && <Action n={pending.length} tone="r" primary title={pending.length === 1 ? 'Atendido sem pagamento' : 'Atendidos sem pagamento'} detail={pendingNames} value={money(pendingTotal)} label="Cobrar" onClick={p.onCollect} />}
-                {missed > 0 && <Action n={missed} tone="a" title="Faltas para remarcar" detail="Remarcar ainda esta semana recupera a sessão" value={missedValue > 0 ? money(missedValue) : ''} label="Remarcar" onClick={p.onMissed || (() => undefined)} />}
-                {!p.patientsLoading && !p.patientsError && p.patientsWithoutNext > 0 && <Action n={p.patientsWithoutNext} tone="a" title="Pacientes sem próxima sessão" detail={`${plural(p.recurrent, 'recorrente', 'recorrentes')}${topWithoutNext ? ` · ${topWithoutNext}` : ''}`} value={`${money(p.patientsImpact)}/mês`} label="Agendar" onClick={p.onSchedule} />}
-                {packageState === 'ready' && packages.length > 0 && <Action n={packages.length} tone="g" title={`${packages.length === 1 ? 'Pacote acabando' : 'Pacotes acabando'} (até 2 sessões)`} detail={`${lastOne ? `${lastOne} na última sessão · ` : ''}${bySpecialty} · valor da nova oferta a definir`} value="" label={showPackages ? 'Fechar' : 'Renovar'} onClick={() => setShowPackages(open => !open)} />}
-                {p.slotsAtRisk > 0 && <Action n={p.slotsAtRisk} tone="a" title="Horários críticos na grade" detail="Grade atual · confirme disponibilidade e candidatos" value={`${money(p.slotImpact)}/mês em risco`} label="Encaixar" onClick={p.onFit} />}
-                {bills.length > 0 && <Action n={bills.length} tone="g" title="Convênio para faturar" detail="Consultar os atendimentos e suas guias" value={money(billsTotal)} label="Faturar" onClick={p.onBill} />}
+                {actions.map(({ key, ...a }) => <Action key={key} {...a} />)}
             </div>
             {p.patientsLoading && <p role="status" className="mt-2 text-sm text-gray-600 dark:text-gray-300">Consultando pacientes sem próxima sessão…</p>}
             {p.patientsError && <p role="alert" className="mt-2 text-sm">Não foi possível consultar pacientes sem próxima sessão. Selecione o período novamente para tentar.</p>}
@@ -148,26 +155,27 @@ export default function CashflowOverview(p: Props) {
         </div>
     </div>;
 }
-function Action({ n, tone, title, detail, value, label, onClick, primary: isPrimary }: { n: number; tone: 'r' | 'a' | 'g'; title: string; detail: string; value: string; label: string; onClick: () => void; primary?: boolean }) {
-    // Cor pela urgência: vermelho cobrar, amarelo agendar/grade, verde oportunidade.
-    const badge = { r: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300', a: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300', g: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' }[tone];
+function Action({ n, tone, title, detail, value, label, onClick, primary: isPrimary }: { n: number; tone: 'r' | 'a' | 'b' | 'n'; title: string; detail: string; value: string; label: string; onClick: () => void; primary?: boolean }) {
+    // Cor = estado, igual à Régua do dia: âmbar sem pagamento, vermelho falta, azul convênio, neutro para oportunidades.
+    const badge = { r: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300', a: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300', b: 'bg-blue-50 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300', n: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' }[tone];
     return <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto_6rem]">
         <span className={`rounded-lg py-1 text-center text-lg font-bold tabular-nums ${badge}`}>{n}</span>
         <div className="min-w-0"><p className="text-sm font-semibold">{title}</p><p className="mt-0.5 truncate text-xs text-gray-600 dark:text-gray-300" title={detail}>{detail}</p></div>
-        <span className={`text-sm font-bold tabular-nums sm:text-right ${tone === 'r' ? 'text-red-700 dark:text-red-400' : ''}`}>{value}</span>
+        <span className={`text-sm font-bold tabular-nums sm:text-right ${tone === 'a' ? 'text-amber-800 dark:text-amber-300' : tone === 'r' ? 'text-red-700 dark:text-red-400' : ''}`}>{value}</span>
         <button type="button" className={`${isPrimary ? primary : button} col-start-3 justify-self-end sm:col-start-auto sm:w-full`} onClick={onClick}>{label}</button>
     </div>;
 }
-const BD_COLORS = ['bg-emerald-600', 'bg-blue-500', 'bg-amber-500', 'bg-violet-500', 'bg-gray-400'];
+// Tudo aqui já entrou no caixa: tons de verde, sem reaproveitar as cores de estado.
+const BD_COLORS = ['bg-emerald-700 dark:bg-emerald-500', 'bg-emerald-500 dark:bg-emerald-600', 'bg-emerald-300 dark:bg-emerald-800', 'bg-teal-200 dark:bg-teal-900', 'bg-gray-300 dark:bg-gray-600'];
 function Breakdown({ title, values }: { title: string; values: [string, number][] }) {
     const items = values.filter(([, value]) => value > 0);
     const total = items.reduce((s, [, v]) => s + v, 0);
     const pct = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
     return <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">{title}</h4>
+        <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h4>
         {/* Com uma forma só a barra cheia não diz nada: fica só a linha. */}
         {items.length > 1 && <div className="mb-2.5 flex h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">{items.map(([label, value], i) => <span key={label} title={`${label}: ${money(value)}`} className={BD_COLORS[i % BD_COLORS.length]} style={{ width: `${pct(value)}%` }} />)}</div>}
-        <dl className="space-y-1.5">{items.map(([label, value], i) => <div key={label} className="flex items-center gap-2 text-sm"><span aria-hidden className={`h-2.5 w-2.5 rounded-sm ${BD_COLORS[i % BD_COLORS.length]}`} /><dt className="flex-1">{label}</dt><dd className="font-semibold tabular-nums">{money(value)} <span className="font-normal text-gray-600 dark:text-gray-300">· {pct(value)}%</span></dd></div>)}</dl>
+        <dl className="space-y-1.5">{items.map(([label, value], i) => <div key={label} className="flex items-center gap-2 text-sm"><span aria-hidden className={`h-2.5 w-2.5 rounded-sm ${BD_COLORS[i % BD_COLORS.length]}`} /><dt className="flex-1">{label}</dt><dd className="font-semibold tabular-nums">{money(value)} <span className="inline-block w-10 text-right font-normal text-gray-600 dark:text-gray-300">{pct(value)}%</span></dd></div>)}</dl>
         {!items.length && <p className="text-sm text-gray-600 dark:text-gray-300">Sem recebimentos.</p>}
     </div>;
 }

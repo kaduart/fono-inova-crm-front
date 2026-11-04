@@ -7,11 +7,12 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { openWhatsApp } from '../../components/commercial/commercialCopy';
+import { openWhatsApp, specialtyText } from '../../components/commercial/commercialCopy';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import CashflowOverview from './components/CashflowOverview';
 import CashflowAgendaSummary from './components/CashflowAgendaSummary';
+import CashflowDayRuler, { RulerAppointment, RulerState } from './components/CashflowDayRuler';
 import CashflowMonthChart from './components/CashflowMonthChart';
 import CashflowDrawer, { DrawerContent } from './components/CashflowDrawer';
 import { collectMessage, rescheduleMessage } from '../../components/commercial/commercialCopy';
@@ -461,6 +462,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     // Mesma regra da aba Agenda do Dia (ver getEffectiveStatus lá embaixo).
     const effectiveStatus = (a: any) => a.operationalStatus === 'canceled' ? 'canceled'
         : (a.operationalStatus === 'completed' || attendedIdSet.has(String(a.id || a._id || ''))) ? 'completed' : a.operationalStatus;
+    // Régua do dia (mock v3, 04/11): só para um dia; cliques abrem os mesmos painéis de antes.
+    const pendingIdSet = useMemo(() => new Set<string>((data?.pendentesCobranca || []).map(i => String(i?.id || ''))), [data]);
+    const isAptCompleted = useCallback((a: RulerAppointment) => effectiveStatus(a) === 'completed', [attendedIdSet]); // eslint-disable-line react-hooks/exhaustive-deps
+    const onRulerState = (s: RulerState) => s === 'sem' ? openCollectDrawer() : s === 'conv' ? openBillDrawer()
+        : openAgendaDrawer(s === 'falta' ? 'canceled' : s === 'futuro' ? 'scheduled' : 'completed');
     const STATUS_TITLE: Record<string, string> = { all: 'Agendados', completed: 'Atendidos', scheduled: 'Aguardando', canceled: 'Faltas e cancelamentos' };
 
     const buildAgendaDrawer = (status = 'all'): DrawerContent => {
@@ -622,7 +628,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         patientsTop={patientsWithoutNextList}
                         onMetric={(k) => k === 'previsto' ? openAgendaDrawer('all') : k === 'receber' ? openCollectDrawer() : openReceiptsDrawer()}
                         slotsAtRisk={retentionCritical} slotImpact={retentionLoss} onFit={() => navigate('/retention')}
-                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData}
+                        ruler={!isMultiDayRange && dayAppointments.length > 0 ? <CashflowDayRuler appointments={dayAppointments} isCompleted={isAptCompleted}
+                            pendingIds={pendingIdSet} isToday={selectedDate === format(new Date(), 'yyyy-MM-dd')} onState={onRulerState}
+                            values={{ sem: data.pendentesCobranca?.length ? formatCurrency(data.pendentesCobranca.reduce((t, i) => t + (i.valor || 0), 0)) : undefined,
+                                conv: data.conveniosAtendidos?.length ? formatCurrency(data.conveniosAtendidos.reduce((t, i) => t + (i.valor || 0), 0)) : undefined,
+                                falta: data.agenda?.perdido ? formatCurrency(data.agenda.perdido) : undefined }} /> : undefined}
+                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData} hideAttendance={!isMultiDayRange && dayAppointments.length > 0}
                             loading={analyticsLoading} error={!!analyticsError} createdTotal={analyticsCreatedSummary?.total}
                             createdLoading={analyticsCreatedLoading} createdError={!!analyticsCreatedError}
                             startDate={dateRange && !manualDateOverride ? dateRange.startDate : selectedDate}
@@ -1479,13 +1490,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
                                   <div className="w-20 shrink-0">
-                                      <div className="text-2xs text-gray-400">{t.data}</div>
-                                      <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{t.data}</div>}
+                                      <div className="text-sm font-semibold tabular-nums text-gray-900">{t.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
                                       <div className="truncate text-sm font-semibold text-gray-900">{t.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
-                                          {[t.profissional, t.especialidade].filter(Boolean).join(' / ')}
+                                          {[t.profissional, specialtyText(t.especialidade)].filter(Boolean).join(' / ')}
                                       </div>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
@@ -1590,14 +1601,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={t.id} className="grid grid-cols-2 sm:grid-cols-[82px_minmax(0,1fr)_90px_125px_100px] items-center gap-x-3 gap-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
                                   <div>
-                                      <div className="text-2xs text-gray-400">{t.data}</div>
-                                      <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{t.data}</div>}
+                                      <div className="text-sm font-semibold tabular-nums text-gray-900">{t.hora}</div>
                                   </div>
 
                                   <div className="min-w-0">
                                       <div className="truncate text-sm font-semibold text-gray-800">{t.isPackageSale ? 'Venda de Pacote' : (t.servico || 'Sessão')}</div>
                                       <div className="truncate text-2xs text-gray-400">
-                                          {[t.profissional, t.especialidade].filter(Boolean).join(' · ') || 'Sem profissional informado'}
+                                          {[t.profissional, specialtyText(t.especialidade)].filter(Boolean).join(' · ') || 'Sem profissional informado'}
                                       </div>
                                   </div>
 
@@ -1647,13 +1658,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={g._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
                                   <div className="w-20 shrink-0">
-                                      <div className="text-2xs text-gray-400">{first.data}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{first.data}</div>}
                                       <div className="font-mono text-sm font-semibold text-gray-900">{first.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
                                       <div className="truncate text-sm font-semibold text-gray-900">{first.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
-                                          {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
+                                          {[first.profissional, specialtyText(first.especialidade)].filter(Boolean).join(' / ')}
                                       </div>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
@@ -1726,7 +1737,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls} hover:bg-gray-100 transition-colors text-left`}
                               >
                                   <div className="w-20 shrink-0">
-                                      <div className="text-2xs text-gray-400">{first.data}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{first.data}</div>}
                                       <div className="font-mono text-sm font-semibold text-gray-900">{first.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">

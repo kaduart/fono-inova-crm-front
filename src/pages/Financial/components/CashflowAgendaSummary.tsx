@@ -15,6 +15,8 @@ interface Props {
     onNewSpecialty: () => void;
     /** Abre a lista com nome, horário e profissional de um grupo do perfil. */
     onProfile?: (title: string, items: any[]) => void;
+    /** Com a Régua do dia na tela, atendidos/aguardando/faltas já aparecem na legenda dela (mesmos cliques). */
+    hideAttendance?: boolean;
 }
 const link = 'min-h-10 rounded-md px-2 text-left text-sm text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950';
 const tone = { g: 'text-emerald-700 dark:text-emerald-300', a: 'text-amber-700 dark:text-amber-300', r: 'text-red-700 dark:text-red-400' };
@@ -56,12 +58,12 @@ export default function CashflowAgendaSummary(p: Props) {
     ];
     // Duas linhas rotuladas (01/11): Agenda e Perfil. Nenhum chip saiu.
     const row = 'flex flex-wrap items-center gap-2';
-    const rowLabel = 'w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300';
+    const rowLabel = 'w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-300';
     return <section aria-labelledby="cashflow-agenda-title" className="space-y-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left dark:border-gray-700 dark:bg-gray-900">
         <h3 id="cashflow-agenda-title" className="sr-only">Agenda {period}</h3>
         <div className={row}>
             <span className={rowLabel}>Agenda</span>
-            {chips.map(c => <Chip key={c.label} label={c.label} value={c.value} t={c.tone} onClick={c.onClick} />)}
+            {chips.filter(c => !p.hideAttendance || c.label === 'agendados').map(c => <Chip key={c.label} label={c.label} value={c.value} t={c.tone} onClick={c.onClick} />)}
             <Chip label="criados no período" value={p.createdLoading || p.createdError ? undefined : p.createdTotal} detail={p.createdLoading ? 'consultando…' : p.createdError ? 'indisponível' : 'inclui datas futuras'} />
             <button type="button" className={`${link} ml-auto`} onClick={() => p.onAgenda()}>Ver agenda e atendimentos</button>
         </div>
