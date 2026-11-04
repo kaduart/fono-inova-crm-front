@@ -6,6 +6,9 @@ const storageKey = (userId?: string) => `erpNovidadesVistas:${userId || 'anon'}`
 // 01/11 (Kadu): a novidade volta a abrir a cada carregamento da página até a
 // pessoa clicar em "Não mostrar mais". No máximo 1 abertura automática por carregamento.
 let autoOpenedThisLoad = false;
+// 04/11 (Kadu): abertura automática DESLIGADA para todos (reabria para o comercial
+// mesmo após "Não mostrar mais"). Novidades só pelo "?" do topo. true religa.
+const AUTO_OPEN = false;
 
 function readSeen(userId?: string): Record<string, string> {
     try { return JSON.parse(localStorage.getItem(storageKey(userId)) || '{}') || {}; } catch { return {}; }
@@ -31,7 +34,7 @@ export function useNovidades(area: NovidadesArea, activeTab: string, userId?: st
 
     // Abre sozinho só a tela atual, se ela tiver versão nova e nada abriu nesta sessão.
     useEffect(() => {
-        if (!userId) return;
+        if (!AUTO_OPEN || !userId) return;
         const current = screens.find((s) => s.tabs.includes(activeTab));
         if (!current || !isNew(current)) return;
         if (autoOpenedThisLoad) return;

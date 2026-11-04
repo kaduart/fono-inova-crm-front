@@ -1,4 +1,4 @@
-// Possíveis pacientes duplicados + Mesclar (03/11/2026) — só admin.
+// Possíveis pacientes duplicados + Mesclar (03/11/2026) — admin e secretária (04/11, pedido do Kadu).
 // Back: GET /api/patients/duplicates/report, POST .../confirm-distinct, POST .../merge.
 // Mesclar sempre mostra a prévia antes. Em produção a execução fica desligada
 // (PATIENT_MERGE_ENABLED) até o Kadu liberar — aí a tela avisa e não muda nada.
