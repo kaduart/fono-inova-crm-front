@@ -1129,9 +1129,15 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             <Typography fontSize="0.82rem" fontWeight={800} color="var(--fx-slate-900)">
                                 {selectedHere.length} guia{selectedHere.length !== 1 ? 's' : ''} · {selectedSessions} {sessoes(selectedSessions)}
                             </Typography>
-                            <Typography fontSize="0.78rem" color={phasePresentation.color} fontWeight={700}>
-                                {formatCurrency(selectedValue)} {phasePresentation.value}
-                            </Typography>
+                            {selectedHere.length === 0 ? (
+                                <Typography fontSize="0.78rem" color="var(--fx-slate-500)">
+                                    Marque as guias que vai {isReceiveMode ? 'receber' : 'faturar'}
+                                </Typography>
+                            ) : (
+                                <Typography fontSize="0.78rem" color={phasePresentation.color} fontWeight={700}>
+                                    {formatCurrency(selectedValue)} {phasePresentation.value}
+                                </Typography>
+                            )}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             {selectedHere.length > 0 && (
@@ -1262,12 +1268,8 @@ const GuidePendingBillingSection = ({
         // seleção canônica acontece nas guias exibidas dentro deste drawer.
         if (selectionInsideDrawer) {
             selectedGuides.forEach(guideId => onToggleGuide(guideId));
-            // 01/11: guias por guia já vêm marcadas quando têm sessões a faturar
-            // (antes abria tudo desmarcado e o botão ficava desabilitado sem dica).
-            // Mensal segue a seleção automática por competência do próprio drawer.
-            patientGuides
-                .filter(guide => guide.billingMode === 'per_guide' && Number(guide.pendingSessions || (guide.sessions || []).length) > 0)
-                .forEach(guide => onToggleGuide(guide.guideId));
+            // 04/11 (Kadu): abre tudo desmarcado. Marcar sozinho levava junto até
+            // guia cancelada; faturar é escolha consciente. O rodapé diz o que fazer.
         }
         // A ReadView V2 soma sessões pendentes de todas as competências não
         // faturadas (achado 2026-08-17) — o drawer mostra tudo, agrupado por
