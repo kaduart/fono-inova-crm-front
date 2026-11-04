@@ -583,15 +583,18 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
   const [generating, setGenerating] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
-  const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates } | null
+  const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates: [{ id, label }], selected: string[] } | null
   const queryClient = useQueryClient();
 
   // 🆕 (2026-08-20) Confirmação em lote das retroativas — 1 clique deliberado,
   // chamado a partir do botão de ação no toast (ou de onde mais for exposto).
   // Nunca disparado sozinho por generate-sessions (ver comentário no backend).
-  const confirmPastSessions = async (planId) => {
+  // appointmentIds: só as datas marcadas no modal (as desmarcadas — faltas — ficam pendentes
+  // para cancelar pela agenda). Sem lista, o back confirma todas (comportamento antigo).
+  const confirmPastSessions = async (planId, appointmentIds) => {
     try {
-      const res = await API.post(`/v2/insurance-plans/${planId}/confirm-past-sessions`, {}, { timeout: 60000 });
+      const body = Array.isArray(appointmentIds) ? { appointmentIds } : {};
+      const res = await API.post(`/v2/insurance-plans/${planId}/confirm-past-sessions`, body, { timeout: 60000 });
       const { total, confirmed, failed } = res.data?.data || {};
       if (total === 0) {
         toast('Nenhuma sessão retroativa pendente encontrada.', { icon: 'ℹ️' });
@@ -662,11 +665,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           pastDates = appts
             .filter(a => ['pre_agendado', 'scheduled'].includes(a.operationalStatus || a.status) && (a.date || '').slice(0, 10) < todayStr)
             .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
-            .map(a => `${format(parseISO(a.date.slice(0, 10)), 'dd/MM/yyyy')}${a.time ? ` às ${a.time}` : ''}`);
+            .map(a => ({ id: String(a._id), label: `${format(parseISO(a.date.slice(0, 10)), 'dd/MM/yyyy')}${a.time ? ` às ${a.time}` : ''}` }));
         } catch {
           // Sem a lista o modal ainda abre com a contagem — a confirmação continua deliberada.
         }
-        setPastConfirm({ planId, totalLabel, count: pastAppointmentsPending, dates: pastDates });
+        // Nada vem marcado: a secretária marca só o que realmente aconteceu (caso Ícaro Lima,
+        // 04/11 — faltas viravam "realizada" porque o modal só tinha "confirmar todas").
+        setPastConfirm({ planId, totalLabel, count: pastAppointmentsPending, dates: pastDates, selected: [] });
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
@@ -1107,8 +1112,28 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
             {pastConfirm.dates.length > 0 && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3 max-h-48 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-600">Marque só as que aconteceram</span>
+                  <button type="button"
+                    onClick={() => setPastConfirm(p => ({ ...p, selected: p.selected.length === p.dates.length ? [] : p.dates.map(d => d.id) }))}
+                    className="text-xs font-medium text-emerald-700 hover:underline">
+                    {pastConfirm.selected.length === pastConfirm.dates.length ? 'Desmarcar todas' : 'Marcar todas'}
+                  </button>
+                </div>
                 <ul className="text-sm text-slate-700 space-y-1">
-                  {pastConfirm.dates.map(d => <li key={d}>• {d}</li>)}
+                  {pastConfirm.dates.map(d => (
+                    <li key={d.id}>
+                      <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <input type="checkbox" className="w-4 h-4 accent-emerald-600"
+                          checked={pastConfirm.selected.includes(d.id)}
+                          onChange={() => setPastConfirm(p => ({
+                            ...p,
+                            selected: p.selected.includes(d.id) ? p.selected.filter(x => x !== d.id) : [...p.selected, d.id],
+                          }))} />
+                        {d.label}
+                      </label>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -1116,8 +1141,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700">
-                Confirme <strong>só se todos esses atendimentos realmente aconteceram</strong> — cada um passa a
-                descontar da guia. Se algum foi falta, escolha "Confirmar depois" e conclua um por um pela agenda.
+                Cada sessão confirmada passa a <strong>descontar da guia e não pode mais ser cancelada</strong>.
+                As desmarcadas ficam pendentes: se foi falta, cancele pela agenda e a sessão volta para a guia.
               </p>
             </div>
 
@@ -1127,9 +1152,15 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 Confirmar depois
               </button>
               <button
-                onClick={() => { const { planId } = pastConfirm; setPastConfirm(null); confirmPastSessions(planId); }}
-                className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <CheckCircle className="w-4 h-4" /> Confirmar {pastConfirm.count} como realizada(s)
+                disabled={pastConfirm.dates.length > 0 && pastConfirm.selected.length === 0}
+                onClick={() => {
+                  const { planId, dates, selected } = pastConfirm;
+                  setPastConfirm(null);
+                  // Sem a lista de datas (falha ao buscar), mantém o "confirmar todas" deliberado.
+                  confirmPastSessions(planId, dates.length > 0 ? selected : undefined);
+                }}
+                className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <CheckCircle className="w-4 h-4" /> Confirmar {pastConfirm.dates.length > 0 ? pastConfirm.selected.length : pastConfirm.count} como realizada(s)
               </button>
             </div>
           </div>
