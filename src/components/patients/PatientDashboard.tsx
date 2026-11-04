@@ -1,5 +1,5 @@
 import { Activity, Calendar, ChevronDown, Clock, CreditCard, FileText, HeartPulse, Phone, Plus, ShieldCheck, UserRound, Users, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -26,6 +26,7 @@ import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { PatientAgendaSummary } from './PatientAgendaSummary';
 import RescheduleDialog, { type RescheduleTarget } from '../calendar/RescheduleDialog';
 import API from '../../services/api';
+import appointmentService from '../../services/appointmentService';
 import { getSpecialtyLabel } from '../../constants/specialties';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
@@ -152,14 +153,17 @@ export default function PatientDashboard() {
       currentTime,
     });
   };
-  const fetchRescheduleSlots = async ({ doctorId, date }: { doctorId: string; date: string }) => {
+  // Estável (sem deps): o hook de agendamentos troca `loading` a cada busca, o que
+  // re-renderiza o painel; uma função nova a cada render refazia a busca sem parar.
+  const fetchRescheduleSlots = useCallback(async ({ doctorId, date }: { doctorId: string; date: string }) => {
     try {
-      return await getAvailableSlots({ doctorId, date });
+      const response = await appointmentService.getAvailableSlots({ doctorId, date });
+      return response.data as unknown as string[];
     } catch {
       toast.error('Erro ao buscar horários disponíveis');
       return [];
     }
-  };
+  }, []);
   // Erro volta para a janela (mensagem inline), igual à Agenda geral.
   const confirmReschedule = async (id: string, data: { date: string; time: string; reason?: string }) => {
     const response = await API.patch(`/v2/appointments/${id}/reschedule`, data);
