@@ -31,8 +31,8 @@ import { useWhatsAppWebStatus, WhatsAppStatus } from '../../hooks/useWhatsAppWeb
 import { useWhatsAppWebHealth } from '../../hooks/useWhatsAppWebHealth';
 
 const statusConfig: Record<WhatsAppStatus, { label: string; color: string; icon: React.ReactNode; severity: 'info' | 'success' | 'warning' | 'error' }> = {
-  starting:      { label: 'Iniciando',       color: '#64748b', icon: <Power size={18} />,       severity: 'info' },
-  initializing:  { label: 'Inicializando',   color: '#64748b', icon: <Loader2 size={18} />,     severity: 'info' },
+  starting:      { label: 'Iniciando',       color: 'var(--fx-slate-500)', icon: <Power size={18} />,       severity: 'info' },
+  initializing:  { label: 'Inicializando',   color: 'var(--fx-slate-500)', icon: <Loader2 size={18} />,     severity: 'info' },
   qr:            { label: 'QR Code',         color: '#0d8a6c', icon: <QrCode size={18} />,      severity: 'warning' },
   authenticated: { label: 'Autenticado',     color: '#d97706', icon: <Smartphone size={18} />,  severity: 'warning' },
   connecting:    { label: 'Conectando',      color: '#d97706', icon: <Loader2 size={18} />,     severity: 'warning' },
@@ -40,7 +40,7 @@ const statusConfig: Record<WhatsAppStatus, { label: string; color: string; icon:
   disconnected:  { label: 'Desconectado',    color: '#dc2626', icon: <XCircle size={18} />,     severity: 'error' },
   error:         { label: 'Erro',            color: '#dc2626', icon: <AlertTriangle size={18} />, severity: 'error' },
   reconnecting:  { label: 'Reconectando',    color: '#d97706', icon: <RefreshCw size={18} />,   severity: 'warning' },
-  unknown:       { label: 'Desconhecido',    color: '#64748b', icon: <Signal size={18} />,      severity: 'info' },
+  unknown:       { label: 'Desconhecido',    color: 'var(--fx-slate-500)', icon: <Signal size={18} />,      severity: 'info' },
 };
 
 function mapHealthStatus(health: ReturnType<typeof useWhatsAppWebHealth>['data']): WhatsAppStatus {
@@ -123,7 +123,7 @@ export default function WhatsAppConnectionCard() {
               label={cfg.label}
               size="small"
               sx={{
-                backgroundColor: cfg.color + '20',
+                backgroundColor: `color-mix(in srgb, ${cfg.color} 13%, transparent)`,
                 color: cfg.color,
                 fontWeight: 600,
                 borderRadius: 1.5,
@@ -183,7 +183,7 @@ export default function WhatsAppConnectionCard() {
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Tooltip title="Status da conexão">
-                <Box className="rounded-lg p-3 text-center" sx={{ backgroundColor: cfg.color + '15' }}>
+                <Box className="rounded-lg p-3 text-center" sx={{ backgroundColor: `color-mix(in srgb, ${cfg.color} 8%, transparent)` }}>
                   <Typography variant="caption" className="text-gray-400 block">Status</Typography>
                   <Typography variant="body2" fontWeight="bold" sx={{ color: cfg.color }}>
                     {cfg.label}
@@ -266,7 +266,7 @@ export default function WhatsAppConnectionCard() {
             </Typography>
             <Box
               className="rounded-xl overflow-hidden border-2 border-dashed border-emerald-200 p-2"
-              sx={{ backgroundColor: '#f0fdf4' }}
+              sx={{ backgroundColor: 'var(--fx-green-50)' }}
             >
               <img
                 src={state.qrCode}
@@ -289,7 +289,7 @@ export default function WhatsAppConnectionCard() {
               fullWidth
               onClick={() => setShowDetails(!showDetails)}
               endIcon={showDetails ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              sx={{ justifyContent: 'space-between', textTransform: 'none', color: '#64748b', p: 2 }}
+              sx={{ justifyContent: 'space-between', textTransform: 'none', color: 'var(--fx-slate-500)', p: 2 }}
             >
               Detalhes técnicos
             </Button>

@@ -278,8 +278,8 @@ function daysSince(date: string | Date | null | undefined): number {
 
 function UrgencyChip({ days }: { days: number }) {
     if (days === 0) return <span className="text-xs text-gray-400">—</span>;
-    const color  = days > 30 ? '#B91C1C' : days > 15 ? '#B45309' : '#6B7280';
-    const bg     = days > 30 ? '#FEE2E2' : days > 15 ? '#FEF3C7' : '#F3F4F6';
+    const color  = days > 30 ? 'var(--fx-red-700)' : days > 15 ? 'var(--fx-amber-700)' : 'var(--fx-gray-500)';
+    const bg     = days > 30 ? 'var(--fx-red-100)' : days > 15 ? 'var(--fx-amber-100)' : 'var(--fx-gray-100)';
     const prefix = days > 30 ? '🔴 ' : days > 15 ? '🟡 ' : '';
     return (
         <span style={{ background: bg, color, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>
@@ -288,18 +288,18 @@ function UrgencyChip({ days }: { days: number }) {
     );
 }
 
-const TH = { fontWeight: 600, fontSize: '0.72rem', color: '#9CA3AF', py: 1, textTransform: 'uppercase' as const, letterSpacing: '0.03em' };
+const TH = { fontWeight: 600, fontSize: '0.72rem', color: 'var(--fx-gray-400)', py: 1, textTransform: 'uppercase' as const, letterSpacing: '0.03em' };
 
 function BillingModeBadge({ mode }: { mode?: 'per_month' | 'per_guide' }) {
     if (mode === 'per_guide') {
         return (
-            <span style={{ background: '#D1FAE5', color: '#065F46', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+            <span style={{ background: 'var(--fx-emerald-100)', color: 'var(--fx-emerald-800)', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                 POR GUIA
             </span>
         );
     }
     return (
-        <span style={{ background: '#DBEAFE', color: '#1E40AF', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+        <span style={{ background: 'var(--fx-blue-100)', color: 'var(--fx-blue-800)', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>
             MENSAL
         </span>
     );
@@ -323,22 +323,22 @@ function getGuideBillingState(guide: PendingGuide): { emoji: string; label: stri
 
     switch (state) {
         case 'no_sessions':
-            return { emoji: '⚪', label: 'Sem sessões concluídas', bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' };
+            return { emoji: '⚪', label: 'Sem sessões concluídas', bg: 'var(--fx-gray-50)', color: 'var(--fx-gray-500)', border: 'var(--fx-gray-200)' };
         case 'closed':
-            return { emoji: '🔒', label: 'Guia finalizada', bg: '#F3F4F6', color: '#374151', border: '#D1D5DB' };
+            return { emoji: '🔒', label: 'Guia finalizada', bg: 'var(--fx-gray-100)', color: 'var(--fx-gray-700)', border: 'var(--fx-gray-300)' };
         case 'received':
-            return { emoji: '💰', label: 'Recebida do convênio', bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+            return { emoji: '💰', label: 'Recebida do convênio', bg: 'var(--fx-emerald-50)', color: 'var(--fx-emerald-800)', border: 'var(--fx-emerald-200)' };
         case 'billed': {
             const dateLabel = guide.lastBatchSentAt ? ` · lote enviado em ${formatDate(guide.lastBatchSentAt)}` : '';
-            return { emoji: '🟡', label: `Faturada${dateLabel}`, bg: '#FEFCE8', color: '#854D0E', border: '#FDE68A' };
+            return { emoji: '🟡', label: `Faturada${dateLabel}`, bg: 'var(--fx-yellow-50)', color: 'var(--fx-yellow-800)', border: 'var(--fx-amber-200)' };
         }
         case 'documentation_sent': {
             const nfLabel = guide.invoiceNumber ? `NF ${guide.invoiceNumber}` : 'NF não informada';
-            return { emoji: '📤', label: `Documentação enviada · ${nfLabel} · ${formatDate(guide.documentationSentAt)}`, bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+            return { emoji: '📤', label: `Documentação enviada · ${nfLabel} · ${formatDate(guide.documentationSentAt)}`, bg: 'var(--fx-blue-50)', color: 'var(--fx-blue-700)', border: 'var(--fx-blue-200)' };
         }
         case 'pending':
         default:
-            return { emoji: '🟠', label: 'Aguardando primeiro faturamento', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' };
+            return { emoji: '🟠', label: 'Aguardando primeiro faturamento', bg: 'var(--fx-orange-50)', color: 'var(--fx-orange-800)', border: 'var(--fx-orange-200)' };
     }
 }
 
@@ -411,10 +411,10 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
     const isPerGuide = guides[0]?.billingMode === 'per_guide';
     const isAutomaticMonthlySelection = !isPerGuide && (isDocumentMode || isBillingMode);
     const phasePresentation = {
-        pendingBilling: { title: 'A faturar · documentos pendentes', sessions: 'sessões a faturar', value: 'a faturar', color: '#6D28D9', bg: '#EDE9FE', border: '#C4B5FD' },
-        documentationSent: { title: 'Documentos enviados · pronto para faturar', sessions: 'sessões documentadas', value: 'pronto para faturar', color: '#1D4ED8', bg: '#DBEAFE', border: '#93C5FD' },
-        billed: { title: 'Faturados · aguardando recebimento', sessions: 'sessões faturadas', value: 'a receber', color: '#047857', bg: '#D1FAE5', border: '#6EE7B7' },
-        received: { title: 'Recebidos · conferência', sessions: 'sessões recebidas', value: 'recebido', color: '#047857', bg: '#D1FAE5', border: '#6EE7B7' }
+        pendingBilling: { title: 'A faturar · documentos pendentes', sessions: 'sessões a faturar', value: 'a faturar', color: 'var(--fx-violet-700)', bg: 'var(--fx-violet-100)', border: 'var(--fx-violet-300)' },
+        documentationSent: { title: 'Documentos enviados · pronto para faturar', sessions: 'sessões documentadas', value: 'pronto para faturar', color: 'var(--fx-blue-700)', bg: 'var(--fx-blue-100)', border: 'var(--fx-blue-300)' },
+        billed: { title: 'Faturados · aguardando recebimento', sessions: 'sessões faturadas', value: 'a receber', color: 'var(--fx-emerald-700)', bg: 'var(--fx-emerald-100)', border: 'var(--fx-emerald-300)' },
+        received: { title: 'Recebidos · conferência', sessions: 'sessões recebidas', value: 'recebido', color: 'var(--fx-emerald-700)', bg: 'var(--fx-emerald-100)', border: 'var(--fx-emerald-300)' }
     }[phase];
 
     const [expandedGuides, setExpandedGuides] = useState<Set<string>>(new Set());
@@ -478,9 +478,9 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
     // 1 NF no paciente — pedido do usuário pra guia vir sempre fechada por
     // padrão, em qualquer aba, sem exceção por contagem de grupos.
 
-    const accentColor = isPerGuide ? '#059669' : '#D97706';
-    const accentBg    = isPerGuide ? '#ECFDF5' : '#FFFBEB';
-    const accentBorder = isPerGuide ? '#6EE7B7' : '#FDE68A';
+    const accentColor = isPerGuide ? 'var(--fx-text-emerald)' : 'var(--fx-text-amber)';
+    const accentBg    = isPerGuide ? 'var(--fx-emerald-50)' : 'var(--fx-amber-50)';
+    const accentBorder = isPerGuide ? 'var(--fx-emerald-300)' : 'var(--fx-amber-200)';
 
     // A ReadView V2 soma sessões pendentes de TODAS as competências não
     // faturadas de uma guia mensal (o corte da leitura legada em 13/08 tirou o
@@ -616,9 +616,9 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
         return (
             <Card key={guide.guideId} elevation={0} sx={{
                 flexShrink: 0,
-                border: isSelected ? '2px solid #3B82F6' : '1.5px solid #E2E8F0',
+                border: isSelected ? '2px solid #3B82F6' : '1.5px solid var(--fx-slate-200)',
                 borderRadius: 3,
-                bgcolor: isSelected ? '#F0F9FF' : 'white',
+                bgcolor: isSelected ? 'var(--fx-sky-50)' : 'var(--fx-white)',
                 overflow: 'hidden',
                 transition: 'border-color 0.15s, box-shadow 0.15s',
                 boxShadow: isSelected ? '0 0 0 3px rgba(59,130,246,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
@@ -643,11 +643,11 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             <Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                                     {multiPatient && guide.patient?.fullName && (
-                                        <Typography component="span" fontWeight="700" fontSize="0.82rem" color="#334155" sx={{ width: '100%' }}>
+                                        <Typography component="span" fontWeight="700" fontSize="0.82rem" color="var(--fx-slate-700)" sx={{ width: '100%' }}>
                                             {guide.patient.fullName}
                                         </Typography>
                                     )}
-                                    <Typography fontWeight="700" fontSize="0.9rem" color="#0F172A">
+                                    <Typography fontWeight="700" fontSize="0.9rem" color="var(--fx-slate-900)">
                                         Guia {guide.number}
                                     </Typography>
                                     <BillingModeBadge mode={guide.billingMode} />
@@ -663,8 +663,8 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                                 display: 'inline-flex', alignItems: 'center', gap: '3px',
                                                 fontSize: '0.65rem', fontWeight: 700, lineHeight: 1,
                                                 padding: '3px 7px', borderRadius: 999,
-                                                bgcolor: isGuideExhausted ? '#D1FAE5' : '#F1F5F9',
-                                                color: isGuideExhausted ? '#065F46' : '#64748B',
+                                                bgcolor: isGuideExhausted ? 'var(--fx-emerald-100)' : 'var(--fx-slate-100)',
+                                                color: isGuideExhausted ? 'var(--fx-emerald-800)' : 'var(--fx-slate-500)',
                                             }}
                                         >
                                             {isGuideExhausted && <CheckCircle size={10} strokeWidth={2.5} />}
@@ -674,7 +674,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                     <IconButton
                                         size="small"
                                         onClick={(e) => { e.stopPropagation(); onEditGuide(guide); }}
-                                        sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#3B82F6', bgcolor: '#EFF6FF' } }}
+                                        sx={{ p: 0.25, color: 'var(--fx-slate-400)', '&:hover': { color: '#3B82F6', bgcolor: 'var(--fx-blue-50)' } }}
                                         title="Editar guia"
                                     >
                                         <Pencil size={13} />
@@ -683,7 +683,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                         <IconButton
                                             size="small"
                                             onClick={(e) => { e.stopPropagation(); onCloseGuide(guide); }}
-                                            sx={{ p: 0.25, color: '#94A3B8', '&:hover': { color: '#B45309', bgcolor: '#FEF3C7' } }}
+                                            sx={{ p: 0.25, color: 'var(--fx-slate-400)', '&:hover': { color: 'var(--fx-amber-700)', bgcolor: 'var(--fx-amber-100)' } }}
                                             title="Finalizar guia (cancela agendamentos pendentes)"
                                         >
                                             <Lock size={13} />
@@ -693,17 +693,17 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 <Chip
                                     size="small"
                                     label={getSpecialtyLabel(guide.specialty || '')}
-                                    sx={{ fontSize: '0.63rem', height: 17, bgcolor: '#F3F0FF', color: '#6D28D9', fontWeight: 600, mt: 0.5, letterSpacing: '0.01em' }}
+                                    sx={{ fontSize: '0.63rem', height: 17, bgcolor: 'var(--fx-violet-50b)', color: 'var(--fx-violet-700)', fontWeight: 600, mt: 0.5, letterSpacing: '0.01em' }}
                                 />
                             </Box>
                         </Box>
 
                         {/* Valor + sessões a faturar */}
                         <Box sx={{ textAlign: 'right' }}>
-                            <Typography fontWeight="800" fontSize="1.0rem" color="#0F172A">
+                            <Typography fontWeight="800" fontSize="1.0rem" color="var(--fx-slate-900)">
                                 {formatCurrency(resolveGuidePendingTotal(guide))}
                             </Typography>
-                            <Typography fontSize="0.72rem" color="#64748B" fontWeight={600} mt={0.25}>
+                            <Typography fontSize="0.72rem" color="var(--fx-slate-500)" fontWeight={600} mt={0.25}>
                                 {guide.pendingSessions} {sessoes(guide.pendingSessions)} {phaseLabel} · {formatCurrency(resolveGuideSessionValue(guide))}/sessão
                             </Typography>
                         </Box>
@@ -734,13 +734,13 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 sx={{
                                     display: 'inline-flex', alignItems: 'center', gap: 0.6,
                                     px: 1.25, py: 0.5,
-                                    bgcolor: '#F3F4F6',
-                                    border: '1px solid #D1D5DB',
+                                    bgcolor: 'var(--fx-gray-100)',
+                                    border: '1px solid var(--fx-gray-300)',
                                     borderRadius: 20,
                                 }}
                             >
                                 <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>⚪</span>
-                                <Typography fontSize="0.72rem" fontWeight={600} color="#4B5563">
+                                <Typography fontSize="0.72rem" fontWeight={600} color="var(--fx-gray-600)">
                                     Guia cancelada
                                 </Typography>
                             </Box>
@@ -755,15 +755,15 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 sx={{
                                     display: 'inline-flex', alignItems: 'center', gap: 0.5,
                                     px: 0.9, py: 0.35, borderRadius: 20,
-                                    bgcolor: nf.origin === 'legacy_reconciliation' ? '#F5F3FF' : '#F8FAFC',
-                                    border: `1px solid ${nf.origin === 'legacy_reconciliation' ? '#DDD6FE' : '#E2E8F0'}`
+                                    bgcolor: nf.origin === 'legacy_reconciliation' ? 'var(--fx-violet-50)' : 'var(--fx-slate-50)',
+                                    border: `1px solid ${nf.origin === 'legacy_reconciliation' ? 'var(--fx-violet-200)' : 'var(--fx-slate-200)'}`
                                 }}
                             >
-                                <FileText size={11} color={nf.origin === 'legacy_reconciliation' ? '#6D28D9' : '#475569'} />
-                                <Typography fontSize="0.66rem" fontWeight={700} color={nf.origin === 'legacy_reconciliation' ? '#6D28D9' : '#475569'}>
+                                <FileText size={11} color={nf.origin === 'legacy_reconciliation' ? 'var(--fx-violet-700)' : 'var(--fx-slate-600)'} />
+                                <Typography fontSize="0.66rem" fontWeight={700} color={nf.origin === 'legacy_reconciliation' ? 'var(--fx-violet-700)' : 'var(--fx-slate-600)'}>
                                     {nf.invoiceNumber || 'NF não informada'}
                                 </Typography>
-                                <Typography fontSize="0.63rem" color="#94A3B8">
+                                <Typography fontSize="0.63rem" color="var(--fx-slate-400)">
                                     {nf.sessions} sess · {formatCurrency(nf.amount)}
                                     {nf.invoiceDate ? ` · ${formatDate(nf.invoiceDate)}` : ''}
                                 </Typography>
@@ -775,10 +775,10 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         {guide.hasMixedStates && guide.phaseCounters && (
                             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                                 {([
-                                    { n: guide.phaseCounters.pendingBilling, label: 'a faturar', color: '#9A3412', bg: '#FFF7ED', border: '#FED7AA' },
-                                    { n: guide.phaseCounters.documentationSent, label: 'doc. enviada', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-                                    { n: guide.phaseCounters.billed, label: 'faturada(s)', color: '#854D0E', bg: '#FEFCE8', border: '#FDE68A' },
-                                    { n: guide.phaseCounters.received, label: 'recebida(s)', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0' },
+                                    { n: guide.phaseCounters.pendingBilling, label: 'a faturar', color: 'var(--fx-orange-800)', bg: 'var(--fx-orange-50)', border: 'var(--fx-orange-200)' },
+                                    { n: guide.phaseCounters.documentationSent, label: 'doc. enviada', color: 'var(--fx-blue-700)', bg: 'var(--fx-blue-50)', border: 'var(--fx-blue-200)' },
+                                    { n: guide.phaseCounters.billed, label: 'faturada(s)', color: 'var(--fx-yellow-800)', bg: 'var(--fx-yellow-50)', border: 'var(--fx-amber-200)' },
+                                    { n: guide.phaseCounters.received, label: 'recebida(s)', color: 'var(--fx-emerald-800)', bg: 'var(--fx-emerald-50)', border: 'var(--fx-emerald-200)' },
                                 ] as const).filter(p => p.n > 0).map(p => (
                                     <Box
                                         key={p.label}
@@ -795,27 +795,27 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             </Box>
                         )}
                         {isReceiveMode && (
-                            <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
+                            <Typography fontSize="0.7rem" color="var(--fx-emerald-700)" fontWeight={700}>
                                 Aguardando recebimento
                             </Typography>
                         )}
                         {isDocumentMode && (
-                            <Typography fontSize="0.7rem" color="#6D28D9" fontWeight={700}>
+                            <Typography fontSize="0.7rem" color="var(--fx-violet-700)" fontWeight={700}>
                                 Próxima ação: preparar faturamento
                             </Typography>
                         )}
                         {isBillingMode && (
-                            <Typography fontSize="0.7rem" color="#1D4ED8" fontWeight={700}>
+                            <Typography fontSize="0.7rem" color="var(--fx-blue-700)" fontWeight={700}>
                                 Próxima ação: continuar faturamento
                             </Typography>
                         )}
                         {phase === 'received' && (
-                            <Typography fontSize="0.7rem" color="#047857" fontWeight={700}>
+                            <Typography fontSize="0.7rem" color="var(--fx-emerald-700)" fontWeight={700}>
                                 Recebimento concluído
                             </Typography>
                         )}
                         {!drawerAction && phase === 'pendingBilling' && cycleReason && (
-                            <Typography fontSize="0.7rem" color="#94A3B8" fontStyle="italic">
+                            <Typography fontSize="0.7rem" color="var(--fx-slate-400)" fontStyle="italic">
                                 {cycleReason}
                             </Typography>
                         )}
@@ -831,7 +831,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             notes.push({ text: `Restam ${remaining} ${sessoes(remaining)} na guia · pedir nova autorização`, tone: 'blue' });
                         if (remaining === 0 && guide.guideStatus !== 'cancelled') notes.push({ text: 'Guia esgotada · pode fechar depois de faturar', tone: 'green' });
                         if (!notes.length) return null;
-                        const c = { red: ['#FEF2F2', '#991B1B'], blue: ['#EFF6FF', '#1E40AF'], green: ['#ECFDF5', '#065F46'] };
+                        const c = { red: ['var(--fx-red-50)', 'var(--fx-red-800)'], blue: ['var(--fx-blue-50)', 'var(--fx-blue-800)'], green: ['var(--fx-emerald-50)', 'var(--fx-emerald-800)'] };
                         return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
                             {notes.map(n => <Box key={n.text} sx={{ fontSize: '0.72rem', fontWeight: 600, px: 1, py: 0.4, borderRadius: 999, bgcolor: c[n.tone][0], color: c[n.tone][1] }}>{n.text}</Box>)}
                         </Box>;
@@ -840,7 +840,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                     {/* Row 3: período + expandir */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 0.25 }}>
                         {guide.firstSessionDate ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B', fontSize: '0.73rem', flexWrap: 'wrap' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'var(--fx-slate-500)', fontSize: '0.73rem', flexWrap: 'wrap' }}>
                                 <Calendar size={11} />
                                 Sessões de {formatDate(guide.firstSessionDate)}
                                 {guide.lastSessionDate && guide.firstSessionDate !== guide.lastSessionDate &&
@@ -854,7 +854,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 sx={{
                                     display: 'flex', alignItems: 'center', gap: 0.5,
                                     cursor: 'pointer', color: '#3B82F6', fontSize: '0.73rem', fontWeight: 600,
-                                    '&:hover': { color: '#1D4ED8' }
+                                    '&:hover': { color: 'var(--fx-blue-700)' }
                                 }}
                             >
                                 {isExpanded ? 'Ocultar sessões' : `Ver ${guide.sessions!.length} ${sessoes(guide.sessions!.length)}`}
@@ -869,7 +869,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         a guia tem mais sessões do que a lista de pendentes mostra, sem precisar
                         ir atrás do lote antigo pra confirmar. */}
                     {phase === 'pendingBilling' && !!guide.alreadyBilledSessions && guide.alreadyBilledSessions > 0 && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: '#94A3B8', fontSize: '0.7rem', fontStyle: 'italic' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 0.25, mt: 0.5, color: 'var(--fx-slate-400)', fontSize: '0.7rem', fontStyle: 'italic' }}>
                             + {guide.alreadyBilledSessions} {sessoes(guide.alreadyBilledSessions)} já faturada{guide.alreadyBilledSessions !== 1 ? 's' : ''}
                             {guide.lastBatchSentAt ? ` em ${formatDate(guide.lastBatchSentAt)}` : ''} (não aparece{guide.alreadyBilledSessions !== 1 ? 'm' : ''} na lista abaixo)
                         </Box>
@@ -877,7 +877,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
 
                     {/* Sessões individuais */}
                     <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <Box sx={{ mt: 1.25, borderTop: '1px solid #F1F5F9', pt: 1.25 }}>
+                        <Box sx={{ mt: 1.25, borderTop: '1px solid var(--fx-slate-100)', pt: 1.25 }}>
                             {guide.sessions!.map((s, sidx) => {
                                 const isMostRecent = hasSessions && s.sessionId === mostRecentSessionId;
                                 return (
@@ -885,30 +885,39 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                         py: 0.4, px: isMostRecent ? 0.75 : 0,
                                         borderRadius: 1.5,
-                                        bgcolor: isMostRecent ? '#F0FDF4' : 'transparent',
-                                        borderBottom: !isMostRecent && sidx < guide.sessions!.length - 1 ? '1px dashed #F1F5F9' : 'none'
+                                        bgcolor: isMostRecent ? 'var(--fx-green-50)' : 'transparent',
+                                        borderBottom: !isMostRecent && sidx < guide.sessions!.length - 1 ? '1px dashed var(--fx-slate-100)' : 'none'
                                     }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Box sx={{
                                                 width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                bgcolor: isMostRecent ? '#059669' : '#E2E8F0',
-                                                color: isMostRecent ? '#fff' : '#64748B',
+                                                bgcolor: isMostRecent ? '#059669' : 'var(--fx-slate-200)',
+                                                color: isMostRecent ? '#fff' : 'var(--fx-slate-500)',
                                                 fontSize: '0.62rem', fontWeight: 700
                                             }}>
                                                 {sidx + 1}
                                             </Box>
-                                            <Typography fontSize="0.78rem" color="#475569" fontWeight={500}>{formatDate(s.date)}{s.time ? ` ${s.time}` : ''}</Typography>
+                                            <Typography fontSize="0.78rem" color="var(--fx-slate-600)" fontWeight={500}>{formatDate(s.date)}{s.time ? ` ${s.time}` : ''}</Typography>
                                             {s.doctorName && (
-                                                <Typography fontSize="0.71rem" color="#94A3B8">· {s.doctorName}</Typography>
+                                                <Typography fontSize="0.71rem" color="var(--fx-slate-400)">· {s.doctorName}</Typography>
                                             )}
                                             {s.sessionId && missingEvolutionIds?.has(s.sessionId) && (
-                                                <span
-                                                    title="Sem evolução registrada para esta sessão. É só um aviso: o faturamento segue normal."
-                                                    className="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-px text-[0.63rem] font-semibold text-amber-800"
+                                                // Cores fixas como o resto do drawer (MUI, sempre claro): as
+                                                // classes Tailwind amber viravam texto amarelo-claro no tema
+                                                // escuro e ficavam ilegíveis no fundo branco (04/11).
+                                                <Box
+                                                    component="span"
+                                                    title={`Sem evolução registrada${s.doctorName ? ` por ${s.doctorName}` : ''}. É só um aviso: o faturamento segue normal.`}
+                                                    sx={{
+                                                        display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
+                                                        fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.2,
+                                                        px: 0.75, py: '2px', borderRadius: 999,
+                                                        bgcolor: 'var(--fx-amber-100)', color: 'var(--fx-amber-800)', border: '1px solid #F59E0B',
+                                                    }}
                                                 >
-                                                    evolução em falta{s.doctorName ? ` · ${s.doctorName.split(' ')[0]}` : ''}
-                                                </span>
+                                                    sem evolução
+                                                </Box>
                                             )}
                                             {isMostRecent && (
                                                 <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -916,7 +925,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                                 </Typography>
                                             )}
                                         </Box>
-                                        <Typography fontSize="0.78rem" fontWeight={700} color="#1E293B">
+                                        <Typography fontSize="0.78rem" fontWeight={700} color="var(--fx-slate-800)">
                                             {formatCurrency(s.value)}
                                         </Typography>
                                     </Box>
@@ -931,12 +940,12 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
 
     return (
         <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{
-            sx: { width: { xs: '100vw', sm: 620 }, display: 'flex', flexDirection: 'column', bgcolor: '#F8FAFC', overflow: 'hidden' }
+            sx: { width: { xs: '100vw', sm: 620 }, display: 'flex', flexDirection: 'column', bgcolor: 'var(--fx-slate-50)', overflow: 'hidden' }
         }}>
             {/* ── Header ─────────────────────────────────────────────── */}
             <Box sx={{
                 px: 3, pt: 3, pb: 2.5,
-                background: `linear-gradient(135deg, ${accentBg} 0%, #fff 100%)`,
+                background: `linear-gradient(135deg, ${accentBg} 0%, var(--fx-white) 100%)`,
                 borderBottom: `2px solid ${accentBorder}`,
                 position: 'relative', flexShrink: 0
             }}>
@@ -949,7 +958,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
 
                 {/* Nome + convênio */}
                 <Box sx={{ mb: 2 }}>
-                    <Typography fontWeight="800" fontSize="1.15rem" color="#0F172A" lineHeight={1.2}>
+                    <Typography fontWeight="800" fontSize="1.15rem" color="var(--fx-slate-900)" lineHeight={1.2}>
                         {patientName}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
@@ -982,16 +991,16 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                     ].map(stat => (
                         <Box key={stat.label} sx={{
                             px: 1.5, py: 0.75,
-                            bgcolor: stat.green ? '#ECFDF5' : stat.blue ? '#EFF6FF' : 'white',
-                            border: `1px solid ${stat.green ? '#A7F3D0' : stat.blue ? '#BFDBFE' : '#E2E8F0'}`,
+                            bgcolor: stat.green ? 'var(--fx-emerald-50)' : stat.blue ? 'var(--fx-blue-50)' : 'var(--fx-white)',
+                            border: `1px solid ${stat.green ? 'var(--fx-emerald-200)' : stat.blue ? 'var(--fx-blue-200)' : 'var(--fx-slate-200)'}`,
                             borderRadius: 2,
                             textAlign: 'center',
                             minWidth: 60
                         }}>
-                            <Typography fontWeight="700" fontSize="0.9rem" color={stat.green ? '#065F46' : stat.blue ? '#1D4ED8' : '#1E293B'}>
+                            <Typography fontWeight="700" fontSize="0.9rem" color={stat.green ? 'var(--fx-emerald-800)' : stat.blue ? 'var(--fx-blue-700)' : 'var(--fx-slate-800)'}>
                                 {stat.value}
                             </Typography>
-                            <Typography fontSize="0.65rem" color="#64748B" fontWeight={500} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <Typography fontSize="0.65rem" color="var(--fx-slate-500)" fontWeight={500} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 {stat.label}
                             </Typography>
                         </Box>
@@ -1000,7 +1009,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
             </Box>
 
             {valueMismatch && (
-                <Box sx={{ px: 3, py: 1, bgcolor: '#FFFBEB', borderBottom: '1px solid #FDE68A', fontSize: '0.78rem', color: '#92400E' }}>
+                <Box sx={{ px: 3, py: 1, bgcolor: 'var(--fx-amber-50)', borderBottom: '1px solid var(--fx-amber-200)', fontSize: '0.78rem', color: 'var(--fx-amber-800)' }}>
                     Valor por sessão diferente entre as guias ({distinctValues.map(v => formatCurrency(v / 100)).join(' x ')}). Confira a tabela do convênio antes de faturar.
                 </Box>
             )}
@@ -1008,8 +1017,8 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
             {/* ── Selecionar todas ───────────────────────────────── */}
             <Box sx={{
                 px: 3, py: 1.25,
-                bgcolor: 'white',
-                borderBottom: '1px solid #E2E8F0',
+                bgcolor: 'var(--fx-white)',
+                borderBottom: '1px solid var(--fx-slate-200)',
                 display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0
             }}>
                 {!readOnly && (
@@ -1021,7 +1030,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         sx={{ p: 0.5 }}
                     />
                 )}
-                <Typography fontSize="0.8rem" color="#475569" fontWeight={500}>
+                <Typography fontSize="0.8rem" color="var(--fx-slate-600)" fontWeight={500}>
                     {readOnly
                         ? `${guides.length} guia${guides.length !== 1 ? 's' : ''} nesta fase`
                         : allSelected ? 'Desmarcar todas as guias' : `Selecionar todas as guias (${isAutomaticMonthlySelection ? allScopedEntries.length : guides.length})`}
@@ -1035,10 +1044,10 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 {isAutomaticMonthlySelection ? competenceGroups.map(group => (
                     <Box key={group.competence}>
                         <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', px: 0.5, mb: 1 }}>
-                            <Typography fontSize="0.78rem" fontWeight={800} color="#334155" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <Typography fontSize="0.78rem" fontWeight={800} color="var(--fx-slate-700)" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 Competência {group.competence}
                             </Typography>
-                            <Typography fontSize="0.75rem" color="#64748B" fontWeight={600}>
+                            <Typography fontSize="0.75rem" color="var(--fx-slate-500)" fontWeight={600}>
                                 {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} {sessoes(group.sessions)} · {formatCurrency(group.value)}
                             </Typography>
                         </Box>
@@ -1052,14 +1061,14 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                     const groupAllSelected = group.guides.length > 0 && groupSelectedCount === group.guides.length;
                     const groupSomeSelected = groupSelectedCount > 0 && !groupAllSelected;
                     return (
-                        <Box key={group.key} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, overflow: 'hidden', bgcolor: 'white', flexShrink: 0 }}>
+                        <Box key={group.key} sx={{ border: '1px solid var(--fx-slate-200)', borderRadius: 3, overflow: 'hidden', bgcolor: 'var(--fx-white)', flexShrink: 0 }}>
                             <Box
                                 onClick={() => toggleInvoiceGroup(group.key)}
                                 sx={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
                                     px: 1.5, py: 1.1, cursor: 'pointer',
-                                    bgcolor: isGroupExpanded ? '#F8FAFC' : 'white',
-                                    '&:hover': { bgcolor: '#F8FAFC' }
+                                    bgcolor: isGroupExpanded ? 'var(--fx-slate-50)' : 'var(--fx-white)',
+                                    '&:hover': { bgcolor: 'var(--fx-slate-50)' }
                                 }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
@@ -1076,26 +1085,26 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                             sx={{ p: 0.5 }}
                                         />
                                     )}
-                                    <FileText size={15} color="#475569" style={{ flexShrink: 0 }} />
+                                    <FileText size={15} color="var(--fx-slate-600)" style={{ flexShrink: 0 }} />
                                     <Box sx={{ minWidth: 0 }}>
-                                        <Typography fontWeight={800} fontSize="0.85rem" color="#0F172A" noWrap>
+                                        <Typography fontWeight={800} fontSize="0.85rem" color="var(--fx-slate-900)" noWrap>
                                             {group.invoiceNumber ? `NF ${group.invoiceNumber}` : 'Sem NF informada'}
                                         </Typography>
-                                        <Typography fontSize="0.71rem" color="#64748B" fontWeight={500}>
+                                        <Typography fontSize="0.71rem" color="var(--fx-slate-500)" fontWeight={500}>
                                             {group.guides.length} guia{group.guides.length !== 1 ? 's' : ''} · {group.sessions} {sessoes(group.sessions)}
                                             {group.invoiceDate ? ` · ${formatDate(group.invoiceDate)}` : ''}
                                         </Typography>
                                     </Box>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                                    <Typography fontWeight={800} fontSize="0.95rem" color="#0F172A" sx={{ textAlign: 'right' }}>
+                                    <Typography fontWeight={800} fontSize="0.95rem" color="var(--fx-slate-900)" sx={{ textAlign: 'right' }}>
                                         {formatCurrency(group.value)}
                                     </Typography>
-                                    {isGroupExpanded ? <ChevronUp size={16} color="#94A3B8" /> : <ChevronDown size={16} color="#94A3B8" />}
+                                    {isGroupExpanded ? <ChevronUp size={16} color="var(--fx-slate-400)" /> : <ChevronDown size={16} color="var(--fx-slate-400)" />}
                                 </Box>
                             </Box>
                             <Collapse in={isGroupExpanded} timeout="auto" unmountOnExit>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, p: 1.25, pt: 0, bgcolor: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, p: 1.25, pt: 0, bgcolor: 'var(--fx-slate-50)', borderTop: '1px solid var(--fx-slate-100)' }}>
                                     {group.guides.map(guide => renderGuideCard(guide))}
                                 </Box>
                             </Collapse>
@@ -1111,18 +1120,24 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
             {drawerAction && !readOnly && (
                 <Box sx={{
                     px: 2.5, py: 1.75,
-                    bgcolor: 'white',
-                    borderTop: '1px solid #CBD5E1',
+                    bgcolor: 'var(--fx-white)',
+                    borderTop: '1px solid var(--fx-slate-300)',
                     boxShadow: '0 -6px 18px rgba(15,23,42,0.08)'
                 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
                         <Box>
-                            <Typography fontSize="0.82rem" fontWeight={800} color="#0F172A">
+                            <Typography fontSize="0.82rem" fontWeight={800} color="var(--fx-slate-900)">
                                 {selectedHere.length} guia{selectedHere.length !== 1 ? 's' : ''} · {selectedSessions} {sessoes(selectedSessions)}
                             </Typography>
-                            <Typography fontSize="0.78rem" color={phasePresentation.color} fontWeight={700}>
-                                {formatCurrency(selectedValue)} {phasePresentation.value}
-                            </Typography>
+                            {selectedHere.length === 0 ? (
+                                <Typography fontSize="0.78rem" color="var(--fx-slate-500)">
+                                    Marque as guias que vai {isReceiveMode ? 'receber' : 'faturar'}
+                                </Typography>
+                            ) : (
+                                <Typography fontSize="0.78rem" color={phasePresentation.color} fontWeight={700}>
+                                    {formatCurrency(selectedValue)} {phasePresentation.value}
+                                </Typography>
+                            )}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             {selectedHere.length > 0 && (
@@ -1141,7 +1156,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 onClick={() => isAutomaticMonthlySelection ? submitScopedSelection() : onDrawerAction?.(selectedHere.map(g => g.guideId))}
                                 sx={{
                                     bgcolor: isReceiveMode ? '#059669' : isBillingMode ? '#2563EB' : '#7C3AED',
-                                    '&:hover': { bgcolor: isReceiveMode ? '#047857' : isBillingMode ? '#1D4ED8' : '#6D28D9' },
+                                    '&:hover': { bgcolor: isReceiveMode ? 'var(--fx-emerald-700)' : isBillingMode ? 'var(--fx-blue-700)' : 'var(--fx-violet-700)' },
                                     whiteSpace: 'nowrap'
                                 }}
                             >
@@ -1253,12 +1268,8 @@ const GuidePendingBillingSection = ({
         // seleção canônica acontece nas guias exibidas dentro deste drawer.
         if (selectionInsideDrawer) {
             selectedGuides.forEach(guideId => onToggleGuide(guideId));
-            // 01/11: guias por guia já vêm marcadas quando têm sessões a faturar
-            // (antes abria tudo desmarcado e o botão ficava desabilitado sem dica).
-            // Mensal segue a seleção automática por competência do próprio drawer.
-            patientGuides
-                .filter(guide => guide.billingMode === 'per_guide' && Number(guide.pendingSessions || (guide.sessions || []).length) > 0)
-                .forEach(guide => onToggleGuide(guide.guideId));
+            // 04/11 (Kadu): abre tudo desmarcado. Marcar sozinho levava junto até
+            // guia cancelada; faturar é escolha consciente. O rodapé diz o que fazer.
         }
         // A ReadView V2 soma sessões pendentes de todas as competências não
         // faturadas (achado 2026-08-17) — o drawer mostra tudo, agrupado por
@@ -1482,23 +1493,23 @@ const GuidePendingBillingSection = ({
                     const grandSess  = allFlat.reduce((s, g) => s + ((g.pendingSessions && g.pendingSessions > 0) ? g.pendingSessions : (g.sessions || []).length), 0);
                     const grandPats  = new Set(guides.map(g => g.patient?.fullName)).size;
                     return (
-                        <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 2.5, overflowX: 'auto', mb: 0.5, boxShadow: '0 1px 2px rgba(15,23,42,0.03)' }}>
-                            <Box sx={{ px: 2.5, py: 1.1, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'white', borderBottom: '1px solid #F1F5F9' }}>
-                                <Typography fontSize="0.8rem" fontWeight={700} color="#334155">
-                                    Convênios <Box component="span" sx={{ color: '#94A3B8', fontWeight: 500 }}>· clique em uma linha para ver pacientes e guias</Box>
+                        <Card elevation={0} sx={{ border: '1px solid var(--fx-slate-200)', borderRadius: 2.5, overflowX: 'auto', mb: 0.5, boxShadow: '0 1px 2px rgba(15,23,42,0.03)' }}>
+                            <Box sx={{ px: 2.5, py: 1.1, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'var(--fx-white)', borderBottom: '1px solid var(--fx-slate-100)' }}>
+                                <Typography fontSize="0.8rem" fontWeight={700} color="var(--fx-slate-700)">
+                                    Convênios <Box component="span" sx={{ color: 'var(--fx-slate-400)', fontWeight: 500 }}>· clique em uma linha para ver pacientes e guias</Box>
                                 </Typography>
                             </Box>
                             {/* Header */}
-                            <Box sx={{ px: 2.5, py: 1.15, minWidth: { xs: 0, lg: 1080 }, bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ px: 2.5, py: 1.15, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
                                 {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', lg: 'block' }, width: 180, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regra da guia</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#64748B" sx={{ display: { xs: 'none', md: 'block' }, width: 130, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mais antiga</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#64748B" sx={{ display: { xs: 'none', lg: 'block' }, width: 220, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo de envio</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pacientes</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guias</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sessões</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="#94A3B8" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, minWidth: 200, pr: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', lg: 'block' }, width: 180, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regra da guia</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', md: 'block' }, width: 130, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mais antiga</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', lg: 'block' }, width: 220, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo de envio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pacientes</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guias</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sessões</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</Typography>
                                 {selectionInsideDrawer && !readOnly && <Box sx={{ width: 120, flexShrink: 0 }} />}
                                 <Box sx={{ width: 38, flexShrink: 0 }} />
                             </Box>
@@ -1521,7 +1532,7 @@ const GuidePendingBillingSection = ({
                                 const providerAge = daysSince(providerOldest || null);
                                 const isPerGuide   = providerMode === 'per_guide';
                                 const rowAccent    = isPerGuide ? '#10B981' : '#3B82F6';
-                                const accentColor  = isPerGuide ? '#059669' : '#2563EB';
+                                const accentColor  = isPerGuide ? 'var(--fx-text-emerald)' : 'var(--fx-text-blue)';
                                 const sortedPatients = Object.entries(providerPatients).sort(([, ag], [, bg]) => {
                                     const aOld = ag.map(g => g.firstSessionDate).filter(Boolean).sort()[0];
                                     const bOld = bg.map(g => g.firstSessionDate).filter(Boolean).sort()[0];
@@ -1544,11 +1555,11 @@ const GuidePendingBillingSection = ({
                                             sx={{
                                                 px: 2.5, py: 1.35, minWidth: { xs: 0, lg: 1080 },
                                                 display: 'flex', alignItems: 'center',
-                                                borderBottom: '1px solid #F1F5F9',
+                                                borderBottom: '1px solid var(--fx-slate-100)',
                                                 borderLeft: `3px solid ${isExpanded ? rowAccent : 'transparent'}`,
-                                                bgcolor: isExpanded ? (isPerGuide ? '#F0FDF4' : '#EFF6FF') : 'white',
+                                                bgcolor: isExpanded ? (isPerGuide ? 'var(--fx-green-50)' : 'var(--fx-blue-50)') : 'var(--fx-white)',
                                                 cursor: 'pointer', transition: 'all 0.15s',
-                                                '&:hover': { bgcolor: isPerGuide ? '#F0FDF4' : '#EFF6FF', borderLeft: `3px solid ${rowAccent}` }
+                                                '&:hover': { bgcolor: isPerGuide ? 'var(--fx-green-50)' : 'var(--fx-blue-50)', borderLeft: `3px solid ${rowAccent}` }
                                             }}
                                         >
                                             {!readOnly && !selectionInsideDrawer && (
@@ -1565,37 +1576,38 @@ const GuidePendingBillingSection = ({
                                                     sx={{ p: 0.5, mr: 1 }}
                                                 />
                                             )}
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-                                                <Typography fontWeight="700" fontSize="0.87rem" color="#0F172A">{formatProviderName(provider)}</Typography>
+                                            {/* minWidth + wrap: em tela estreita o nome quebrava e o selo invadia a coluna "Regra da guia" (04/11). */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.5, flex: 1, minWidth: 200, pr: 2 }}>
+                                                <Typography fontWeight="700" fontSize="0.87rem" color="var(--fx-slate-900)">{formatProviderName(provider)}</Typography>
                                                 <BillingModeBadge mode={providerMode} />
                                             </Box>
                                             <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 180, pr: 2 }}>
-                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1, py: 0.45, borderRadius: 999, bgcolor: providerConvenio ? '#EFF6FF' : '#F8FAFC' }}>
-                                                    <Typography fontSize="0.7rem" fontWeight={700} color={providerConvenio ? '#1D4ED8' : '#64748B'} noWrap>
+                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1, py: 0.45, borderRadius: 999, bgcolor: providerConvenio ? 'var(--fx-blue-50)' : 'var(--fx-slate-50)' }}>
+                                                    <Typography fontSize="0.7rem" fontWeight={700} color={providerConvenio ? 'var(--fx-blue-700)' : 'var(--fx-slate-500)'} noWrap>
                                                         {guideRule}
                                                     </Typography>
                                                 </Box>
                                             </Box>
                                             <Box sx={{ display: { xs: 'none', md: 'block' }, width: 130, pr: 1 }}>
                                                 {providerOldest ? (
-                                                    <Typography fontSize="0.78rem" fontWeight={700} color={providerAge != null && providerAge > 60 ? '#B91C1C' : '#334155'} noWrap>
+                                                    <Typography fontSize="0.78rem" fontWeight={700} color={providerAge != null && providerAge > 60 ? 'var(--fx-red-700)' : 'var(--fx-slate-700)'} noWrap>
                                                         {formatDate(providerOldest).slice(0, 5)} · {providerAge} {providerAge === 1 ? 'dia' : 'dias'}
                                                     </Typography>
-                                                ) : <Typography fontSize="0.78rem" color="#64748B">—</Typography>}
+                                                ) : <Typography fontSize="0.78rem" color="var(--fx-slate-500)">—</Typography>}
                                             </Box>
                                             <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 220, pr: 2 }}>
                                                 {hasDeadline ? (
-                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.55, borderRadius: 1.5, bgcolor: '#FFF7ED', border: '1px solid #FED7AA' }}>
-                                                        <Typography fontSize="0.72rem" fontWeight={700} color="#9A3412" noWrap>{submissionHint}</Typography>
+                                                    <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.55, borderRadius: 1.5, bgcolor: 'var(--fx-orange-50)', border: '1px solid var(--fx-orange-200)' }}>
+                                                        <Typography fontSize="0.72rem" fontWeight={700} color="var(--fx-orange-800)" noWrap>{submissionHint}</Typography>
                                                     </Box>
-                                                ) : <Typography fontSize="0.75rem" color="#64748B" noWrap title={submissionHint}>a configurar</Typography>}
+                                                ) : <Typography fontSize="0.75rem" color="var(--fx-slate-500)" noWrap title={submissionHint}>a configurar</Typography>}
                                             </Box>
-                                            <Typography fontSize="0.83rem" color="#64748B" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{patients}</Typography>
-                                            <Typography fontSize="0.83rem" color="#64748B" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allGuides.length}</Typography>
+                                            <Typography fontSize="0.83rem" color="var(--fx-slate-500)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{patients}</Typography>
+                                            <Typography fontSize="0.83rem" color="var(--fx-slate-500)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allGuides.length}</Typography>
                                             <Box sx={{ width: 72, display: 'flex', justifyContent: 'center' }}>
-                                                <Typography fontSize="0.83rem" fontWeight={700} color="#1D4ED8">{sessions}</Typography>
+                                                <Typography fontSize="0.83rem" fontWeight={700} color="var(--fx-blue-700)">{sessions}</Typography>
                                             </Box>
-                                            <Typography fontWeight="800" fontSize="0.87rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>{formatCurrency(total)}</Typography>
+                                            <Typography fontWeight="800" fontSize="0.87rem" color="var(--fx-slate-900)" sx={{ width: 110, textAlign: 'right' }}>{formatCurrency(total)}</Typography>
                                             {selectionInsideDrawer && !readOnly && (
                                                 <Box sx={{ width: 120, display: 'flex', justifyContent: 'flex-end' }}>
                                                     {/* 01/11: preparar o convênio inteiro num painel só (antes, um painel por paciente) */}
@@ -1622,7 +1634,7 @@ const GuidePendingBillingSection = ({
                                                     )}
                                                 </Box>
                                             )}
-                                            <Box sx={{ width: 30, ml: 1, color: '#94A3B8', display: 'flex', justifyContent: 'flex-end', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+                                            <Box sx={{ width: 30, ml: 1, color: 'var(--fx-slate-400)', display: 'flex', justifyContent: 'flex-end', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
                                                 <ChevronDown size={17} />
                                             </Box>
                                         </Box>
@@ -1630,15 +1642,15 @@ const GuidePendingBillingSection = ({
                                         <Collapse in={isExpanded}>
                                             {/* Faixa de pacientes: fundo próprio + cartão recuado com barra na cor do convênio,
                                                 para não parecer uma continuação da linha do convênio. */}
-                                            <Box sx={{ bgcolor: '#F1F5F9', px: 2.5, pt: 1, pb: 1.5, minWidth: { xs: 0, lg: 1080 }, borderBottom: idx < sortedProviders.length - 1 ? '1px solid #E2E8F0' : 'none' }}>
-                                            <Box sx={{ ml: { xs: 0, sm: 4.5 }, bgcolor: 'white', border: '1px solid #E2E8F0', borderLeft: `3px solid ${rowAccent}`, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-                                                <Box sx={{ px: 2, py: 0.8, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
+                                            <Box sx={{ bgcolor: 'var(--fx-slate-100)', px: 2.5, pt: 1, pb: 1.5, minWidth: { xs: 0, lg: 1080 }, borderBottom: idx < sortedProviders.length - 1 ? '1px solid var(--fx-slate-200)' : 'none' }}>
+                                            <Box sx={{ ml: { xs: 0, sm: 4.5 }, bgcolor: 'var(--fx-white)', border: '1px solid var(--fx-slate-200)', borderLeft: `3px solid ${rowAccent}`, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+                                                <Box sx={{ px: 2, py: 0.8, display: 'flex', alignItems: 'center', bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)' }}>
                                                     {!readOnly && <Box sx={{ width: 38, flexShrink: 0 }} />}
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ flex: 1, textTransform: 'uppercase' }}>Paciente</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 56, textAlign: 'center', textTransform: 'uppercase' }}>Guias</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 64, textAlign: 'center', textTransform: 'uppercase' }}>Sessões</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase' }}>Valor</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="#94A3B8" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase' }}>Há</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, textTransform: 'uppercase' }}>Paciente</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 56, textAlign: 'center', textTransform: 'uppercase' }}>Guias</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 64, textAlign: 'center', textTransform: 'uppercase' }}>Sessões</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase' }}>Valor</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase' }}>Há</Typography>
                                                     <Box sx={{ width: 30 }} />
                                                 </Box>
                                                 {sortedPatients.map(([patientName, patientGuides], patientIndex) => {
@@ -1649,7 +1661,7 @@ const GuidePendingBillingSection = ({
                                                     const oldest = patientGuides.map(guide => guide.firstSessionDate).filter(Boolean).sort()[0];
                                                     const initials = patientName.split(' ').slice(0, 2).map((name: string) => name[0]).join('').toUpperCase();
                                                     return (
-                                                        <Box key={`${provider}__${patientName}`} onClick={() => openDrawer(patientName, provider, patientGuides)} sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', cursor: 'pointer', borderBottom: patientIndex < sortedPatients.length - 1 ? '1px solid #F1F5F9' : 'none', bgcolor: (allPatientSelected || somePatientSelected || (picked?.provider === provider && picked.names.includes(patientName))) ? '#E0F2FE' : 'transparent', '&:hover': { bgcolor: '#F0F9FF' } }}>
+                                                        <Box key={`${provider}__${patientName}`} onClick={() => openDrawer(patientName, provider, patientGuides)} sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', cursor: 'pointer', borderBottom: patientIndex < sortedPatients.length - 1 ? '1px solid var(--fx-slate-100)' : 'none', bgcolor: (allPatientSelected || somePatientSelected || (picked?.provider === provider && picked.names.includes(patientName))) ? 'var(--fx-sky-100)' : 'transparent', '&:hover': { bgcolor: 'var(--fx-sky-50)' } }}>
                                                             {!readOnly && !selectionInsideDrawer && (
                                                                 <Checkbox checked={allPatientSelected} indeterminate={somePatientSelected} onChange={() => {
                                                                     const targets = allPatientSelected ? patientGuides : patientGuides.filter(guide => !selectedGuides.has(guide.guideId));
@@ -1664,16 +1676,16 @@ const GuidePendingBillingSection = ({
                                                                     size="small" sx={{ p: 0.5, mr: 0.75 }} />
                                                             )}
                                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-                                                                <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: isPerGuide ? '#ECFDF5' : '#EFF6FF', border: `1px solid ${isPerGuide ? '#6EE7B7' : '#BFDBFE'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: isPerGuide ? 'var(--fx-emerald-50)' : 'var(--fx-blue-50)', border: `1px solid ${isPerGuide ? 'var(--fx-emerald-300)' : 'var(--fx-blue-200)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                     <Typography fontSize="0.62rem" fontWeight={700} color={accentColor}>{initials}</Typography>
                                                                 </Box>
-                                                                <Typography fontSize="0.82rem" fontWeight={600} color="#1E293B" noWrap>{patientName}</Typography>
+                                                                <Typography fontSize="0.82rem" fontWeight={600} color="var(--fx-slate-800)" noWrap>{patientName}</Typography>
                                                             </Box>
-                                                            <Typography fontSize="0.8rem" color="#64748B" sx={{ width: 56, textAlign: 'center' }}>{patientGuides.length}</Typography>
-                                                            <Typography fontSize="0.8rem" fontWeight={700} color="#1D4ED8" sx={{ width: 64, textAlign: 'center' }}>{patientSessions}</Typography>
-                                                            <Typography fontSize="0.82rem" fontWeight={700} color="#0F172A" sx={{ width: 100, textAlign: 'right' }}>{formatCurrency(patientTotal)}</Typography>
+                                                            <Typography fontSize="0.8rem" color="var(--fx-slate-500)" sx={{ width: 56, textAlign: 'center' }}>{patientGuides.length}</Typography>
+                                                            <Typography fontSize="0.8rem" fontWeight={700} color="var(--fx-blue-700)" sx={{ width: 64, textAlign: 'center' }}>{patientSessions}</Typography>
+                                                            <Typography fontSize="0.82rem" fontWeight={700} color="var(--fx-slate-900)" sx={{ width: 100, textAlign: 'right' }}>{formatCurrency(patientTotal)}</Typography>
                                                             <Box sx={{ width: 72, display: 'flex', justifyContent: 'center' }}><UrgencyChip days={daysSince(oldest)} /></Box>
-                                                            <Box sx={{ width: 30, display: 'flex', justifyContent: 'flex-end', color: '#94A3B8' }}><ChevronDown size={14} /></Box>
+                                                            <Box sx={{ width: 30, display: 'flex', justifyContent: 'flex-end', color: 'var(--fx-slate-400)' }}><ChevronDown size={14} /></Box>
                                                         </Box>
                                                     );
                                                 })}
@@ -1686,18 +1698,18 @@ const GuidePendingBillingSection = ({
 
                             {/* Rodapé total */}
                             {sortedProviders.length > 1 && (
-                                <Box sx={{ px: 2.5, py: 1.45, minWidth: { xs: 0, lg: 1080 }, display: 'flex', alignItems: 'center', bgcolor: '#F8FAFC', borderTop: '1px solid #CBD5E1' }}>
+                                <Box sx={{ px: 2.5, py: 1.45, minWidth: { xs: 0, lg: 1080 }, display: 'flex', alignItems: 'center', bgcolor: 'var(--fx-slate-50)', borderTop: '1px solid var(--fx-slate-300)' }}>
                                     {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
-                                    <Typography fontSize="0.8rem" fontWeight={700} color="#475569" sx={{ flex: 1 }}>Total</Typography>
+                                    <Typography fontSize="0.8rem" fontWeight={700} color="var(--fx-slate-600)" sx={{ flex: 1 }}>Total</Typography>
                                     <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 180 }} />
                                     <Box sx={{ display: { xs: 'none', md: 'block' }, width: 130 }} />
                                     <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 220 }} />
-                                    <Typography fontSize="0.83rem" fontWeight={600} color="#475569" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{grandPats}</Typography>
-                                    <Typography fontSize="0.83rem" fontWeight={600} color="#475569" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allFlat.length}</Typography>
+                                    <Typography fontSize="0.83rem" fontWeight={600} color="var(--fx-slate-600)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{grandPats}</Typography>
+                                    <Typography fontSize="0.83rem" fontWeight={600} color="var(--fx-slate-600)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allFlat.length}</Typography>
                                     <Box sx={{ width: 72, display: 'flex', justifyContent: 'center' }}>
-                                        <Typography fontSize="0.83rem" fontWeight={700} color="#1D4ED8">{grandSess}</Typography>
+                                        <Typography fontSize="0.83rem" fontWeight={700} color="var(--fx-blue-700)">{grandSess}</Typography>
                                     </Box>
-                                    <Typography fontWeight="800" fontSize="0.92rem" color="#0F172A" sx={{ width: 110, textAlign: 'right' }}>
+                                    <Typography fontWeight="800" fontSize="0.92rem" color="var(--fx-slate-900)" sx={{ width: 110, textAlign: 'right' }}>
                                         {formatCurrency(grandTotal)}
                                     </Typography>
                                     {selectionInsideDrawer && !readOnly && <Box sx={{ width: 120, flexShrink: 0 }} />}
@@ -1710,15 +1722,15 @@ const GuidePendingBillingSection = ({
 
                 {/* ── Sessões órfãs ───────────────────────────────────────── */}
                 {orphanSessionsCount > 0 && (
-                    <Card variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #FDE68A' }}>
+                    <Card variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid var(--fx-amber-200)' }}>
                         <Box sx={{
                             px: 2.5, py: 1.75,
-                            background: 'linear-gradient(90deg, #FEF3C7 0%, #FFFBEB 100%)',
-                            borderBottom: '1px solid #FDE68A',
+                            background: 'linear-gradient(90deg, var(--fx-amber-100) 0%, var(--fx-amber-50) 100%)',
+                            borderBottom: '1px solid var(--fx-amber-200)',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         }}>
                             <Box>
-                                <Typography fontWeight="700" fontSize="0.95rem" color="#92400E">
+                                <Typography fontWeight="700" fontSize="0.95rem" color="var(--fx-amber-800)">
                                     ⚠️ Atendimentos sem guia vinculada
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
@@ -1759,29 +1771,29 @@ const GuidePendingBillingSection = ({
                                         onClick={() => toggleOrphanProvider(provider)}
                                         sx={{
                                             px: 2.5, py: 1.25,
-                                            bgcolor: '#FFFBEB',
-                                            borderBottom: '1px solid #FDE68A',
-                                            borderTop: '1px solid #FDE68A',
+                                            bgcolor: 'var(--fx-amber-50)',
+                                            borderBottom: '1px solid var(--fx-amber-200)',
+                                            borderTop: '1px solid var(--fx-amber-200)',
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                             cursor: 'pointer',
-                                            '&:hover': { bgcolor: '#FEF3C7' },
+                                            '&:hover': { bgcolor: 'var(--fx-amber-100)' },
                                         }}
                                     >
-                                        <Typography fontWeight="700" fontSize="0.82rem" color="#B45309">
+                                        <Typography fontWeight="700" fontSize="0.82rem" color="var(--fx-amber-700)">
                                             {formatProviderName(provider)}
                                         </Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Typography variant="caption" color="text.secondary">
                                                 {sessions.length} {sessoes(sessions.length)} · {formatCurrency(total)}
                                             </Typography>
-                                            {isExpanded ? <ChevronUp size={14} color="#9CA3AF" /> : <ChevronDown size={14} color="#9CA3AF" />}
+                                            {isExpanded ? <ChevronUp size={14} color="var(--fx-gray-400)" /> : <ChevronDown size={14} color="var(--fx-gray-400)" />}
                                         </Box>
                                     </Box>
                                     <Collapse in={isExpanded}>
                                         <TableContainer>
                                             <Table size="small">
                                                 <TableHead>
-                                                    <TableRow sx={{ bgcolor: '#FAFAFA' }}>
+                                                    <TableRow sx={{ bgcolor: 'var(--fx-neutral-50)' }}>
                                                         <TableCell sx={TH}>Paciente</TableCell>
                                                         <TableCell sx={TH}>Especialidade</TableCell>
                                                         <TableCell sx={TH}>Data</TableCell>
@@ -1793,17 +1805,17 @@ const GuidePendingBillingSection = ({
                                                     {sessions.map((s, idx) => (
                                                         <TableRow key={s.sessionId || s.paymentId || idx}>
                                                             <TableCell>
-                                                                <Typography fontSize="0.83rem" fontWeight={500} color="#374151">
+                                                                <Typography fontSize="0.83rem" fontWeight={500} color="var(--fx-gray-700)">
                                                                     {s.patient?.fullName || '—'}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography fontSize="0.8rem" color="#6B7280">
+                                                                <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                                     {getSpecialtyLabel(s.specialty || '')}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Typography fontSize="0.8rem" color="#6B7280">
+                                                                <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                                     {formatDate(s.date)}{s.time ? ` ${s.time}` : ''}
                                                                 </Typography>
                                                             </TableCell>
@@ -1998,13 +2010,13 @@ const GuidePendingBillingSection = ({
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         {previewModal && previewModal.linked.length > 0 && (
                             <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 1, color: '#92400E' }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, color: 'var(--fx-amber-800)' }}>
                                     {previewModal.linked.length} sessão(ões) serão vinculadas
                                 </Typography>
                                 <TableContainer component={Paper} variant="outlined">
                                     <Table size="small">
                                         <TableHead>
-                                            <TableRow sx={{ bgcolor: '#FAFAFA' }}>
+                                            <TableRow sx={{ bgcolor: 'var(--fx-neutral-50)' }}>
                                                 <TableCell sx={TH}>Paciente</TableCell>
                                                 <TableCell sx={TH}>Especialidade</TableCell>
                                                 <TableCell sx={TH}>Data</TableCell>
@@ -2017,35 +2029,35 @@ const GuidePendingBillingSection = ({
                                             {previewModal.linked.map((item: any) => (
                                                 <TableRow key={item.sessionId}>
                                                     <TableCell>
-                                                        <Typography fontSize="0.83rem" fontWeight={500} color="#374151">
+                                                        <Typography fontSize="0.83rem" fontWeight={500} color="var(--fx-gray-700)">
                                                             {item.patientName || '—'}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                             {getSpecialtyLabel(item.specialty || '')}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                             {formatDate(item.date)}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography fontSize="0.8rem" fontWeight={600} color="#1D4ED8">
+                                                        <Typography fontSize="0.8rem" fontWeight={600} color="var(--fx-blue-700)">
                                                             {item.guideNumber || '—'}
                                                         </Typography>
-                                                        <Typography fontSize="0.75rem" color="#6B7280">
+                                                        <Typography fontSize="0.75rem" color="var(--fx-gray-500)">
                                                             {formatProviderName(item.guideInsurance || '')}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                             {item.guideUsedSessions || 0} / {item.guideTotalSessions || 0}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell align="right">
-                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                             {formatDate(item.guideExpiresAt)}
                                                         </Typography>
                                                     </TableCell>
@@ -2059,13 +2071,13 @@ const GuidePendingBillingSection = ({
 
                         {previewModal && previewModal.skipped.length > 0 && (
                             <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 1, color: '#B91C1C' }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, color: 'var(--fx-red-700)' }}>
                                     {previewModal.skipped.length} sessão(ões) não puderam ser vinculadas automaticamente
                                 </Typography>
                                 <TableContainer component={Paper} variant="outlined">
                                     <Table size="small">
                                         <TableHead>
-                                            <TableRow sx={{ bgcolor: '#FAFAFA' }}>
+                                            <TableRow sx={{ bgcolor: 'var(--fx-neutral-50)' }}>
                                                 <TableCell sx={TH}>Paciente</TableCell>
                                                 <TableCell sx={TH}>Especialidade</TableCell>
                                                 <TableCell sx={TH}>Data</TableCell>
@@ -2076,22 +2088,22 @@ const GuidePendingBillingSection = ({
                                             {previewModal.skipped.map((item: any) => (
                                                 <TableRow key={item.sessionId}>
                                                     <TableCell>
-                                                        <Typography fontSize="0.83rem" fontWeight={500} color="#374151">
+                                                        <Typography fontSize="0.83rem" fontWeight={500} color="var(--fx-gray-700)">
                                                             {item.patientName || '—'}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                             {getSpecialtyLabel(item.specialty || '')}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography fontSize="0.8rem" color="#6B7280">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-gray-500)">
                                                             {formatDate(item.date)}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography fontSize="0.8rem" color="#B91C1C">
+                                                        <Typography fontSize="0.8rem" color="var(--fx-red-700)">
                                                             {item.reason || '—'}
                                                         </Typography>
                                                     </TableCell>
@@ -2135,7 +2147,7 @@ const GuidePendingBillingSection = ({
                         <Typography variant="body2" color="text.secondary">
                             Agendamentos pendentes: <strong>{closeGuideModal?.pendingSessions || 0}</strong>
                         </Typography>
-                        <Typography variant="body2" color="error" sx={{ bgcolor: '#FEF2F2', p: 1.5, borderRadius: 1 }}>
+                        <Typography variant="body2" color="error" sx={{ bgcolor: 'var(--fx-red-50)', p: 1.5, borderRadius: 1 }}>
                             ⚠️ Essa ação não pode ser desfeita. Só finalize a guia quando tiver certeza de que nenhuma
                             sessão futura dela será realizada.
                         </Typography>
@@ -2147,7 +2159,7 @@ const GuidePendingBillingSection = ({
                         onClick={handleCloseGuide}
                         variant="contained"
                         disabled={closingGuide}
-                        sx={{ bgcolor: '#B45309' }}
+                        sx={{ bgcolor: 'var(--fx-amber-700)' }}
                     >
                         {closingGuide ? 'Finalizando...' : 'Finalizar guia'}
                     </Button>

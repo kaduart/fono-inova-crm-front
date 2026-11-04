@@ -51,6 +51,10 @@ vi.mock('../../../../services/appointmentService', () => ({
 // que faz polling de 202 e detecta lock liberado) — não de appointmentService
 // direto. Mockado aqui pra controlar precisamente resolve/reject/atraso.
 const completeCtxMock = vi.fn();
+// "Desfazer: foi falta" (04/11) usa useAuth para saber se é admin.
+vi.mock('../../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { role: 'admin' } }),
+}));
 vi.mock('../../../../contexts/AppointmentsContext', () => ({
   useAppointmentsContext: () => ({ completeAppointment: completeCtxMock }),
 }));

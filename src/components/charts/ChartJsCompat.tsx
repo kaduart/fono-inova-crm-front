@@ -8,7 +8,7 @@ export type ChartJsData = { labels: string[]; datasets: Dataset[] };
 const color = (d: Dataset, i: number) => d.borderColor || (Array.isArray(d.backgroundColor) ? d.backgroundColor[0] : d.backgroundColor) || ['#26977b', '#3b82f6', '#f59e0b'][i % 3];
 const rows = ({ labels, datasets }: ChartJsData) =>
   labels.map((l, i) => Object.fromEntries([['label', l], ...datasets.map((d, k) => [d.label || `s${k}`, d.data[i]])]));
-const tip = { contentStyle: { borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 13 } };
+const tip = { contentStyle: { borderRadius: 10, border: '1px solid var(--fx-gray-200)', fontSize: 13 } };
 
 export function LineCompat({ data }: { data: ChartJsData }) {
   return (
@@ -50,7 +50,7 @@ export function DoughnutCompat({ data }: { data: ChartJsData }) {
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie data={pts} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="85%" paddingAngle={2}>
-          {pts.map((p, i) => <Cell key={p.name} fill={colors[i] || '#94a3b8'} />)}
+          {pts.map((p, i) => <Cell key={p.name} fill={colors[i] || 'var(--fx-slate-400)'} />)}
         </Pie>
         <Tooltip {...tip} /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
       </PieChart>

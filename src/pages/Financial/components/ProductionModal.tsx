@@ -77,10 +77,10 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
 
     const getTypeColor = (type: string) => {
         switch (type) {
-            case 'particular': return { color: '#059669', bg: '#D1FAE5', label: 'Particular' };
-            case 'convenio': return { color: '#2563EB', bg: '#DBEAFE', label: 'Convênio' };
-            case 'pacote': return { color: '#7C3AED', bg: '#EDE9FE', label: 'Pacote' };
-            default: return { color: '#6B7280', bg: '#F3F4F6', label: 'Outro' };
+            case 'particular': return { color: '#059669', bg: 'var(--fx-emerald-100)', label: 'Particular' };
+            case 'convenio': return { color: '#2563EB', bg: 'var(--fx-blue-100)', label: 'Convênio' };
+            case 'pacote': return { color: '#7C3AED', bg: 'var(--fx-violet-100)', label: 'Pacote' };
+            default: return { color: 'var(--fx-gray-500)', bg: 'var(--fx-gray-100)', label: 'Outro' };
         }
     };
 
@@ -99,7 +99,7 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
                 borderBottom: '1px solid',
                 borderColor: 'divider',
                 pb: 1.5,
-                bgcolor: '#EFF6FF'
+                bgcolor: 'var(--fx-blue-50)'
             }}>
                 <Box display="flex" alignItems="center" gap={1}>
                     <TrendingUp sx={{ color: '#2563EB' }} />
@@ -119,10 +119,10 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
 
             <DialogContent sx={{ p: 0 }}>
                 {/* RESUMO GERAL */}
-                <Box p={3} bgcolor="#F8FAFC">
+                <Box p={3} bgcolor="var(--fx-slate-50)">
                     <Grid container spacing={2}>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                 <Typography variant="caption" color="text.secondary">
                                     PRODUÇÃO TOTAL
                                 </Typography>
@@ -132,7 +132,7 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                 <Typography variant="caption" color="text.secondary">
                                     PARTICULAR
                                 </Typography>
@@ -142,7 +142,7 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                 <Typography variant="caption" color="text.secondary">
                                     CONVÊNIO
                                 </Typography>
@@ -152,7 +152,7 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid #E5E7EB">
+                            <Box p={2} bgcolor="white" borderRadius={1.5} border="1px solid var(--fx-gray-200)">
                                 <Typography variant="caption" color="text.secondary">
                                     PACOTE
                                 </Typography>
@@ -174,7 +174,7 @@ const ProductionModal: React.FC<ProductionModalProps> = ({
                     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
                         <Table size="small">
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#F8FAFC' }}>
+                                <TableRow sx={{ bgcolor: 'var(--fx-slate-50)' }}>
                                     <TableCell sx={{ py: 1 }}>Horário</TableCell>
                                     <TableCell sx={{ py: 1 }}>Paciente</TableCell>
                                     <TableCell sx={{ py: 1 }}>Profissional</TableCell>

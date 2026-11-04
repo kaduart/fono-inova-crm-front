@@ -107,12 +107,12 @@ const DashboardSkeleton = () => (
             <Skeleton variant="text" width={80} height={16} />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[{ c: '#10B981' }, { c: '#3B82F6' }, { c: '#F59E0B' }, { c: '#EF4444' }].map((item, i) => (
-                    <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${item.c}20`, backgroundColor: `${item.c}08` }}>
+                    <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${item.c} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${item.c} 3%, transparent)` }}>
                         <div className="flex items-center gap-4">
-                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${item.c}20` }} />
+                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${item.c} 13%, transparent)` }} />
                             <div className="flex-1">
                                 <Skeleton variant="text" width="55%" height={20} />
-                                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${item.c}15` }} />
+                                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${item.c} 8%, transparent)` }} />
                                 <Skeleton variant="text" width="40%" height={16} />
                             </div>
                         </div>
@@ -122,12 +122,12 @@ const DashboardSkeleton = () => (
             <Skeleton variant="text" width={80} height={16} />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[{ c: '#8B5CF6' }, { c: '#06B6D4' }, { c: '#EC4899' }, { c: '#6366F1' }].map((item, i) => (
-                    <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${item.c}20`, backgroundColor: `${item.c}08` }}>
+                    <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${item.c} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${item.c} 3%, transparent)` }}>
                         <div className="flex items-center gap-4">
-                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${item.c}20` }} />
+                            <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${item.c} 13%, transparent)` }} />
                             <div className="flex-1">
                                 <Skeleton variant="text" width="55%" height={20} />
-                                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${item.c}15` }} />
+                                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${item.c} 8%, transparent)` }} />
                                 <Skeleton variant="text" width="40%" height={16} />
                             </div>
                         </div>

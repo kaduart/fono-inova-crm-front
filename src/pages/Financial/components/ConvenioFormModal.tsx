@@ -208,21 +208,21 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
-            <DialogTitle sx={{ px: 3, py: 2.25, borderBottom: '1px solid #F1F5F9' }}>
+            <DialogTitle sx={{ px: 3, py: 2.25, borderBottom: '1px solid var(--fx-slate-100)' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{
-                        width: 42, height: 42, borderRadius: 2.5, bgcolor: '#EFF6FF',
+                        width: 42, height: 42, borderRadius: 2.5, bgcolor: 'var(--fx-blue-50)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                     }}>
                         <Building2 className="w-5 h-5 text-blue-600" />
                     </Box>
-                    <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: '#111827' }}>
+                    <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--fx-gray-900)' }}>
                         {isEditing ? 'Editar Convênio' : 'Novo Convênio'}
                     </Typography>
                 </Box>
             </DialogTitle>
 
-            <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#FFFFFF', '& .MuiFormHelperText-root': { mx: 0, fontSize: '0.75rem', lineHeight: 1.4 } }}>
+            <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: 'var(--fx-white)', '& .MuiFormHelperText-root': { mx: 0, fontSize: '0.75rem', lineHeight: 1.4 } }}>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '220px minmax(0, 1fr)' }, gap: 2, mt: 1, alignItems: 'start' }}>
                     <TextField
                         label="Código *"
@@ -418,12 +418,12 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                                     onClick={() => setFormData({ ...formData, billingMode: opt.value })}
                                     sx={{
                                         flex: 1, p: 1.5, borderRadius: 2, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', '&:focus-visible': { outline: '2px solid #26977B', outlineOffset: 2 },
-                                        border: `2px solid ${selected ? opt.color : '#E5E7EB'}`,
-                                        bgcolor: selected ? `${opt.color}10` : '#FAFAFA',
+                                        border: `2px solid ${selected ? opt.color : 'var(--fx-gray-200)'}`,
+                                        bgcolor: selected ? `color-mix(in srgb, ${opt.color} 6%, transparent)` : 'var(--fx-neutral-50)',
                                         transition: 'all 0.15s'
                                     }}
                                 >
-                                    <Typography fontSize="0.82rem" fontWeight={700} color={selected ? opt.color : '#374151'}>
+                                    <Typography fontSize="0.82rem" fontWeight={700} color={selected ? opt.color : 'var(--fx-gray-700)'}>
                                         {opt.label}
                                     </Typography>
                                     <Typography fontSize="0.72rem" color="text.secondary">{opt.desc}</Typography>
@@ -471,7 +471,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 </Box>
 
                 {/* Política de Guia */}
-                <Accordion disableGutters elevation={0} sx={{ mt: 3, borderTop: '1px solid #e5e7eb', '&:before': { display: 'none' } }}>
+                <Accordion disableGutters elevation={0} sx={{ mt: 3, borderTop: '1px solid var(--fx-gray-200)', '&:before': { display: 'none' } }}>
                     <AccordionSummary expandIcon={<ChevronDown size={18} />} sx={{ px: 0 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={500}>
                         Política de guia e prazos
@@ -659,7 +659,7 @@ const ConvenioFormModal = ({ open, onClose, onSaved, editingConvenio }: Convenio
                 </Accordion>
             </DialogContent>
 
-            <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #F1F5F9' }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--fx-slate-100)' }}>
                 <Button onClick={onClose} variant="outlined" startIcon={<X size={18} />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}>
                     Cancelar
                 </Button>

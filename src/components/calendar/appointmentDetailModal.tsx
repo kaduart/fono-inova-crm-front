@@ -146,12 +146,12 @@ function getStatusVisualMap() {
                 'confirmado': { label: 'Confirmado', color: '#10b981', icon: CheckCircle },
                 'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
                 'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
-                'cancelado': { label: 'Cancelado', color: '#6b7280', icon: XCircle },
+                'cancelado': { label: 'Cancelado', color: 'var(--fx-gray-500)', icon: XCircle },
                 'faltou': { label: 'Faltou', color: '#ef4444', icon: XCircle },
                 'pre_agendado': { label: 'Pré-Agendado', color: '#ec4899', icon: Clock }
             },
             clinical: {
-                'pendente': { label: 'Pendente', color: '#6b7280', icon: Clock },
+                'pendente': { label: 'Pendente', color: 'var(--fx-gray-500)', icon: Clock },
                 'em_andamento': { label: 'Em Andamento', color: '#f59e0b', icon: Clock },
                 'concluído': { label: 'Concluído', color: '#22c55e', icon: CheckCircle },
                 'cancelado': { label: 'Cancelado', color: '#ef4444', icon: XCircle },
@@ -206,7 +206,7 @@ const getStatusConfig = (status: string | undefined | null, type: 'operational' 
     const translatedStatus = translateStatus(status, type);
     return getStatusVisualMap()[type]?.[translatedStatus] || {
         label: translatedStatus ? translatedStatus.charAt(0).toUpperCase() + translatedStatus.slice(1) : 'Desconhecido',
-        color: '#9ca3af',
+        color: 'var(--fx-gray-400)',
         icon: Clock
     };
 };
@@ -220,11 +220,11 @@ let _serviceTypeConfigCache: Record<string, { label: string; icon: any; color: s
 function getServiceTypeConfig() {
     if (!_serviceTypeConfigCache) {
         _serviceTypeConfigCache = {
-            convenio:      { label: 'Convênio',       icon: Stethoscope, color: '#1d4ed8', bg: '#dbeafe' },
-            liminar:       { label: 'Liminar',        icon: Scale,       color: '#7e22ce', bg: '#f3e8ff' },
-            avaliacao:     { label: 'Avaliação',      icon: ClipboardCheck, color: '#b45309', bg: '#fef3c7' },
-            pacote:        { label: 'Pacote Pago',    icon: Package,     color: '#047857', bg: '#d1fae5' },
-            sessao_avulsa: { label: 'Sessão Avulsa',  icon: Calendar,    color: '#4b5563', bg: '#f3f4f6' },
+            convenio:      { label: 'Convênio',       icon: Stethoscope, color: 'var(--fx-blue-700)', bg: 'var(--fx-blue-100)' },
+            liminar:       { label: 'Liminar',        icon: Scale,       color: 'var(--fx-purple-700)', bg: 'var(--fx-purple-100)' },
+            avaliacao:     { label: 'Avaliação',      icon: ClipboardCheck, color: 'var(--fx-amber-700)', bg: 'var(--fx-amber-100)' },
+            pacote:        { label: 'Pacote Pago',    icon: Package,     color: 'var(--fx-emerald-700)', bg: 'var(--fx-emerald-100)' },
+            sessao_avulsa: { label: 'Sessão Avulsa',  icon: Calendar,    color: 'var(--fx-gray-600)', bg: 'var(--fx-gray-100)' },
         };
     }
     return _serviceTypeConfigCache;
@@ -688,9 +688,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             ...config,
             className: `inline-block px-3 py-2 rounded-lg text-sm font-semibold border`,
             style: {
-                backgroundColor: `${config.color}20`,
+                backgroundColor: `color-mix(in srgb, ${config.color} 13%, transparent)`,
                 color: config.color,
-                borderColor: `${config.color}40`
+                borderColor: `color-mix(in srgb, ${config.color} 25%, transparent)`
             }
         };
     };

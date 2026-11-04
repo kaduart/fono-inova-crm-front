@@ -50,7 +50,7 @@ export default function BreakdownDetailsModal({ open, onClose, title, accentColo
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
-            <Box sx={{ height: 4, background: `linear-gradient(90deg, ${accentColor}, ${accentColor}99)` }} />
+            <Box sx={{ height: 4, background: `linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 60%, transparent))` }} />
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: tabs ? 1 : 1.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
                     <Avatar sx={{ bgcolor: accentColor, width: 38, height: 38, fontSize: '0.8rem', fontWeight: 800, flexShrink: 0 }}>
@@ -114,8 +114,8 @@ export default function BreakdownDetailsModal({ open, onClose, title, accentColo
                         >
                             <Avatar sx={{
                                 width: 30, height: 30, fontSize: '0.62rem', fontWeight: 700, flexShrink: 0,
-                                bgcolor: r.highlight ? '#FCA5A5' : `${accentColor}26`,
-                                color: r.highlight ? '#7F1D1D' : accentColor,
+                                bgcolor: r.highlight ? '#FCA5A5' : `color-mix(in srgb, ${accentColor} 15%, transparent)`,
+                                color: r.highlight ? 'var(--fx-red-900)' : accentColor,
                             }}>
                                 {initialsOf(r.label)}
                             </Avatar>
@@ -135,7 +135,7 @@ export default function BreakdownDetailsModal({ open, onClose, title, accentColo
                                     <Chip
                                         label={r.highlightLabel}
                                         size="small"
-                                        sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#FEE2E2', color: '#DC2626', '& .MuiChip-label': { px: 0.75 } }}
+                                        sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: 'var(--fx-red-100)', color: '#DC2626', '& .MuiChip-label': { px: 0.75 } }}
                                     />
                                 )}
                             </Box>

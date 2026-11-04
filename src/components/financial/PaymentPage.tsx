@@ -177,7 +177,7 @@ export const PatientsSummaryCard = ({
     return (
         <Box
             sx={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--fx-white)',
                 borderRadius: 3,
                 boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                 p: 3,
@@ -256,7 +256,7 @@ export const PatientsSummaryCard = ({
                 <Grid item xs={12} sm={6} sx={{ display: 'flex' }}>
                     <Box
                         sx={{
-                            backgroundColor: '#ECFDF5',
+                            backgroundColor: 'var(--fx-emerald-50)',
                             borderRadius: 2,
                             p: 2.5,
                             border: '1px solid #059669',

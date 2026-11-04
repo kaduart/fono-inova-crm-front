@@ -62,13 +62,13 @@ const getRankColor = (rank: number) => {
   if (rank === 1) return '#FFD700';
   if (rank === 2) return '#C0C0C0';
   if (rank === 3) return '#CD7F32';
-  return '#9CA3AF';
+  return 'var(--fx-gray-400)';
 };
 
 const getRankBg = (rank: number) => {
-  if (rank === 1) return '#FFFBEB';
-  if (rank === 2) return '#F9FAFB';
-  if (rank === 3) return '#FFF7ED';
+  if (rank === 1) return 'var(--fx-amber-50)';
+  if (rank === 2) return 'var(--fx-gray-50)';
+  if (rank === 3) return 'var(--fx-orange-50)';
   return '#FFFFFF';
 };
 
@@ -165,7 +165,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
           title="Nenhum profissional encontrado"
           description="Não há dados de produção no período selecionado."
           icon={Users}
-          iconColor="#9CA3AF"
+          iconColor="var(--fx-gray-400)"
         />
       </Box>
     );
@@ -232,7 +232,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-3xs font-bold flex-shrink-0"
-                    style={{ backgroundColor: rankColor, color: doc.rank! <= 3 ? '#1F2937' : '#FFFFFF' }}
+                    style={{ backgroundColor: rankColor, color: doc.rank! <= 3 ? 'var(--fx-gray-800)' : 'var(--fx-white)' }}
                   >
                     {doc.rank}
                   </div>

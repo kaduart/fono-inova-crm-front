@@ -53,7 +53,7 @@ export default function InsurancePatientDrawer({
     subtitle,
     stats,
     children,
-    headerColor = '#FFFBEB'
+    headerColor = 'var(--fx-amber-50)'
 }: InsurancePatientDrawerProps) {
     return (
         <Drawer
@@ -91,10 +91,10 @@ export default function InsurancePatientDrawer({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
                         {stats.map((stat) => (
                             <div key={stat.label} className="rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm">
-                                <div style={{ height: 3, backgroundColor: stat.color || '#6B7280' }} />
+                                <div style={{ height: 3, backgroundColor: stat.color || 'var(--fx-gray-500)' }} />
                                 <div className="px-3 py-2">
                                     <p className="text-3xs font-black uppercase tracking-widest text-gray-400">{stat.label}</p>
-                                    <p className="text-lg font-black leading-tight" style={{ color: stat.color || '#374151' }}>{stat.value}</p>
+                                    <p className="text-lg font-black leading-tight" style={{ color: stat.color || 'var(--fx-gray-700)' }}>{stat.value}</p>
                                 </div>
                             </div>
                         ))}

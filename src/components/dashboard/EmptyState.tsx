@@ -14,7 +14,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
   icon: Icon,
-  iconColor = '#9CA3AF',
+  iconColor = 'var(--fx-gray-400)',
   action,
   className = '',
 }) => {
@@ -30,7 +30,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       {Icon && (
         <div
           className="p-4 rounded-2xl mb-4"
-          style={{ backgroundColor: `${iconColor}12`, color: iconColor }}
+          style={{ backgroundColor: `color-mix(in srgb, ${iconColor} 7%, transparent)`, color: iconColor }}
         >
           <Icon size={40} strokeWidth={1.5} />
         </div>

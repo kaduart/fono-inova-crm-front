@@ -82,10 +82,10 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
 // envio. Distinto de 'error' de propósito — "falhou" e "nunca saiu" pedem leituras
 // diferentes de quem opera a tela.
 const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }> = {
-    success: { label: 'Enviado', bg: '#D1FAE5', color: '#065F46' },
-    error: { label: 'Falha no envio', bg: '#FEE2E2', color: '#B91C1C' },
-    pending: { label: 'Processando…', bg: '#FEF3C7', color: '#92400E' },
-    not_sent: { label: 'Não enviado', bg: '#FFEDD5', color: '#9A3412' }
+    success: { label: 'Enviado', bg: 'var(--fx-emerald-100)', color: 'var(--fx-emerald-800)' },
+    error: { label: 'Falha no envio', bg: 'var(--fx-red-100)', color: 'var(--fx-red-700)' },
+    pending: { label: 'Processando…', bg: 'var(--fx-amber-100)', color: 'var(--fx-amber-800)' },
+    not_sent: { label: 'Não enviado', bg: 'var(--fx-orange-100)', color: 'var(--fx-orange-800)' }
 };
 
 interface Props {
@@ -287,7 +287,7 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div
                                                 className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold"
-                                                style={{ background: '#CCFBF1', color: '#0F766E' }}
+                                                style={{ background: 'var(--fx-teal-100)', color: 'var(--fx-teal-700)' }}
                                             >
                                                 {log.patientName?.charAt(0).toUpperCase() || '?'}
                                             </div>
@@ -308,13 +308,13 @@ export default function EnviosTab({ patientFilter = '' }: Props) {
                                                 <Chip
                                                     size="small"
                                                     label={typeLabel}
-                                                    sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontWeight: 700, fontSize: '0.68rem', height: 22 }}
+                                                    sx={{ bgcolor: 'var(--fx-violet-100)', color: '#7C3AED', fontWeight: 700, fontSize: '0.68rem', height: 22 }}
                                                 />
                                             )}
                                             <Chip
                                                 size="small"
                                                 label={channelLabel}
-                                                sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 700, fontSize: '0.68rem', height: 22 }}
+                                                sx={{ bgcolor: 'var(--fx-slate-100)', color: 'var(--fx-slate-600)', fontWeight: 700, fontSize: '0.68rem', height: 22 }}
                                             />
                                             <Chip
                                                 size="small"

@@ -210,7 +210,7 @@ function SystemScoreCard({ score, status, items, collectedAt, headline }: {
                         </Typography>
                         <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>/ 100</Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ mt: 2, color: '#475569' }}>
+                    <Typography variant="body2" sx={{ mt: 2, color: 'var(--fx-slate-600)' }}>
                         {headline || (status === 'healthy' ? 'Sistema operando normalmente' : 'Verificação em andamento')}
                     </Typography>
                 </CardContent>
@@ -221,7 +221,7 @@ function SystemScoreCard({ score, status, items, collectedAt, headline }: {
 
 function AlertsCard({ alerts, counts }: { alerts: { level: 'error' | 'warning' | 'info'; title: string; detail: string; action?: string }[]; counts: { error: number; warning: number; info: number } }) {
     return (
-        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: counts.error > 0 ? '#fff7f7' : counts.warning > 0 ? '#fffbeb' : '#f8fafc' }}>
+        <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: counts.error > 0 ? '#fff7f7' : counts.warning > 0 ? 'var(--fx-amber-50)' : 'var(--fx-slate-50)' }}>
             <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -240,7 +240,7 @@ function AlertsCard({ alerts, counts }: { alerts: { level: 'error' | 'warning' |
                         </Box>
                     ) : (
                         alerts.slice(0, 5).map((a, i) => (
-                            <Box key={i} sx={{ p: 1.5, borderRadius: 2, bgcolor: a.level === 'error' ? '#fef2f2' : a.level === 'warning' ? '#fff7ed' : '#eff6ff', border: `1px solid ${a.level === 'error' ? '#fca5a5' : a.level === 'warning' ? '#fed7aa' : '#bfdbfe'}` }}>
+                            <Box key={i} sx={{ p: 1.5, borderRadius: 2, bgcolor: a.level === 'error' ? 'var(--fx-red-50)' : a.level === 'warning' ? 'var(--fx-orange-50)' : 'var(--fx-blue-50)', border: `1px solid ${a.level === 'error' ? '#fca5a5' : a.level === 'warning' ? 'var(--fx-orange-200)' : 'var(--fx-blue-200)'}` }}>
                                 <Typography variant="body2" fontWeight="bold" color={a.level === 'error' ? 'error.main' : a.level === 'warning' ? 'warning.main' : 'info.main'}>
                                     {a.title}
                                 </Typography>
@@ -406,7 +406,7 @@ function DomainDetailModal({ domain, open, onClose }: { domain: DomainHealth | n
                         { label: 'Pendentes',         sub: 'na fila, aguardando worker', value: domain.pendingEvents, color: domain.pendingEvents > 0 ? 'warning.main' : 'text.secondary' },
                     ].map(item => (
                         <Grid item xs={6} sm={6} key={item.label}>
-                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'var(--fx-slate-50)', border: '1px solid var(--fx-gray-200)' }}>
                                 <Typography variant="caption" color="text.secondary" display="block" fontWeight="bold">{item.label}</Typography>
                                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5, fontSize: '0.7rem' }}>{item.sub}</Typography>
                                 <Typography variant="h5" fontWeight="bold" color={item.color}>{item.value}</Typography>
@@ -415,13 +415,13 @@ function DomainDetailModal({ domain, open, onClose }: { domain: DomainHealth | n
                     ))}
                 </Grid>
 
-                <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: 'var(--fx-slate-50)', border: '1px solid var(--fx-gray-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" color="text.secondary">Taxa de Sucesso</Typography>
                     <Typography variant="h6" fontWeight="bold" color={rateColor}>{domain.successRate}%</Typography>
                 </Box>
 
                 {domain.avgProcessingMs > 0 && (
-                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: 'var(--fx-slate-50)', border: '1px solid var(--fx-gray-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="body2" color="text.secondary">Tempo Médio de Processamento</Typography>
                         <Typography variant="body1" fontWeight="bold">
                             {domain.avgProcessingMs < 1000 ? `${domain.avgProcessingMs}ms` : `${(domain.avgProcessingMs / 1000).toFixed(1)}s`}
@@ -475,7 +475,7 @@ function DomainsCard({ domains, onDomainClick }: { domains: DomainHealth[]; onDo
                                 sx={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     cursor: 'pointer', borderRadius: 2, px: 1, py: 0.5,
-                                    '&:hover': { bgcolor: '#f1f5f9' },
+                                    '&:hover': { bgcolor: 'var(--fx-slate-100)' },
                                     transition: 'background 0.15s',
                                 }}
                             >
@@ -512,9 +512,9 @@ function RecentEventsBlock({ recent, loading, onEventClick }: {
                     <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
                         <Table size="small">
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                <TableRow sx={{ bgcolor: 'var(--fx-slate-50)' }}>
                                     {['Horário', 'Evento', 'Status', 'Correlation ID'].map(h => (
-                                        <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
+                                        <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--fx-gray-500)' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
@@ -528,11 +528,11 @@ function RecentEventsBlock({ recent, loading, onEventClick }: {
                                             onClick={() => hasCorrelation && onEventClick(event.correlationId!)}
                                             sx={{
                                                 cursor: hasCorrelation ? 'pointer' : 'default',
-                                                '&:hover': hasCorrelation ? { bgcolor: '#eff6ff' } : {},
+                                                '&:hover': hasCorrelation ? { bgcolor: 'var(--fx-blue-50)' } : {},
                                             }}
                                         >
-                                            <TableCell sx={{ color: '#6b7280', fontSize: '0.8rem' }}>{new Date(event.timestamp).toLocaleTimeString()}</TableCell>
-                                            <TableCell><code style={{ fontSize: '0.78rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{event.eventType}</code></TableCell>
+                                            <TableCell sx={{ color: 'var(--fx-gray-500)', fontSize: '0.8rem' }}>{new Date(event.timestamp).toLocaleTimeString()}</TableCell>
+                                            <TableCell><code style={{ fontSize: '0.78rem', background: 'var(--fx-slate-100)', padding: '2px 6px', borderRadius: 4 }}>{event.eventType}</code></TableCell>
                                             <TableCell><Chip size="small" label={event.status} color={eventStatusColor(event.status)} /></TableCell>
                                             <TableCell>
                                                 {event.correlationId && (
@@ -566,7 +566,7 @@ function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { cou
     };
 
     return (
-        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: hasItems ? '#fff7f7' : '#fafafa', border: `1px solid ${hasItems ? '#fca5a5' : '#e5e7eb'}` }}>
+        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: hasItems ? '#fff7f7' : 'var(--fx-neutral-50)', border: `1px solid ${hasItems ? '#fca5a5' : 'var(--fx-gray-200)'}` }}>
             <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                     <Box>
@@ -602,9 +602,9 @@ function DeadLettersBlock({ count, items, reprocessing, onRetry, result }: { cou
                     <Grid container spacing={2}>
                         {items.map(dl => (
                             <Grid item xs={12} md={6} key={dl.eventId}>
-                                <Box sx={{ p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #fecaca' }}>
+                                <Box sx={{ p: 2, bgcolor: 'var(--fx-white)', borderRadius: 2, border: '1px solid var(--fx-red-200)' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                                        <code style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{dl.eventType}</code>
+                                        <code style={{ fontSize: '0.8rem', background: 'var(--fx-slate-100)', padding: '2px 6px', borderRadius: 4 }}>{dl.eventType}</code>
                                         <Chip size="small" label={`${dl.attempts || 0} tentativas`} color="error" variant="outlined" />
                                     </Box>
                                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
@@ -733,11 +733,11 @@ function MetricsTab({ extras, rawDomains, resolvedDomains, loading, onDomainClic
                         <CardContent>
                             <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Appointment Health</Typography>
                             <Box sx={{ display: 'flex', gap: 2 }}>
-                                <Box sx={{ flex: 1, p: 2, borderRadius: 2, bgcolor: extras.appointmentStats.retryableNotFound > 0 ? '#fffbeb' : '#f0fdf4', border: `1px solid ${extras.appointmentStats.retryableNotFound > 0 ? '#fcd34d' : '#bbf7d0'}` }}>
+                                <Box sx={{ flex: 1, p: 2, borderRadius: 2, bgcolor: extras.appointmentStats.retryableNotFound > 0 ? 'var(--fx-amber-50)' : 'var(--fx-green-50)', border: `1px solid ${extras.appointmentStats.retryableNotFound > 0 ? 'var(--fx-amber-300)' : 'var(--fx-green-200)'}` }}>
                                     <Typography variant="caption" color="text.secondary">Race Conditions (retryable)</Typography>
                                     <Typography variant="h5" fontWeight="bold" color={extras.appointmentStats.retryableNotFound > 0 ? 'warning.main' : 'success.main'}>{extras.appointmentStats.retryableNotFound}</Typography>
                                 </Box>
-                                <Box sx={{ flex: 1, p: 2, borderRadius: 2, bgcolor: extras.appointmentStats.permanentNotFound > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${extras.appointmentStats.permanentNotFound > 0 ? '#fca5a5' : '#bbf7d0'}` }}>
+                                <Box sx={{ flex: 1, p: 2, borderRadius: 2, bgcolor: extras.appointmentStats.permanentNotFound > 0 ? 'var(--fx-red-50)' : 'var(--fx-green-50)', border: `1px solid ${extras.appointmentStats.permanentNotFound > 0 ? '#fca5a5' : 'var(--fx-green-200)'}` }}>
                                     <Typography variant="caption" color="text.secondary">Permanent NOT_FOUND</Typography>
                                     <Typography variant="h5" fontWeight="bold" color={extras.appointmentStats.permanentNotFound > 0 ? 'error.main' : 'success.main'}>{extras.appointmentStats.permanentNotFound}</Typography>
                                 </Box>
@@ -754,8 +754,8 @@ function MetricsTab({ extras, rawDomains, resolvedDomains, loading, onDomainClic
                             <Typography variant="subtitle2" color="text.secondary" fontWeight="bold" sx={{ mb: 2 }}>Top Eventos com Falha</Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                 {extras.topFailingEventTypes.map((ft, i) => (
-                                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, borderRadius: 2, bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
-                                        <code style={{ fontSize: '0.8rem', background: '#fff', padding: '2px 6px', borderRadius: 4 }}>{ft.eventType}</code>
+                                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, borderRadius: 2, bgcolor: 'var(--fx-red-50)', border: '1px solid var(--fx-red-200)' }}>
+                                        <code style={{ fontSize: '0.8rem', background: 'var(--fx-white)', padding: '2px 6px', borderRadius: 4 }}>{ft.eventType}</code>
                                         <Chip size="small" color="error" label={`${ft.count} falha(s)`} />
                                     </Box>
                                 ))}
@@ -772,9 +772,9 @@ function MetricsTab({ extras, rawDomains, resolvedDomains, loading, onDomainClic
                         <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
                             <Table size="small">
                                 <TableHead>
-                                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                    <TableRow sx={{ bgcolor: 'var(--fx-slate-50)' }}>
                                         {['Domínio', 'Total', 'Processados', 'Falhas', 'Success Rate'].map(h => (
-                                            <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
+                                            <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--fx-gray-500)' }}>{h}</TableCell>
                                         ))}
                                     </TableRow>
                                 </TableHead>
@@ -825,7 +825,7 @@ function QueuesTab({ raw, queueHistory }: { raw: RawMonitorData | null; queueHis
                         const aDelta = queueDelta(q.active ?? 0, prev?.active);
                         return (
                             <Grid item xs={12} sm={6} md={4} lg={3} key={q.name}>
-                                <Box sx={{ p: 2, border: `1px solid ${hasFail || isStuck ? '#fca5a5' : '#e5e7eb'}`, borderRadius: 2, bgcolor: hasFail || isStuck ? '#fff7f7' : 'background.paper' }}>
+                                <Box sx={{ p: 2, border: `1px solid ${hasFail || isStuck ? '#fca5a5' : 'var(--fx-gray-200)'}`, borderRadius: 2, bgcolor: hasFail || isStuck ? '#fff7f7' : 'background.paper' }}>
                                     <Tooltip title={q.name}>
                                         <Typography variant="body2" fontWeight="bold" noWrap sx={{ display: 'block', mb: 1 }}>{q.name}</Typography>
                                     </Tooltip>
@@ -914,9 +914,9 @@ function OperationsTab({ ops, loading }: { ops: RecentOp[]; loading: boolean }) 
                 <TableContainer>
                     <Table size="small">
                         <TableHead>
-                            <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                            <TableRow sx={{ bgcolor: 'var(--fx-slate-50)' }}>
                                 {['Tipo', 'Paciente', 'Profissional', 'Consulta', 'Operador', 'Quando', 'Detalhe'].map(h => (
-                                    <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>{h}</TableCell>
+                                    <TableCell key={h} sx={{ fontWeight: 'bold', fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--fx-gray-500)' }}>{h}</TableCell>
                                 ))}
                             </TableRow>
                         </TableHead>
@@ -937,11 +937,11 @@ function OperationsTab({ ops, loading }: { ops: RecentOp[]; loading: boolean }) 
                                             />
                                         </TableCell>
                                         <TableCell sx={{ fontSize: '0.8rem' }}>{op.patientName}</TableCell>
-                                        <TableCell sx={{ fontSize: '0.8rem', color: '#6b7280' }}>{op.doctorName}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.8rem', color: 'var(--fx-gray-500)' }}>{op.doctorName}</TableCell>
                                         <TableCell sx={{ fontSize: '0.8rem' }}>{apptDate}{op.time ? ` ${op.time}` : ''}</TableCell>
-                                        <TableCell sx={{ fontSize: '0.8rem' }}>{op.operatorName || <span style={{ color: '#9ca3af' }}>—</span>}</TableCell>
-                                        <TableCell sx={{ fontSize: '0.75rem', color: '#6b7280', whiteSpace: 'nowrap' }}>{atDate}</TableCell>
-                                        <TableCell sx={{ fontSize: '0.75rem', color: '#6b7280', maxWidth: 180 }}>
+                                        <TableCell sx={{ fontSize: '0.8rem' }}>{op.operatorName || <span style={{ color: 'var(--fx-gray-400)' }}>—</span>}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem', color: 'var(--fx-gray-500)', whiteSpace: 'nowrap' }}>{atDate}</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem', color: 'var(--fx-gray-500)', maxWidth: 180 }}>
                                             {op.detail ? <Tooltip title={op.detail}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.detail}</span></Tooltip> : '—'}
                                         </TableCell>
                                     </TableRow>
@@ -1207,7 +1207,7 @@ export default function SystemUnifiedDashboard() {
             </Grid>
 
             {/* ── TABS INTERNAS ──────────────────────────────────────────────── */}
-            <Tabs value={innerTab} onChange={(_, v) => setInnerTab(v)} sx={{ mb: 2, borderBottom: '1px solid #e5e7eb' }}>
+            <Tabs value={innerTab} onChange={(_, v) => setInnerTab(v)} sx={{ mb: 2, borderBottom: '1px solid var(--fx-gray-200)' }}>
                 <Tab label="Visão Geral" icon={<Activity size={15} />} iconPosition="start" />
                 <Tab label="Métricas Detalhadas" icon={<Zap size={15} />} iconPosition="start" />
                 <Tab label="Filas BullMQ" icon={<Layers size={15} />} iconPosition="start" />
@@ -1319,7 +1319,7 @@ export default function SystemUnifiedDashboard() {
                 <DialogContent>
                     {eventFlow && (
                         <Box>
-                            <Card sx={{ mb: 3, bgcolor: eventFlow.summary.hasErrors ? '#fef2f2' : '#f0fdf4', borderRadius: 2 }}>
+                            <Card sx={{ mb: 3, bgcolor: eventFlow.summary.hasErrors ? 'var(--fx-red-50)' : 'var(--fx-green-50)', borderRadius: 2 }}>
                                 <CardContent>
                                     <Grid container spacing={2}>
                                         <Grid item xs={4}>
@@ -1343,11 +1343,11 @@ export default function SystemUnifiedDashboard() {
                                     const retryMatch = event.errorInfo?.errorMessage?.match(/attempt\s+(\d+)\/(\d+)/);
                                     const retryText = retryMatch ? `Tentativa ${retryMatch[1]}/${retryMatch[2]}` : null;
                                     return (
-                                        <Step key={event.id} active expanded sx={{ '& .MuiStepContent-root': { borderLeft: `2px solid ${isError ? '#ef4444' : '#e5e7eb'}` } }}>
+                                        <Step key={event.id} active expanded sx={{ '& .MuiStepContent-root': { borderLeft: `2px solid ${isError ? '#ef4444' : 'var(--fx-gray-200)'}` } }}>
                                             <StepLabel StepIconComponent={() => (
                                                 <Box sx={{
                                                     width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    bgcolor: event.status === 'processed' ? '#dcfce7' : event.status === 'failed' ? '#fee2e2' : '#fef9c3',
+                                                    bgcolor: event.status === 'processed' ? 'var(--fx-green-100)' : event.status === 'failed' ? 'var(--fx-red-100)' : 'var(--fx-yellow-100)',
                                                     border: `2px solid ${event.status === 'processed' ? '#22c55e' : event.status === 'failed' ? '#ef4444' : '#f59e0b'}`
                                                 }}>
                                                     {event.status === 'processed' ? <Check size={14} color="#22c55e" /> :
@@ -1356,13 +1356,13 @@ export default function SystemUnifiedDashboard() {
                                                 </Box>
                                             )}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                    <code style={{ fontSize: '0.8rem', background: isError ? '#fee2e2' : '#f1f5f9', padding: '2px 6px', borderRadius: 4, color: isError ? '#991b1b' : '#1e293b' }}>{event.eventType}</code>
+                                                    <code style={{ fontSize: '0.8rem', background: isError ? 'var(--fx-red-100)' : 'var(--fx-slate-100)', padding: '2px 6px', borderRadius: 4, color: isError ? 'var(--fx-red-800)' : 'var(--fx-slate-800)' }}>{event.eventType}</code>
                                                     <Chip size="small" label={event.status} color={eventStatusColor(event.status)} />
                                                     {retryText && <Chip size="small" variant="outlined" color="warning" label={retryText} />}
                                                 </Box>
                                             </StepLabel>
                                             <StepContent>
-                                                <Box sx={{ bgcolor: isError ? '#fef2f2' : '#f8fafc', p: 1.5, borderRadius: 2, mb: 1 }}>
+                                                <Box sx={{ bgcolor: isError ? 'var(--fx-red-50)' : 'var(--fx-slate-50)', p: 1.5, borderRadius: 2, mb: 1 }}>
                                                     <Typography variant="caption" color="text.secondary" display="block">
                                                         {event.aggregateType} · {new Date(event.timestamp).toLocaleString()}
                                                     </Typography>
@@ -1386,7 +1386,7 @@ export default function SystemUnifiedDashboard() {
                                                 </Box>
                                                 {idx < eventFlow.timeline.length - 1 && (
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1.5, mb: 1 }}>
-                                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
+                                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'var(--fx-slate-300)' }} />
                                                         <Typography variant="caption" color="text.secondary">
                                                             {(() => {
                                                                 const next = eventFlow.timeline[idx + 1];

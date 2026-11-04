@@ -670,7 +670,7 @@ export function FiscalConfiguration() {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: isLinked ? '#10B981' : '#D1D5DB' }} />
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: isLinked ? '#10B981' : 'var(--fx-gray-300)' }} />
                       <div className="min-w-0">
                         <div className="flex items-baseline gap-2">
                           <Typography variant="body2" fontWeight="700" className="text-gray-800">

@@ -46,7 +46,7 @@ const FollowupPerformanceChart: React.FC = () => {
               <YAxis
                 dataKey="channel"
                 type="category"
-                tick={{ fontSize: 12, fill: "#4b5563" }}
+                tick={{ fontSize: 12, fill: "var(--fx-gray-600)" }}
                 width={100}
               />
               <Tooltip
@@ -54,7 +54,7 @@ const FollowupPerformanceChart: React.FC = () => {
                 contentStyle={{
                   backgroundColor: "white",
                   borderRadius: "8px",
-                  border: "1px solid #e5e7eb",
+                  border: "1px solid var(--fx-gray-200)",
                   fontSize: "13px",
                 }}
               />

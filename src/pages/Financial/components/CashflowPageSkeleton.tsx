@@ -13,15 +13,15 @@ export const CashflowPageSkeleton = () => (
         {/* 4 cards premium */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
             {cardColors.map((color, i) => (
-                <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${color}25`, backgroundColor: `${color}05` }}>
+                <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `color-mix(in srgb, ${color} 15%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 2%, transparent)` }}>
                     <div className="flex items-center gap-3 mb-4">
-                        <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, bgcolor: `${color}20` }} />
+                        <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, bgcolor: `color-mix(in srgb, ${color} 13%, transparent)` }} />
                         <div className="flex-1">
-                            <Skeleton variant="text" width="55%" height={11} sx={{ bgcolor: `${color}20` }} />
+                            <Skeleton variant="text" width="55%" height={11} sx={{ bgcolor: `color-mix(in srgb, ${color} 13%, transparent)` }} />
                             <Skeleton variant="text" width="70%" height={11} />
                         </div>
                     </div>
-                    <Skeleton variant="text" width="80%" height={38} sx={{ bgcolor: `${color}18` }} />
+                    <Skeleton variant="text" width="80%" height={38} sx={{ bgcolor: `color-mix(in srgb, ${color} 9%, transparent)` }} />
                     <div className="mt-3 pt-3 border-t border-gray-100 space-y-2.5">
                         <Skeleton variant="text" width="35%" height={10} />
                         {[0, 1, 2].map(j => (

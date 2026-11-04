@@ -347,10 +347,10 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientName, initia
                                                         </linearGradient>
                                                     ))}
                                                 </defs>
-                                                <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                                                <XAxis dataKey="date" axisLine={{ stroke: '#cbd5e1' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} dy={8} />
-                                                <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={32} />
-                                                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 10px 25px rgba(15,23,42,.08)' }} />
+                                                <CartesianGrid stroke="var(--fx-slate-200)" strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="date" axisLine={{ stroke: 'var(--fx-slate-300)' }} tickLine={false} tick={{ fill: 'var(--fx-slate-500)', fontSize: 11 }} dy={8} />
+                                                <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fill: 'var(--fx-slate-500)', fontSize: 11 }} width={32} />
+                                                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid var(--fx-slate-200)', boxShadow: '0 10px 25px rgba(15,23,42,.08)' }} />
                                                 <Legend iconType="circle" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
                                                 {seriesKeys.map((key, index) => (
                                                     <Area key={key} type="monotone" dataKey={key}
@@ -364,7 +364,7 @@ const PatientEvolution: React.FC<PatientEvolutionProps> = ({ patientName, initia
                                         <ResponsiveContainer width="100%" height="100%">
                                             <RadarChart outerRadius={150} data={radarData}>
                                                 <PolarGrid />
-                                                <PolarAngleAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} />
+                                                <PolarAngleAxis dataKey="name" tick={{ fill: 'var(--fx-slate-500)', fontSize: 11 }} />
                                                 <PolarRadiusAxis domain={[0, 10]} />
                                                 <Tooltip />
                                                 <Radar name={`Avaliação de ${lastPoint?.date ?? ''}`} dataKey="value" stroke="#059669" fill="#10b981" fillOpacity={0.45} />

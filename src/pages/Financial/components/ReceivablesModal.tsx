@@ -81,13 +81,13 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
     const getStatusConfig = (status: string) => {
         switch (status) {
             case 'pending':
-                return { color: '#D97706', bg: '#FEF3C7', label: 'Pendente', icon: <AccessTime fontSize="small" /> };
+                return { color: '#D97706', bg: 'var(--fx-amber-100)', label: 'Pendente', icon: <AccessTime fontSize="small" /> };
             case 'billed':
-                return { color: '#2563EB', bg: '#DBEAFE', label: 'Faturado', icon: <CreditCard fontSize="small" /> };
+                return { color: '#2563EB', bg: 'var(--fx-blue-100)', label: 'Faturado', icon: <CreditCard fontSize="small" /> };
             case 'received':
-                return { color: '#059669', bg: '#D1FAE5', label: 'Recebido', icon: <LocalHospital fontSize="small" /> };
+                return { color: '#059669', bg: 'var(--fx-emerald-100)', label: 'Recebido', icon: <LocalHospital fontSize="small" /> };
             default:
-                return { color: '#6B7280', bg: '#F3F4F6', label: 'Desconhecido', icon: null };
+                return { color: 'var(--fx-gray-500)', bg: 'var(--fx-gray-100)', label: 'Desconhecido', icon: null };
         }
     };
 
@@ -106,7 +106,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                 borderBottom: '1px solid',
                 borderColor: 'divider',
                 pb: 1.5,
-                bgcolor: '#FFFBEB'
+                bgcolor: 'var(--fx-amber-50)'
             }}>
                 <Box display="flex" alignItems="center" gap={1}>
                     <CreditCard sx={{ color: '#D97706' }} />
@@ -136,7 +136,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                 <Box p={3}>
                     <Grid container spacing={2}>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="#FFFBEB" borderRadius={1.5} border="1px solid #FDE68A">
+                            <Box p={2} bgcolor="var(--fx-amber-50)" borderRadius={1.5} border="1px solid var(--fx-amber-200)">
                                 <Typography variant="caption" color="text.secondary">
                                     TOTAL A RECEBER
                                 </Typography>
@@ -146,7 +146,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="#FEF3C7" borderRadius={1.5} border="1px solid #FDE68A">
+                            <Box p={2} bgcolor="var(--fx-amber-100)" borderRadius={1.5} border="1px solid var(--fx-amber-200)">
                                 <Typography variant="caption" color="text.secondary">
                                     PENDENTE
                                 </Typography>
@@ -156,7 +156,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="#DBEAFE" borderRadius={1.5} border="1px solid #93C5FD">
+                            <Box p={2} bgcolor="var(--fx-blue-100)" borderRadius={1.5} border="1px solid var(--fx-blue-300)">
                                 <Typography variant="caption" color="text.secondary">
                                     FATURADO
                                 </Typography>
@@ -166,7 +166,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={3}>
-                            <Box p={2} bgcolor="#D1FAE5" borderRadius={1.5} border="1px solid #6EE7B7">
+                            <Box p={2} bgcolor="var(--fx-emerald-100)" borderRadius={1.5} border="1px solid var(--fx-emerald-300)">
                                 <Typography variant="caption" color="text.secondary">
                                     RECEBIDO
                                 </Typography>
@@ -188,7 +188,7 @@ const ReceivablesModal: React.FC<ReceivablesModalProps> = ({
                     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
                         <Table size="small">
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#FFFBEB' }}>
+                                <TableRow sx={{ bgcolor: 'var(--fx-amber-50)' }}>
                                     <TableCell sx={{ py: 1 }}>Data</TableCell>
                                     <TableCell sx={{ py: 1 }}>Horário</TableCell>
                                     <TableCell sx={{ py: 1 }}>Paciente</TableCell>

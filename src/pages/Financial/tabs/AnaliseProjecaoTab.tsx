@@ -59,7 +59,7 @@ function Pagination({ total, page, onPage }: { total: number; page: number; onPa
 const MetricCard = ({ title, value, subtitle, icon, color }: any) => (
     <div className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-1">
-            <div className="p-1 rounded-md" style={{ backgroundColor: `${color}20`, color }}>{icon}</div>
+            <div className="p-1 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)`, color }}>{icon}</div>
         </div>
         <p className="text-xs text-gray-500">{title}</p>
         <p className="text-xl font-bold text-gray-900 mt-0.5">{value}</p>
@@ -343,7 +343,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
 
             {/* RESUMO EXECUTIVO */}
             {statusPhrase && (
-                <div className="p-3 rounded-xl flex items-start gap-3" style={{ backgroundColor: `${statusColor}10`, borderLeft: `4px solid ${statusColor}` }}>
+                <div className="p-3 rounded-xl flex items-start gap-3" style={{ backgroundColor: `color-mix(in srgb, ${statusColor} 6%, transparent)`, borderLeft: `4px solid ${statusColor}` }}>
                     <div className="flex-1">
                         <p className="text-3xs font-black uppercase tracking-widest mb-0.5" style={{ color: statusColor }}>Resumo do mês</p>
                         <p className="text-sm font-medium text-gray-800">{statusPhrase}</p>
@@ -370,7 +370,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
             {/* 3 CARDS PRINCIPAIS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* HERO: META DO MÊS */}
-                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: 'var(--fx-green-50)' }}>
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-3xs font-black uppercase tracking-widest text-emerald-700">Meta do Mês</p>
                         {metaValor > 0 && (
@@ -448,7 +448,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                 </div>
 
                 {/* RITMO NECESSÁRIO */}
-                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+                <div className="border-2 rounded-2xl p-4 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: 'var(--fx-blue-50)' }}>
                     <p className="text-3xs font-black uppercase tracking-widest text-blue-700 mb-2">Ritmo Necessário</p>
                     <p className="text-3xl font-black text-gray-900 leading-tight mb-2">
                         {diasRestantes > 0 ? `${formatCurrency(ritmoNecessario)}/dia` : '—'}
@@ -499,7 +499,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                     "ESPERADO" logo abaixo, então os dois nunca divergem. */}
                 <div
                     className="border-2 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition"
-                    style={{ borderColor: '#8B5CF6', backgroundColor: '#F5F3FF' }}
+                    style={{ borderColor: '#8B5CF6', backgroundColor: 'var(--fx-violet-50)' }}
                     onClick={openProjecaoModal}
                 >
                     <div className="flex items-center justify-between mb-2">
@@ -555,21 +555,21 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         return (
                         <div key={c.label} className="rounded-2xl overflow-hidden shadow-sm"
                             style={{
-                                border: isEsperado ? `2px solid ${c.color}` : `1px solid ${c.color}30`,
-                                backgroundColor: '#FFFFFF'
+                                border: isEsperado ? `2px solid ${c.color}` : `1px solid color-mix(in srgb, ${c.color} 19%, transparent)`,
+                                backgroundColor: 'var(--fx-white)'
                             }}>
                             <div style={{ height: 3, backgroundColor: c.color }} />
                             <div className="p-4">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
-                                        <div className="rounded-xl p-1.5" style={{ backgroundColor: `${c.color}15` }}>
+                                        <div className="rounded-xl p-1.5" style={{ backgroundColor: `color-mix(in srgb, ${c.color} 8%, transparent)` }}>
                                             <IconEl size={14} style={{ color: c.color }} />
                                         </div>
                                         <p className="text-xs font-black uppercase tracking-wide" style={{ color: c.color }}>{c.label}</p>
                                     </div>
                                     {isEsperado && (
                                         <span className="text-3xs font-black px-2 py-0.5 rounded-full"
-                                            style={{ backgroundColor: `${c.color}15`, color: c.color }}>
+                                            style={{ backgroundColor: `color-mix(in srgb, ${c.color} 8%, transparent)`, color: c.color }}>
                                             Mais provável
                                         </span>
                                     )}
@@ -601,8 +601,8 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                         const pct = match ? parseInt(match[2]) : 0;
                         const isCritical = pct > 60;
                         const accentColor = isCritical ? '#EF4444' : '#F59E0B';
-                        const bgColor = isCritical ? '#FFF5F5' : '#FFFBEB';
-                        const borderColor = isCritical ? '#FCA5A5' : '#FCD34D';
+                        const bgColor = isCritical ? '#FFF5F5' : 'var(--fx-amber-50)';
+                        const borderColor = isCritical ? '#FCA5A5' : 'var(--fx-amber-300)';
                         return (
                             <div key={idx} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${borderColor}` }}>
                                 <div style={{ height: 3, backgroundColor: accentColor }} />
@@ -630,7 +630,7 @@ export const ProjecaoCenarios: React.FC<ProjecaoCenariosProps> = ({ month: mes, 
                                     </div>
                                     <button
                                         className="w-full text-xs font-semibold py-1.5 rounded-lg transition-colors border"
-                                        style={{ backgroundColor: 'white', color: accentColor, borderColor }}>
+                                        style={{ backgroundColor: 'var(--fx-white)', color: accentColor, borderColor }}>
                                         📅 Ver agenda ↗
                                     </button>
                                 </div>

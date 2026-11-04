@@ -1,3 +1,5 @@
+@import "./hex-tokens.css"; /* tokens --fx-* das cores fixas do MUI (scripts/dark/hexTokens.mjs) */
+@import "./tw-dark-extras.css"; /* classes Tailwind claras sem regra no dark.css (scripts/dark/twExtras.mjs) */
 /* src/styles/dark.css — tema escuro do ERP (ligado por <html class="dark">, ver ThemeModeContext).
    Camada de compatibilidade: escurece as classes Tailwind mais usadas nas telas antigas sem mexer
    em cada arquivo. Telas novas podem usar dark: direto. Gerado; ajuste a paleta nas variáveis. */
@@ -128,3 +130,7 @@ html.dark .animate-pulse.bg-gray-50, html.dark .animate-pulse.bg-gray-100{backgr
 html.dark .bg-emerald-600, html.dark .bg-emerald-700, html.dark .bg-emerald-800{color:#fff}
 html.dark .bg-emerald-600 .text-white, html.dark .text-white{color:#fff}
 
+/* FullCalendar: cabeçalho dos dias e grade vinham claros no escuro (04/11) */
+html.dark .fc .fc-col-header-cell, html.dark .fc th{background-color:var(--d-surface-2)}
+html.dark .fc-theme-standard td, html.dark .fc-theme-standard th, html.dark .fc-theme-standard .fc-scrollgrid{border-color:var(--d-line)}
+html.dark .fc .fc-col-header-cell-cushion{color:var(--d-muted)}

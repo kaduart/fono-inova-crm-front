@@ -82,13 +82,13 @@ function getCategoryConfigMap() {
       payroll: { color: '#6366F1', bgColor: '#6366F110', label: 'Folha', icon: DollarSign },
       // Teal, não âmbar: âmbar é a cor de status "Pendente" na mesma linha e as duas
       // pílulas ficavam idênticas. Categoria não deve reutilizar cor de status.
-      commission: { color: '#0F766E', bgColor: '#0F766E10', label: 'Comissão', icon: TrendingDown },
+      commission: { color: 'var(--fx-teal-700)', bgColor: '#0F766E10', label: 'Comissão', icon: TrendingDown },
       // Fúcsia, não verde: verde é a cor de status "Pago".
       benefit: { color: '#C026D3', bgColor: '#C026D310', label: 'Benefício', icon: User },
       operational: { color: '#8B5CF6', bgColor: '#8B5CF610', label: 'Operacional', icon: FileText },
       equipment: { color: '#EC4899', bgColor: '#EC489910', label: 'Equipamento', icon: CreditCard },
       marketing: { color: '#06B6D4', bgColor: '#06B6D410', label: 'Marketing', icon: BarChart3 },
-      other: { color: '#6B7280', bgColor: '#6B728010', label: 'Outro', icon: FileText }
+      other: { color: 'var(--fx-gray-500)', bgColor: '#6B728010', label: 'Outro', icon: FileText }
     };
   }
   return _categoryConfigCache;
@@ -109,16 +109,16 @@ function getExpenseStatusConfigMap() {
 
 // Origem da despesa (badge e filtro): fixa gerada de modelo / comissão / avulsa
 const EXPENSE_ORIGIN_CONFIG: Record<ExpenseOrigin, { color: string; bgColor: string; label: string }> = {
-  fixed: { color: '#4F46E5', bgColor: '#EEF2FF', label: 'Fixa' },
-  commission: { color: '#B45309', bgColor: '#FFFBEB', label: 'Comissão' },
-  manual: { color: '#475569', bgColor: '#F1F5F9', label: 'Avulsa' }
+  fixed: { color: '#4F46E5', bgColor: 'var(--fx-indigo-50)', label: 'Fixa' },
+  commission: { color: 'var(--fx-amber-700)', bgColor: 'var(--fx-amber-50)', label: 'Comissão' },
+  manual: { color: 'var(--fx-slate-600)', bgColor: 'var(--fx-slate-100)', label: 'Avulsa' }
 };
 
 // Origem financeira do atendimento que compõe a comissão (ver getCommissionSessions no backend)
 const ORIGIN_CONFIG: Record<'particular' | 'convenio' | 'liminar', { color: string; bgColor: string; label: string }> = {
-  particular: { color: '#059669', bgColor: '#ECFDF5', label: 'Particular' },
-  convenio: { color: '#2563EB', bgColor: '#EFF6FF', label: 'Convênio' },
-  liminar: { color: '#7C3AED', bgColor: '#F5F3FF', label: 'Liminar' }
+  particular: { color: '#059669', bgColor: 'var(--fx-emerald-50)', label: 'Particular' },
+  convenio: { color: '#2563EB', bgColor: 'var(--fx-blue-50)', label: 'Convênio' },
+  liminar: { color: '#7C3AED', bgColor: 'var(--fx-violet-50)', label: 'Liminar' }
 };
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -466,12 +466,12 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           {[{ color: '#10B981' }, { color: '#F59E0B' }, { color: '#6366F1' }].map((c, i) => (
-            <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+            <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
               <div className="flex items-center gap-4">
-                <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                 <div className="flex-1">
                   <Skeleton variant="text" width="55%" height={20} />
-                  <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                  <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                   <Skeleton variant="text" width="40%" height={16} />
                 </div>
               </div>
@@ -806,7 +806,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                           {PAYMENT_METHOD_LABEL[expense.paymentMethod] ?? expense.paymentMethod ?? '—'}
                         </td>
                         <td className="px-3 py-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: statusConfig.bgColor, color: statusConfig.color, borderColor: `${statusConfig.color}40` }}>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: statusConfig.bgColor, color: statusConfig.color, borderColor: `color-mix(in srgb, ${statusConfig.color} 25%, transparent)` }}>
                             <StatusIcon size={12} />
                             {statusConfig.label}
                           </span>
@@ -1239,7 +1239,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                     <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm">
-                      <div style={{ height: 3, backgroundColor: '#6B7280' }} />
+                      <div style={{ height: 3, backgroundColor: 'var(--fx-gray-500)' }} />
                       <div className="p-4 bg-white dark:bg-gray-900">
                         <p className="text-3xs font-black uppercase tracking-widest text-gray-400 mb-1">Atendimentos</p>
                         <p className="text-2xl font-black text-gray-800 dark:text-gray-200">{items.length}</p>
@@ -1330,7 +1330,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                 <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{item.time || '—'}</td>
                                 <td className="px-3 py-2.5">
                                   <div className="flex items-center gap-2">
-                                    <Avatar sx={{ width: 22, height: 22, bgcolor: '#E5E7EB' }}>
+                                    <Avatar sx={{ width: 22, height: 22, bgcolor: 'var(--fx-gray-200)' }}>
                                       <User size={11} />
                                     </Avatar>
                                     <span className="font-medium text-gray-800 dark:text-gray-200">{item.patientName}</span>

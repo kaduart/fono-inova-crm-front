@@ -1,5 +1,6 @@
 // src/components/patient/tabs/PatientInsuranceTab.jsx
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import GenerationCancellationFlow from '../../common/GenerationCancellationFlow';
 import { AppointmentOrigin } from '../../patients/AppointmentOrigin';
 import {
@@ -25,8 +26,10 @@ import {
   XOctagon,
   Info,
   AlertTriangle,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Undo2
 } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -556,10 +559,10 @@ const DAY_NAMES = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 
 // gradiente de especialidade. Um tom translúcido (ex: laranja 35%) sobre um card já
 // laranja praticamente some; um pill branco sólido + ponto colorido não depende da cor de fundo.
 const STATUS_SEVERITY_STYLE = {
-  success:  { bg: '#EFF9F6', color: '#15803D', dot: '#22C55E' },
-  warning:  { bg: '#FFF7ED', color: '#C2410C', dot: '#F97316' },
-  critical: { bg: '#FDECEA', color: '#B91C1C', dot: '#EF4444' },
-  neutral:  { bg: '#F1F5F9', color: '#4B5563', dot: '#9CA3AF' },
+  success:  { bg: '#EFF9F6', color: 'var(--fx-green-700)', dot: '#22C55E' },
+  warning:  { bg: 'var(--fx-orange-50)', color: 'var(--fx-orange-700)', dot: '#F97316' },
+  critical: { bg: '#FDECEA', color: 'var(--fx-red-700)', dot: '#EF4444' },
+  neutral:  { bg: 'var(--fx-slate-100)', color: 'var(--fx-gray-600)', dot: 'var(--fx-gray-400)' },
 };
 
 const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
@@ -583,15 +586,18 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
   const [generating, setGenerating] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
-  const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates } | null
+  const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates: [{ id, label }], selected: string[] } | null
   const queryClient = useQueryClient();
 
   // 🆕 (2026-08-20) Confirmação em lote das retroativas — 1 clique deliberado,
   // chamado a partir do botão de ação no toast (ou de onde mais for exposto).
   // Nunca disparado sozinho por generate-sessions (ver comentário no backend).
-  const confirmPastSessions = async (planId) => {
+  // appointmentIds: só as datas marcadas no modal (as desmarcadas — faltas — ficam pendentes
+  // para cancelar pela agenda). Sem lista, o back confirma todas (comportamento antigo).
+  const confirmPastSessions = async (planId, appointmentIds) => {
     try {
-      const res = await API.post(`/v2/insurance-plans/${planId}/confirm-past-sessions`, {}, { timeout: 60000 });
+      const body = Array.isArray(appointmentIds) ? { appointmentIds } : {};
+      const res = await API.post(`/v2/insurance-plans/${planId}/confirm-past-sessions`, body, { timeout: 60000 });
       const { total, confirmed, failed } = res.data?.data || {};
       if (total === 0) {
         toast('Nenhuma sessão retroativa pendente encontrada.', { icon: 'ℹ️' });
@@ -662,11 +668,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
           pastDates = appts
             .filter(a => ['pre_agendado', 'scheduled'].includes(a.operationalStatus || a.status) && (a.date || '').slice(0, 10) < todayStr)
             .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
-            .map(a => `${format(parseISO(a.date.slice(0, 10)), 'dd/MM/yyyy')}${a.time ? ` às ${a.time}` : ''}`);
+            .map(a => ({ id: String(a._id), label: `${format(parseISO(a.date.slice(0, 10)), 'dd/MM/yyyy')}${a.time ? ` às ${a.time}` : ''}` }));
         } catch {
           // Sem a lista o modal ainda abre com a contagem — a confirmação continua deliberada.
         }
-        setPastConfirm({ planId, totalLabel, count: pastAppointmentsPending, dates: pastDates });
+        // Nada vem marcado: a secretária marca só o que realmente aconteceu (caso Ícaro Lima,
+        // 04/11 — faltas viravam "realizada" porque o modal só tinha "confirmar todas").
+        setPastConfirm({ planId, totalLabel, count: pastAppointmentsPending, dates: pastDates, selected: [] });
       }
 
       queryClient.invalidateQueries({ queryKey: insurancePlanQueryKey(guide._id) });
@@ -987,7 +995,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                       <span
                         key={i}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold"
-                        style={{ backgroundColor: '#FFFFFF', color: theme.text, border: `1px solid ${theme.border}` }}
+                        style={{ backgroundColor: 'var(--fx-white)', color: theme.text, border: `1px solid ${theme.border}` }}
                       >
                         {DAY_NAMES[s.dayOfWeek] ?? s.dayOfWeek}
                         <span className="w-1 h-1 rounded-full opacity-40" style={{ backgroundColor: theme.text }} />
@@ -1107,8 +1115,28 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
 
             {pastConfirm.dates.length > 0 && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3 max-h-48 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-600">Marque só as que aconteceram</span>
+                  <button type="button"
+                    onClick={() => setPastConfirm(p => ({ ...p, selected: p.selected.length === p.dates.length ? [] : p.dates.map(d => d.id) }))}
+                    className="text-xs font-medium text-emerald-700 hover:underline">
+                    {pastConfirm.selected.length === pastConfirm.dates.length ? 'Desmarcar todas' : 'Marcar todas'}
+                  </button>
+                </div>
                 <ul className="text-sm text-slate-700 space-y-1">
-                  {pastConfirm.dates.map(d => <li key={d}>• {d}</li>)}
+                  {pastConfirm.dates.map(d => (
+                    <li key={d.id}>
+                      <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <input type="checkbox" className="w-4 h-4 accent-emerald-600"
+                          checked={pastConfirm.selected.includes(d.id)}
+                          onChange={() => setPastConfirm(p => ({
+                            ...p,
+                            selected: p.selected.includes(d.id) ? p.selected.filter(x => x !== d.id) : [...p.selected, d.id],
+                          }))} />
+                        {d.label}
+                      </label>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -1116,8 +1144,8 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700">
-                Confirme <strong>só se todos esses atendimentos realmente aconteceram</strong> — cada um passa a
-                descontar da guia. Se algum foi falta, escolha "Confirmar depois" e conclua um por um pela agenda.
+                Cada sessão confirmada passa a <strong>descontar da guia e não pode mais ser cancelada</strong>.
+                As desmarcadas ficam pendentes: se foi falta, cancele pela agenda e a sessão volta para a guia.
               </p>
             </div>
 
@@ -1127,9 +1155,15 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 Confirmar depois
               </button>
               <button
-                onClick={() => { const { planId } = pastConfirm; setPastConfirm(null); confirmPastSessions(planId); }}
-                className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <CheckCircle className="w-4 h-4" /> Confirmar {pastConfirm.count} como realizada(s)
+                disabled={pastConfirm.dates.length > 0 && pastConfirm.selected.length === 0}
+                onClick={() => {
+                  const { planId, dates, selected } = pastConfirm;
+                  setPastConfirm(null);
+                  // Sem a lista de datas (falha ao buscar), mantém o "confirmar todas" deliberado.
+                  confirmPastSessions(planId, dates.length > 0 ? selected : undefined);
+                }}
+                className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <CheckCircle className="w-4 h-4" /> Confirmar {pastConfirm.dates.length > 0 ? pastConfirm.selected.length : pastConfirm.count} como realizada(s)
               </button>
             </div>
           </div>
@@ -1206,7 +1240,7 @@ const PLAN_ACTION_CONFIG = {
   insurance_plan_created:  { label: 'Plano criado',      color: '#2E7A5E', bg: '#EFF9F6', Icon: CheckCircle },
   insurance_plan_updated:  { label: 'Plano atualizado',  color: '#1B4D6E', bg: '#EEF4FB', Icon: Edit2 },
   insurance_plan_canceled: { label: 'Plano cancelado',   color: '#C75146', bg: '#FDECEA', Icon: XOctagon },
-  insurance_plan_replaced: { label: 'Plano substituído', color: '#D97706', bg: '#FFFBEB', Icon: RefreshCw },
+  insurance_plan_replaced: { label: 'Plano substituído', color: '#D97706', bg: 'var(--fx-amber-50)', Icon: RefreshCw },
 };
 
 const DIFF_FIELD_LABELS = {
@@ -1259,8 +1293,8 @@ const PlanChangelogEntry = ({ entry }) => {
   }
 
   return (
-    <div className="flex gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.color}20` }}>
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${cfg.color}15` }}>
+    <div className="flex gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: cfg.bg, border: `1px solid color-mix(in srgb, ${cfg.color} 13%, transparent)` }}>
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${cfg.color} 8%, transparent)` }}>
         <Icon size={13} color={cfg.color} aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
@@ -1288,15 +1322,15 @@ const APPT_STATUS_CONFIG = {
   completed:           { label: 'Realizado',    color: '#2E7A5E', bg: '#EFF9F6' },
   paid:                { label: 'Realizado',    color: '#2E7A5E', bg: '#EFF9F6' },
   scheduled:           { label: 'Agendado',     color: '#1B4D6E', bg: '#EEF4FB' },
-  pre_agendado:        { label: 'Pré-agendado', color: '#5B6E8C', bg: '#F1F5F9' },
+  pre_agendado:        { label: 'Pré-agendado', color: '#5B6E8C', bg: 'var(--fx-slate-100)' },
   confirmed:           { label: 'Confirmado',   color: '#1B4D6E', bg: '#EEF4FB' },
   canceled:            { label: 'Cancelado',    color: '#C75146', bg: '#FDECEA' },
   cancelled:           { label: 'Cancelado',    color: '#C75146', bg: '#FDECEA' },
   pending:             { label: 'Pendente',     color: '#ED6C02', bg: '#FFF3E0' },
   missed:              { label: 'Faltou',       color: '#C75146', bg: '#FDECEA' },
-  processing_create:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
-  processing_complete: { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
-  processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: '#F1F5F9' },
+  processing_create:   { label: 'Processando',  color: '#8A99B0', bg: 'var(--fx-slate-100)' },
+  processing_complete: { label: 'Processando',  color: '#8A99B0', bg: 'var(--fx-slate-100)' },
+  processing_cancel:   { label: 'Processando',  color: '#8A99B0', bg: 'var(--fx-slate-100)' },
 };
 
 export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
@@ -1309,6 +1343,40 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
   // (pollAppointmentStatus) e detecta lock liberado por falha de worker, sem
   // precisar reimplementar nada disso aqui (bloqueador 4 do review 2026-08-15).
   const { completeAppointment: completeAppointmentCtx } = useAppointmentsContext();
+
+  // 🆕 (2026-11-04, caso Ícaro Lima) "Desfazer: foi falta" — admin e secretária (Kadu, 04/11). Sessão de convênio
+  // concluída por engano (ex.: confirmada em lote) vira cancelada e devolve 1 sessão à guia.
+  // O back recusa se a sessão está em lote ou o Payment já foi faturado/recebido.
+  const { user: authUser } = useAuth();
+  const canRevertCompleted = ['admin', 'superadmin'].includes(String(authUser?.role || '').toLowerCase());
+  const [revertingAppt, setRevertingAppt] = useState(null);
+  const [revertRequester, setRevertRequester] = useState('patient');
+  const [revertReason, setRevertReason] = useState('Paciente faltou');
+  const [revertSubmitting, setRevertSubmitting] = useState(false);
+  const openRevert = (appt) => {
+    setRevertingAppt(appt);
+    setRevertRequester('patient');
+    setRevertReason('Paciente faltou');
+  };
+  const confirmRevert = async () => {
+    if (!revertReason.trim()) { toast.error('Informe o motivo'); return; }
+    setRevertSubmitting(true);
+    try {
+      await appointmentService.cancel(revertingAppt._id, {
+        reason: revertReason.trim(),
+        cancelRequester: revertRequester,
+        revertCompletedConvenio: true,
+      });
+      toast.success('Sessão desfeita: virou falta e voltou para a guia');
+      setRevertingAppt(null);
+      await loadAppointments(guide._id);
+      onUpdate?.();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || 'Não foi possível desfazer a sessão');
+    } finally {
+      setRevertSubmitting(false);
+    }
+  };
 
   // 🚨 FIX (2026-08-15): dialog de edição simples trocado por AppointmentDetailModal
   // (mesmo padrão já usado em ContractCard.tsx/Liminar) — corrige rótulo de status
@@ -1417,6 +1485,8 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     // passar pelos botões da lista.
     const status = appt.operationalStatus || appt.status;
     if (status === 'completed') {
+      // Concluída: admin/secretária caem direto no "Desfazer: foi falta".
+      if (canRevertCompleted) { openRevert(appt); return; }
       toast('Sessão já concluída — não pode ser editada/cancelada por aqui', { icon: 'ℹ️' });
       return;
     }
@@ -1829,7 +1899,7 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="rounded-lg px-2 py-0.5 text-[0.6rem] font-semibold" style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+                        <span className="rounded-lg px-2 py-0.5 text-[0.6rem] font-semibold" style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid color-mix(in srgb, ${cfg.color} 19%, transparent)` }}>
                           {cfg.label}
                         </span>
                         <button type="button" onClick={() => openMove(appt)} disabled={isCompleted}
@@ -1838,6 +1908,14 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
                           className="rounded-md p-1.5 text-slate-400 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-300 dark:disabled:text-slate-600">
                           <ArrowRightLeft size={13} aria-hidden />
                         </button>
+                        {isCompleted && canRevertCompleted && (
+                          <button type="button" onClick={() => openRevert(appt)}
+                            title="Desfazer: foi falta (devolve a sessão para a guia)"
+                            aria-label="Desfazer: foi falta"
+                            className="rounded-md p-1.5 text-slate-400 hover:text-amber-700">
+                            <Undo2 size={13} aria-hidden />
+                          </button>
+                        )}
                         <button type="button" onClick={() => openEdit(appt)} disabled={isCompleted}
                           title={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
                           aria-label={isCompleted ? 'Sessão já concluída — não pode ser editada/cancelada' : 'Editar'}
@@ -2001,7 +2079,9 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
     </ModalShell>
 
     {/* ── Modal de edição de agendamento (mesmo AppointmentDetailModal do calendário/Liminar) ── */}
-    {editingAppointment && (
+    {/* Portal no body: sem isso o modal fica preso no stacking context do painel
+        (framer-motion/transform) e abre ATRÁS do "Detalhes da Guia" (z 1300). */}
+    {editingAppointment && createPortal(
       <AppointmentDetailModal
         isOpen={!!editingAppointment}
         onClose={() => setEditingAppointment(null)}
@@ -2012,7 +2092,8 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         onEditAppointment={handleEditFromModal}
         // Precisa ficar acima do modal "Detalhes da Guia" que o abre (ModalShell usa z-index 1300).
         zIndex={1400}
-      />
+      />,
+      document.body
     )}
 
     <ModalShell open={!!movingAppt} onClose={() => setMovingAppt(null)} labelledBy="move-title" className="w-full max-w-md rounded-2xl">
@@ -2045,6 +2126,38 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         <button type="button" onClick={() => setMovingAppt(null)} disabled={moveSubmitting} className={btnOutline}>Cancelar</button>
         <button type="button" onClick={confirmMove} disabled={moveSubmitting || !moveTargetGuideId} className={`${btnPrimary} min-w-[110px] bg-blue-700 hover:bg-blue-800`}>
           {moveSubmitting ? <Spinner size={16} light /> : 'Confirmar'}
+        </button>
+      </div>
+    </ModalShell>
+
+    <ModalShell open={!!revertingAppt} onClose={() => !revertSubmitting && setRevertingAppt(null)} labelledBy="revert-title" className="w-full max-w-md rounded-2xl">
+      <h2 id="revert-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Desfazer: foi falta</h2>
+      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
+        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
+          {revertingAppt?.date ? format(parseISO(revertingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
+          {revertingAppt?.time ? ` às ${revertingAppt.time}` : ''} · Guia #{guide?.number}
+        </p>
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          A sessão sai de "realizada", vira cancelada e <strong>volta para a guia</strong>. Depois use "Gerar sessões" para marcar uma data nova.
+          Não funciona se a sessão já está em lote de faturamento ou se o convênio já pagou.
+        </p>
+        <label className={labelCls}>
+          Quem avisou / solicitou
+          <select value={revertRequester} onChange={e => setRevertRequester(e.target.value)} className={fieldCls}>
+            <option value="patient">Paciente</option>
+            <option value="professional">Profissional</option>
+            <option value="clinic">Clínica</option>
+          </select>
+        </label>
+        <label className={labelCls}>
+          Motivo
+          <input type="text" value={revertReason} onChange={e => setRevertReason(e.target.value)} className={fieldCls} />
+        </label>
+      </div>
+      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
+        <button type="button" onClick={() => setRevertingAppt(null)} disabled={revertSubmitting} className={btnOutline}>Voltar</button>
+        <button type="button" onClick={confirmRevert} disabled={revertSubmitting || !revertReason.trim()} className={`${btnPrimary} min-w-[110px] bg-amber-600 hover:bg-amber-700`}>
+          {revertSubmitting ? <Spinner size={16} light /> : 'Desfazer sessão'}
         </button>
       </div>
     </ModalShell>

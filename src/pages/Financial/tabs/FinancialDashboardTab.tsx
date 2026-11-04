@@ -579,12 +579,12 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
       {/* 3 MetricCards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         {[{ color: '#10B981' }, { color: '#3B82F6' }, { color: '#F59E0B' }].map((c, i) => (
-          <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+          <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
             <div className="flex items-center gap-4">
-              <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+              <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
               <div className="flex-1">
                 <Skeleton variant="text" width="55%" height={20} />
-                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                 <Skeleton variant="text" width="40%" height={16} />
               </div>
             </div>
@@ -800,7 +800,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
 
         {/* Comparativo mês anterior */}
         <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-          <div style={{ height: 3, backgroundColor: '#6B7280' }} />
+          <div style={{ height: 3, backgroundColor: 'var(--fx-gray-500)' }} />
           <div className="p-4 bg-white">
             <p className="text-3xs font-black uppercase tracking-widest text-gray-500 mb-1">Comparativo mês anterior</p>
             <div className="text-2xl font-black text-gray-900 mb-1">{Math.max(0, (agendamentosMesAnterior?.leads ?? 0) + (agendamentosMesAnterior?.novos ?? 0))}</div>
@@ -983,7 +983,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 anterior como se fosse deste mês (o crédito judicial entra de uma
                 vez, sessões consomem depois) — teria o mesmo problema que a Meta já
                 teve. Liminar tem linha própria abaixo, sempre em caixa real do mês. */}
-            <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: '#15803D' }}>
+            <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: 'var(--fx-green-700)' }}>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-3xs font-black text-white uppercase tracking-wide leading-tight">Recebido da produção</p>
                 <span className="text-lg font-black text-white shrink-0 whitespace-nowrap">{formatCurrency(totalRecebimentoProducaoSemLiminar)}</span>
@@ -1016,13 +1016,13 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 label: 'A faturar ao plano',
                 desc: 'sessões aguardando repasse',
                 value: convenioAReceber,
-                bg: '#B45309', border: '#92400E',
+                bg: 'var(--fx-amber-700)', border: 'var(--fx-amber-800)',
               },
               {
                 label: 'Não pago',
                 desc: 'particular/pacote sem pagamento',
                 value: particularPendente + pacotePendente,
-                bg: '#B91C1C', border: '#991B1B',
+                bg: 'var(--fx-red-700)', border: 'var(--fx-red-800)',
               },
               // 🆕 (2026-09-04) pedido explícito: este card não pode "esconder"
               // liminar — se entrou caixa novo de liminar no mês, precisa aparecer
@@ -1034,7 +1034,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 label: 'Liminar recebida',
                 desc: cash.breakdown.liminar > 0 ? 'crédito judicial recebido este mês' : 'nenhum crédito novo este mês',
                 value: cash.breakdown.liminar || 0,
-                bg: '#4B5563', border: '#374151',
+                bg: 'var(--fx-gray-600)', border: 'var(--fx-gray-700)',
               },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl"
@@ -1209,7 +1209,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
     const isAmVerde = metas.statusMeta === 'amarelo-verde';
     const isAm      = metas.statusMeta === 'amarelo';
     const heroColor = isVerde ? '#10B981' : (isAmVerde || isAm) ? '#F59E0B' : '#EF4444';
-    const heroBg    = isVerde ? '#F0FDF4' : (isAmVerde || isAm) ? '#FFFBEB' : '#FFF1F2';
+    const heroBg    = isVerde ? 'var(--fx-green-50)' : (isAmVerde || isAm) ? 'var(--fx-amber-50)' : 'var(--fx-rose-50)';
     const statusLabel = isVerde ? '✅ No ritmo' : isAmVerde ? '🟡 Levemente abaixo' : isAm ? '⚠️ Abaixo do ritmo' : '🔴 Crítico';
 
     const textoExecutivo = (() => {
@@ -1267,7 +1267,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
         </div>
 
         {/* ── HERO EXECUTIVO ── */}
-        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ border: `1px solid ${heroColor}50` }}>
+        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ border: `1px solid color-mix(in srgb, ${heroColor} 31%, transparent)` }}>
           <div style={{ height: 3, backgroundColor: heroColor }} />
           <div className="p-5 flex items-start gap-4" style={{ backgroundColor: heroBg }}>
             {/* Coluna esquerda */}
@@ -1441,7 +1441,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
                 .filter(({ tipo, atendido }) => atendido > 0 || tipo === 'liminar')
                 .sort((a, b) => b.atendido - a.atendido)
                 .map(({ tipo, atendido, nota }) => {
-                  const color = tipoColors[tipo] || '#6B7280';
+                  const color = tipoColors[tipo] || 'var(--fx-gray-500)';
                   const label = tipoLabels[tipo] || tipo;
                   const icon  = tipoIcons[tipo] || '';
                   const totalAtendido = revenue?.total || 0;
@@ -1587,14 +1587,14 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
               </div>
               <ResponsiveContainer width="100%" height={148}>
                 <BarChart data={chartData} margin={{ top: 12, right: 0, left: 0, bottom: 0 }} barCategoryGap="38%" barGap={3}>
-                  <XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }} />
+                  <XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fontSize: 12, fill: 'var(--fx-gray-500)', fontWeight: 600 }} />
                   <Tooltip
-                    cursor={{ fill: '#F8FAFC', rx: 6 }}
+                    cursor={{ fill: 'var(--fx-slate-50)', rx: 6 }}
                     contentStyle={{ border: 'none', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.10)', padding: '10px 16px', fontSize: 12 }}
                     formatter={(v: number) => [formatCurrency(v)]}
-                    labelStyle={{ fontWeight: 700, color: '#1F2937', marginBottom: 4 }}
+                    labelStyle={{ fontWeight: 700, color: 'var(--fx-gray-800)', marginBottom: 4 }}
                   />
-                  <Bar dataKey="anterior" fill="#E2E8F0" radius={[5,5,0,0]} maxBarSize={48} />
+                  <Bar dataKey="anterior" fill="var(--fx-slate-200)" radius={[5,5,0,0]} maxBarSize={48} />
                   <Bar dataKey="atual" fill="#3B82F6" radius={[5,5,0,0]} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
@@ -2077,7 +2077,7 @@ const FinancialDashboardTab = ({ month, year }: FinancialDashboardTabProps) => {
   };
 
   const renderInsights = () => {
-    const _positionColors = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#6B7280'];
+    const _positionColors = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', 'var(--fx-gray-500)'];
 
     const profListEnriched = (profissionais?.ranking || []).map(prof => {
       const abaixoPct = Math.round(100 - (prof.eficiencia ?? 100));

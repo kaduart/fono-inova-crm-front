@@ -33,19 +33,19 @@ export default function AlertsPanel({ alerts }: AlertsPanelProps) {
         switch (type) {
             case 'urgent':
                 return {
-                    bg: `${theme.palette.error.main}08`,
+                    bg: `color-mix(in srgb, ${theme.palette.error.main} 3%, transparent)`,
                     border: theme.palette.error.main,
                     text: theme.palette.error.dark
                 };
             case 'warning':
                 return {
-                    bg: `${theme.palette.warning.main}08`,
+                    bg: `color-mix(in srgb, ${theme.palette.warning.main} 3%, transparent)`,
                     border: theme.palette.warning.main,
                     text: theme.palette.warning.dark
                 };
             case 'info':
                 return {
-                    bg: `${theme.palette.info.main}08`,
+                    bg: `color-mix(in srgb, ${theme.palette.info.main} 3%, transparent)`,
                     border: theme.palette.info.main,
                     text: theme.palette.info.dark
                 };
@@ -63,7 +63,7 @@ export default function AlertsPanel({ alerts }: AlertsPanelProps) {
                 <CardHeader
                     sx={{
                         borderBottom: `1px solid ${theme.palette.divider}`,
-                        background: `linear-gradient(135deg, ${theme.palette.success.light}10, ${theme.palette.success.light}05)`
+                        background: `linear-gradient(135deg, color-mix(in srgb, ${theme.palette.success.light} 6%, transparent), color-mix(in srgb, ${theme.palette.success.light} 2%, transparent))`
                     }}
                     title={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -105,7 +105,7 @@ export default function AlertsPanel({ alerts }: AlertsPanelProps) {
             <CardHeader
                 sx={{
                     borderBottom: `1px solid ${theme.palette.divider}`,
-                    background: `linear-gradient(135deg, ${theme.palette.warning.light}10, ${theme.palette.error.light}05)`
+                    background: `linear-gradient(135deg, color-mix(in srgb, ${theme.palette.warning.light} 6%, transparent), color-mix(in srgb, ${theme.palette.error.light} 2%, transparent))`
                 }}
                 title={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -142,7 +142,7 @@ export default function AlertsPanel({ alerts }: AlertsPanelProps) {
                                     backgroundColor: colors.bg,
                                     borderLeft: `4px solid ${colors.border}`,
                                     '&:hover': alert.onClick ? {
-                                        backgroundColor: `${colors.border}15`,
+                                        backgroundColor: `color-mix(in srgb, ${colors.border} 8%, transparent)`,
                                         transform: 'translateX(4px)'
                                     } : {}
                                 }}

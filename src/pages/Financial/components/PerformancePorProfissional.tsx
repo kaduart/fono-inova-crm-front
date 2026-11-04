@@ -82,7 +82,7 @@ export const PerformancePorProfissional: React.FC<PerformancePorProfissionalProp
           title="Nenhum dado de performance"
           description="Não encontramos profissionais com produção no período selecionado."
           icon={Activity}
-          iconColor="#9CA3AF"
+          iconColor="var(--fx-gray-400)"
         />
       </Box>
     );
@@ -122,7 +122,7 @@ export const PerformancePorProfissional: React.FC<PerformancePorProfissionalProp
                       className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center text-3xs font-bold shadow-sm"
                       style={{
                         backgroundColor: rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32',
-                        color: rank === 1 ? '#92400E' : '#FFFFFF',
+                        color: rank === 1 ? 'var(--fx-amber-800)' : '#FFFFFF',
                       }}
                     >
                       {rank}

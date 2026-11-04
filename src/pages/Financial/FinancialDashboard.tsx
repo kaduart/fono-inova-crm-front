@@ -79,12 +79,12 @@ const PaymentsSkeleton = () => (
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
             {[{ color: '#10B981' }, { color: '#F59E0B' }].map((c, i) => (
-                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
                     <div className="flex items-center gap-4">
-                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                         <div className="flex-1">
                             <Skeleton variant="text" width="55%" height={20} />
-                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                             <Skeleton variant="text" width="40%" height={16} />
                         </div>
                     </div>
@@ -120,12 +120,12 @@ const InsuranceSkeleton = () => (
     <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
-                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
                     <div className="flex items-center gap-4">
-                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                         <div className="flex-1">
                             <Skeleton variant="text" width="55%" height={20} />
-                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                             <Skeleton variant="text" width="40%" height={16} />
                         </div>
                     </div>
@@ -180,12 +180,12 @@ const ExpensesSkeleton = () => (
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             {[{ color: '#10B981' }, { color: '#F59E0B' }, { color: '#6366F1' }].map((c, i) => (
-                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
                     <div className="flex items-center gap-4">
-                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                         <div className="flex-1">
                             <Skeleton variant="text" width="55%" height={20} />
-                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                             <Skeleton variant="text" width="40%" height={16} />
                         </div>
                     </div>
@@ -251,12 +251,12 @@ const DashboardV3Skeleton = () => (
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[{ color: '#10B981' }, { color: '#3B82F6' }, { color: '#F59E0B' }].map((c, i) => (
-                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
                     <div className="flex items-center gap-3 mb-2">
-                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `${c.color}20` }} />
+                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                         <Skeleton variant="text" width="55%" height={20} />
                     </div>
-                    <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `${c.color}15` }} />
+                    <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                     <Skeleton variant="text" width="45%" height={16} />
                 </div>
             ))}
@@ -296,12 +296,12 @@ const PlanningSkeleton = () => (
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
             {[{ color: '#8B5CF6' }, { color: '#10B981' }, { color: '#059669' }, { color: '#F59E0B' }, { color: '#3B82F6' }].map((c, i) => (
-                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `${c.color}20`, backgroundColor: `${c.color}08` }}>
+                <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
                     <div className="flex items-center gap-4">
-                        <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: `${c.color}20` }} />
+                        <Skeleton variant="circular" width={36} height={36} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
                         <div className="flex-1">
                             <Skeleton variant="text" width="55%" height={20} />
-                            <Skeleton variant="text" width="70%" height={30} sx={{ bgcolor: `${c.color}15` }} />
+                            <Skeleton variant="text" width="70%" height={30} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
                             <Skeleton variant="text" width="40%" height={16} />
                         </div>
                     </div>

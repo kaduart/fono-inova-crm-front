@@ -7,11 +7,12 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { openWhatsApp } from '../../components/commercial/commercialCopy';
+import { openWhatsApp, specialtyText } from '../../components/commercial/commercialCopy';
 import { useAppointmentsByType } from '../../hooks/useAppointmentsByType';
 import { useRetentionSlots } from '../../hooks/useRetentionSlots';
 import CashflowOverview from './components/CashflowOverview';
 import CashflowAgendaSummary from './components/CashflowAgendaSummary';
+import CashflowDayRuler, { RulerAppointment, RulerState } from './components/CashflowDayRuler';
 import CashflowMonthChart from './components/CashflowMonthChart';
 import CashflowDrawer, { DrawerContent } from './components/CashflowDrawer';
 import { collectMessage, rescheduleMessage } from '../../components/commercial/commercialCopy';
@@ -60,7 +61,7 @@ const CashflowCardsSkeleton = () => {
             {/* 4 cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
                 {cardColors.map((color, i) => (
-                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${color}40`, backgroundColor: `${color}12` }}>
+                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `color-mix(in srgb, ${color} 25%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 7%, transparent)` }}>
                         <div className="flex items-center gap-3 mb-4">
                             <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, ...s }} />
                             <div className="flex-1">
@@ -461,6 +462,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
     // Mesma regra da aba Agenda do Dia (ver getEffectiveStatus lá embaixo).
     const effectiveStatus = (a: any) => a.operationalStatus === 'canceled' ? 'canceled'
         : (a.operationalStatus === 'completed' || attendedIdSet.has(String(a.id || a._id || ''))) ? 'completed' : a.operationalStatus;
+    // Régua do dia (mock v3, 04/11): só para um dia; cliques abrem os mesmos painéis de antes.
+    const pendingIdSet = useMemo(() => new Set<string>((data?.pendentesCobranca || []).map(i => String(i?.id || ''))), [data]);
+    const isAptCompleted = useCallback((a: RulerAppointment) => effectiveStatus(a) === 'completed', [attendedIdSet]); // eslint-disable-line react-hooks/exhaustive-deps
+    const onRulerState = (s: RulerState) => s === 'sem' ? openCollectDrawer() : s === 'conv' ? openBillDrawer()
+        : openAgendaDrawer(s === 'falta' ? 'canceled' : s === 'futuro' ? 'scheduled' : 'completed');
     const STATUS_TITLE: Record<string, string> = { all: 'Agendados', completed: 'Atendidos', scheduled: 'Aguardando', canceled: 'Faltas e cancelamentos' };
 
     const buildAgendaDrawer = (status = 'all'): DrawerContent => {
@@ -622,7 +628,12 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         patientsTop={patientsWithoutNextList}
                         onMetric={(k) => k === 'previsto' ? openAgendaDrawer('all') : k === 'receber' ? openCollectDrawer() : openReceiptsDrawer()}
                         slotsAtRisk={retentionCritical} slotImpact={retentionLoss} onFit={() => navigate('/retention')}
-                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData}
+                        ruler={!isMultiDayRange && dayAppointments.length > 0 ? <CashflowDayRuler appointments={dayAppointments} isCompleted={isAptCompleted}
+                            pendingIds={pendingIdSet} isToday={selectedDate === format(new Date(), 'yyyy-MM-dd')} onState={onRulerState}
+                            values={{ sem: data.pendentesCobranca?.length ? formatCurrency(data.pendentesCobranca.reduce((t, i) => t + (i.valor || 0), 0)) : undefined,
+                                conv: data.conveniosAtendidos?.length ? formatCurrency(data.conveniosAtendidos.reduce((t, i) => t + (i.valor || 0), 0)) : undefined,
+                                falta: data.agenda?.perdido ? formatCurrency(data.agenda.perdido) : undefined }} /> : undefined}
+                        agendaSummary={<CashflowAgendaSummary data={data} analytics={analyticsData} hideAttendance={!isMultiDayRange && dayAppointments.length > 0}
                             loading={analyticsLoading} error={!!analyticsError} createdTotal={analyticsCreatedSummary?.total}
                             createdLoading={analyticsCreatedLoading} createdError={!!analyticsCreatedError}
                             startDate={dateRange && !manualDateOverride ? dateRange.startDate : selectedDate}
@@ -687,7 +698,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-5'}`}>
 
                         {/* ── Caixa Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: '#F0FDF4' }}>
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: 'var(--fx-green-50)' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
                                     <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
@@ -754,7 +765,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         </div>
 
                         {/* ── Produção Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: '#EFF6FF' }}>
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: 'var(--fx-blue-50)' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                                     <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
@@ -831,7 +842,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         {!isMultiDayRange && (() => {
                             const attendance = data.atendimentos;
                             return (
-                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}>
+                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: 'var(--fx-sky-50)' }}>
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
                                             <CalendarTodayIcon style={{ fontSize: 20 }} className="text-sky-600" />
@@ -908,7 +919,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         })()}
 
                         {/* ── Pendências Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: 'var(--fx-amber-50)' }}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                                     <WarningIcon style={{ fontSize: 20 }} className="text-amber-600" />
@@ -1479,13 +1490,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
                                   <div className="w-20 shrink-0">
-                                      <div className="text-2xs text-gray-400">{t.data}</div>
-                                      <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{t.data}</div>}
+                                      <div className="text-sm font-semibold tabular-nums text-gray-900">{t.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
                                       <div className="truncate text-sm font-semibold text-gray-900">{t.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
-                                          {[t.profissional, t.especialidade].filter(Boolean).join(' / ')}
+                                          {[t.profissional, specialtyText(t.especialidade)].filter(Boolean).join(' / ')}
                                       </div>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
@@ -1590,14 +1601,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={t.id} className="grid grid-cols-2 sm:grid-cols-[82px_minmax(0,1fr)_90px_125px_100px] items-center gap-x-3 gap-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
                                   <div>
-                                      <div className="text-2xs text-gray-400">{t.data}</div>
-                                      <div className="font-mono text-sm font-semibold text-gray-900">{t.hora}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{t.data}</div>}
+                                      <div className="text-sm font-semibold tabular-nums text-gray-900">{t.hora}</div>
                                   </div>
 
                                   <div className="min-w-0">
-                                      <div className="truncate text-sm font-semibold text-gray-800">{t.servico || 'Sessão'}</div>
+                                      <div className="truncate text-sm font-semibold text-gray-800">{t.isPackageSale ? 'Venda de Pacote' : (t.servico || 'Sessão')}</div>
                                       <div className="truncate text-2xs text-gray-400">
-                                          {[t.profissional, t.especialidade].filter(Boolean).join(' · ') || 'Sem profissional informado'}
+                                          {[t.profissional, specialtyText(t.especialidade)].filter(Boolean).join(' · ') || 'Sem profissional informado'}
                                       </div>
                                   </div>
 
@@ -1647,13 +1658,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           return (
                               <div key={g._id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls}`}>
                                   <div className="w-20 shrink-0">
-                                      <div className="text-2xs text-gray-400">{first.data}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{first.data}</div>}
                                       <div className="font-mono text-sm font-semibold text-gray-900">{first.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
                                       <div className="truncate text-sm font-semibold text-gray-900">{first.paciente}</div>
                                       <div className="text-xs text-gray-500 truncate">
-                                          {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
+                                          {[first.profissional, specialtyText(first.especialidade)].filter(Boolean).join(' / ')}
                                       </div>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
@@ -1689,12 +1700,25 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         const renderRecebimentoGroup = (g: any) => {
                           const first = g.items[0];
                           const subTipo = first.tipo === 'Pacote' ? 'Sessão de Pacote' : null;
+                          // Grupo só de vendas de pacote (ex.: André 04/11, FONO + TO no mesmo dia):
+                          // antes saía "Sessão de Pacote · Sessão" + "Pago na Sessão", que é errado.
+                          const itensGrupo = g.items as GrupoItem[];
+                          const todosVendaPacote = itensGrupo.every(t => t.isPackageSale);
+                          const servicoGrupo = todosVendaPacote
+                              ? `${g.items.length} vendas de pacote`
+                              : `${first.servico}${subTipo ? ' · Sessão' : ''}`;
+                          const unicos = (vals: (string | undefined)[]) => [...new Set(vals.filter((v): v is string => !!v && v !== '-'))];
+                          const profissionaisGrupo = unicos(itensGrupo.map(t => t.profissional));
+                          const especialidadesGrupo = unicos(itensGrupo.map(t => t.especialidade)).filter(e => e !== 'Outra');
+                          const quemGrupo = [profissionaisGrupo.join(' + '), especialidadesGrupo.join(' + ')].filter(Boolean).join(' / ')
+                              || 'Sem profissional informado';
                           // Ver nota em renderSingle: esta lista só tem Payment status='paid'.
                           const situacao = first.tipo === 'Convênio' ? 'Recebido do Convênio'
+                              : todosVendaPacote ? 'Pré-antecipado'
                               : first.tipo === 'Pacote' && (first as any).paymentModel === 'prepaid' ? 'Pré-pago'
                               : (first as any).isPrepago ? 'Pré-pago'
                               : 'Pago na Sessão';
-                          const situacaoCls = situacao === 'Pré-pago' ? 'bg-indigo-100 text-indigo-700'
+                          const situacaoCls = situacao === 'Pré-pago' || situacao === 'Pré-antecipado' ? 'bg-indigo-100 text-indigo-700'
                               : situacao === 'Pago na Sessão' || situacao === 'Recebido do Convênio' ? 'bg-emerald-100 text-emerald-700'
                               : 'bg-gray-100 text-gray-600';
                           const borderCls = first.tipo === 'Pacote' ? 'border-green-500'
@@ -1707,25 +1731,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                           const metodosUnicos = [...new Set(g.items.map((t: any) => methodLabel(t.metodo)))].join(' + ');
                           return (
                               <button
+                                  title={`${g.items.length} recebimentos de ${first.paciente} neste dia — clique para ver cada um`}
                                   key={g._id}
                                   onClick={() => setGroupDetailItems(g.items)}
                                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 border-l-[3px] ${borderCls} hover:bg-gray-100 transition-colors text-left`}
                               >
                                   <div className="w-20 shrink-0">
-                                      <div className="text-2xs text-gray-400">{first.data}</div>
+                                      {isMultiDayRange && <div className="text-2xs text-gray-400">{first.data}</div>}
                                       <div className="font-mono text-sm font-semibold text-gray-900">{first.hora}</div>
                                   </div>
                                   <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-1.5 truncate text-sm font-semibold text-gray-900">
                                           {first.paciente}
-                                          <span className="px-1.5 py-0.5 rounded-full text-3xs font-bold bg-gray-200 text-gray-600">{g.items.length}x</span>
+                                          <span className="px-1.5 py-0.5 rounded-full text-3xs font-bold bg-gray-200 text-gray-600 whitespace-nowrap">{g.items.length} pagamentos</span>
                                       </div>
                                       <div className="text-xs text-gray-500 truncate">
-                                          {[first.profissional, first.especialidade].filter(Boolean).join(' / ')}
+                                          {quemGrupo}
                                       </div>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
-                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{first.servico}{subTipo ? ' · Sessão' : ''}</span>
+                                      <span className="px-2 py-0.5 rounded-full text-xs border border-gray-300 text-gray-600">{servicoGrupo}</span>
                                   </div>
                                   <div className="w-28 shrink-0 text-center">
                                       <div className="text-xs font-medium text-gray-700 truncate">{metodosUnicos}</div>
@@ -3008,5 +3033,9 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
         </div>
     );
 };
+
+
+// Campos usados no resumo da linha agrupada de Recebimentos.
+type GrupoItem = { isPackageSale?: boolean; profissional?: string; especialidade?: string };
 
 export default UnifiedCashflowTab;

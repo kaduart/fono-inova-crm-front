@@ -65,3 +65,14 @@ Mock: https://claude.ai/artifact/TCo6c4YXfJqnXW222cS3yK · Impeccable: critique 
 - Painel: guias por guia já vêm marcadas; nome do paciente no card quando o painel é do convênio; "Sessões de dd/mm a dd/mm"; alertas de dias sem faturar, guia acabando/esgotada e valor por sessão diferente.
 - Plural corrigido no sistema com `src/utils/plural.ts` ("sessãoões", "sessãos", "1 sessões").
 - Removida a carga de pacientes e profissionais que só servia a um modal que nunca abre.
+
+## Versão 3: Régua do dia (04/11/2026, mock aprovado)
+
+Mock: https://claude.ai/artifact/F49SXKw6WVdNVc6FH1AunQ · crítica frontend-design em /mnt/project-files/caixa-v3/critica-frontend-design.md.
+- Pedido do Kadu: o filtro de período e os cards do topo (Caixa recebido, Previsto, A receber, Ticket médio e "Do previsto ao caixa") ficam como estavam.
+- Nova "Régua do dia" (`CashflowDayRuler`), só quando o período é um dia: uma faixa por profissional, cada sessão de `/v2/appointments` é um bloco colorido pelo estado. Sem pagamento vem de `pendentesCobranca`, e concluído segue o mesmo `effectiveStatus` da aba Agenda do Dia. Pré-agendado conta como "aguardando" e convertido fica fora. A linha "agora" só aparece quando a data é hoje.
+- A legenda tem a contagem por estado, mais o R$ do backend para sem pagamento, convênio e faltas. Clicar num bloco ou na legenda abre o painel de sempre: Cobrar, Faturar ou Agenda filtrada.
+- Na linha Agenda continuam os chips "agendados" e "criados no período". Atendidos, aguardando e faltas aparecem na legenda da régua. Em períodos de mais de um dia, os chips voltam como antes.
+- Cor = estado na tela inteira: âmbar para sem pagamento (antes vermelho na barra e no A receber), vermelho para falta, azul para convênio. "De onde veio o caixa" usa só tons de verde.
+- "O que fazer para não perder receita" passou a se chamar "Precisa de você" e vem ordenado pelo R$ em jogo. Pacotes, que não têm valor definido, ficam no fim. Os botões e ações são os mesmos.
+- Recebimentos: a data só aparece em períodos de vários dias, e a especialidade aparece legível (`specialtyText`).
