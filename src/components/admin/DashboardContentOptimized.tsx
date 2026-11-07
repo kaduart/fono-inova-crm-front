@@ -1,11 +1,12 @@
 import {
     CalendarCheck, CalendarPlus, CalendarX, Cake, CalendarClock, ChevronDown, ChevronRight, ClipboardCheck,
-    Clock, FileClock, MessageCircle, Package, UserMinus, Wallet, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
+    Clock, FileClock, MessageCircle, TrendingDown, AlertTriangle, Package, UserMinus, Wallet, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
 } from 'lucide-react';
 import React, { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent } from '@mui/material';
 import { mapPatientListResponseDTO } from '../../dtos/patient.response.dto';
 import API from '../../services/api';
+import { commercialService, StoppedTrend } from '../../services/commercialService';
 import { appointmentService } from '../../services/appointmentService';
 import { getStatusConfig } from '../../utils/appointmentStatus';
 import { getSpecialtyLabel } from '../../constants/specialties';
@@ -472,6 +473,80 @@ const HBars = memo<{ title: string; rows: Array<{ label: string; value: number }
 });
 HBars.displayName = 'HBars';
 
+const monthLabel = (ym: string) => {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+};
+
+// Evasão mês a mês (GET /v2/commercial/stopped-trend). Indicador, sem nome de paciente:
+// a lista para ligar continua nas filas "Risco de evasão" e "Sem próxima sessão".
+function useStoppedTrend() {
+    const [data, setData] = useState<StoppedTrend | null>(null);
+    const [error, setError] = useState(false);
+    const load = useCallback(() => {
+        commercialService.stoppedTrend(6)
+            .then(d => { setData(d); setError(false); })
+            .catch(e => { console.error('[dashboard] pacientes que pararam', e); setError(true); });
+    }, []);
+    useEffect(() => { const t = setTimeout(load, 1200); return () => clearTimeout(t); }, [load]);
+    return { data, error, reload: load };
+}
+
+const StoppedAlertStrip = memo<{ alert: StoppedTrend['alert']; onOpen: () => void }>(({ alert, onOpen }) => {
+    if (!alert) return null;
+    return (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            <AlertTriangle size={18} className="shrink-0" aria-hidden />
+            <p className="min-w-0 flex-1">
+                <strong>Evasão acima do normal:</strong> {alert.count} pacientes pararam em {monthLabel(alert.month)}
+                {alert.baseline !== null ? ` (média dos 3 meses anteriores: ${alert.baseline})` : ''}.
+                {alert.bySpecialty[0] ? ` Mais em ${getSpecialtyLabel(alert.bySpecialty[0].label)}.` : ''}
+            </p>
+            <button type="button" onClick={onOpen} className="min-h-9 rounded-lg bg-amber-600 px-3 font-semibold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+                Ver detalhes
+            </button>
+        </div>
+    );
+});
+StoppedAlertStrip.displayName = 'StoppedAlertStrip';
+
+const StoppedTrendPanel = memo<{ data: StoppedTrend | null; error: boolean; onRetry: () => void }>(({ data, error, onRetry }) => {
+    if (error && !data) {
+        return <p className="text-sm text-amber-800 dark:text-amber-300">Não foi possível carregar. <button type="button" onClick={onRetry} className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">Tentar de novo</button></p>;
+    }
+    if (!data) return <div className="h-32 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />;
+    const max = Math.max(1, ...data.months.map(m => m.count));
+    const focus = data.alert || data.months[data.months.length - 1];
+    return (
+        <div className="grid gap-3 lg:grid-cols-2">
+            <div className="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/40">
+                <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">Pacientes que pararam, por mês</h3>
+                <ul className="space-y-2">
+                    {data.months.map(m => (
+                        <li key={m.month} className="grid grid-cols-[minmax(0,9rem)_1fr_3.5rem] items-center gap-2 text-sm">
+                            <span className="truncate capitalize text-gray-700 dark:text-gray-300">{monthLabel(m.month)}</span>
+                            <span className="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                <span className={`block h-full rounded-full ${m.spike ? 'bg-amber-500' : 'bg-[#2a78d6] dark:bg-[#3987e5]'}`} style={{ width: `${(m.count / max) * 100}%` }} />
+                            </span>
+                            <span className={`text-right font-semibold tabular-nums ${m.spike ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                                {m.count}{m.spike ? ' ⚠' : ''}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+                <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">Conta quem teve a última sessão no mês e não tem nada agendado. ⚠ = acima de 1,5x a média dos 3 meses anteriores.</p>
+            </div>
+            {focus && (
+                <div className="grid gap-3">
+                    <HBars title={`Por especialidade · ${monthLabel(focus.month)}`} rows={focus.bySpecialty.map(r => ({ label: getSpecialtyLabel(r.label), value: r.value }))} empty="Ninguém parou nesse mês." />
+                    <HBars title={`Por profissional · ${monthLabel(focus.month)}`} rows={focus.byDoctor} empty="Ninguém parou nesse mês." />
+                </div>
+            )}
+        </div>
+    );
+});
+StoppedTrendPanel.displayName = 'StoppedTrendPanel';
+
 const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
     <button
         type="button"
@@ -485,7 +560,7 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
     </button>
 );
 
-type PanTab = 'today' | 'upcoming' | 'charts' | 'mix' | 'bday';
+type PanTab = 'today' | 'upcoming' | 'charts' | 'mix' | 'stopped' | 'bday';
 
 // --- Main Component ---
 
@@ -512,6 +587,11 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const [patientsTableOpen, setPatientsTableOpen] = useState(true);
     // Redesign 04/11: as 5 seções recolhidas viraram abas de um só painel ("Panorama").
     const [panTab, setPanTab] = useState<PanTab>('today');
+    const stopped = useStoppedTrend();
+    const openStopped = useCallback(() => {
+        setPanTab('stopped');
+        document.getElementById('dash-panorama')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, []);
     const birthdaySectionOpen = panTab === 'bday';
     const [showAllDoctors, setShowAllDoctors] = useState(false);
     const [upcomingFilter, setUpcomingFilter] = useState<'all' | 'today' | 'tomorrow' | 'unconfirmed'>('all');
@@ -823,6 +903,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 0. Lead novo esperando resposta (aprovado em 30/10) */}
             <LeadsWaitingStrip items={commercial.leadsWaiting} onOpenLeads={onNavigate ? () => onNavigate('Leads') : undefined} onChanged={commercial.reloadLeads} />
 
+            {/* Evasão acima do normal (pico mensal de pacientes que pararam, 07/11) */}
+            <StoppedAlertStrip alert={stopped.data?.alert ?? null} onOpen={openStopped} />
+
             {/* 1. Hoje: os números que antes ficavam recolhidos em "Números da clínica", agora sempre à vista */}
             {stats ? (
                 <section aria-label="Hoje" className="overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/40">
@@ -879,6 +962,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         ['upcoming', 'Próximas sessões', <Clock key="i" size={15} />, upcomingCount('unconfirmed') ? `${upcomingCount('unconfirmed')} sem confirmar` : null],
                         ['charts', 'Sessões e caixa por dia', <LineChart key="i" size={15} />, null],
                         ['mix', 'Leads e especialidades', <PieChart key="i" size={15} />, null],
+                        ['stopped', 'Pacientes que pararam', <TrendingDown key="i" size={15} />, stopped.data?.alert ? 'acima do normal' : null],
                         ['bday', 'Aniversariantes', <Cake key="i" size={15} />, aniversariantesMeta.todayPending ? `${aniversariantesMeta.todayPending} hoje` : null],
                     ] as Array<[PanTab, string, React.ReactNode, string | null]>).map(([key, label, icon, badge]) => (
                         <button
@@ -892,7 +976,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                 : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'}`}
                         >
                             <span aria-hidden>{icon}</span>{label}
-                            {badge && <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${key === 'bday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>{badge}</span>}
+                            {badge && <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${key === 'bday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300' : key === 'stopped' ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>{badge}</span>}
                         </button>
                     ))}
                 </div>
@@ -1019,6 +1103,12 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                                 <HBars title="Leads dos últimos 30 dias por origem" rows={originRows} empty="Nenhum lead nos últimos 30 dias." />
                                 <HBars title="Pacientes por especialidade" rows={specialtyRows} empty="Sem atendimentos nos últimos 30 dias." />
                             </div>
+                        </>
+                    )}
+                    {panTab === 'stopped' && (
+                        <>
+                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">Últimos 6 meses fechados. Para ligar, use as filas "Risco de evasão" e "Sem próxima sessão".</p>
+                            <StoppedTrendPanel data={stopped.data} error={stopped.error} onRetry={stopped.reload} />
                         </>
                     )}
                     {panTab === 'bday' && (
