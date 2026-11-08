@@ -99,6 +99,16 @@ export interface NextDayItem {
 
 export interface NextDayQueue { date: string | null; total: number; confirmed: number; items: NextDayItem[] }
 
+export interface StoppedMonth {
+    month: string;            // 'YYYY-MM'
+    count: number;            // pacientes cuja última sessão foi nesse mês e não têm nada agendado
+    baseline: number | null;  // média dos 3 meses anteriores
+    spike: boolean;           // acima de 1,5x a média (mínimo 5)
+    bySpecialty: Array<{ label: string; value: number }>;
+    byDoctor: Array<{ label: string; value: number }>;
+}
+export interface StoppedTrend { months: StoppedMonth[]; alert: StoppedMonth | null }
+
 export type ContactKind = 'reactivation' | 'renewal' | 'fit' | 'lead_reply' | 'evaluation' | 'evaluation_lost' | 'churn' | 'churn_pause';
 
 const unwrap = <T>(res: any): T => (res?.data?.data ?? res?.data) as T;
@@ -120,6 +130,10 @@ export const commercialService = {
     async churnRisk() {
         const d = unwrap<{ items?: ChurnItem[] }>(await API.get('/v2/commercial/churn-risk'));
         return Array.isArray(d?.items) ? d.items : [];
+    },
+    async stoppedTrend(months = 6): Promise<StoppedTrend> {
+        const d = unwrap<Partial<StoppedTrend>>(await API.get('/v2/commercial/stopped-trend', { params: { months } }));
+        return { months: Array.isArray(d?.months) ? d.months : [], alert: d?.alert ?? null };
     },
     async leadsWaiting(hours = 2) {
         const d = unwrap<{ items?: WaitingLead[] }>(await API.get('/v2/commercial/leads-waiting', { params: { hours } }));
