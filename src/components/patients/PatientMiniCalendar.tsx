@@ -213,10 +213,16 @@ export const PatientMiniCalendar: React.FC<PatientMiniCalendarProps> = ({ appoin
                                 ...(noClosure ? { outline: `1.5px dashed ${cfg.text}`, outlineOffset: '-1.5px' } : {}),
                             }}
                         >
-                            <span className="flex items-baseline justify-between gap-1 text-[0.7rem] leading-tight">
-                                <span className="font-semibold tabular-nums">{range}</span>
-                                {cfg.label && <span className={`truncate ${noClosure ? 'font-bold' : 'font-medium opacity-80'}`}>{cfg.label}</span>}
-                            </span>
+                            <span className="text-[0.7rem] font-semibold leading-tight tabular-nums">{range}</span>
+                            {/* Status por extenso, em linha própria: nunca cortar ("Can…" confundia quem não conhece o sistema). */}
+                            {cfg.label && (
+                                <span
+                                    className="self-start whitespace-nowrap rounded px-1 text-[0.64rem] font-bold uppercase leading-snug tracking-wide"
+                                    style={{ backgroundColor: 'rgba(255,255,255,0.65)', color: cfg.text }}
+                                >
+                                    {cfg.label}
+                                </span>
+                            )}
                             <span className="truncate text-xs font-bold leading-tight">
                                 {appt.serviceType === 'evaluation' ? 'Avaliação · ' : ''}{specialtyLabel}
                             </span>

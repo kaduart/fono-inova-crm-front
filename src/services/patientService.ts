@@ -109,8 +109,12 @@ export const patientService = {
     status?: string;
     sortBy?: string;
     hasDebt?: boolean;
+    /** 'inactive' = inativados pela recepção (Patient.status). */
+    patientStatus?: string;
+    /** Motivo da inativação (chave de PATIENT_INACTIVATION_REASONS). */
+    inactiveReason?: string;
   } = {}): Promise<ListPatientsResponse['data']> {
-    const { search, limit = 50, skip = 0, doctorId, status, sortBy, hasDebt } = options;
+    const { search, limit = 50, skip = 0, doctorId, status, sortBy, hasDebt, patientStatus, inactiveReason } = options;
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     params.append('limit', limit.toString());
@@ -119,6 +123,8 @@ export const patientService = {
     if (status) params.append('status', status);
     if (sortBy) params.append('sortBy', sortBy);
     if (hasDebt) params.append('hasDebt', 'true');
+    if (patientStatus) params.append('patientStatus', patientStatus);
+    if (inactiveReason) params.append('inactiveReason', inactiveReason);
 
     const response = await API.get<ListPatientsResponse>(`/v2/patients?${params}`);
     return response.data.data;
@@ -203,6 +209,16 @@ export const patientService = {
     await pollEventStatus(eventId, { onProgress: options.onProgress });
     const patient = await this.getById(id);
     return { patient, isAsync: true, eventId };
+  },
+
+  /** Inativa (com motivo da lista) ou reativa o paciente. Só recepção e admin. */
+  async setStatus(
+    id: string,
+    payload: { status: 'active' | 'inactive'; reason?: string; note?: string }
+  ): Promise<{ futureAppointments: number | null }> {
+    const response = await API.patch(`/v2/patients/${id}/status`, payload);
+    const data = response.data?.data || {};
+    return { futureAppointments: typeof data.futureAppointments === 'number' ? data.futureAppointments : null };
   },
 
   async delete(
