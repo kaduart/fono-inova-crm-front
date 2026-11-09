@@ -8,6 +8,7 @@ import { getCoreRowModel, useReactTable, type RowSelectionState, type Updater } 
 import { toast } from '../../utils/toast';
 import patientService from '../../services/patientService';
 import { getSpecialtyLabel } from '../../constants/specialties';
+import { PATIENT_INACTIVATION_REASONS, inactivationReasonLabel } from '../../constants/patientInactivationReasons';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,10 @@ const typeOf = (p: any): { label: string; cls: string } => {
     return { label: 'Particular', cls: 'border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300' };
 };
 const debtOf = (p: any) => Number(p.balance?.current ?? p.stats?.totalPendingParticularNet ?? 0);
+// Inativação manual pela recepção (motivo da lista), para campanhas de retorno.
+const inactiveReasonOf = (p: { patientStatus?: string; inactivation?: { reason?: string | null } | null }): string =>
+    p.patientStatus === 'inactive' && p.inactivation?.reason ? inactivationReasonLabel(p.inactivation.reason) : '';
+const reasonBadge = 'rounded-full border border-slate-300 bg-slate-100 px-2 py-px text-xs font-semibold text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200';
 
 const btn = 'inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50';
 const btnGhost = `${btn} border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800`;
@@ -101,6 +106,7 @@ const PatientCard: React.FC<{ patient: any; onEdit: (p: any) => void }> = ({ pat
                     <p className="break-words font-semibold leading-snug text-gray-900 dark:text-gray-100">{name}</p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                         <span className={`rounded-full border px-2 py-px text-xs font-semibold ${t.cls}`}>{t.label}</span>
+                        {inactiveReasonOf(patient) && <span className={reasonBadge}>Inativo · {inactiveReasonOf(patient)}</span>}
                         {debt > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-2 py-px text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">deve {brl(debt)}</span>}
                     </div>
                 </div>
@@ -146,6 +152,7 @@ const PatientRow: React.FC<{ patient: any; onEdit: (p: any) => void; selected: b
             </div>
             <div className="col-start-2 flex flex-wrap items-center gap-1.5 md:col-start-auto">
                 <span className={`rounded-full border px-2 py-px text-xs font-semibold ${t.cls}`}>{t.label}</span>
+                {inactiveReasonOf(patient) && <span className={reasonBadge}>Inativo · {inactiveReasonOf(patient)}</span>}
                 {debt > 0 && <span className="rounded-full border border-red-200 bg-red-50 px-2 py-px text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">deve {brl(debt)}</span>}
             </div>
             <div className="col-start-2 min-w-0 md:col-start-auto text-sm text-gray-700 dark:text-gray-300">
@@ -204,6 +211,8 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
     const [page, setPage] = useState(0);
     const [activeTab, setActiveTab] = useState<TabType>('active');
     const [onlyDebt, setOnlyDebt] = useState(false);
+    // Aba Inativos: '' = todos; 'any' = inativados pela recepção (qualquer motivo); senão o motivo.
+    const [inactiveReason, setInactiveReason] = useState('');
     const [view, setView] = useState<ViewMode>(() => {
         try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'list'; } catch { return 'list'; }
     });
@@ -236,9 +245,10 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
     };
     const downloadCsv = () => {
         const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-        const rows = [['Nome', 'Telefone', 'E-mail', 'Tipo', 'Saldo devedor', 'Profissional'].map(esc).join(';'),
+        const rows = [['Nome', 'Telefone', 'E-mail', 'Tipo', 'Saldo devedor', 'Profissional', 'Motivo da inativação'].map(esc).join(';'),
             ...pickedList.map(p => [p.fullName || p.name, formatPhone(p.phone) || '', p.email || '', typeOf(p).label,
-                debtOf(p).toFixed(2).replace('.', ','), p.doctorName || p.nextAppointment?.doctorName || p.lastAppointment?.doctorName || ''].map(esc).join(';'))];
+                debtOf(p).toFixed(2).replace('.', ','), p.doctorName || p.nextAppointment?.doctorName || p.lastAppointment?.doctorName || '',
+                inactiveReasonOf(p)].map(esc).join(';'))];
         const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob); a.download = `pacientes-selecionados-${pickedList.length}.csv`; a.click();
@@ -260,7 +270,9 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
             const result = await patientService.list({
                 limit: PAGE_SIZE,
                 skip: page * PAGE_SIZE,
-                status: VIEW_STATUS[activeTab],
+                ...(activeTab === 'inactive' && inactiveReason
+                    ? (inactiveReason === 'any' ? { patientStatus: 'inactive' } : { inactiveReason })
+                    : { status: VIEW_STATUS[activeTab] }),
                 hasDebt: onlyDebt,
                 ...(sortBy ? { sortBy } : {}),
                 ...(query ? { search: query } : {}),
@@ -272,7 +284,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
         } finally {
             setLoading(false);
         }
-    }, [page, activeTab, onlyDebt, query, sortBy]);
+    }, [page, activeTab, onlyDebt, query, sortBy, inactiveReason]);
 
     useEffect(() => {
         load();
@@ -293,7 +305,7 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
         return () => { alive = false; };
     }, [query, refreshSignal, activeTab]);
 
-    const pickTab = (tab: TabType) => { setActiveTab(tab); setPage(0); };
+    const pickTab = (tab: TabType) => { setActiveTab(tab); setPage(0); if (tab !== 'inactive') setInactiveReason(''); };
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const shown = (n: number | null) => (n === null ? '…' : n);
     const tabLabel = TABS.find(t => t.key === activeTab)!.label.toLowerCase();
@@ -311,6 +323,17 @@ const PatientList: React.FC<PatientListProps> = ({ onEdit, refreshSignal = 0 }) 
                     <button type="button" aria-pressed={onlyDebt} onClick={() => { setOnlyDebt(v => !v); setPage(0); }} className={chipCls(onlyDebt)}>
                         Com saldo devedor <b className={!onlyDebt && (counts.debt ?? 0) > 0 ? 'text-red-800 dark:text-red-300' : ''}>{shown(counts.debt)}</b>
                     </button>
+                    {activeTab === 'inactive' && (
+                        <>
+                            <label className="sr-only" htmlFor="pac-inactive-reason">Motivo da inativação</label>
+                            <select id="pac-inactive-reason" value={inactiveReason} onChange={e => { setInactiveReason(e.target.value); setPage(0); }}
+                                className="min-h-9 rounded-full border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                <option value="">Todos os inativos</option>
+                                <option value="any">Inativados pela recepção (qualquer motivo)</option>
+                                {Object.entries(PATIENT_INACTIVATION_REASONS).map(([key, label]) => <option key={key} value={key}>Motivo: {label}</option>)}
+                            </select>
+                        </>
+                    )}
                 </div>
 
                 <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

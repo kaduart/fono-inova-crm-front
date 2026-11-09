@@ -8,8 +8,8 @@ describe('PatientInactivateModal', () => {
     render(<PatientInactivateModal open patientName="Ana" nextSessionLabel="12/11 às 10:40" onConfirm={onConfirm} onClose={() => {}} />);
 
     const confirm = screen.getByRole('button', { name: 'Inativar' });
-    expect(confirm).toBeDisabled();
-    expect(screen.getByText(/Ainda tem sessão marcada \(12\/11 às 10:40\)/)).toBeInTheDocument();
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/Ainda tem sessão marcada \(12\/11 às 10:40\)/)).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Financeiro / preço' }));
     fireEvent.change(screen.getByLabelText('Observação (opcional)'), { target: { value: ' achou caro ' } });
