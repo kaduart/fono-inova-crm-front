@@ -344,7 +344,11 @@ export default function ContractCard({ data, onRefresh }: Props) {
       insurancePlan: s.insurancePlan ?? null,
       liminarContract: s.liminarContract ?? null,
       package: s.package ?? null,
-      __isPreAgendamento: s.operationalStatus === 'pre_agendado',
+      // pre_agendado aqui é um Appointment real (gerado pelo plano/guia), não o "interesse" legado
+      // (coleção PreAgendamento). Marcar __isPreAgendamento levava o modal ao botão "Converter em
+      // Agendamento", que ninguém liga aqui → "Funcionalidade de conversão não disponível" e não dava
+      // para finalizar (Daiane, 09/11/2026). Na agenda já é assim: pre_agendado vai direto para "Realizar Atendimento".
+      __isPreAgendamento: false,
     };
   }
 
