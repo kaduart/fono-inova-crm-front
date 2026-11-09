@@ -682,26 +682,36 @@ const FinancialDashboard = ({
             case 'nfse':
                 return <FiscalInvoiceHistory month={selectedMonth} year={selectedYear} />;
             case 'dashboard': {
-                // Resultados = Indicadores + Metas do ano (no menu Financeiro). Sem `section`, Metas segue em aba própria.
-                const showMetas = !!section && (searchParams.get('resultados') === 'metas' || searchParams.get(TAB_PARAM_KEY) === 'planejamento');
-                const pick = (v: 'indicadores' | 'metas') => setSearchParams(prev => {
+                // Resultados = Indicadores + Painel completo (metas do mês, insights, ranking, projeção) + Metas do ano.
+                // Sem `section`, Metas segue em aba própria.
+                type View = 'indicadores' | 'painel' | 'metas';
+                const rp = searchParams.get('resultados');
+                const view: View = !section ? 'indicadores'
+                    : (rp === 'metas' || searchParams.get(TAB_PARAM_KEY) === 'planejamento') ? 'metas'
+                    : rp === 'painel' ? 'painel' : 'indicadores';
+                const pick = (v: View) => setSearchParams(prev => {
                     const next = new URLSearchParams(prev);
                     next.set(TAB_PARAM_KEY, 'dashboard'); next.set('resultados', v);
+                    if (v !== 'painel') next.delete('dashboardTab');
                     return next;
                 }, { replace: true });
                 return (
                     <>
                         {section && (
-                            <div role="tablist" aria-label="Resultados" className="mb-3 inline-flex rounded-xl border border-gray-200 bg-white p-0.5 text-sm dark:border-white/10 dark:bg-white/5">
-                                {([['indicadores', 'Indicadores do mês'], ['metas', 'Metas do ano']] as const).map(([v, l]) => (
-                                    <button key={v} type="button" role="tab" aria-selected={(v === 'metas') === showMetas} onClick={() => pick(v)}
-                                        className={`rounded-lg px-3 py-1.5 font-medium ${(v === 'metas') === showMetas ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300'}`}>{l}</button>
+                            <div role="tablist" aria-label="Resultados" className="mb-3 inline-flex flex-wrap rounded-xl border border-gray-200 bg-white p-0.5 text-sm dark:border-white/10 dark:bg-white/5">
+                                {([['indicadores', 'Indicadores do mês'], ['painel', 'Painel completo'], ['metas', 'Metas do ano']] as const).map(([v, l]) => (
+                                    <button key={v} type="button" role="tab" aria-selected={v === view} onClick={() => pick(v)}
+                                        className={`rounded-lg px-3 py-1.5 font-medium ${v === view ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300'}`}>{l}</button>
                                 ))}
                             </div>
                         )}
-                        {showMetas ? (
+                        {view === 'metas' ? (
                             <Suspense fallback={<PlanningSkeleton />}>
                                 <PlanningTab month={selectedMonth} year={selectedYear} />
+                            </Suspense>
+                        ) : view === 'painel' ? (
+                            <Suspense fallback={<DashboardV3Skeleton />}>
+                                <FinancialDashboardTab month={selectedMonth} year={selectedYear} />
                             </Suspense>
                         ) : (
                             <Suspense fallback={<DashboardV3Skeleton />}>
