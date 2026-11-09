@@ -4,7 +4,7 @@
  */
 
 import API from "./api";
-import { ICommissionRules } from "../utils/types/types";
+import { ICommissionRules, IDoctorCompensation } from "../utils/types/types";
 
 
 export type DoctorRole = 'doctor';
@@ -20,6 +20,7 @@ export type CreateDoctorParams = {
   active: string;
   role?: DoctorRole;
   commissionRules?: ICommissionRules;
+  compensation?: IDoctorCompensation;
   weeklyAvailability?: Array<{ day: string; times: string[] }>;
 };
 

@@ -101,7 +101,8 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                 }
 
                 const commissionRules = (fresh as any)?.commissionRules ?? selectedDoctor.commissionRules ?? defaultCommissionRules;
-                setForm(prev => ({ ...prev, commissionRules }));
+                const compensation = (fresh as any)?.compensation as IDoctor['compensation'];
+                setForm(prev => ({ ...prev, commissionRules, ...(compensation ? { compensation } : {}) }));
             })
             .catch(() => {
                 if (!selectedDoctor.weeklyAvailability?.length) return;
@@ -137,6 +138,10 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
         if (form.commissionRules?.neuropsychCommissionType === 'percentage' && neuropsychValue === undefined) {
             setActiveTab('comissoes');
             return toast.error("Informe o percentual da avaliação neuropsicológica.");
+        }
+        if (form.compensation?.model === 'fixed_monthly' && !(form.compensation.fixedMonthlyAmount > 0)) {
+            setActiveTab('comissoes');
+            return toast.error("Informe o valor do salário fixo mensal.");
         }
         console.log('[DoctorForm] handleSubmit disparado. form:', form);
         if (formErrors.fullName) return toast.error("Nome é obrigatório");
@@ -428,6 +433,61 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                         </TabsContent>
 
                         <TabsContent value="comissoes" className="mt-4">
+                            {/* Forma de remuneração: comissão por sessão ou salário fixo mensal */}
+                            <fieldset className="border border-gray-200 rounded-xl p-4 mb-4">
+                                <legend className="px-2 text-sm font-semibold text-gray-700">Forma de remuneração</legend>
+                                <div className="flex flex-col sm:flex-row gap-2 mt-1">
+                                    {([
+                                        { value: 'commission', label: 'Comissão por sessão' },
+                                        { value: 'fixed_monthly', label: 'Salário fixo mensal' },
+                                    ] as const).map(opt => {
+                                        const selected = (form.compensation?.model || 'commission') === opt.value;
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setForm(prev => ({
+                                                    ...prev,
+                                                    compensation: {
+                                                        model: opt.value,
+                                                        fixedMonthlyAmount: opt.value === 'fixed_monthly' ? (prev.compensation?.fixedMonthlyAmount || 0) : 0,
+                                                    },
+                                                }))}
+                                                className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${selected ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {form.compensation?.model === 'fixed_monthly' && (
+                                    <div className="mt-3">
+                                        <label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="fixedMonthlyAmount">
+                                            Valor fixo por mês (R$)
+                                        </label>
+                                        <input
+                                            id="fixedMonthlyAmount"
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            inputMode="decimal"
+                                            value={form.compensation.fixedMonthlyAmount || ''}
+                                            onChange={e => {
+                                                const v = Number(e.target.value);
+                                                setForm(prev => ({
+                                                    ...prev,
+                                                    compensation: { model: 'fixed_monthly', fixedMonthlyAmount: Number.isFinite(v) && v > 0 ? v : 0 },
+                                                }));
+                                            }}
+                                            className="w-full sm:w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                            placeholder="Ex.: 4800"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Com salário fixo, o "Gerar comissões" não cria repasse por sessão para este profissional. O fixo entra como custo no painel "Faturamento x custo" das Despesas. Lance o pagamento em Despesas fixas.
+                                        </p>
+                                    </div>
+                                )}
+                            </fieldset>
                             <DoctorCommissionRulesTab
                                 doctorId={form._id}
                                 rules={form.commissionRules?.rules || []}
