@@ -25,3 +25,25 @@ describe('Confirmação única de geração e cancelamentos', () => {
     expect(onRun).toHaveBeenCalledOnce();
   });
 });
+
+describe('Conflito de cancelamento (409 GENERATION_VALIDATION)', () => {
+  it('mostra quais datas batem e o que já está lançado, em vez de só "Confira os cancelamentos"', async () => {
+    const error = Object.assign(new Error('Request failed with status code 409'), { response: { status: 409, data: {
+      success: false, code: 'GENERATION_VALIDATION', message: 'Nada foi gerado', title: 'Nada foi gerado — 1 data cancelada bate com um atendimento já lançado',
+      action: 'Tire essa data da lista. Nada foi salvo.',
+      items: [{ date: '2026-10-02', time: '10:40', existing: [{ specialty: 'fonoaudiologia', doctorName: 'Lorrany', guideNumber: '0020', status: 'pre_agendado' }] }],
+    } } });
+    const onRun = vi.fn().mockRejectedValue(error);
+    render(<GenerationCancellationFlow specialties={['fonoaudiologia']} contextKey="1" onRun={onRun} onApplied={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir geração' }));
+    await screen.findByText('02/10/2026 às 10:40 — já existe Fonoaudiologia com Lorrany (guia 0020), pré-agendado');
+    expect(screen.getByText(/1 data cancelada bate/)).toBeTruthy();
+    expect(screen.getByText('Tire essa data da lista. Nada foi salvo.')).toBeTruthy();
+  });
+  it('resposta antiga (só conflicts) ainda lista as datas', async () => {
+    const error = { response: { status: 409, data: { message: 'Confira os cancelamentos antes de gerar.', conflicts: [{ date: '2026-10-16', time: '10:40', message: 'Já existe atendimento nesse horário.' }] } } };
+    render(<GenerationCancellationFlow specialties={['fonoaudiologia']} contextKey="1" onRun={vi.fn().mockRejectedValue(error)} onApplied={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir geração' }));
+    await screen.findByText('16/10/2026 às 10:40 — Já existe atendimento nesse horário.');
+  });
+});
