@@ -252,16 +252,6 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
                   </Chip>
                 </span>
               )}
-              {isInactive && onReactivate && (
-                <button type="button" onClick={onReactivate} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50">
-                  <UserCheck size={11} /> Reativar
-                </button>
-              )}
-              {!isInactive && onInactivate && (
-                <button type="button" onClick={onInactivate} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-700">
-                  <UserX size={11} /> Inativar paciente
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -299,6 +289,25 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
             >
               <CalendarPlus size={16} /> Agendar
             </button>
+            {isInactive && onReactivate && (
+              <button
+                type="button"
+                onClick={onReactivate}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 transition-colors hover:bg-emerald-100"
+              >
+                <UserCheck size={16} /> Reativar
+              </button>
+            )}
+            {!isInactive && onInactivate && (
+              <button
+                type="button"
+                onClick={onInactivate}
+                title="Paciente parou: registrar o motivo para campanhas de retorno"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+              >
+                <UserX size={16} /> Inativar
+              </button>
+            )}
           </div>
         </div>
       </div>
