@@ -114,6 +114,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         { id: 'fin-desp', group: 'Financeiro', label: 'Despesas', icon: <DollarSign size={16} />, run: () => goFin('despesas') },
         { id: 'fin-nfse', group: 'Financeiro', label: 'NFSe', icon: <DollarSign size={16} />, keywords: 'nota fiscal', run: () => goFin('nfse') },
         { id: 'fin-ind', group: 'Financeiro', label: 'Resultados', icon: <DollarSign size={16} />, keywords: 'kpi producao indicadores', run: () => goFin('dashboard') },
+        { id: 'fin-painel', group: 'Financeiro', label: 'Painel completo', hint: 'Metas do mês, insights, ranking e projeção', icon: <DollarSign size={16} />, keywords: 'analytics metas mes ritmo ranking insights projecao cenarios decisao', run: () => navigate('/admin?tab=Financeiro&financialTab=dashboard&resultados=painel') },
+        { id: 'fin-metas-mes', group: 'Financeiro', label: 'Metas do mês', hint: 'Ritmo e gap diário', icon: <DollarSign size={16} />, keywords: 'meta ritmo gap', run: () => navigate('/admin?tab=Financeiro&financialTab=dashboard&resultados=painel&dashboardTab=metas') },
         { id: 'fin-prof', group: 'Financeiro', label: 'Repasse', icon: <DollarSign size={16} />, keywords: 'comissao profissionais', run: () => goFin('profissionais') },
         { id: 'fin-metas', group: 'Financeiro', label: 'Metas do ano', icon: <DollarSign size={16} />, keywords: 'planejamento meta', run: () => goFin('planejamento') },
         { id: 'g-prof', group: 'Gestão', label: 'Profissionais', hint: 'Gerencie equipe', icon: <Stethoscope size={16} />, keywords: 'terapeuta doutor', run: () => handleTabChange('Add Profissional') },

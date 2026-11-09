@@ -1,6 +1,5 @@
 import {
   Add,
-  AttachMoney,
   CalendarToday,
   CheckCircle,
   Delete,
@@ -10,8 +9,6 @@ import {
   TrendingUp,
   Warning,
   Timeline,
-  EventSeat,
-  AccessTime,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -28,7 +25,6 @@ import {
   Divider,
   Grid,
   IconButton,
-  MenuItem,
   Paper,
   Skeleton,
   Table,
@@ -37,13 +33,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Tooltip,
   Typography,
   Collapse,
-  LinearProgress,
-  ToggleButton,
-  ToggleButtonGroup,
   Tabs,
   Tab,
 } from '@mui/material';
@@ -55,7 +47,9 @@ import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
 import { planningService } from '../../../services/planningService';
 import AnnualGoals from './AnnualGoals';
 import { toast } from '../../../utils/toast';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { CurrencyInput } from '../../../components/ui/MaskedInput';
+import { SPECIALTY_OPTIONS, getSpecialtyLabel } from '../../../constants/specialties';
 
 interface PlanningFormData {
   type: 'daily' | 'weekly' | 'monthly';
@@ -908,212 +902,146 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       </Paper>
 
 
-      {/* MODAL DE CRIAÇÃO */}
-      <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#8B5CF6', color: 'white' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ bgcolor: 'var(--fx-white)', color: '#8B5CF6', width: 32, height: 32 }}>
-              <Add />
-            </Avatar>
-            <Typography variant="h6">Criar Novo Planejamento</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                select
-                label="Tipo de Meta"
-                fullWidth
-                value={formData.type}
-                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
-              >
-                <MenuItem value="daily">Diária</MenuItem>
-                <MenuItem value="weekly">Semanal</MenuItem>
-                <MenuItem value="monthly">Mensal</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                select
-                label="Mês"
-                fullWidth
-                value={formData.month}
-                onChange={(e) => setFormData(prev => ({ ...prev, month: Number(e.target.value) }))}
-              >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <MenuItem key={i + 1} value={i + 1}>
-                    {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                select
-                label="Ano"
-                fullWidth
-                value={formData.year}
-                onChange={(e) => setFormData(prev => ({ ...prev, year: Number(e.target.value) }))}
-              >
-                {[2025, 2026, 2027].map(y => (
-                  <MenuItem key={y} value={y}>{y}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
+      {/* MODAL DE CRIAÇÃO — padrão do app: Tailwind, verde, tema claro/escuro, R$ com máscara */}
+      {(openModal || openEditModal) && (() => {
+        const isEdit = openEditModal;
+        const lbl = 'mb-1.5 block text-xs font-bold text-gray-700 dark:text-gray-300';
+        const inp = 'h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 outline-none transition placeholder:font-normal placeholder:text-gray-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 dark:border-white/15 dark:bg-gray-900 dark:text-gray-100 dark:focus:ring-emerald-900/40 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-white/5';
+        const help = 'mt-1 text-xs text-gray-500 dark:text-gray-400';
+        const h3 = 'text-sm font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400';
+        const onlyInt = (v: string) => Number(v.replace(/\D/g, '') || 0);
+        const setT = (k: keyof PlanningFormData['targets'], v: number) => setFormData(prev => ({ ...prev, targets: { ...prev.targets, [k]: v } }));
+        const close = () => { setOpenModal(false); setOpenEditModal(false); setEditingPlanning(null); };
+        return (
+          <div className="fixed inset-0 z-[1500] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="planning-create-title" className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-gray-900 sm:rounded-2xl">
+              <header className="flex items-start justify-between border-b border-gray-100 px-5 py-4 dark:border-white/10">
+                <div className="flex gap-3">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{isEdit ? <Edit fontSize="small" /> : <Add fontSize="small" />}</div>
+                  <div>
+                    <h2 id="planning-create-title" className="text-base font-black text-gray-900 dark:text-gray-100">{isEdit ? 'Editar meta' : 'Nova meta'}</h2>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Defina o alvo do período; o sistema faz as contas do ritmo.</p>
+                  </div>
+                </div>
+                <button type="button" onClick={close} aria-label="Fechar" className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10"><X size={18} /></button>
+              </header>
 
-            {formData.type === 'weekly' && (
-              <Grid size={{ xs: 12 }}>
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  <strong>Geração automática de semanas</strong><br />
-                  Informe a <strong>meta mensal total</strong>. O sistema cria <strong>4 semanas</strong> automaticamente.
-                </Alert>
-              </Grid>
-            )}
+              <div className="space-y-5 overflow-y-auto px-5 py-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label htmlFor="pl-type" className={lbl}>Tipo de meta</label>
+                    <select id="pl-type" disabled={isEdit} className={inp} value={formData.type} onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as PlanningFormData['type'] }))}>
+                      <option value="monthly">Mensal</option>
+                      <option value="weekly">Semanal</option>
+                      <option value="daily">Diária</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="pl-month" className={lbl}>Mês</label>
+                    <select id="pl-month" disabled={isEdit} className={`${inp} capitalize`} value={formData.month} onChange={(e) => setFormData(prev => ({ ...prev, month: Number(e.target.value) }))}>
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>{format(new Date(2024, i), 'MMMM', { locale: ptBR })}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="pl-year" className={lbl}>Ano</label>
+                    <select id="pl-year" disabled={isEdit} className={inp} value={formData.year} onChange={(e) => setFormData(prev => ({ ...prev, year: Number(e.target.value) }))}>
+                      {Array.from(new Set([2025, 2026, 2027, new Date().getFullYear() + 1, formData.year])).sort().map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                </div>
 
-            {formData.type === 'monthly' && (
-              <Grid size={{ xs: 12 }}>
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  <strong>Automação mensal → semanal → diário</strong><br />
-                  Ao salvar, o sistema criará automaticamente as metas semanais e diárias proporcionais aos dias úteis (seg–sex, exceto feriados).
-                </Alert>
-              </Grid>
-            )}
+                {!isEdit && formData.type !== 'daily' && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                    {formData.type === 'weekly'
+                      ? <><strong>Semanas automáticas.</strong> Informe a meta mensal total; o sistema cria as 4 semanas.</>
+                      : <><strong>Mensal → semanal → diário.</strong> Ao salvar, o sistema cria as metas semanais e diárias proporcionais aos dias úteis (seg–sex, exceto feriados).</>}
+                  </div>
+                )}
 
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
-                {formData.type === 'weekly' ? 'Meta Mensal Total (dividida automaticamente)' : 'Metas Principais'}
-              </Typography>
-            </Grid>
+                <div className="space-y-3">
+                  <h3 className={h3}>{formData.type === 'weekly' ? 'Meta mensal total' : 'Metas principais'}</h3>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div>
+                      <label htmlFor="pl-rev" className={lbl}>{formData.type === 'weekly' ? 'Meta mensal total' : 'Meta de receita'}</label>
+                      <CurrencyInput id="pl-rev" className={inp} placeholder="R$ 0,00" value={formData.targets.expectedRevenue || null} onValue={(v) => setT('expectedRevenue', v ?? 0)} />
+                    </div>
+                    <div>
+                      <label htmlFor="pl-sess" className={lbl}>Total de sessões</label>
+                      <input id="pl-sess" type="text" inputMode="numeric" className={inp} placeholder="0" value={formData.targets.totalSessions || ''} onChange={(e) => setT('totalSessions', onlyInt(e.target.value))} />
+                    </div>
+                    <div>
+                      <label htmlFor="pl-hours" className={lbl}>Horas de trabalho</label>
+                      <input id="pl-hours" type="text" inputMode="numeric" className={inp} placeholder="0" value={formData.targets.workHours || ''} onChange={(e) => setT('workHours', onlyInt(e.target.value))} />
+                    </div>
+                    <div>
+                      <label htmlFor="pl-ticket" className={lbl}>Ticket médio por sessão</label>
+                      <CurrencyInput id="pl-ticket" className={inp} placeholder="R$ 0,00" value={formData.targets.averageTicket || null} onValue={(v) => setT('averageTicket', v ?? 0)} />
+                      <p className={help}>Valor de cada sessão realizada</p>
+                    </div>
+                    <div>
+                      <label htmlFor="pl-cticket" className={lbl}>Ticket médio por fechamento</label>
+                      <CurrencyInput id="pl-cticket" className={inp} placeholder="R$ 0,00" value={formData.targets.commercialTicket || null} onValue={(v) => setT('commercialTicket', v ?? 0)} />
+                      <p className={help}>Valor médio por paciente convertido</p>
+                    </div>
+                  </div>
+                </div>
 
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label={formData.type === 'weekly' ? 'Meta Mensal Total (R$)' : 'Meta de Receita (R$)'}
-                type="number"
-                fullWidth
-                value={formData.targets.expectedRevenue}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, expectedRevenue: Number(e.target.value) }
-                }))}
-                InputProps={{ startAdornment: 'R$' }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Total de Sessões"
-                type="number"
-                fullWidth
-                value={formData.targets.totalSessions}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, totalSessions: Number(e.target.value) }
-                }))}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Horas de Trabalho"
-                type="number"
-                fullWidth
-                value={formData.targets.workHours}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, workHours: Number(e.target.value) }
-                }))}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Ticket Médio por Sessão (R$)"
-                type="number"
-                fullWidth
-                value={formData.targets.averageTicket}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, averageTicket: Number(e.target.value) }
-                }))}
-                helperText="Valor operacional de cada sessão realizada"
-                InputProps={{ startAdornment: 'R$' }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Ticket Médio por Fechamento (R$)"
-                type="number"
-                fullWidth
-                value={formData.targets.commercialTicket}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, commercialTicket: Number(e.target.value) }
-                }))}
-                helperText="Valor médio por paciente convertido (usado no cálculo comercial)"
-                InputProps={{ startAdornment: 'R$' }}
-              />
-            </Grid>
+                {formData.type !== 'weekly' && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 className={h3}>Por especialidade <span className="font-normal normal-case text-gray-500 dark:text-gray-400">(opcional)</span></h3>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Total: {totalSpecialtySessions} sessões · {formatCurrency(totalSpecialtyRevenue)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[2fr_1fr_1.4fr_auto] sm:items-end">
+                      <div className="col-span-2 sm:col-span-1">
+                        <label htmlFor="pl-spec" className={lbl}>Especialidade</label>
+                        <select id="pl-spec" className={inp} value={newSpecialty.specialty} onChange={(e) => setNewSpecialty(prev => ({ ...prev, specialty: e.target.value }))}>
+                          <option value="">Escolha…</option>
+                          {SPECIALTY_OPTIONS.filter(o => !formData.bySpecialty.some(b => b.specialty === o.value || b.specialty === o.label)).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="pl-spec-sess" className={lbl}>Sessões</label>
+                        <input id="pl-spec-sess" type="text" inputMode="numeric" className={inp} placeholder="0" value={newSpecialty.sessions || ''} onChange={(e) => setNewSpecialty(prev => ({ ...prev, sessions: onlyInt(e.target.value) }))} />
+                      </div>
+                      <div>
+                        <label htmlFor="pl-spec-rev" className={lbl}>Receita esperada</label>
+                        <CurrencyInput id="pl-spec-rev" className={inp} placeholder="R$ 0,00" value={newSpecialty.revenue || null} onValue={(v) => setNewSpecialty(prev => ({ ...prev, revenue: v ?? 0 }))} />
+                      </div>
+                      <button type="button" onClick={handleAddSpecialty} disabled={!newSpecialty.specialty.trim()} className="col-span-2 h-11 rounded-xl border border-emerald-600 px-4 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-300 dark:hover:bg-emerald-900/30 sm:col-span-1">Adicionar</button>
+                    </div>
+                    {formData.bySpecialty.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.bySpecialty.map((spec, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-3 pr-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                            {getSpecialtyLabel(spec.specialty)}: {spec.sessions} sessões · {formatCurrency(spec.revenue)}
+                            <button type="button" aria-label={`Remover ${getSpecialtyLabel(spec.specialty)}`} onClick={() => setFormData(prev => ({ ...prev, bySpecialty: prev.bySpecialty.filter((_, i) => i !== idx) }))} className="rounded-full p-0.5 hover:bg-emerald-200/60 dark:hover:bg-emerald-800/50"><X size={12} /></button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-            {formData.type !== 'weekly' && (<>
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
-                  Distribuição por Especialidade
-                </Typography>
-                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                  Total: {totalSpecialtySessions} sessões / {formatCurrency(totalSpecialtyRevenue)}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField label="Especialidade" value={newSpecialty.specialty} onChange={(e) => setNewSpecialty(prev => ({ ...prev, specialty: e.target.value }))} placeholder="Ex: Fonoaudiologia" />
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField label="Sessões" type="number" value={newSpecialty.sessions} onChange={(e) => setNewSpecialty(prev => ({ ...prev, sessions: Number(e.target.value) }))} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField label="Receita Esperada" type="number" value={newSpecialty.revenue} onChange={(e) => setNewSpecialty(prev => ({ ...prev, revenue: Number(e.target.value) }))} InputProps={{ startAdornment: 'R$' }} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
-                <Button variant="outlined" onClick={handleAddSpecialty} fullWidth sx={{ height: '100%', borderColor: '#8B5CF6', color: '#8B5CF6' }}>Adicionar</Button>
-              </Grid>
-              {formData.bySpecialty.length > 0 && (
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {formData.bySpecialty.map((spec, idx) => (
-                      <Chip key={idx} label={`${spec.specialty}: ${spec.sessions} sessões (${formatCurrency(spec.revenue)})`}
-                        onDelete={() => setFormData(prev => ({ ...prev, bySpecialty: prev.bySpecialty.filter((_, i) => i !== idx) }))}
-                        sx={{ bgcolor: '#8B5CF610', color: '#8B5CF6', borderColor: '#8B5CF6' }} variant="outlined" />
-                    ))}
-                  </Box>
-                </Grid>
-              )}
-            </>)}
+                <div>
+                  <label htmlFor="pl-notes" className={lbl}>Observações</label>
+                  <textarea id="pl-notes" rows={3} className={`${inp} h-auto py-2.5 font-normal`} placeholder="Detalhes sobre o planejamento..." value={formData.notes} onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))} />
+                </div>
+              </div>
 
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                label="Observações"
-                multiline
-                rows={3}
-                fullWidth
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Detalhes adicionais sobre o planejamento..."
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenModal(false)} variant="outlined">
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={!formData.targets.expectedRevenue || !formData.targets.totalSessions}
-            startIcon={<CheckCircle />}
-            sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' } }}
-          >
-            Criar Meta
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <footer className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3.5 dark:border-white/10 dark:bg-white/5 sm:flex-row sm:justify-end">
+                <button type="button" onClick={close} className="min-h-10 rounded-xl px-4 text-sm font-bold text-gray-600 transition hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-white/10">Cancelar</button>
+                <button type="button" onClick={isEdit ? handleSaveEdit : handleSave} disabled={!formData.targets.expectedRevenue || !formData.targets.totalSessions}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-white/10 dark:disabled:text-gray-500">
+                  <CheckCircle fontSize="small" /> {isEdit ? 'Salvar alterações' : 'Criar meta'}
+                </button>
+              </footer>
+            </section>
+          </div>
+        );
+      })()}
 
       {/* MODAL DE DETALHES */}
       <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="lg" fullWidth>
@@ -1272,114 +1200,6 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenDetailsModal(false)} variant="outlined">
             Fechar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* MODAL DE EDIÇÃO */}
-      <Dialog open={openEditModal} onClose={() => setOpenEditModal(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#8B5CF6', color: 'white' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ bgcolor: 'var(--fx-white)', color: '#8B5CF6', width: 32, height: 32 }}>
-              <Edit />
-            </Avatar>
-            <Typography variant="h6">Editar Planejamento</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField select label="Tipo de Meta" fullWidth value={formData.type} disabled>
-                <MenuItem value="daily">Diária</MenuItem>
-                <MenuItem value="weekly">Semanal</MenuItem>
-                <MenuItem value="monthly">Mensal</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField select label="Mês" fullWidth value={formData.month} disabled>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <MenuItem key={i + 1} value={i + 1}>
-                    {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField select label="Ano" fullWidth value={formData.year} disabled>
-                {[2025, 2026, 2027].map(y => (
-                  <MenuItem key={y} value={y}>{y}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#8B5CF6', fontWeight: 600 }}>
-                Metas Principais
-              </Typography>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Meta de Receita (R$)"
-                type="number"
-                fullWidth
-                value={formData.targets.expectedRevenue}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, expectedRevenue: Number(e.target.value) }
-                }))}
-                InputProps={{ startAdornment: 'R$' }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Total de Sessões"
-                type="number"
-                fullWidth
-                value={formData.targets.totalSessions}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, totalSessions: Number(e.target.value) }
-                }))}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                label="Horas de Trabalho"
-                type="number"
-                fullWidth
-                value={formData.targets.workHours}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  targets: { ...prev.targets, workHours: Number(e.target.value) }
-                }))}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                label="Observações"
-                multiline
-                rows={3}
-                fullWidth
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenEditModal(false)} variant="outlined">
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveEdit}
-            disabled={!formData.targets.expectedRevenue || !formData.targets.totalSessions}
-            startIcon={<CheckCircle />}
-            sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' } }}
-          >
-            Salvar Alterações
           </Button>
         </DialogActions>
       </Dialog>
