@@ -243,6 +243,13 @@ export interface IDoctor {
     active: boolean;
     weeklyAvailability: any[];
     commissionRules?: ICommissionRules;
+    compensation?: IDoctorCompensation;
+}
+
+/** Forma de remuneração: repasse por sessão (comissão) ou salário fixo mensal. */
+export interface IDoctorCompensation {
+    model: 'commission' | 'fixed_monthly';
+    fixedMonthlyAmount: number;
 }
 
 export const EXTRA_SPECIALTIES = [

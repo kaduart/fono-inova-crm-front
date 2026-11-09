@@ -130,6 +130,12 @@ export const expenseService = {
         return response.data;
     },
 
+    // Faturamento x custo por profissional no mês (somente leitura)
+    getProfessionalPerformance: async (month: number, year: number): Promise<ProfessionalPerformance> => {
+        const response = await api.get('/expenses/commissions/performance', { params: { month, year } });
+        return response.data?.data;
+    },
+
     // Consultar status da geração assíncrona de comissões
     getCommissionGenerationStatus: async (eventId: string) => {
         const response = await api.get(`/expenses/generate-commissions/status/${eventId}`);
@@ -175,6 +181,35 @@ export const expenseService = {
         };
     }
 };
+// ─── Faturamento x custo por profissional ───────────────────────────────────
+
+export interface ProfessionalPerformanceRow {
+    doctorId: string;
+    doctorName: string;
+    specialty: string | null;
+    compensationModel: 'commission' | 'fixed_monthly';
+    fixedMonthlyAmount: number;
+    sessions: number;
+    revenue: number;
+    commission: number;
+    cost: number;
+    result: number;
+    costShare: number | null;
+    ticketAverage: number;
+    patientsCount: number;
+    revenueByOrigin: { convenio: number; pacote: number; liminar: number; avulso: number };
+    /** Quanto custaria por comissão (regras próprias; sem regra, regra padrão da equipe) */
+    commissionIfPerSession: number;
+    simulatedWithStandardRules: boolean;
+    missingCommissionRules: boolean;
+}
+
+export interface ProfessionalPerformance {
+    period: { startDate: string; endDate: string; monthRef: string };
+    rows: ProfessionalPerformanceRow[];
+    totals: { sessions: number; revenue: number; cost: number; result: number; costShare: number | null };
+}
+
 // ─── Despesas fixas (modelos + geração mensal) ──────────────────────────────
 
 export interface FixedExpense {

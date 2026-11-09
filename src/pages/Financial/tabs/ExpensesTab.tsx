@@ -49,6 +49,7 @@ import { toast } from '../../../utils/toast';
 import { useExpenses } from '../../../hooks/useExpenses';
 import ExpenseModal from '../components/ExpenseModal';
 import FixedExpensesPanel from '../components/FixedExpensesPanel';
+import ProfessionalPerformanceDialog from '../components/ProfessionalPerformanceDialog';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import API from '../../../services/api';
@@ -242,6 +243,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
   // senão filtrar por categoria/status/profissional faria o botão trocar sozinho. `null` =
   // ainda desconhecido (nenhum dos dois aparece, evita piscar o botão errado).
   const [commissionsGenerated, setCommissionsGenerated] = useState<boolean | null>(null);
+  const [performanceOpen, setPerformanceOpen] = useState(false);
 
   const refreshCommissionsGenerated = useCallback(async () => {
     try {
@@ -566,6 +568,15 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
 
       {/* Ações (o título já está no cartão do topo do Financeiro) */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+          <Tooltip title="Quanto cada profissional fez a clínica faturar no mês x quanto custou (comissão ou salário fixo)">
+            <button
+              onClick={() => setPerformanceOpen(true)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+            >
+              <BarChart3 size={18} />
+              Faturamento x custo
+            </button>
+          </Tooltip>
           {/* Gerar e Regenerar são mutuamente exclusivos: sem comissão no mês → Gerar;
               já gerada → Regenerar. Enquanto desconhecido (null), nenhum aparece. */}
           {commissionsGenerated === false && (
@@ -609,6 +620,12 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             Nova despesa
           </button>
       </div>
+      <ProfessionalPerformanceDialog
+        open={performanceOpen}
+        month={filters.month}
+        year={filters.year}
+        onClose={() => setPerformanceOpen(false)}
+      />
       {generatingCommissions && (
         <p className="-mt-2 mb-3 text-xs text-gray-500 dark:text-gray-400 sm:text-right">
           Processando comissões em segundo plano. Isso pode levar alguns segundos...
