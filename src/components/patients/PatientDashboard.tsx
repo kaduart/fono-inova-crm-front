@@ -31,6 +31,8 @@ import { getSpecialtyLabel } from '../../constants/specialties';
 import TherapyPackagesSummary from './TherapyPackagesSummary';
 import PatientInsuranceTab from '../patient/tabs/PatientInsuranceTab';
 import { PatientBalanceModal } from './PatientBalanceModal';
+import PatientInactivateModal from './PatientInactivateModal';
+import { useAuth } from '../../contexts/AuthContext';
 import AnimatedValue from '../ui/insight/AnimatedValue';
 import { PatientNextActions, PatientSituationStrip, findNextSession, usePatientSituation } from './PatientSituation';
 import PatientInsights, { FoldSection } from './PatientInsights';
@@ -105,6 +107,11 @@ export default function PatientDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [openSchedule, setOpenSchedule] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
+  // Inativar/reativar paciente com motivo (Kadu, 09/11/2026): só recepção e admin.
+  const { user: authUser } = useAuth();
+  const canManageStatus = ['admin', 'secretary', 'superadmin'].includes(String(authUser?.role || ''));
+  const [showInactivate, setShowInactivate] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
   const [liminarCreateTrigger, setLiminarCreateTrigger] = useState(0);
 
   const navigate = useNavigate();
@@ -1161,6 +1168,35 @@ export default function PatientDashboard() {
     );
   };
 
+  const statusPatientId = String(piLoose?.patientId || patientId || '');
+  const handleInactivate = async (reason: string, note: string) => {
+    if (!statusPatientId) return;
+    setStatusSaving(true);
+    try {
+      const { futureAppointments } = await patientService.setStatus(statusPatientId, { status: 'inactive', reason, note });
+      toast.success(futureAppointments ? `Paciente inativado. Ainda há ${futureAppointments} sessão(ões) marcada(s) na agenda.` : 'Paciente inativado');
+      setShowInactivate(false);
+      await fetchPatientProfile();
+    } catch (err: unknown) {
+      notifyApiError(err, 'Não foi possível inativar o paciente');
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+  const handleReactivate = async () => {
+    if (!statusPatientId) return;
+    setStatusSaving(true);
+    try {
+      await patientService.setStatus(statusPatientId, { status: 'active' });
+      toast.success('Paciente reativado');
+      await fetchPatientProfile();
+    } catch (err: unknown) {
+      notifyApiError(err, 'Não foi possível reativar o paciente');
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <PatientHeader
@@ -1185,6 +1221,16 @@ export default function PatientDashboard() {
           onReceive={() => setShowBalanceModal(true)}
           onSchedule={() => setOpenSchedule(true)}
           onGoTab={setActiveTab}
+          onInactivate={canManageStatus ? () => setShowInactivate(true) : undefined}
+          onReactivate={canManageStatus ? handleReactivate : undefined}
+        />
+        <PatientInactivateModal
+          open={showInactivate}
+          patientName={patientInfo?.fullName}
+          nextSessionLabel={nextSession ? `${nextSession.date.split('-').reverse().join('/')}${nextSession.time ? ` às ${nextSession.time}` : ''}` : null}
+          loading={statusSaving}
+          onClose={() => setShowInactivate(false)}
+          onConfirm={handleInactivate}
         />
 
         {(pollingState.isPolling || isLoading) && <div className="mb-4 flex justify-end">

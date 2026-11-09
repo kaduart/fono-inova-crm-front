@@ -6,10 +6,11 @@
 //   pelas abas; os alertas de guia vêm do lifecycle calculado pelo back.
 import {
   AlertTriangle, ArrowRight, Check, MessageCircle, CalendarClock, CalendarPlus, CheckCircle2, Copy,
-  CreditCard, FileWarning, Gavel, Package, Phone, ReceiptText, UserRound, Wallet,
+  CreditCard, FileWarning, Gavel, Package, Phone, ReceiptText, UserCheck, UserRound, UserX, Wallet,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
+import { inactivationReasonLabel } from '../../constants/patientInactivationReasons';
 import { getGuides, type InsuranceGuide } from '../../services/insuranceGuideApi';
 import liminarContractService, { type LiminarContract } from '../../services/liminarContractService';
 import packageService from '../../services/packageService';
@@ -77,6 +78,8 @@ export interface PatientLike {
   responsible?: { name?: string }; healthPlan?: { name?: string }; tags?: string[];
   totalPendingParticular?: Money; convenioPendingAwaitingBilling?: Money; convenioPendingBilled?: Money; netAvailableCredit?: Money;
   stats?: { totalPendingParticularNet?: Money; totalPendingConvenioAwaitingBilling?: Money; totalPendingConvenioBilled?: Money; netAvailableCredit?: Money };
+  patientStatus?: string;
+  inactivation?: { reason?: string | null; note?: string | null; at?: string | null; byName?: string | null; reactivatedAt?: string | null } | null;
 }
 type AlertMeta = { remainingDays?: number; remainingSessions?: number };
 
@@ -177,9 +180,12 @@ interface StripProps {
   onReceive: () => void;
   onSchedule: () => void;
   onGoTab: (tab: string) => void;
+  /** Recepção/admin: mostra Inativar ou Reativar. */
+  onInactivate?: () => void;
+  onReactivate?: () => void;
 }
 
-export function PatientSituationStrip({ patient, situation, nextSession, onReceive, onSchedule, onGoTab }: StripProps) {
+export function PatientSituationStrip({ patient, situation, nextSession, onReceive, onSchedule, onGoTab, onInactivate, onReactivate }: StripProps) {
   const pi = patient || {};
   const particular = pi.stats?.totalPendingParticularNet ?? pi.totalPendingParticular ?? 0;
   const convAwaiting = pi.stats?.totalPendingConvenioAwaitingBilling ?? pi.convenioPendingAwaitingBilling ?? 0;
@@ -199,6 +205,8 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
   const liminarBalance = activeContracts.reduce((s, c) => s + (c.creditBalance || 0), 0);
   const next = formatNext(nextSession);
   const tags: string[] = Array.isArray(pi.tags) ? pi.tags : [];
+  const isInactive = pi.patientStatus === 'inactive';
+  const inactiveSince = isInactive && pi.inactivation?.at ? new Date(pi.inactivation.at).toLocaleDateString('pt-BR') : '';
 
   const copyPhone = async () => {
     try { await navigator.clipboard.writeText(phone); toast.success('Telefone copiado'); }
@@ -237,6 +245,23 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
               {activeContracts.length > 0 && <Chip tone="purple" onClick={() => onGoTab('Liminar')}>Liminar</Chip>}
               {activePackages.length > 0 && <Chip tone="emerald" onClick={() => onGoTab('Management Packages')}>{activePackages.length === 1 ? 'Pacote ativo' : `${activePackages.length} pacotes ativos`}</Chip>}
               {tags.map((t) => <Chip key={t} tone={t === 'debito' ? 'red' : t === 'vip' ? 'purple' : 'slate'}>{t}</Chip>)}
+              {isInactive && (
+                <span title={[pi.inactivation?.note, pi.inactivation?.byName ? `por ${pi.inactivation.byName}` : ''].filter(Boolean).join(' · ') || undefined}>
+                  <Chip tone="red">
+                    Inativo{pi.inactivation?.reason ? ` · ${inactivationReasonLabel(pi.inactivation.reason)}` : ''}{inactiveSince ? ` · desde ${inactiveSince}` : ''}
+                  </Chip>
+                </span>
+              )}
+              {isInactive && onReactivate && (
+                <button type="button" onClick={onReactivate} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50">
+                  <UserCheck size={11} /> Reativar
+                </button>
+              )}
+              {!isInactive && onInactivate && (
+                <button type="button" onClick={onInactivate} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-700">
+                  <UserX size={11} /> Inativar paciente
+                </button>
+              )}
             </div>
           </div>
         </div>

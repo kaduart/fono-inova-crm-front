@@ -205,6 +205,16 @@ export const patientService = {
     return { patient, isAsync: true, eventId };
   },
 
+  /** Inativa (com motivo da lista) ou reativa o paciente. Só recepção e admin. */
+  async setStatus(
+    id: string,
+    payload: { status: 'active' | 'inactive'; reason?: string; note?: string }
+  ): Promise<{ futureAppointments: number | null }> {
+    const response = await API.patch(`/v2/patients/${id}/status`, payload);
+    const data = response.data?.data || {};
+    return { futureAppointments: typeof data.futureAppointments === 'number' ? data.futureAppointments : null };
+  },
+
   async delete(
     id: string,
     options: { reason?: string; onProgress?: (status: string, attempt: number) => void; skipPolling?: boolean } = {}
