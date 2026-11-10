@@ -40,6 +40,8 @@ export interface PreAgendamento {
   suggestedValue: number; // alias
   secretaryNotes?: string;
   notes?: string;
+  /** Queixa principal contada pela família (ex.: agendamento pelo site) */
+  mainComplaint?: string;
   contactAttempts: ContactAttempt[];
   assignedTo?: { _id: string; fullName: string };
   urgency: 'baixa' | 'media' | 'alta' | 'critica';
