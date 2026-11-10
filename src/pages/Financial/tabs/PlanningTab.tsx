@@ -36,8 +36,6 @@ import {
   Tooltip,
   Typography,
   Collapse,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -46,6 +44,7 @@ import { usePlanning } from '../../../hooks/usePlanning';
 import { useFinancialDashboard } from '../../../hooks/useFinancialDashboard';
 import { planningService } from '../../../services/planningService';
 import AnnualGoals from './AnnualGoals';
+import { Chip as FinChip, KpiStrip, Pill } from '../components/finUi';
 import { toast } from '../../../utils/toast';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { CurrencyInput } from '../../../components/ui/MaskedInput';
@@ -449,312 +448,120 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         reloadKey={annualReload}
       />
 
-      {/* KPIs do MÊS SELECIONADO */}
-      {monthlyOfMonth && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-3xs font-black uppercase tracking-widest text-violet-600">{selectedMonthLabel}</span>
-            {isCurrentMonth && (
-              <span className="px-2 py-0.5 rounded-full text-3xs font-bold bg-violet-100 text-violet-700">Em andamento</span>
+      {/* Mês selecionado: mesmo padrão de Indicadores (KpiStrip + painéis). Nada foi retirado:
+          meta, produção, caixa, sessões, horas, cobertura, base × nova, gap, pacientes,
+          meta semanal e composição da agenda seguem aqui, só reorganizados. */}
+      {monthlyOfMonth && (() => {
+        const meta = monthlyOfMonth?.targets?.expectedRevenue || 0;
+        const producao = dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0;
+        const pct = (v: number, t: number) => (t > 0 ? Math.min(100, (v / t) * 100) : 0);
+        const fmtPct = (v: number) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`;
+        const coberto = strategic.gap <= 0;
+        const comp = [
+          { label: 'Pacotes', value: projection?.composition?.pacotes || 0, cls: 'bg-emerald-600 dark:bg-emerald-500' },
+          { label: 'Convênios', value: projection?.composition?.convenios || 0, cls: 'bg-sky-500' },
+          { label: 'Sessões avulsas', value: projection?.composition?.perSession || 0, cls: 'bg-amber-500' },
+          { label: 'Recorrentes', value: projection?.composition?.recorrentes || 0, cls: 'bg-teal-400' },
+        ];
+        return (
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-gray-900 first-letter:uppercase dark:text-gray-50">{selectedMonthLabel.toLowerCase()}</h3>
+              {isCurrentMonth && <Pill tone="green">Em andamento</Pill>}
+            </div>
+
+            <KpiStrip cols={5} items={[
+              { label: 'Meta do mês', value: formatCurrency(meta), sub: 'objetivo do mês', hero: true },
+              { label: 'Produção', value: formatCurrency(producao), sub: `${fmtPct(pct(producao, meta))} da meta` },
+              { label: 'Caixa recebido', value: formatCurrency(dashData?.resumo?.caixa || 0), sub: `${fmtPct(pct(dashData?.resumo?.caixa || 0, meta))} da meta, dinheiro que entrou` },
+              { label: 'Sessões', value: `${monthlyOfMonth?.actual?.completedSessions || 0} de ${monthlyOfMonth?.targets?.totalSessions || 0}`, sub: `${fmtPct(monthlyOfMonth?.progress?.sessionsPercentage || 0)} realizadas` },
+              { label: 'Horas', value: `${Number(monthlyOfMonth?.actual?.workedHours || 0).toFixed(0)}h de ${monthlyOfMonth?.targets?.workHours || 0}h`, sub: 'trabalhadas' },
+            ]} />
+
+            {/* Agenda × meta: quanto já está garantido e quanto falta vender */}
+            <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#161d1b] sm:p-5">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">Agenda × meta</h3>
+                  <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Quanto já está na agenda e quanto ainda precisa vender.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className={`text-2xl font-bold tabular-nums ${coberto ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{fmtPct(strategic.coveragePct)}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">da meta coberta</div>
+                  </div>
+                  {isCurrentMonth && strategic.gap > 0 && (
+                    <button type="button" onClick={async () => { const { month, year } = selectedMonthData; await recalculateFutureTargets(month, year); }}
+                      className="inline-flex min-h-8 items-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
+                      Recalcular metas dos próximos dias
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/5" role="img"
+                aria-label={`Base ${fmtPct(strategic.recurringPct)}, nova ${fmtPct(strategic.newPct)}, falta ${fmtPct(Math.max(0, 100 - strategic.coveragePct))}`}>
+                <div className="h-full bg-emerald-600 dark:bg-emerald-500" style={{ width: `${Math.min(100, strategic.recurringPct)}%` }} />
+                <div className="h-full bg-amber-400" style={{ width: `${Math.min(100 - strategic.recurringPct, strategic.newPct)}%` }} />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-600" aria-hidden />Base recorrente {fmtPct(strategic.recurringPct)}</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" aria-hidden />Nova captação {fmtPct(strategic.newPct)}</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gray-200 dark:bg-white/10" aria-hidden />Falta {fmtPct(Math.max(0, 100 - strategic.coveragePct))}</span>
+                <span className="ml-auto font-semibold tabular-nums text-gray-900 dark:text-gray-50">{formatCurrency(strategic.committedRevenue)} de {formatCurrency(strategic.revenueGoal)}</span>
+              </div>
+
+              <div className="mt-4">
+                <KpiStrip cols={5} items={[
+                  { label: 'Base recorrente', value: formatCurrency(strategic.recurringRevenue), sub: `pacotes e recorrentes, ${fmtPct(strategic.recurringPct)}` },
+                  { label: 'Nova captação', value: formatCurrency(strategic.newRevenue), sub: `avulsos e convênios, ${fmtPct(strategic.newPct)}` },
+                  { label: 'Total na agenda', value: formatCurrency(strategic.committedRevenue), sub: `base + nova, ${fmtPct(strategic.coveragePct)} da meta`, hero: coberto },
+                  { label: coberto ? 'Sobra sobre a meta' : 'Falta vender', value: formatCurrency(Math.abs(strategic.gap)), sub: coberto ? 'meta coberta pela agenda' : 'ainda precisa captar', danger: !coberto },
+                  { label: 'Pacientes necessários', value: String(strategic.patientsNeeded), danger: !coberto && strategic.patientsNeeded > 0, sub: strategic.ticketForPatients > 0 ? `ticket ${formatCurrency(strategic.ticketForPatients)}` : 'defina o ticket comercial na meta' },
+                ]} />
+              </div>
+
+              {strategic.gap > 0 && strategic.weeksRemaining > 0 && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+                  <span className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                    Meta semanal: fechar {strategic.weeklyTarget} pacientes por semana nas próximas {strategic.weeksRemaining} semanas.
+                  </span>
+                  <span className="text-xs text-amber-800 dark:text-amber-200">{strategic.patientsNeeded} pacientes ÷ {strategic.weeksRemaining} semanas</span>
+                </div>
+              )}
+            </section>
+
+            {projection?.composition && (
+              <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#161d1b] sm:p-5">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">Composição da receita na agenda</h3>
+                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{projection.totalAppointments || 0} agendamentos no mês.</p>
+                <ul className="mt-3 space-y-2.5">
+                  {comp.map((row) => {
+                    const p = strategic.committedRevenue > 0 ? (row.value / strategic.committedRevenue) * 100 : 0;
+                    return (
+                      <li key={row.label} className="grid grid-cols-[7.5rem_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[9rem_1fr_3.5rem_7rem]">
+                        <span className="text-gray-700 dark:text-gray-200">{row.label}</span>
+                        <span className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5"><span className={`block h-full rounded-full ${row.cls}`} style={{ width: `${Math.min(100, p)}%` }} /></span>
+                        <span className="hidden text-right text-xs tabular-nums text-gray-500 dark:text-gray-400 sm:block">{p.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>
+                        <span className="text-right font-semibold tabular-nums text-gray-900 dark:text-gray-50">{formatCurrency(row.value)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             )}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {/* Meta do Mês */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
-              <span className="text-3xs font-black uppercase tracking-widest text-violet-600">Meta do Mês</span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
-              </div>
-              <div className="text-3xs text-gray-400">objetivo do mês</div>
-            </div>
+        );
+      })()}
 
-            {/* Produção Realizada */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #10B981' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-3xs font-black uppercase tracking-widest text-emerald-600">Produção</span>
-                <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                  {(() => {
-                    const real = dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0;
-                    const meta = monthlyOfMonth?.targets?.expectedRevenue || 0;
-                    return meta > 0 ? Math.min(100, (real / meta) * 100).toFixed(0) : 0;
-                  })()}%
-                </span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(dashData?.resumo?.novaReceitaMes?.total ?? dashData?.novaReceitaMes?.total ?? dashData?.data?.resultadoEconomico ?? dashData?.resumo?.producao ?? monthlyOfMonth?.actual?.actualRevenue ?? 0)}
-              </div>
-              <div className="text-3xs text-gray-400">da meta</div>
-            </div>
-
-            {/* Caixa Recebido */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
-              <span className="text-3xs font-black uppercase tracking-widest text-emerald-700">Caixa Recebido</span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {formatCurrency(dashData?.resumo?.caixa || 0)}
-              </div>
-              <div className="text-3xs text-gray-400">dinheiro recebido</div>
-            </div>
-
-            {/* Sessões */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #F59E0B' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-3xs font-black uppercase tracking-widest text-amber-600">Sessões</span>
-                <span className="text-3xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                  {(monthlyOfMonth?.progress?.sessionsPercentage || 0).toFixed(0)}%
-                </span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {monthlyOfMonth?.actual?.completedSessions || 0} / {monthlyOfMonth?.targets?.totalSessions || 0}
-              </div>
-              <div className="text-3xs text-gray-400">realizadas</div>
-            </div>
-
-            {/* Horas */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white col-span-2 md:col-span-1" style={{ borderTop: '3px solid #3B82F6' }}>
-              <span className="text-3xs font-black uppercase tracking-widest text-blue-600">Horas</span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
-                {monthlyOfMonth?.actual?.workedHours?.toFixed(0) || 0}h / {monthlyOfMonth?.targets?.workHours || 0}h
-              </div>
-              <div className="text-3xs text-gray-400">trabalhadas</div>
-            </div>
-          </div>
+      {/* Metas do mês por período: chips com contagem (mesmo padrão das outras abas) */}
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#161d1b]">
+        <div role="tablist" aria-label="Período das metas" className="flex flex-wrap gap-1.5 border-b border-gray-200 px-4 py-3 dark:border-white/10">
+          <FinChip on={selectedTab === 'monthly'} onClick={() => setSelectedTab('monthly')} label="Mensal" count={monthlyOfMonth ? 1 : 0} />
+          <FinChip on={selectedTab === 'weekly'} onClick={() => setSelectedTab('weekly')} label="Semanal" count={weeklyOfMonth.length} />
+          <FinChip on={selectedTab === 'daily'} onClick={() => setSelectedTab('daily')} label="Diário" count={dailyOfMonth.length} />
         </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════
-          📊 PAINEL COMERCIAL ESTRATÉGICO
-          "Quanto já temos na mão? E quanto ainda precisamos vender?"
-          ═══════════════════════════════════════════════════════ */}
-      {monthlyOfMonth && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-3xs font-black uppercase tracking-widest text-gray-400">Painel Comercial Estratégico</span>
-            <span className="text-3xs text-gray-300">· Agenda vs. Meta</span>
-            {isCurrentMonth && strategic.gap > 0 && (
-              <button
-                onClick={async () => { const { month, year } = selectedMonthData; await recalculateFutureTargets(month, year); }}
-                className="ml-auto text-2xs font-bold text-pink-600 border border-pink-200 bg-pink-50 hover:bg-pink-100 px-2 py-0.5 rounded-lg transition-colors"
-              >
-                ↻ Recalcular
-              </button>
-            )}
-          </div>
-
-          {/* Barra segmentada thin */}
-          <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm mb-4">
-            <div style={{ height: 3, backgroundColor: '#059669' }} />
-            <div className="p-4 bg-white">
-              <div className="flex items-end justify-between mb-3">
-                <p className="text-3xs font-black uppercase tracking-widest text-gray-400">Cobertura da Meta</p>
-                <span className="text-3xl font-black leading-none" style={{ color: strategic.coveragePct >= 100 ? '#10B981' : 'var(--fx-gray-800)' }}>
-                  {strategic.coveragePct.toFixed(0)}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-[5px] overflow-hidden flex mb-3">
-                <div className="h-full rounded-l-full transition-all duration-700"
-                  style={{ width: `${Math.min(100, strategic.recurringPct)}%`, backgroundColor: '#059669' }} />
-                <div className="h-full transition-all duration-700"
-                  style={{ width: `${Math.min(100 - strategic.recurringPct, strategic.newPct)}%`, backgroundColor: '#F59E0B' }} />
-              </div>
-              <div className="flex items-center gap-4 text-2xs text-gray-500 flex-wrap">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-violet-500" />
-                  Base {strategic.recurringPct.toFixed(0)}%
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-400" />
-                  Nova {strategic.newPct.toFixed(0)}%
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-gray-300" />
-                  Falta {Math.max(0, 100 - strategic.coveragePct).toFixed(0)}%
-                </span>
-                <span className="ml-auto font-semibold text-gray-600 text-2xs">
-                  {formatCurrency(strategic.committedRevenue)} / {formatCurrency(strategic.revenueGoal)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
-            {/* Card 1: Meta */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid var(--fx-gray-500)' }}>
-              <span className="text-3xs font-black uppercase tracking-widest text-gray-500">Meta</span>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.revenueGoal)}</div>
-              <div className="text-3xs text-gray-400">objetivo do mês</div>
-            </div>
-
-            {/* Card 2: Base Recorrente */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-3xs font-black uppercase tracking-widest text-violet-600">Base Recorrente</span>
-                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">{strategic.recurringPct.toFixed(0)}%</span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.recurringRevenue)}</div>
-              <div className="text-3xs text-gray-400">pacotes + recorrentes</div>
-            </div>
-
-            {/* Card 3: Nova Captação */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #F59E0B' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-3xs font-black uppercase tracking-widest text-amber-600">Nova Captação</span>
-                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{strategic.newPct.toFixed(0)}%</span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.newRevenue)}</div>
-              <div className="text-3xs text-gray-400">avulsos + convênios</div>
-            </div>
-
-            {/* Card 4: Total Agenda */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #10B981' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-3xs font-black uppercase tracking-widest text-emerald-600">Total Agenda</span>
-                <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{strategic.coveragePct.toFixed(0)}%</span>
-              </div>
-              <div className="text-2xl font-black text-gray-900 tracking-tight my-2">{formatCurrency(strategic.committedRevenue)}</div>
-              <div className="text-3xs text-gray-400">base + nova</div>
-            </div>
-
-            {/* Card 5: GAP — danger/success */}
-            <div className={`rounded-2xl shadow-sm p-4 ${strategic.gap <= 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}
-              style={{ borderTop: `3px solid ${strategic.gap <= 0 ? '#10B981' : '#EF4444'}` }}>
-              <span className={`text-3xs font-black uppercase tracking-widest ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {strategic.gap <= 0 ? 'Superávit' : 'Gap'}
-              </span>
-              <div className={`text-2xl font-black tracking-tight my-2 ${strategic.gap <= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                {formatCurrency(Math.abs(strategic.gap))}
-              </div>
-              <div className={`text-3xs font-semibold ${strategic.gap <= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                {strategic.gap <= 0 ? 'meta coberta 🎉' : 'ainda precisa captar'}
-              </div>
-            </div>
-
-            {/* Card 6: Pacientes Necessários — danger se gap > 0 */}
-            <div className={`rounded-2xl shadow-sm p-4 ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-gray-100'}`}
-              style={{ borderTop: `3px solid ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? '#EF4444' : '#3B82F6'}` }}>
-              <span className={`text-3xs font-black uppercase tracking-widest ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                Pacientes Nec.
-              </span>
-              <div className={`text-2xl font-black tracking-tight my-2 ${strategic.gap > 0 && strategic.patientsNeeded > 0 ? 'text-rose-700' : 'text-gray-900'}`}>
-                {strategic.patientsNeeded}
-              </div>
-              <div className="text-3xs text-gray-400">
-                {strategic.ticketForPatients > 0 ? `ticket ${formatCurrency(strategic.ticketForPatients)}` : 'defina ticket comercial'}
-              </div>
-            </div>
-          </div>
-
-          {/* Meta Semanal */}
-          {strategic.gap > 0 && strategic.weeksRemaining > 0 && (
-            <div className="border border-dashed border-amber-300 bg-amber-50 rounded-xl px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
-              <span className="text-sm font-bold text-amber-800">
-                🎯 Meta semanal: fechar <strong>{strategic.weeklyTarget} pacientes/semana</strong> nas próximas {strategic.weeksRemaining} sem.
-              </span>
-              <span className="text-2xs text-gray-500">{strategic.patientsNeeded} pac. ÷ {strategic.weeksRemaining} sem.</span>
-            </div>
-          )}
-
-          {/* Tabela Composição da Receita */}
-          {projection?.composition && (
-            <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-1">
-              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-                <p className="text-3xs font-black uppercase tracking-widest text-gray-400">
-                  Composição da Receita em Agenda · {projection.totalAppointments || 0} agendamentos
-                </p>
-              </div>
-              <div className="bg-white divide-y divide-gray-50">
-                {[
-                  { label: 'Pacotes', value: projection.composition?.pacotes || 0, color: '#8B5CF6' },
-                  { label: 'Convênios', value: projection.composition?.convenios || 0, color: '#F59E0B' },
-                  { label: 'Sessões Avulsas', value: projection.composition?.perSession || 0, color: '#3B82F6' },
-                  { label: 'Recorrentes', value: projection.composition?.recorrentes || 0, color: '#10B981' },
-                ].map((row) => {
-                  const pct = strategic.committedRevenue > 0 ? (row.value / strategic.committedRevenue) * 100 : 0;
-                  return (
-                    <div key={row.label} className="flex items-center gap-3 px-4 py-2.5">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
-                      <span className="text-sm text-gray-700 w-28 shrink-0">{row.label}</span>
-                      <div className="flex-1 h-[4px] bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: row.color }} />
-                      </div>
-                      <span className="text-2xs text-gray-400 w-10 text-right shrink-0">{pct.toFixed(1)}%</span>
-                      <span className="text-sm font-bold text-gray-900 w-20 text-right shrink-0">{formatCurrency(row.value)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TABS: DIA | SEMANA | MENSAL */}
-      <Paper
-        elevation={0}
-        sx={{ border: '1px solid', borderColor: isCurrentMonth ? '#05966930' : 'grey.200', borderRadius: 2, overflow: 'hidden' }}
-      >
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#FAFAFF' }}>
-          <Tabs
-            value={selectedTab}
-            onChange={(e, v) => setSelectedTab(v)}
-            variant="fullWidth"
-            sx={{
-              '& .MuiTab-root': {
-                py: 1.5,
-                fontWeight: 600,
-                textTransform: 'none',
-                fontSize: '0.875rem',
-                color: 'var(--fx-gray-500)',
-                '&.Mui-selected': {
-                  color: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#059669',
-                  bgcolor: 'var(--fx-white)',
-                },
-              },
-              '& .MuiTabs-indicator': {
-                height: 3,
-                bgcolor: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#059669',
-              },
-            }}
-          >
-            <Tab
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <CalendarToday sx={{ fontSize: 16 }} />
-                  <span>Diário</span>
-                  {dailyOfMonth.length > 0 && (
-                    <Chip size="small" label={dailyOfMonth.length} sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#3B82F620' }} />
-                  )}
-                </Box>
-              }
-              value="daily"
-            />
-            <Tab
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Schedule sx={{ fontSize: 16 }} />
-                  <span>Semanal</span>
-                  {weeklyOfMonth.length > 0 && (
-                    <Chip size="small" label={weeklyOfMonth.length} sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#F59E0B20' }} />
-                  )}
-                </Box>
-              }
-              value="weekly"
-            />
-            <Tab
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Timeline sx={{ fontSize: 16 }} />
-                  <span>Mensal</span>
-                  {monthlyOfMonth && (
-                    <Chip size="small" label="1" sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#05966920' }} />
-                  )}
-                </Box>
-              }
-              value="monthly"
-            />
-          </Tabs>
-        </Box>
-
-        <Box sx={{ p: 2.5, bgcolor: 'var(--fx-white)' }}>
+        <Box sx={{ p: 2.5 }}>
           {/* TAB: MENSAL */}
           {selectedTab === 'monthly' && (
             <Box>
@@ -906,7 +713,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             </Box>
           )}
         </Box>
-      </Paper>
+      </section>
 
 
       {/* MODAL DE CRIAÇÃO — padrão do app: Tailwind, verde, tema claro/escuro, R$ com máscara */}

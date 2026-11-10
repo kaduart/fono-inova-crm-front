@@ -56,6 +56,7 @@ export default function AnnualGoals({ year, selectedMonth, onSelect, reloadKey }
 
   const t = data?.totals;
   const diff = t?.diferencaAteAgora ?? 0;
+  const fechadosComMeta = (data?.months || []).filter((m) => m.status === 'batida' || m.status === 'nao_batida').length;
 
   return (
     <section className="mb-4" aria-label={`Metas de ${year}`}>
@@ -66,7 +67,8 @@ export default function AnnualGoals({ year, selectedMonth, onSelect, reloadKey }
           { label: `Meta de ${year}`, value: brl(t?.metaAno), sub: `${t?.mesesComMeta ?? 0} de 12 meses com meta`, hero: true },
           { label: 'Realizado no ano', value: brl(t?.realizadoAno), sub: t?.percentualAno != null ? `${t.percentualAno.toLocaleString('pt-BR')}% da meta do ano` : 'sem meta cadastrada' },
           { label: 'Contra a meta até hoje', value: `${diff >= 0 ? '+' : '−'}${brl(Math.abs(diff))}`, sub: `meta até hoje ${brl(t?.metaAteAgora)}`, danger: diff < 0 },
-          { label: 'Meses batidos', value: `${t?.mesesBatidos ?? 0} de ${t?.mesesFechados ?? 0}`, sub: 'meses já fechados' },
+          // Conta só meses fechados QUE TINHAM meta (antes "1 de 10" incluía meses sem meta).
+          { label: 'Meses batidos', value: `${t?.mesesBatidos ?? 0} de ${fechadosComMeta}`, sub: fechadosComMeta === (t?.mesesFechados ?? 0) ? 'meses fechados com meta' : `meses fechados com meta (${(t?.mesesFechados ?? 0) - fechadosComMeta} sem meta)` },
         ]}
       />
 
@@ -101,16 +103,19 @@ export default function AnnualGoals({ year, selectedMonth, onSelect, reloadKey }
               }`}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-sm font-bold text-gray-900">{MONTHS[month - 1]}{m?.isCurrent ? ' · atual' : ''}</span>
+                <span className="flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-gray-50">
+                  {MONTHS[month - 1]}
+                  {m?.isCurrent && <span className="rounded bg-emerald-600 px-1 text-[10px] font-semibold leading-4 text-white">atual</span>}
+                </span>
                 {m && <Pill tone={st.tone}>{st.label}</Pill>}
               </div>
-              <p className="mt-1 text-xs text-gray-500 tabular-nums">Meta {m?.meta ? brl(m.meta) : '—'}</p>
-              <p className="text-sm font-semibold text-gray-800 tabular-nums">{m?.realizado != null ? brl(m.realizado) : '—'}</p>
-              <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden" aria-hidden="true">
+              <p className="mt-1 text-xs text-gray-500 tabular-nums dark:text-gray-400">Meta {m?.meta ? brl(m.meta) : '—'}</p>
+              <p className="text-sm font-semibold text-gray-800 tabular-nums dark:text-gray-100">{m?.realizado != null ? brl(m.realizado) : '—'}</p>
+              <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden dark:bg-white/10" aria-hidden="true">
                 <div className={`h-full ${st.bar}`} style={{ width: `${pct}%` }} />
               </div>
               <p className="mt-1 text-[11px] text-gray-500 tabular-nums">
-                {m?.percentual != null ? `${m.percentual.toLocaleString('pt-BR')}%` : m?.isFuture ? 'ainda não começou' : 'sem meta'}
+                {m?.percentual != null ? `${m.percentual.toLocaleString('pt-BR')}%` : m?.isFuture ? 'ainda não começou' : (m?.realizado ? 'realizado sem meta cadastrada' : 'sem meta')}
                 {m?.falta ? ` · faltam ${brl(m.falta)}` : ''}
               </p>
             </button>
