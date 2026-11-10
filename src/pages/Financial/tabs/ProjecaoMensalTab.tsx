@@ -1,332 +1,155 @@
-import { CheckCircle, NavigateBefore, NavigateNext, Refresh } from '@mui/icons-material';
-import { Box, Button, Card, CardContent, Chip, FormControl, Grid, IconButton, InputLabel, LinearProgress, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { useEffect, useState } from 'react';
-import { useProvisionamento } from '../../../hooks/useProvisionamento';
+// src/pages/Financial/tabs/ProjecaoMensalTab.tsx
+// Resultados → Projeção Mensal: de onde vem cada real do fechamento.
+// Mantém tudo da versão antiga (cenários, meta, realizados, particular × convênio,
+// avisos, agendados e pendentes com dias) e acrescenta as listas de crédito de
+// pacotes e convênio agendado, que o back já devolvia e a tela não mostrava.
+import { ReactNode, useState } from 'react';
+import { brl, Chip, KpiStrip, Pill } from '../components/finUi';
+import {
+    ApptTable, colData, colPaciente, colTipo, colValor, EmptyOrError, InsightList, monthName,
+    Panel, ProjAppt, RefreshButton, ReguaFechamento, statusText, useProjecao,
+} from '../components/projecaoUi';
 
-const PAGE_SIZE = 10;
+interface Props { month?: number; year?: number }
+type Lista = 'realizados' | 'agendados' | 'pendentes' | 'creditoPacotes' | 'convenioAgendado';
 
-const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+const now = new Date();
 
-function Pagination({ total, page, onPage }: { total: number; page: number; onPage: (p: number) => void }) {
-    const pages = Math.ceil(total / PAGE_SIZE);
-    if (pages <= 1) return null;
+const ProjecaoMensalTab = ({ month = now.getMonth() + 1, year = now.getFullYear() }: Props) => {
+    const { data, loading, erro, reload } = useProjecao(month, year);
+    const [lista, setLista] = useState<Lista>('pendentes');
+
+    if (erro && !data) return <EmptyOrError erro={erro} onRetry={reload} />;
+
+    const r = data?.resumo || {};
+    const c = data?.cenarios;
+    const meta = data?.metas?.sugerida || 0;
+    const gap = data?.metas?.gapParaMeta || 0;
+    const pctMeta = Math.min(100, data?.metas?.percentualAtual || 0);
+    const taxa = Math.round((data?.taxaConversaoHistorica || 0) * 100);
+    const d = data?.detalhes || {};
+    const listas: Record<Lista, ProjAppt[]> = {
+        realizados: d.realizados || [], agendados: d.agendados || [], pendentes: d.pendentes || [],
+        creditoPacotes: d.creditoPacotes || [], convenioAgendado: d.convenioAgendado || [],
+    };
+    const urgentes = listas.pendentes.filter((p) => (p.diasParaAtendimento ?? 99) <= 3).length;
+    const partic = r.particular || 0;
+    const conv = r.convenio || 0;
+    const totalMix = Math.max(1, partic + conv);
+
+    const tabelas: Record<Lista, { label: string; total: number; node: ReactNode }> = {
+        pendentes: {
+            label: 'Pendentes de confirmação', total: r.pendenteConfirmacao || 0,
+            node: <ApptTable rows={listas.pendentes} empty="Nenhum agendamento esperando confirmação."
+                rowTone={(a) => ((a.diasParaAtendimento ?? 99) <= 3 ? 'bg-red-50/70 dark:bg-red-500/10' : '')}
+                cols={[colData, colPaciente, colValor, {
+                    key: 'dias', label: 'Faltam', right: true,
+                    render: (a) => <Pill tone={(a.diasParaAtendimento ?? 99) <= 3 ? 'red' : 'gray'}>{!a.diasParaAtendimento ? 'hoje' : a.diasParaAtendimento === 1 ? '1 dia' : `${a.diasParaAtendimento} dias`}</Pill>,
+                }]} />,
+        },
+        agendados: {
+            label: 'Agendados confirmados', total: r.agendadoConfirmado || 0,
+            node: <ApptTable rows={listas.agendados} cols={[colData, colPaciente, colValor]} empty="Nenhum avulso confirmado no restante do mês." />,
+        },
+        convenioAgendado: {
+            label: 'Convênio agendado', total: r.convenioAgendado || 0,
+            node: <ApptTable rows={listas.convenioAgendado} empty="Nenhuma sessão de convênio agendada."
+                cols={[colData, colPaciente, { key: 'conv', label: 'Convênio', render: (a) => a.convenio || '—' }, colValor]} />,
+        },
+        creditoPacotes: {
+            label: 'Crédito de pacotes', total: r.creditoPacotes || 0,
+            node: <ApptTable rows={listas.creditoPacotes} empty="Nenhum pacote pago com sessões a fazer."
+                cols={[colPaciente,
+                    { key: 'ses', label: 'Sessões a fazer', right: true, render: (a) => a.sessoesRemanescentes ?? 0 },
+                    { key: 'vps', label: 'Por sessão', right: true, render: (a) => brl(a.valorPorSessao) },
+                    { key: 'tot', label: 'Total', right: true, render: (a) => brl(a.valorTotal) }]} />,
+        },
+        realizados: {
+            label: 'Realizados', total: r.valorProduzido || 0,
+            node: <ApptTable rows={listas.realizados} cols={[colData, colPaciente, colTipo, colValor]} empty="Nenhum atendimento realizado neste mês." />,
+        },
+    };
+
     return (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, px: 1, pb: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total}
-            </Typography>
-            <IconButton size="small" onClick={() => onPage(page - 1)} disabled={page === 0}>
-                <NavigateBefore fontSize="small" />
-            </IconButton>
-            <IconButton size="small" onClick={() => onPage(page + 1)} disabled={page >= pages - 1}>
-                <NavigateNext fontSize="small" />
-            </IconButton>
-        </Box>
-    );
-}
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Projeção de fechamento de {monthName(month, year).toLowerCase()}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{statusText(data?.periodo)} O mês segue o filtro do topo do Financeiro.</p>
+                </div>
+                <RefreshButton onClick={reload} busy={loading} />
+            </div>
 
-const ProjecaoMensalTab = () => {
-    const [mes, setMes] = useState(new Date().getMonth() + 1);
-    const [ano, setAno] = useState(new Date().getFullYear());
-    const [pageRealizados, setPageRealizados] = useState(0);
-    const [pageAgendados, setPageAgendados] = useState(0);
-    const [pagePendentes, setPagePendentes] = useState(0);
-    const { projecaoMes, fetchProjecaoMes } = useProvisionamento();
+            {/* 1. Cenários: o número que importa primeiro */}
+            <div className="grid gap-3 md:grid-cols-3">
+                {([
+                    ['pessimista', 'Pessimista', '70% dos agendados e 20% dos pendentes', 'border-gray-200 dark:border-white/10'],
+                    ['realista', 'Esperado', `Taxa histórica de ${taxa}%`, 'border-emerald-600 ring-1 ring-emerald-600 dark:border-emerald-500 dark:ring-emerald-500'],
+                    ['otimista', 'Otimista', '95% dos agendados e 70% dos pendentes', 'border-gray-200 dark:border-white/10'],
+                ] as const).map(([k, label, regra, border]) => (
+                    <div key={k} className={`rounded-2xl border bg-white p-4 dark:bg-[#161d1b] ${border}`}>
+                        <div className="flex items-center justify-between">
+                            <span className={`text-sm font-semibold ${k === 'realista' ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-300'}`}>{label}</span>
+                            {c?.[k]?.probabilidade && <span className="text-xs text-gray-500 dark:text-gray-400">{c[k].probabilidade}</span>}
+                        </div>
+                        <div className={`mt-1 text-2xl font-bold tabular-nums ${loading && !data ? 'animate-pulse text-gray-300' : 'text-gray-900 dark:text-gray-50'}`}>{brl(c?.[k]?.valor)}</div>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{regra}</div>
+                    </div>
+                ))}
+            </div>
 
-    useEffect(() => {
-        fetchProjecaoMes(mes, ano);
-        setPageRealizados(0);
-        setPageAgendados(0);
-        setPagePendentes(0);
-    }, [mes, ano, fetchProjecaoMes]);
+            {/* 2. Régua + meta */}
+            <Panel title="Régua de fechamento" sub="Recebido, a receber, agendado e pendente, com os cenários e a meta marcados."
+                right={meta > 0 ? (
+                    <div className="text-right text-sm">
+                        <div className="text-gray-500 dark:text-gray-400">Meta do mês <span className="font-semibold text-gray-900 dark:text-gray-50">{brl(meta)}</span></div>
+                        <div className={gap > 0 ? 'font-semibold text-red-700 dark:text-red-400' : 'font-semibold text-emerald-700 dark:text-emerald-400'}>
+                            {gap > 0 ? `Faltam ${brl(gap)}` : 'Meta atingida na projeção'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{pctMeta.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% já recebido</div>
+                    </div>
+                ) : <span className="text-xs text-gray-500 dark:text-gray-400">Sem meta cadastrada para o mês</span>}>
+                {data ? <ReguaFechamento p={data} /> : <div className="h-20 animate-pulse rounded-lg bg-gray-100 dark:bg-white/5" />}
+            </Panel>
 
-    const realizados: any[] = projecaoMes?.detalhes?.realizados || [];
-    const agendados: any[] = projecaoMes?.detalhes?.agendados || [];
-    const pendentes: any[] = projecaoMes?.detalhes?.pendentes || [];
+            {/* 3. O que já aconteceu */}
+            <KpiStrip loading={loading && !data} cols={5} items={[
+                { label: 'Atendimentos realizados', value: String(r.atendimentosRealizados || 0), sub: `ticket médio ${brl(r.ticketMedio)}` },
+                { label: 'Valor produzido', value: brl(r.valorProduzido), sub: 'sessões concluídas no mês' },
+                { label: 'Já recebido', value: brl(r.jaRecebido), hero: true, sub: 'caixa do mês' },
+                { label: 'A receber do mês', value: brl(Math.max(0, (r.valorProduzido || 0) - (r.jaRecebido || 0))), sub: 'produzido e ainda não pago' },
+                { label: 'Potencial total', value: brl(r.totalPotencial), sub: 'se tudo acontecer' },
+            ]} />
 
-    const realizadosPage = realizados.slice(pageRealizados * PAGE_SIZE, (pageRealizados + 1) * PAGE_SIZE);
-    const agendadosPage = agendados.slice(pageAgendados * PAGE_SIZE, (pageAgendados + 1) * PAGE_SIZE);
-    const pendentesPage = pendentes.slice(pagePendentes * PAGE_SIZE, (pagePendentes + 1) * PAGE_SIZE);
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-[#161d1b]">
+                <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm">
+                    <span className="text-gray-700 dark:text-gray-200">Particular <b className="tabular-nums">{brl(partic)}</b> <span className="text-gray-500">({Math.round((partic / totalMix) * 100)}%)</span></span>
+                    <span className="text-gray-700 dark:text-gray-200">Convênio <b className="tabular-nums">{brl(conv)}</b> <span className="text-gray-500">({Math.round((conv / totalMix) * 100)}%)</span></span>
+                </div>
+                <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5" aria-hidden>
+                    <div className="bg-emerald-600 dark:bg-emerald-500" style={{ width: `${(partic / totalMix) * 100}%` }} />
+                    <div className="bg-sky-500" style={{ width: `${(conv / totalMix) * 100}%` }} />
+                </div>
+            </div>
 
-    const metaReal = projecaoMes?.metas?.sugerida || 0;
-
-    return (
-        <Box>
-            {/* Header com Filtros */}
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                    <Box>
-                        <Typography variant="h5" fontWeight="bold" gutterBottom>
-                            Projeção de Fechamento
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Previsão de arrecadação para {format(new Date(ano, mes - 1), 'MMMM/yyyy', { locale: ptBR })}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <FormControl size="small" sx={{ minWidth: 120 }}>
-                            <InputLabel>Mês</InputLabel>
-                            <Select value={mes} label="Mês" onChange={(e) => setMes(Number(e.target.value))}>
-                                {Array.from({ length: 12 }, (_, i) => (
-                                    <MenuItem key={i + 1} value={i + 1}>
-                                        {format(new Date(2024, i), 'MMM', { locale: ptBR })}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                            <InputLabel>Ano</InputLabel>
-                            <Select value={ano} label="Ano" onChange={(e) => setAno(Number(e.target.value))}>
-                                <MenuItem value={2025}>2025</MenuItem>
-                                <MenuItem value={2026}>2026</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <Button variant="outlined" startIcon={<Refresh />} onClick={() => fetchProjecaoMes(mes, ano)} size="small">
-                            Atualizar
-                        </Button>
-                    </Box>
-                </Box>
-            </Paper>
-
-            {/* Cards dos 3 Cenários */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Card sx={{ borderLeft: 4, borderColor: 'error.main', height: '100%' }}>
-                        <CardContent>
-                            <Typography color="error.main" fontWeight="bold" gutterBottom>CENÁRIO PESSIMISTA</Typography>
-                            <Typography variant="h4" fontWeight="bold">
-                                {formatCurrency(projecaoMes?.cenarios?.pessimista?.valor ?? 0)}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                70% dos agendados + 20% dos pendentes
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Card sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', height: '100%' }}>
-                        <CardContent>
-                            <Typography fontWeight="bold" gutterBottom>CENÁRIO ESPERADO ⭐</Typography>
-                            <Typography variant="h4" fontWeight="bold">
-                                {formatCurrency(projecaoMes?.cenarios?.realista?.valor ?? 0)}
-                            </Typography>
-                            <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-                                Taxa histórica de {((projecaoMes?.taxaConversaoHistorica || 0) * 100).toFixed(0)}%
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Card sx={{ borderLeft: 4, borderColor: 'success.main', height: '100%' }}>
-                        <CardContent>
-                            <Typography color="success.main" fontWeight="bold" gutterBottom>CENÁRIO OTIMISTA</Typography>
-                            <Typography variant="h4" fontWeight="bold">
-                                {formatCurrency(projecaoMes?.cenarios?.otimista?.valor ?? 0)}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                95% dos agendados + 70% dos pendentes
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            {/* Meta e Progresso — só exibe se houver meta cadastrada */}
-            {metaReal > 0 && (
-                <Paper sx={{ p: 3, mb: 4 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="h6">Meta do Mês</Typography>
-                        <Typography variant="h5" fontWeight="bold" color="primary">
-                            {formatCurrency(metaReal)}
-                        </Typography>
-                    </Box>
-                    <LinearProgress
-                        variant="determinate"
-                        value={Math.min(projecaoMes?.metas?.percentualAtual || 0, 100)}
-                        sx={{ height: 10, borderRadius: 5, mb: 2 }}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Realizado: {formatCurrency(projecaoMes?.resumo?.valorProduzido ?? 0)}
-                        </Typography>
-                        <Typography
-                            variant="body2"
-                            color={projecaoMes?.metas?.gapParaMeta > 0 ? 'error.main' : 'success.main'}
-                            fontWeight="bold"
-                        >
-                            {projecaoMes?.metas?.gapParaMeta > 0
-                                ? `Faltam: ${formatCurrency(projecaoMes.metas.gapParaMeta)}`
-                                : 'Meta atingida!'}
-                        </Typography>
-                    </Box>
-                </Paper>
+            {/* 4. Avisos */}
+            {(data?.insights?.length || 0) > 0 && (
+                <Panel title="Avisos do mês">
+                    <InsightList items={data?.insights || []} onAction={() => setLista('pendentes')} />
+                </Panel>
             )}
 
-            {/* Atendimentos Realizados */}
-            <Paper sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid', borderColor: 'success.200' }}>
-                <Typography variant="h6" fontWeight="bold" color="success.dark" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircle /> Atendimentos Realizados em {format(new Date(ano, mes - 1), 'MMMM/yyyy', { locale: ptBR })}
-                </Typography>
-
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                <Typography variant="body2" color="text.secondary">Total de Atendimentos</Typography>
-                                <Typography variant="h4" fontWeight="bold" color="success.main">
-                                    {projecaoMes?.resumo?.atendimentosRealizados || 0}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                <Typography variant="body2" color="text.secondary">Valor Produzido</Typography>
-                                <Typography variant="h4" fontWeight="bold" color="primary.main">
-                                    {formatCurrency(projecaoMes?.resumo?.valorProduzido || 0)}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                <Typography variant="body2" color="text.secondary">Já Recebido</Typography>
-                                <Typography variant="h4" fontWeight="bold" color="success.main">
-                                    {formatCurrency(projecaoMes?.resumo?.jaRecebido || 0)}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                <Typography variant="body2" color="text.secondary">A Receber do Mês</Typography>
-                                <Typography variant="h4" fontWeight="bold" color="warning.main">
-                                    {formatCurrency((projecaoMes?.resumo?.valorProduzido || 0) - (projecaoMes?.resumo?.jaRecebido || 0))}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-
-                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip label={`Particular: ${formatCurrency(projecaoMes?.resumo?.particular || 0)}`} color="primary" variant="outlined" />
-                    <Chip label={`Convênio: ${formatCurrency(projecaoMes?.resumo?.convenio || 0)}`} color="info" variant="outlined" />
-                </Box>
-
-                {realizados.length > 0 && (
-                    <Box sx={{ mt: 3 }}>
-                        <Typography variant="subtitle2" fontWeight="bold" gutterBottom color="success.dark">
-                            Detalhamento ({realizados.length} atendimentos)
-                        </Typography>
-                        <Paper variant="outlined">
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>Data</TableCell>
-                                        <TableCell>Paciente</TableCell>
-                                        <TableCell>Tipo</TableCell>
-                                        <TableCell align="right">Valor</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {realizadosPage.map((apt: any) => (
-                                        <TableRow key={apt._id} hover>
-                                            <TableCell>{format(new Date(apt.data), 'dd/MM')} {apt.hora}</TableCell>
-                                            <TableCell>{apt.paciente}</TableCell>
-                                            <TableCell>
-                                                <Chip size="small" label={apt.tipo} color={apt.tipo === 'Convênio' ? 'info' : 'primary'} variant="outlined" />
-                                            </TableCell>
-                                            <TableCell align="right">{formatCurrency(apt.valor)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                            <Pagination total={realizados.length} page={pageRealizados} onPage={setPageRealizados} />
-                        </Paper>
-                    </Box>
-                )}
-            </Paper>
-
-            {/* Insights */}
-            {projecaoMes?.insights?.length > 0 && (
-                <Box sx={{ mb: 4 }}>
-                    <Typography variant="h6" gutterBottom>Insights</Typography>
-                    {projecaoMes.insights.map((insight: any, idx: number) => (
-                        <Paper key={idx} sx={{ p: 2, mb: 2, bgcolor: insight.tipo === 'error' ? 'error.50' : insight.tipo === 'warning' ? 'warning.50' : 'info.50' }}>
-                            <Typography variant="subtitle2" fontWeight="bold" color={insight.tipo + '.main'}>{insight.titulo}</Typography>
-                            <Typography variant="body2">{insight.mensagem}</Typography>
-                        </Paper>
+            {/* 5. Listas: uma por vez, com contagem e total em cada chip */}
+            <Panel id="projecao-listas" title={tabelas[lista].label} sub={`Total ${brl(tabelas[lista].total)}`}
+                right={urgentes > 0 && lista !== 'pendentes' ? <Pill tone="red">{urgentes} pendentes nos próximos 3 dias</Pill> : undefined}>
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                    {(Object.keys(tabelas) as Lista[]).map((k) => (
+                        <Chip key={k} on={lista === k} onClick={() => setLista(k)} label={tabelas[k].label} count={listas[k].length} warn={k === 'pendentes' && urgentes > 0} />
                     ))}
-                </Box>
-            )}
-
-            {/* Tabelas: Agendados + Pendentes */}
-            <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Typography variant="h6" gutterBottom>
-                        Agendados Confirmados ({agendados.length})
-                    </Typography>
-                    <Paper variant="outlined">
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Data</TableCell>
-                                    <TableCell>Paciente</TableCell>
-                                    <TableCell align="right">Valor</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {agendadosPage.map((apt: any) => (
-                                    <TableRow key={apt._id} hover>
-                                        <TableCell>{format(new Date(apt.data), 'dd/MM')} {apt.hora}</TableCell>
-                                        <TableCell>{apt.paciente}</TableCell>
-                                        <TableCell align="right">{formatCurrency(apt.valor)}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <Pagination total={agendados.length} page={pageAgendados} onPage={setPageAgendados} />
-                    </Paper>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Typography variant="h6" gutterBottom>
-                        Pendentes de Confirmação ({pendentes.length})
-                    </Typography>
-                    <Paper variant="outlined">
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Data</TableCell>
-                                    <TableCell>Paciente</TableCell>
-                                    <TableCell align="right">Valor</TableCell>
-                                    <TableCell>Dias</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {pendentesPage.map((apt: any) => (
-                                    <TableRow key={apt._id} hover sx={{ bgcolor: apt.diasParaAtendimento <= 3 ? 'error.50' : 'inherit' }}>
-                                        <TableCell>{format(new Date(apt.data), 'dd/MM')} {apt.hora}</TableCell>
-                                        <TableCell>{apt.paciente}</TableCell>
-                                        <TableCell align="right">{formatCurrency(apt.valor)}</TableCell>
-                                        <TableCell>
-                                            <Chip size="small" label={`${apt.diasParaAtendimento}d`} color={apt.diasParaAtendimento <= 3 ? 'error' : 'default'} />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <Pagination total={pendentes.length} page={pagePendentes} onPage={setPagePendentes} />
-                    </Paper>
-                </Grid>
-            </Grid>
-        </Box>
+                </div>
+                {tabelas[lista].node}
+            </Panel>
+        </div>
     );
 };
 

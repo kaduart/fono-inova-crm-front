@@ -355,8 +355,9 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     reloadSelectedMonth();
   };
 
-  const formatCurrency = (value: number) =>
-    `R$ ${value?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Number(): valores podem chegar como texto do back/inputs ("2200.00"); sempre formata em pt-BR.
+  const formatCurrency = (value: number | string | null | undefined) =>
+    (Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const getStatusConfig = (status: string) => {
     const map = getPlanningStatusConfigMap();
@@ -370,8 +371,8 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
     }));
   };
 
-  const totalSpecialtySessions = formData.bySpecialty.reduce((sum, s) => sum + s.sessions, 0);
-  const totalSpecialtyRevenue = formData.bySpecialty.reduce((sum, s) => sum + s.revenue, 0);
+  const totalSpecialtySessions = formData.bySpecialty.reduce((sum, s) => sum + (Number(s.sessions) || 0), 0);
+  const totalSpecialtyRevenue = formData.bySpecialty.reduce((sum, s) => sum + (Number(s.revenue) || 0), 0);
 
   const isCurrentMonth = selectedMonthKey === getCurrentMonthKey();
   const selectedMonthLabel = format(new Date(selectedMonthData.year, selectedMonthData.month - 1, 1), 'MMMM/yyyy', { locale: ptBR }).toUpperCase();
