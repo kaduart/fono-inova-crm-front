@@ -381,7 +381,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Paper elevation={0} sx={{ p: 2, mb: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Skeleton variant="circular" width={44} height={44} sx={{ bgcolor: '#8B5CF615' }} />
+            <Skeleton variant="circular" width={44} height={44} sx={{ bgcolor: '#05966915' }} />
             <Box>
               <Skeleton variant="text" width={180} height={28} />
               <Skeleton variant="text" width={260} height={20} />
@@ -399,7 +399,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           </Box>
         </Paper>
         <Grid container spacing={2}>
-          {['#8B5CF6', '#10B981', '#059669', '#F59E0B', '#3B82F6'].map((color, i) => (
+          {['#059669', '#10B981', '#34D399', '#F59E0B', '#3B82F6'].map((color, i) => (
             <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
               <Card variant="outlined" sx={{ borderRadius: 2 }}>
                 <CardContent sx={{ p: 2 }}>
@@ -459,7 +459,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {/* Meta do Mês */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #8B5CF6' }}>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
               <span className="text-3xs font-black uppercase tracking-widest text-violet-600">Meta do Mês</span>
               <div className="text-2xl font-black text-gray-900 tracking-tight my-2">
                 {formatCurrency(monthlyOfMonth?.targets?.expectedRevenue || 0)}
@@ -541,7 +541,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
 
           {/* Barra segmentada thin */}
           <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm mb-4">
-            <div style={{ height: 3, backgroundColor: '#8B5CF6' }} />
+            <div style={{ height: 3, backgroundColor: '#059669' }} />
             <div className="p-4 bg-white">
               <div className="flex items-end justify-between mb-3">
                 <p className="text-3xs font-black uppercase tracking-widest text-gray-400">Cobertura da Meta</p>
@@ -551,7 +551,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
               </div>
               <div className="w-full bg-gray-100 rounded-full h-[5px] overflow-hidden flex mb-3">
                 <div className="h-full rounded-l-full transition-all duration-700"
-                  style={{ width: `${Math.min(100, strategic.recurringPct)}%`, backgroundColor: '#8B5CF6' }} />
+                  style={{ width: `${Math.min(100, strategic.recurringPct)}%`, backgroundColor: '#059669' }} />
                 <div className="h-full transition-all duration-700"
                   style={{ width: `${Math.min(100 - strategic.recurringPct, strategic.newPct)}%`, backgroundColor: '#F59E0B' }} />
               </div>
@@ -584,7 +584,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
             </div>
 
             {/* Card 2: Base Recorrente */}
-            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #8B5CF6' }}>
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white" style={{ borderTop: '3px solid #059669' }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-3xs font-black uppercase tracking-widest text-violet-600">Base Recorrente</span>
                 <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">{strategic.recurringPct.toFixed(0)}%</span>
@@ -689,7 +689,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       {/* TABS: DIA | SEMANA | MENSAL */}
       <Paper
         elevation={0}
-        sx={{ border: '1px solid', borderColor: isCurrentMonth ? '#8B5CF630' : 'grey.200', borderRadius: 2, overflow: 'hidden' }}
+        sx={{ border: '1px solid', borderColor: isCurrentMonth ? '#05966930' : 'grey.200', borderRadius: 2, overflow: 'hidden' }}
       >
         <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#FAFAFF' }}>
           <Tabs
@@ -704,13 +704,13 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                 fontSize: '0.875rem',
                 color: 'var(--fx-gray-500)',
                 '&.Mui-selected': {
-                  color: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#8B5CF6',
+                  color: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#059669',
                   bgcolor: 'var(--fx-white)',
                 },
               },
               '& .MuiTabs-indicator': {
                 height: 3,
-                bgcolor: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#8B5CF6',
+                bgcolor: selectedTab === 'daily' ? '#3B82F6' : selectedTab === 'weekly' ? '#F59E0B' : '#059669',
               },
             }}
           >
@@ -744,7 +744,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                   <Timeline sx={{ fontSize: 16 }} />
                   <span>Mensal</span>
                   {monthlyOfMonth && (
-                    <Chip size="small" label="1" sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#8B5CF620' }} />
+                    <Chip size="small" label="1" sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#05966920' }} />
                   )}
                 </Box>
               }
@@ -792,7 +792,7 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
                       setFormData(prev => ({ ...prev, type: 'monthly' }));
                       setOpenModal(true);
                     }}
-                    sx={{ borderRadius: 1.5, bgcolor: '#8B5CF6' }}
+                    sx={{ borderRadius: 1.5, bgcolor: '#059669' }}
                   >
                     Criar Meta Mensal
                   </Button>
@@ -1321,7 +1321,7 @@ const PlanningCard = ({
   const StatusIcon = statusConfig.icon;
 
   const typeColors = isMonthly
-    ? { main: '#8B5CF6', bg: '#8B5CF610', border: '#8B5CF650' }
+    ? { main: '#059669', bg: '#05966910', border: '#05966950' }
     : weekNumber
       ? { main: '#F59E0B', bg: '#F59E0B10', border: '#F59E0B50' }
       : isDaily
@@ -1512,7 +1512,7 @@ const PlanningCard = ({
                 </Button>
               </Tooltip>
               <Tooltip title="Editar">
-                <IconButton size="small" sx={{ color: '#8B5CF6' }} onClick={() => onEdit(planning)}>
+                <IconButton size="small" sx={{ color: '#059669' }} onClick={() => onEdit(planning)}>
                   <Edit fontSize="small" />
                 </IconButton>
               </Tooltip>
