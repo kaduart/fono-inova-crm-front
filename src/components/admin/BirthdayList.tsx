@@ -1,7 +1,9 @@
-// Aniversariantes do Dashboard do admin em lista compacta (mock aprovado em 30/10:
-// https://claude.ai/artifact/MoYkuNDdaGko6QwwWTTqBS). O envio usa o mesmo serviço do cron
-// das 10h: o back só manda no dia do aniversário e uma vez por ano (409 = já enviado).
-import { Cake, Check, MessageCircle } from 'lucide-react';
+// Aniversariantes do Dashboard do admin. Fica SEMPRE à vista (Kadu 10/11: um aniversário
+// importante passou batido quando a lista estava escondida numa aba).
+// O envio usa o mesmo serviço do cron das 10h: o back só manda no dia do aniversário e uma vez
+// por ano (409 = já enviado). Quem passou sem parabéns nos últimos 7 dias aparece em vermelho,
+// com a mensagem pronta para o WhatsApp.
+import { Check, MessageCircle, Send } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { sendBirthdayMessage } from '../../services/whatsappService';
@@ -15,7 +17,10 @@ export interface BirthdayRow {
     birthdayMessageSent?: boolean;
 }
 
-type Period = 'hoje' | 'semana' | 'mes';
+type Period = 'atrasados' | 'hoje' | 'semana' | 'mes';
+type Row = BirthdayRow & { daysUntil: number };
+
+export const LATE_DAYS = 7;
 
 // dateOfBirth é meia-noite UTC do dia pretendido: ler sempre em UTC (ver BirthdayCard)
 const utcParts = (iso: string) => { const d = new Date(iso); return { day: d.getUTCDate(), month: d.getUTCMonth(), year: d.getUTCFullYear() }; };
@@ -26,13 +31,11 @@ const ageOn = (iso: string, daysUntil: number) => {
     return ref.getFullYear() - year;
 };
 
-const whenLabel = (iso: string, daysUntil: number) => {
+const whenLabel = (daysUntil: number) => {
     if (daysUntil === 0) return 'hoje';
     if (daysUntil === 1) return 'amanhã';
-    const { day, month } = utcParts(iso);
-    const d = new Date(new Date().getFullYear(), month, day);
-    const s = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
-    return daysUntil < 0 ? `${s} (já passou)` : s;
+    if (daysUntil === -1) return 'ontem';
+    return daysUntil < 0 ? `há ${-daysUntil} dias` : `em ${daysUntil} dias`;
 };
 
 const fmtPhone = (p?: string) => {
@@ -42,19 +45,23 @@ const fmtPhone = (p?: string) => {
     return p || '';
 };
 
-const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
-    <button type="button" aria-pressed={active} onClick={onClick}
-        className={`rounded-full border px-3 py-1 text-sm transition-colors ${active
-            ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'}`}>
-        {children}
-    </button>
-);
+const firstName = (name: string) => {
+    const f = name.trim().split(/\s+/)[0] || '';
+    return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase();
+};
+
+/** wa.me com a mensagem de parabéns atrasado já escrita; null sem telefone válido. */
+const lateWhatsapp = (p: Row): string | null => {
+    const digits = String(p.phone || '').replace(/\D/g, '');
+    if (digits.length < 10) return null;
+    const full = digits.startsWith('55') && digits.length >= 12 ? digits : `55${digits}`;
+    const text = `Oi! Aqui é da Clínica Fono Inova. Passando para desejar um feliz aniversário (atrasadinho) para ${firstName(p.fullName)}! 🎉 Que esse novo ano venha cheio de conquistas. Um abraço de toda a equipe 💚`;
+    return `https://wa.me/${full}?text=${encodeURIComponent(text)}`;
+};
 
 // O back (/patients/aniversariantes) não manda daysUntil: calcula aqui pelo dia UTC do
 // nascimento contra o dia de hoje (mesmo critério do BirthdayCard). Negativo = já passou no mês.
-type Row = BirthdayRow & { daysUntil: number };
-const withDaysUntil = (list: BirthdayRow[]): Row[] => {
+export const withDaysUntil = (list: BirthdayRow[]): Row[] => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     return list
@@ -66,33 +73,73 @@ const withDaysUntil = (list: BirthdayRow[]): Row[] => {
         });
 };
 
+/** Passou nos últimos 7 dias e ninguém mandou parabéns. */
+export const isLateBirthday = (p: { daysUntil: number; birthdayMessageSent?: boolean }) =>
+    p.daysUntil < 0 && p.daysUntil >= -LATE_DAYS && !p.birthdayMessageSent;
+
+const Chip: React.FC<{ active: boolean; onClick: () => void; tone?: 'red'; children: React.ReactNode }> = ({ active, onClick, tone, children }) => (
+    <button type="button" aria-pressed={active} onClick={onClick}
+        className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${active
+            ? tone === 'red'
+                ? 'border-red-600 bg-red-50 font-semibold text-red-700 dark:border-red-400 dark:bg-red-500/10 dark:text-red-300'
+                : 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800 dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300'
+            : tone === 'red'
+                ? 'border-red-200 bg-white font-semibold text-red-700 hover:bg-red-50 dark:border-red-500/30 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-500/10'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}>
+        {children}
+    </button>
+);
+
+// Bloco de data à esquerda: dia grande + dia da semana. Cor diz o estado (vermelho atrasado, rosa hoje).
+const DateTile: React.FC<{ iso: string; daysUntil: number; late: boolean; done: boolean }> = ({ iso, daysUntil, late, done }) => {
+    const { day, month } = utcParts(iso);
+    const d = new Date(new Date().getFullYear(), month, day);
+    const wd = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    const tone = late
+        ? 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30'
+        : daysUntil === 0 && !done
+            ? 'bg-pink-600 text-white ring-pink-600 dark:bg-pink-500 dark:text-gray-950 dark:ring-pink-500'
+            : 'bg-white text-gray-800 ring-gray-200 dark:bg-gray-900 dark:text-gray-100 dark:ring-gray-700';
+    return (
+        <span aria-hidden className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl ring-1 ring-inset ${tone}`}>
+            <span className="text-lg font-bold leading-none tabular-nums">{String(day).padStart(2, '0')}</span>
+            <span className="mt-0.5 text-[11px] font-semibold uppercase leading-none opacity-80">{wd}</span>
+        </span>
+    );
+};
+
 const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> = ({ patients: raw, onSent }) => {
     const patients = useMemo(() => withDaysUntil(raw || []), [raw]);
+    const [sent, setSent] = useState<Set<string>>(new Set());
     const counts = useMemo(() => ({
+        atrasados: patients.filter(p => isLateBirthday(p) && !sent.has(p._id)).length,
         hoje: patients.filter(p => p.daysUntil === 0).length,
         semana: patients.filter(p => p.daysUntil >= 0 && p.daysUntil <= 7).length,
         mes: patients.length,
-    }), [patients]);
-    const [period, setPeriod] = useState<Period>(() => (patients.some(p => p.daysUntil === 0) ? 'hoje' : 'semana'));
+    }), [patients, sent]);
+    // Abre no que precisa de ação: atrasados > hoje > próximos 7 dias.
+    const [period, setPeriod] = useState<Period>(() => (
+        patients.some(p => isLateBirthday(p)) ? 'atrasados' : patients.some(p => p.daysUntil === 0) ? 'hoje' : 'semana'
+    ));
     const [sending, setSending] = useState<string | null>(null);
-    const [sent, setSent] = useState<Set<string>>(new Set());
 
     const rows = useMemo(() => {
-        const list = period === 'hoje' ? patients.filter(p => p.daysUntil === 0)
+        const list = period === 'atrasados' ? patients.filter(p => isLateBirthday(p))
+            : period === 'hoje' ? patients.filter(p => p.daysUntil === 0)
             : period === 'semana' ? patients.filter(p => p.daysUntil >= 0 && p.daysUntil <= 7)
             : patients;
-        // Hoje sem parabéns primeiro, depois os próximos, os que já passaram por último
+        // Hoje sem parabéns primeiro, depois os próximos; os que já passaram por último (atrasado mais recente antes)
         const rank = (p: Row) => (p.daysUntil < 0 ? 1000 - p.daysUntil : p.daysUntil);
         return [...list].sort((a, b) => {
             const sa = Number(!!a.birthdayMessageSent || sent.has(a._id));
             const sb = Number(!!b.birthdayMessageSent || sent.has(b._id));
-            if (a.daysUntil === 0 && b.daysUntil === 0 && sa !== sb) return sa - sb;
+            if (a.daysUntil === b.daysUntil && sa !== sb) return sa - sb;
             return rank(a) - rank(b);
         });
     }, [patients, period, sent]);
 
     const send = async (p: Row) => {
-        const first = p.fullName.split(' ')[0];
+        const first = firstName(p.fullName);
         if (!p.phone) { toast.error('Paciente sem telefone cadastrado'); return; }
         if (sending) return;
         setSending(p._id);
@@ -114,49 +161,68 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
         }
     };
 
+    const empty = period === 'atrasados' ? 'Nenhum aniversário passou sem parabéns nos últimos 7 dias.'
+        : period === 'hoje' ? 'Ninguém faz aniversário hoje.'
+        : 'Nenhum aniversariante neste período.';
+
     return (
         <div className="text-left">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Chip active={period === 'hoje'} onClick={() => setPeriod('hoje')}>Hoje <span className="opacity-70">{counts.hoje}</span></Chip>
-                <Chip active={period === 'semana'} onClick={() => setPeriod('semana')}>Próximos 7 dias <span className="opacity-70">{counts.semana}</span></Chip>
-                <Chip active={period === 'mes'} onClick={() => setPeriod('mes')}>Mês <span className="opacity-70">{counts.mes}</span></Chip>
-                <span className="text-xs text-gray-500 dark:text-gray-400">O parabéns sai sozinho às 10h no dia; o botão manda na hora.</span>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+                {counts.atrasados > 0 && (
+                    <Chip tone="red" active={period === 'atrasados'} onClick={() => setPeriod('atrasados')}>
+                        Passaram sem parabéns <b className="tabular-nums">{counts.atrasados}</b>
+                    </Chip>
+                )}
+                <Chip active={period === 'hoje'} onClick={() => setPeriod('hoje')}>Hoje <b className="tabular-nums">{counts.hoje}</b></Chip>
+                <Chip active={period === 'semana'} onClick={() => setPeriod('semana')}>Próximos 7 dias <b className="tabular-nums">{counts.semana}</b></Chip>
+                <Chip active={period === 'mes'} onClick={() => setPeriod('mes')}>Mês todo <b className="tabular-nums">{counts.mes}</b></Chip>
             </div>
 
             {rows.length === 0 ? (
-                <p className="py-4 text-sm text-gray-600 dark:text-gray-400">
-                    {period === 'hoje' ? 'Ninguém faz aniversário hoje.' : 'Nenhum aniversariante neste período.'}
-                </p>
+                <p className="rounded-xl bg-gray-50 px-4 py-5 text-sm text-gray-600 dark:bg-gray-800/40 dark:text-gray-400">{empty}</p>
             ) : (
-                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                <ul className="grid gap-2 lg:grid-cols-2">
                     {rows.map(p => {
                         const done = !!p.birthdayMessageSent || sent.has(p._id);
                         const today = p.daysUntil === 0;
+                        const isLate = isLateBirthday(p) && !sent.has(p._id);
                         const age = ageOn(p.dateOfBirth, p.daysUntil);
+                        const wa = isLate ? lateWhatsapp(p) : null;
+                        const phone = fmtPhone(p.phone);
                         return (
-                            <li key={p._id} className="grid grid-cols-[36px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 py-2.5 sm:grid-cols-[36px_minmax(0,1.6fr)_minmax(0,1fr)_180px]">
-                                <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-pink-50 font-bold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">
-                                    {p.fullName.charAt(0).toUpperCase()}
-                                </span>
-                                <div className="min-w-0">
-                                    <p className={`truncate font-semibold ${done && today ? 'text-gray-500 line-through dark:text-gray-400' : 'text-gray-900 dark:text-gray-50'}`} title={p.fullName}>{p.fullName}</p>
-                                    <p className="text-[13px] text-gray-600 dark:text-gray-400">
-                                        {today ? `Faz ${age} ${age === 1 ? 'ano' : 'anos'} hoje` : `${whenLabel(p.dateOfBirth, p.daysUntil)} · ${p.daysUntil < 0 ? 'fez' : 'faz'} ${age} ${age === 1 ? 'ano' : 'anos'}`}
-                                        {today && !done && <span className="ml-1.5 rounded-full bg-pink-50 px-2 py-0.5 text-xs font-semibold text-pink-700 dark:bg-pink-500/15 dark:text-pink-300">hoje</span>}
-                                        {done && <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">parabéns enviado</span>}
+                            <li key={p._id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-2.5 sm:flex-nowrap ring-1 ring-inset ${isLate
+                                ? 'bg-red-50/60 ring-red-100 dark:bg-red-500/[0.06] dark:ring-red-500/20'
+                                : today && !done
+                                    ? 'bg-pink-50/70 ring-pink-100 dark:bg-pink-500/[0.07] dark:ring-pink-500/20'
+                                    : 'bg-gray-50 ring-transparent dark:bg-gray-800/40'}`}>
+                                <DateTile iso={p.dateOfBirth} daysUntil={p.daysUntil} late={isLate} done={done} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate font-semibold text-gray-900 dark:text-gray-50" title={p.fullName}>{p.fullName}</p>
+                                    <p className="truncate text-[13px] text-gray-600 dark:text-gray-400">
+                                        <span className={isLate ? 'font-semibold text-red-700 dark:text-red-300' : today && !done ? 'font-semibold text-pink-700 dark:text-pink-300' : ''}>{whenLabel(p.daysUntil)}</span>
+                                        {' · '}{p.daysUntil < 0 ? 'fez' : today ? 'faz' : 'vai fazer'} {age} {age === 1 ? 'ano' : 'anos'}
+                                        {' · '}<span className="tabular-nums">{phone || 'sem telefone'}</span>
                                     </p>
                                 </div>
-                                <span className="col-start-2 text-[13px] tabular-nums text-gray-600 dark:text-gray-400 sm:col-start-auto">{fmtPhone(p.phone) || 'sem telefone'}</span>
-                                <span className="col-span-2 sm:col-span-1 sm:justify-self-end">
+                                <span className="w-full shrink-0 pl-[60px] sm:w-auto sm:pl-0">
                                     {done ? (
-                                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={14} aria-hidden /> Enviado</span>
+                                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><Check size={15} aria-hidden /> Enviado</span>
                                     ) : today ? (
                                         <button type="button" onClick={() => send(p)} disabled={!p.phone || sending === p._id}
-                                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto dark:disabled:bg-gray-700">
-                                            <MessageCircle size={14} aria-hidden /> {sending === p._id ? 'Enviando…' : p.phone ? 'Enviar parabéns' : 'Sem telefone'}
+                                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700">
+                                            <Send size={14} aria-hidden /> {sending === p._id ? 'Enviando…' : p.phone ? 'Enviar parabéns' : 'Sem telefone'}
                                         </button>
+                                    ) : isLate ? (
+                                        wa ? (
+                                            <a href={wa} target="_blank" rel="noopener noreferrer"
+                                                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-600 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-gray-900 dark:text-red-300 dark:ring-red-500/30 dark:hover:bg-red-500 dark:hover:text-gray-950">
+                                                <MessageCircle size={14} aria-hidden /> Mandar no WhatsApp
+                                            </a>
+                                        ) : <span className="text-[13px] font-semibold text-red-700 dark:text-red-300">sem telefone</span>
+                                    ) : p.daysUntil < 0 ? (
+                                        <span className="text-[13px] text-gray-500 dark:text-gray-400">já passou</span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1 text-[13px] text-gray-500 dark:text-gray-400"><Cake size={13} aria-hidden /> {p.daysUntil < 0 ? 'já passou' : 'envio no dia'}</span>
+                                        <span className="text-right text-[13px] leading-tight text-gray-500 dark:text-gray-400">automático<br className="hidden sm:inline" /> no dia, 10h</span>
                                     )}
                                 </span>
                             </li>

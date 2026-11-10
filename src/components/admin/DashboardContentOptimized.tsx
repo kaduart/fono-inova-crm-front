@@ -19,7 +19,7 @@ import {
     UpcomingAppointment
 } from '../../services/dashboardService';
 
-import BirthdayList from './BirthdayList';
+import BirthdayList, { isLateBirthday, withDaysUntil } from './BirthdayList';
 import { ChurnPanel, EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
 import { LateEvolutionsPanel, lateEvolutionsDetail, useLateEvolutions } from './LateEvolutionsPanel';
@@ -269,14 +269,14 @@ interface SectionProps {
 
 // Seção sem caixa: título, meta e recolher. Separação por espaço e linha fina, não por borda.
 const Section = memo<SectionProps>(({ id, title, isOpen, onToggle, children, icon, meta, note }) => (
-    <section id={id} className="border-t border-gray-200 pt-1 dark:border-gray-800">
+    <section id={id} className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-1 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:px-5"
             onClick={onToggle}
             aria-expanded={isOpen}
         >
-            <span className="shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden>{icon}</span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" aria-hidden>{icon}</span>
             <span className="min-w-0 flex-1">
                 <span className="text-base font-bold text-gray-900 dark:text-gray-50">{title}</span>
                 {meta && <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{meta}</span>}
@@ -287,7 +287,7 @@ const Section = memo<SectionProps>(({ id, title, isOpen, onToggle, children, ico
                 <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
             </span>
         </button>
-        {isOpen && <div className="pb-2 pt-1">{children}</div>}
+        {isOpen && <div className="border-t border-gray-100 px-4 pb-4 pt-3 sm:px-5 dark:border-gray-800">{children}</div>}
     </section>
 ));
 Section.displayName = 'Section';
@@ -560,7 +560,7 @@ const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => v
     </button>
 );
 
-type PanTab = 'today' | 'upcoming' | 'charts' | 'mix' | 'stopped' | 'bday';
+type PanTab = 'today' | 'upcoming' | 'charts' | 'mix' | 'stopped';
 
 // --- Main Component ---
 
@@ -592,7 +592,6 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         setPanTab('stopped');
         document.getElementById('dash-panorama')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
-    const birthdaySectionOpen = panTab === 'bday';
     const [showAllDoctors, setShowAllDoctors] = useState(false);
     const [upcomingFilter, setUpcomingFilter] = useState<'all' | 'today' | 'tomorrow' | 'unconfirmed'>('all');
 
@@ -701,9 +700,8 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         await loadAniversariantes();
     }, [loadAniversariantes]);
 
-    useEffect(() => { if (birthdaySectionOpen) fetchAniversariantes(); }, [birthdaySectionOpen, fetchAniversariantes]);
-    // O "Precisa de você" precisa da contagem mesmo com a seção fechada; adiado para não competir com a carga inicial.
-    useEffect(() => { const t = setTimeout(fetchAniversariantes, 1500); return () => clearTimeout(t); }, [fetchAniversariantes]);
+    // Aniversariantes ficam sempre à vista (Kadu 10/11): busca logo depois da carga inicial.
+    useEffect(() => { const t = setTimeout(fetchAniversariantes, 600); return () => clearTimeout(t); }, [fetchAniversariantes]);
     const handleBirthdayMessageSent = useCallback(() => { loadAniversariantes(true); }, [loadAniversariantes]);
     useEffect(() => {
         if (!aniversariantesFetched.current) return;
@@ -740,8 +738,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     }, [onRefresh, loadPreStats, commercial.reload, loadAniversariantes, todayLoaded, loadTodaySessions, lateEvo.reload]);
 
     const openBirthdays = useCallback(() => {
-        setPanTab('bday');
-        requestAnimationFrame(() => document.getElementById('dash-panorama')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        document.getElementById('dash-aniversariantes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
 
     // O back não manda daysUntil: hoje = mesmo dia/mês (UTC) do nascimento
@@ -752,6 +749,10 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             return !a.birthdayMessageSent && d.getUTCDate() === now.getDate() && d.getUTCMonth() === now.getMonth();
         });
     }, [aniversariantes]);
+    // Passou nos últimos 7 dias sem parabéns: vai para o "Precisa de você" junto com os de hoje.
+    const birthdayLate = useMemo(() => withDaysUntil(aniversariantes).filter(isLateBirthday), [aniversariantes]);
+    const birthdayWeek = useMemo(() => withDaysUntil(aniversariantes).filter(a => a.daysUntil >= 0 && a.daysUntil <= 7).length, [aniversariantes]);
+    const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
 
     const tomorrowYmd = localDay(new Date(Date.now() + 86400000));
     const nextDayPending = commercial.nextDay ? commercial.nextDay.total - commercial.nextDay.confirmed : 0;
@@ -828,9 +829,13 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             error: commercial.queueErrors.reactivation, onRetry: commercial.reloadQueues,
         },
         {
-            key: 'bday', count: aniversariantesMeta.todayPending || 0, tone: 'pink',
-            title: aniversariantesMeta.todayPending === 1 ? 'Aniversariante sem parabéns' : 'Aniversariantes sem parabéns',
-            detail: birthdayToday.map(b => b.fullName).join(', ') || 'hoje', cta: 'Enviar parabéns', onClick: openBirthdays,
+            key: 'bday', count: (aniversariantesMeta.todayPending || 0) + birthdayLate.length, tone: 'pink',
+            title: (aniversariantesMeta.todayPending || 0) + birthdayLate.length === 1 ? 'Aniversariante sem parabéns' : 'Aniversariantes sem parabéns',
+            detail: [
+                birthdayToday.length ? `hoje: ${birthdayToday.map(b => b.fullName.split(' ')[0]).join(', ')}` : '',
+                birthdayLate.length ? (birthdayLate.length === 1 ? '1 já passou' : `${birthdayLate.length} já passaram`) : '',
+            ].filter(Boolean).join(' · ') || 'hoje',
+            cta: birthdayLate.length ? 'Ver e mandar' : 'Enviar parabéns', onClick: openBirthdays,
         },
     ];
 
@@ -954,33 +959,51 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {queueOpen === 'evaluation' && commercial.evaluation && <EvaluationPanel queue={commercial.evaluation} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'nextDay' && commercial.nextDay && <NextDayConfirmPanel queue={commercial.nextDay} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} onOpenAgenda={onNavigate ? () => { setQueueOpen(null); onNavigate('Calendário'); } : undefined} />}
 
-            {/* 3. Panorama: agenda de hoje, próximas, gráficos, origem/especialidade e aniversariantes em abas */}
-            <section id="dash-panorama" aria-label="Panorama" className="border-t border-gray-200 pt-4 dark:border-gray-800">
-                <div role="tablist" aria-label="Panorama" className="-mx-1 flex gap-1 overflow-x-auto border-b border-gray-200 px-1 dark:border-gray-800">
+            {/* 3. Aniversariantes: sempre à vista (Kadu 10/11), o comercial manda o parabéns daqui */}
+            <section id="dash-aniversariantes" aria-labelledby="dash-aniversariantes-t" className="scroll-mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300" aria-hidden><Cake size={18} /></span>
+                    <div className="min-w-0 flex-1">
+                        <h2 id="dash-aniversariantes-t" className="text-base font-bold text-gray-900 dark:text-gray-50">Aniversariantes de {monthName}</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {aniversariantesLoading && !aniversariantes.length ? 'carregando…' : `${aniversariantes.length} no mês · ${birthdayWeek} nos próximos 7 dias`}
+                            {' · '}o parabéns automático sai às 10h do dia
+                        </p>
+                    </div>
+                </div>
+                {aniversariantesLoading && !aniversariantes.length ? <BirthdayCardSkeleton /> : <BirthdayList key={aniversariantes.length} patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
+            </section>
+
+            {/* 4. Panorama: agenda de hoje, próximas, gráficos, origem/especialidade e evasão em abas.
+                Abas em grade (cabem sempre, sem barra de rolagem), cada uma com um resumo do que tem dentro. */}
+            <section id="dash-panorama" aria-label="Panorama" className="scroll-mt-4 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                <div role="tablist" aria-label="Panorama" className="grid grid-cols-2 gap-1 rounded-t-2xl border-b border-gray-200 bg-gray-50 p-1.5 sm:grid-cols-3 xl:grid-cols-5 dark:border-gray-800 dark:bg-gray-800/40">
                     {([
-                        ['today', 'Agenda de hoje', <CalendarClock key="i" size={15} />, todayByDoctor.length ? `${todayByDoctor.length} prof.` : null],
-                        ['upcoming', 'Próximas sessões', <Clock key="i" size={15} />, upcomingCount('unconfirmed') ? `${upcomingCount('unconfirmed')} sem confirmar` : null],
-                        ['charts', 'Sessões e caixa por dia', <LineChart key="i" size={15} />, null],
-                        ['mix', 'Leads e especialidades', <PieChart key="i" size={15} />, null],
-                        ['stopped', 'Pacientes que pararam', <TrendingDown key="i" size={15} />, stopped.data?.alert ? 'acima do normal' : null],
-                        ['bday', 'Aniversariantes', <Cake key="i" size={15} />, aniversariantesMeta.todayPending ? `${aniversariantesMeta.todayPending} hoje` : null],
-                    ] as Array<[PanTab, string, React.ReactNode, string | null]>).map(([key, label, icon, badge]) => (
+                        ['today', 'Agenda de hoje', <CalendarClock key="i" size={16} />, todayByDoctor.length ? plural(todayByDoctor.length, 'profissional', 'profissionais') : 'sem sessões', null],
+                        ['upcoming', 'Próximas sessões', <Clock key="i" size={16} />, `${upcomingCount('all')} em 7 dias`, upcomingCount('unconfirmed') ? `${upcomingCount('unconfirmed')} sem confirmar` : null],
+                        ['charts', 'Sessões e caixa', <LineChart key="i" size={16} />, 'por dia · 14 dias', null],
+                        ['mix', 'Leads e especialidades', <PieChart key="i" size={16} />, 'origem · últimos 30 dias', null],
+                        ['stopped', 'Pacientes que pararam', <TrendingDown key="i" size={16} />, 'últimos 6 meses', stopped.data?.alert ? 'acima do normal' : null],
+                    ] as Array<[PanTab, string, React.ReactNode, string, string | null]>).map(([key, label, icon, hint, alert], i) => (
                         <button
                             key={key}
                             type="button"
                             role="tab"
                             aria-selected={panTab === key}
                             onClick={() => setPanTab(key)}
-                            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${panTab === key
-                                ? 'border-emerald-600 text-emerald-800 dark:border-emerald-400 dark:text-emerald-300'
-                                : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'}`}
+                            className={`flex min-h-[60px] min-w-0 items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${i === 4 ? 'col-span-2 sm:col-span-1' : ''} ${panTab === key
+                                ? 'bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700'
+                                : 'hover:bg-white/70 dark:hover:bg-gray-900/60'}`}
                         >
-                            <span aria-hidden>{icon}</span>{label}
-                            {badge && <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${key === 'bday' ? 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300' : key === 'stopped' ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>{badge}</span>}
+                            <span aria-hidden className={`mt-0.5 shrink-0 ${panTab === key ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>{icon}</span>
+                            <span className="min-w-0">
+                                <span className={`block truncate text-sm font-semibold ${panTab === key ? 'text-gray-900 dark:text-gray-50' : 'text-gray-700 dark:text-gray-300'}`}>{label}</span>
+                                <span className={`block truncate text-xs ${alert ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>{alert || hint}</span>
+                            </span>
                         </button>
                     ))}
                 </div>
-                <div role="tabpanel" className="pt-4">
+                <div role="tabpanel" className="p-4 sm:p-5">
                     {panTab === 'today' && (
                         <>
                 {todayLoading && !todayLoaded ? (
@@ -1111,16 +1134,10 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                             <StoppedTrendPanel data={stopped.data} error={stopped.error} onRetry={stopped.reload} />
                         </>
                     )}
-                    {panTab === 'bday' && (
-                        <>
-                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">{aniversariantes.length} no mês{aniversariantesMeta.todayTotal ? ` · ${aniversariantesMeta.todayTotal} hoje` : ''}</p>
-                {aniversariantesLoading ? <BirthdayCardSkeleton /> : <BirthdayList patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
-                        </>
-                    )}
                 </div>
             </section>
 
-            {/* 4. Lista de pacientes (aberta por padrão, decisão do Kadu 29/10) */}
+            {/* 5. Lista de pacientes (aberta por padrão, decisão do Kadu 29/10) */}
             <Section
                 title="Lista de pacientes"
                 meta={stats?.totalPatients ? `${stats.totalPatients.toLocaleString('pt-BR')} cadastrados` : undefined}
