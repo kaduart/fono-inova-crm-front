@@ -40,6 +40,15 @@ export interface Planning {
         targetHours: number;
         workedHours: number;
     }>;
+    bySpecialty?: Array<{
+        specialty: string;
+        sessions?: number;
+        revenue?: number;
+        targetSessions?: number;
+        targetRevenue?: number;
+        completedSessions?: number;
+        actualRevenue?: number;
+    }>;
     notes?: string;
     createdBy: any;
     createdAt: string;

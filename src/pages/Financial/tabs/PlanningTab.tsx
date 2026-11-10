@@ -122,7 +122,8 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
       expectedRevenue: 0,
       totalSessions: 0,
       workHours: 0,
-      averageTicket: 0
+      averageTicket: 0,
+      commercialTicket: 0
     },
     bySpecialty: [],
     notes: ''
@@ -244,7 +245,12 @@ const PlanningTab = ({ month, year }: PlanningTabProps) => {
         averageTicket: planning.targets?.averageTicket || 0,
         commercialTicket: planning.targets?.commercialTicket || 0
       },
-      bySpecialty: planning.bySpecialty || [],
+      // O back guarda targetSessions/targetRevenue (e devolve sessions/revenue como atalho).
+      bySpecialty: (planning.bySpecialty || []).map((s: { specialty: string; sessions?: number; revenue?: number; targetSessions?: number; targetRevenue?: number }) => ({
+        specialty: s.specialty,
+        sessions: s.sessions ?? s.targetSessions ?? 0,
+        revenue: s.revenue ?? s.targetRevenue ?? 0,
+      })),
       notes: planning.notes || ''
     });
     setOpenEditModal(true);
@@ -1262,6 +1268,41 @@ interface PlanningCardProps {
   dashData?: any;
 }
 
+type SpecialtyRow = { specialty: string; targetSessions?: number; targetRevenue?: number; sessions?: number; revenue?: number; completedSessions?: number; actualRevenue?: number };
+
+// Meta × realizado por especialidade. Realizado = atendimentos concluídos (produção), calculado no back.
+const SpecialtyProgress = ({ items, formatCurrency }: { items: SpecialtyRow[]; formatCurrency: (v: number) => string }) => {
+  const rows = items.map(s => {
+    const meta = s.targetSessions ?? s.sessions ?? 0;
+    const metaR = s.targetRevenue ?? s.revenue ?? 0;
+    const real = s.completedSessions ?? 0;
+    const realR = s.actualRevenue ?? 0;
+    const pct = meta > 0 ? Math.round((real / meta) * 100) : 0;
+    return { ...s, meta, metaR, real, realR, pct };
+  }).sort((a, b) => a.pct - b.pct);
+  const bar = (pct: number) => pct >= 100 ? 'bg-emerald-600' : pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
+  return (
+    <div className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-white/10">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Por especialidade · meta × realizado</p>
+      <ul className="space-y-2">
+        {rows.map(r => (
+          <li key={r.specialty}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+              <span className="font-semibold text-gray-800 dark:text-gray-100">{getSpecialtyLabel(r.specialty)}</span>
+              <span className="text-xs text-gray-600 dark:text-gray-300">
+                {r.real}/{r.meta} sessões{r.metaR > 0 ? ` · ${formatCurrency(r.realR)} de ${formatCurrency(r.metaR)}` : r.realR > 0 ? ` · ${formatCurrency(r.realR)}` : ''} · <strong>{r.pct}%</strong>
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+              <div className={`h-full rounded-full ${bar(r.pct)}`} style={{ width: `${Math.min(100, r.pct)}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const PlanningCard = ({
   planning,
   formatCurrency,
@@ -1386,6 +1427,11 @@ const PlanningCard = ({
             })()}
           </div>
 
+          {/* Meta × realizado por especialidade (só quando a meta tem distribuição) */}
+          {Array.isArray(planning.bySpecialty) && planning.bySpecialty.length > 0 && (
+            <SpecialtyProgress items={planning.bySpecialty} formatCurrency={formatCurrency} />
+          )}
+
           {/* Expandir detalhes */}
           <Collapse in={expanded}>
             <Box sx={{ mt: 2, p: 1.5, bgcolor: 'var(--fx-gray-50)', borderRadius: 1 }}>
@@ -1423,6 +1469,22 @@ const PlanningCard = ({
                   </Typography>
                   <Typography variant="body2" fontWeight="500">
                     {planning.actual?.completedSessions || 0}
+                  </Typography>
+                </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Ticket médio (meta)
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500">
+                    {formatCurrency(planning.targets?.averageTicket || 0)}
+                  </Typography>
+                </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Ticket médio (realizado)
+                  </Typography>
+                  <Typography variant="body2" fontWeight="500">
+                    {planning.actual?.completedSessions ? formatCurrency((planning.actual?.actualRevenue || 0) / planning.actual.completedSessions) : '—'}
                   </Typography>
                 </Grid>
               </Grid>

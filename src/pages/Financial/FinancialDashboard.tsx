@@ -61,6 +61,8 @@ const InsuranceTab = lazyWithRetry(() => import('./tabs/InsuranceTab'));
 const PlanningTab = lazyWithRetry(() => import('./tabs/PlanningTab'));
 const FinancialDashboardTab = lazyWithRetry(() => import('./tabs/FinancialDashboardTab'));
 const IndicadoresTab = lazyWithRetry(() => import('./tabs/IndicadoresTab'));
+const InteligenciaFinanceiraTab = lazyWithRetry(() => import('./tabs/InteligenciaFinanceiraTab'));
+const ProjecaoMensalTab = lazyWithRetry(() => import('./tabs/ProjecaoMensalTab'));
 const ProfissionaisTab = lazyWithRetry(() => import('./tabs/ProfissionaisTab'));
 
 // ── Skeletons por aba ─────────────────────────────────────────────────────────
@@ -684,11 +686,11 @@ const FinancialDashboard = ({
             case 'dashboard': {
                 // Resultados = Indicadores + Painel completo (metas do mês, insights, ranking, projeção) + Metas do ano.
                 // Sem `section`, Metas segue em aba própria.
-                type View = 'indicadores' | 'painel' | 'metas';
+                type View = 'indicadores' | 'painel' | 'metas' | 'inteligencia' | 'projecao';
                 const rp = searchParams.get('resultados');
                 const view: View = !section ? 'indicadores'
                     : (rp === 'metas' || searchParams.get(TAB_PARAM_KEY) === 'planejamento') ? 'metas'
-                    : rp === 'painel' ? 'painel' : 'indicadores';
+                    : (rp === 'painel' || rp === 'inteligencia' || rp === 'projecao') ? rp : 'indicadores';
                 const pick = (v: View) => setSearchParams(prev => {
                     const next = new URLSearchParams(prev);
                     next.set(TAB_PARAM_KEY, 'dashboard'); next.set('resultados', v);
@@ -699,7 +701,7 @@ const FinancialDashboard = ({
                     <>
                         {section && (
                             <div role="tablist" aria-label="Resultados" className="mb-3 inline-flex flex-wrap rounded-xl border border-gray-200 bg-white p-0.5 text-sm dark:border-white/10 dark:bg-white/5">
-                                {([['indicadores', 'Indicadores do mês'], ['painel', 'Painel completo'], ['metas', 'Metas do ano']] as const).map(([v, l]) => (
+                                {([['indicadores', 'Indicadores do mês'], ['painel', 'Painel completo'], ['metas', 'Metas do ano'], ['inteligencia', 'Inteligência Financeira'], ['projecao', 'Projeção Mensal']] as const).map(([v, l]) => (
                                     <button key={v} type="button" role="tab" aria-selected={v === view} onClick={() => pick(v)}
                                         className={`rounded-lg px-3 py-1.5 font-medium ${v === view ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300'}`}>{l}</button>
                                 ))}
@@ -708,6 +710,14 @@ const FinancialDashboard = ({
                         {view === 'metas' ? (
                             <Suspense fallback={<PlanningSkeleton />}>
                                 <PlanningTab month={selectedMonth} year={selectedYear} />
+                            </Suspense>
+                        ) : view === 'inteligencia' ? (
+                            <Suspense fallback={<DashboardV3Skeleton />}>
+                                <InteligenciaFinanceiraTab />
+                            </Suspense>
+                        ) : view === 'projecao' ? (
+                            <Suspense fallback={<DashboardV3Skeleton />}>
+                                <ProjecaoMensalTab />
                             </Suspense>
                         ) : view === 'painel' ? (
                             <Suspense fallback={<DashboardV3Skeleton />}>
