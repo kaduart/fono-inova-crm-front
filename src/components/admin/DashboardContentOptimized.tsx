@@ -754,6 +754,32 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const birthdayWeek = useMemo(() => withDaysUntil(aniversariantes).filter(a => a.daysUntil >= 0 && a.daysUntil <= 7).length, [aniversariantes]);
     const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
 
+    // Aniversariante do dia sem parabéns: a aba do navegador fica rosa com 🎂 e o título pisca
+    // quando a pessoa está em outra aba (Kadu 10/11: o comercial se distrai e o dia passa).
+    const bdayAlertCount = birthdayToday.length;
+    useEffect(() => {
+        if (!bdayAlertCount) return;
+        const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+        const prevHref = link?.href;
+        const baseTitle = document.title.replace(/^🎂 \(\d+\) /, '');
+        const alertTitle = `🎂 (${bdayAlertCount}) ${baseTitle}`;
+        const blinkTitle = bdayAlertCount === 1 ? '🎂 Aniversário hoje!' : `🎂 ${bdayAlertCount} aniversários hoje!`;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#db2777"/><text x="32" y="45" font-size="38" text-anchor="middle">🎂</text></svg>`;
+        if (link) link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+        document.title = alertTitle;
+        let on = false;
+        const timer = window.setInterval(() => {
+            if (!document.hidden) { if (document.title !== alertTitle) document.title = alertTitle; return; }
+            on = !on;
+            document.title = on ? blinkTitle : alertTitle;
+        }, 1500);
+        return () => {
+            window.clearInterval(timer);
+            document.title = baseTitle;
+            if (link && prevHref) link.href = prevHref;
+        };
+    }, [bdayAlertCount]);
+
     const tomorrowYmd = localDay(new Date(Date.now() + 86400000));
     const nextDayPending = commercial.nextDay ? commercial.nextDay.total - commercial.nextDay.confirmed : 0;
     const nextDayLabel = commercial.nextDay?.date
@@ -960,11 +986,21 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {queueOpen === 'nextDay' && commercial.nextDay && <NextDayConfirmPanel queue={commercial.nextDay} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} onOpenAgenda={onNavigate ? () => { setQueueOpen(null); onNavigate('Calendário'); } : undefined} />}
 
             {/* 3. Aniversariantes: sempre à vista (Kadu 10/11), o comercial manda o parabéns daqui */}
-            <section id="dash-aniversariantes" aria-labelledby="dash-aniversariantes-t" className="scroll-mt-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-900">
+            <section id="dash-aniversariantes" aria-labelledby="dash-aniversariantes-t" className={`scroll-mt-4 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-gray-900 ${bdayAlertCount
+                ? 'border-pink-300 ring-4 ring-pink-100 dark:border-pink-500/50 dark:ring-pink-500/10'
+                : 'border-gray-200 dark:border-gray-800'}`}>
                 <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300" aria-hidden><Cake size={18} /></span>
                     <div className="min-w-0 flex-1">
-                        <h2 id="dash-aniversariantes-t" className="text-base font-bold text-gray-900 dark:text-gray-50">Aniversariantes de {monthName}</h2>
+                        <h2 id="dash-aniversariantes-t" className="flex flex-wrap items-center gap-2 text-base font-bold text-gray-900 dark:text-gray-50">
+                            Aniversariantes de {monthName}
+                            {bdayAlertCount > 0 && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-600 px-2.5 py-0.5 text-xs font-bold text-white dark:bg-pink-500 dark:text-gray-950">
+                                    <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75 motion-reduce:animate-none" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
+                                    {bdayAlertCount === 1 ? '1 hoje sem parabéns' : `${bdayAlertCount} hoje sem parabéns`}
+                                </span>
+                            )}
+                        </h2>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                             {aniversariantesLoading && !aniversariantes.length ? 'carregando…' : `${aniversariantes.length} no mês · ${birthdayWeek} nos próximos 7 dias`}
                             {' · '}o parabéns automático sai às 10h do dia

@@ -117,9 +117,11 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
         semana: patients.filter(p => p.daysUntil >= 0 && p.daysUntil <= 7).length,
         mes: patients.length,
     }), [patients, sent]);
-    // Abre no que precisa de ação: atrasados > hoje > próximos 7 dias.
+    // Abre no que precisa de ação: hoje sem parabéns > atrasados > próximos 7 dias.
     const [period, setPeriod] = useState<Period>(() => (
-        patients.some(p => isLateBirthday(p)) ? 'atrasados' : patients.some(p => p.daysUntil === 0) ? 'hoje' : 'semana'
+        patients.some(p => p.daysUntil === 0 && !p.birthdayMessageSent) ? 'hoje'
+            : patients.some(p => isLateBirthday(p)) ? 'atrasados'
+            : patients.some(p => p.daysUntil === 0) ? 'hoje' : 'semana'
     ));
     const [sending, setSending] = useState<string | null>(null);
 
