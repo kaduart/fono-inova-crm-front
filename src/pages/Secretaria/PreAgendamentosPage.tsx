@@ -142,6 +142,9 @@ const ImportarModal = ({ open, onClose, pre, onImport, doctors }: any) => {
             disabled
             fullWidth
           />
+          {pre?.mainComplaint && (
+            <TextField label="Queixa principal (contada pela família)" value={pre.mainComplaint} disabled fullWidth multiline minRows={2} />
+          )}
 
           <FormControl fullWidth>
             <InputLabel>Profissional</InputLabel>
@@ -578,6 +581,17 @@ const PreAgendamentosPage = () => {
                       <Typography variant="caption" color="text.secondary">
                         {pre.patientInfo.phone}
                       </Typography>
+                      {pre.mainComplaint && (
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          title={pre.mainComplaint}
+                          sx={{ mt: 0.5, maxWidth: 280, whiteSpace: 'normal', color: 'text.primary' }}
+                        >
+                          <strong>Queixa:</strong>{' '}
+                          {pre.mainComplaint.length > 120 ? `${pre.mainComplaint.slice(0, 120)}…` : pre.mainComplaint}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>{pre.specialty}</TableCell>
                     <TableCell>
