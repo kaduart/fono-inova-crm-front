@@ -713,11 +713,11 @@ const FinancialDashboard = ({
                             </Suspense>
                         ) : view === 'inteligencia' ? (
                             <Suspense fallback={<DashboardV3Skeleton />}>
-                                <InteligenciaFinanceiraTab />
+                                <InteligenciaFinanceiraTab month={selectedMonth} year={selectedYear} onGoProjecao={() => pick('projecao')} />
                             </Suspense>
                         ) : view === 'projecao' ? (
                             <Suspense fallback={<DashboardV3Skeleton />}>
-                                <ProjecaoMensalTab />
+                                <ProjecaoMensalTab month={selectedMonth} year={selectedYear} />
                             </Suspense>
                         ) : view === 'painel' ? (
                             <Suspense fallback={<DashboardV3Skeleton />}>
