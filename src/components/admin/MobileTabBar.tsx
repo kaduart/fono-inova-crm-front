@@ -2,7 +2,7 @@
 // barra fixa embaixo com as 4 telas mais usadas + "Mais", avisos na própria barra
 // (ponto rosa = aniversário hoje sem parabéns; número vermelho = leads) e o botão + com as
 // ações mais comuns da secretária. Só aparece abaixo de lg; no computador nada muda.
-import { CalendarDays, CalendarPlus, Home, Menu, MessageCircle, Plus, UserPlus, Users, Wallet, X } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronDown, Home, Menu, MessageCircle, Plus, UserPlus, Users, Wallet, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 export interface MobileQuickActions {
@@ -19,10 +19,16 @@ interface Props extends MobileQuickActions {
     onToggleMore: () => void;
     birthdayPending: number;
     leadsCount: number;
+    /** Abas da barra (padrão: as do admin/secretária). O terapeuta passa as dele. */
+    tabs?: MobileTab[];
+    /** Aba que mostra o ponto rosa de aniversário. */
+    dotTab?: string;
 }
 
+export interface MobileTab { key: string; label: string; icon: React.ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; match: string[] }
+
 // Abas do AdminDashboard que cada botão representa (o Caixa tem sub-abas, a Agenda também).
-const TABS: Array<{ key: string; label: string; icon: React.ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; match: string[] }> = [
+const TABS: MobileTab[] = [
     { key: 'Dashboard', label: 'Início', icon: Home, match: ['Dashboard'] },
     { key: 'Calendário', label: 'Agenda', icon: CalendarDays, match: ['Calendário', 'Pré-Agendamentos'] },
     { key: 'Add Paciente', label: 'Pacientes', icon: Users, match: ['Add Paciente'] },
@@ -34,7 +40,54 @@ const itemClass = (active: boolean) =>
         ? 'font-bold text-emerald-700 dark:text-emerald-400'
         : 'font-semibold text-gray-600 dark:text-gray-400'}`;
 
-const MobileTabBar: React.FC<Props> = ({ activeTab, moreOpen, onTab, onToggleMore, birthdayPending, leadsCount, onSchedule, onNewPatient, onPayment, onLeads }) => {
+// Item do menu "Mais" no celular (mock aprovado 11/11): fundo claro, ícone numa cor só,
+// verde só no item ativo. Altura mínima de 48px para o dedo.
+export const MobileNavItem = ({
+    active,
+    onClick,
+    icon,
+    children,
+    badge,
+    hint,
+}: {
+    active: boolean;
+    onClick: () => void;
+    icon: React.ReactNode;
+    children: React.ReactNode;
+    badge?: React.ReactNode;
+    hint?: string;
+}) => (
+    <button
+        type="button"
+        onClick={onClick}
+        aria-current={active ? 'page' : undefined}
+        className={`flex min-h-12 w-full items-center gap-3 border-t border-gray-100 px-4 text-left text-[15px] transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:border-gray-800 ${active
+            ? 'bg-emerald-50 font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+            : 'text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800/60'}`}
+    >
+        <span aria-hidden className={`shrink-0 ${active ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>{icon}</span>
+        <span className="min-w-0 flex-1">
+            <span className="block truncate">{children}</span>
+            {hint && <span className="block truncate text-xs font-normal text-gray-500 dark:text-gray-400">{hint}</span>}
+        </span>
+        {badge}
+    </button>
+);
+
+// Grupo do menu "Mais" que abre e fecha; mostra quantos itens tem quando fechado.
+export const MobileNavGroup = ({ title, open, onToggle, count, children }: { title: string; open: boolean; onToggle: () => void; count: number; children: React.ReactNode }) => (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-900 dark:ring-gray-800">
+        <button type="button" onClick={onToggle} aria-expanded={open}
+            className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:text-gray-400">
+            <span className="flex-1">{title}</span>
+            {!open && <span className="text-xs font-medium normal-case tracking-normal">{count} {count === 1 ? 'item' : 'itens'}</span>}
+            <ChevronDown size={18} aria-hidden className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && <div className="border-t border-gray-100 dark:border-gray-800">{children}</div>}
+    </section>
+);
+
+const MobileTabBar: React.FC<Props> = ({ activeTab, moreOpen, onTab, onToggleMore, birthdayPending, leadsCount, tabs = TABS, dotTab = 'Dashboard', onSchedule, onNewPatient, onPayment, onLeads }) => {
     const [sheetOpen, setSheetOpen] = useState(false);
     useEffect(() => { setSheetOpen(false); }, [activeTab]);
     useEffect(() => {
@@ -112,14 +165,14 @@ const MobileTabBar: React.FC<Props> = ({ activeTab, moreOpen, onTab, onToggleMor
             )}
 
             <nav aria-label="Menu principal" className="fixed inset-x-0 bottom-0 z-[47] grid grid-cols-5 border-t border-gray-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
-                {TABS.map(t => {
+                {tabs.map(t => {
                     const Icon = t.icon;
                     const active = !moreOpen && t.match.includes(activeTab);
                     return (
                         <button key={t.key} type="button" onClick={() => onTab(t.key)} aria-current={active ? 'page' : undefined} className={itemClass(active)}>
                             <Icon size={22} aria-hidden />
                             {t.label}
-                            {t.key === 'Dashboard' && birthdayPending > 0 && (
+                            {t.key === dotTab && birthdayPending > 0 && (
                                 <span className="absolute left-1/2 top-2 ml-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-pink-600 dark:border-gray-950" aria-label={`${birthdayPending} aniversário hoje sem parabéns`} />
                             )}
                         </button>
