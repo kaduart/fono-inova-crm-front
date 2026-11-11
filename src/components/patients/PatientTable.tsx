@@ -11,6 +11,14 @@ import { Pagination } from '../common/Pagination';
 // Tipos e interfaces
 // ============================================================================
 
+// Campos soltos que a lista do back às vezes manda (usados nos cartões do celular).
+type CardLoose = {
+    lastAppointment?: { date?: string; specialty?: string; sessionType?: string };
+    nextAppointment?: { specialty?: string; sessionType?: string };
+    raw?: { specialty?: string; lastAppointment?: { date?: string } };
+};
+type CardPkg = { status?: string; sessionsRemaining?: number; totalSessions?: number; sessionsDone?: number; sessionType?: string };
+
 interface PatientTableProps {
     patients?: PatientDTO[];
     onEditPatient?: (patient: PatientDTO) => void;
@@ -292,7 +300,149 @@ const PatientTable: React.FC<PatientTableProps> = ({
                 </div>
             ) : (
                 <>
-                    <div className="overflow-x-auto">
+                    {/* Celular (mock aprovado 11/11): cartões em vez da tabela, sem rolar para o lado.
+                        Mesmas informações e ações da linha da tabela. */}
+                    <ul className="space-y-2.5 md:hidden">
+                        {paginatedPatients.map((patient) => {
+                            const pid = patient.patientId || patient.id;
+                            const p = patient as unknown as CardLoose;
+                            const planName = patient.healthPlan?.name;
+                            const isConvenio = (planName && planName.toLowerCase() !== 'particular') || patient.tags?.includes('convenio');
+                            const activePackages = ((patient.packages || []) as unknown as CardPkg[]).filter(x => x.status === 'active');
+                            const pkg = activePackages[0];
+                            const pkgLeft = pkg ? (pkg.sessionsRemaining ?? Math.max(0, (pkg.totalSessions || 0) - (pkg.sessionsDone || 0))) : null;
+                            const nextDate = patient.nextAppointment?.date || patient.nextAppointmentDate;
+                            const lastDate = p.lastAppointment?.date || patient.lastAppointmentDate || p.raw?.lastAppointment?.date;
+                            const specialty = pkg?.sessionType || p.raw?.specialty || p.nextAppointment?.specialty || p.nextAppointment?.sessionType || p.lastAppointment?.specialty || p.lastAppointment?.sessionType || patient.lastAppointment?.doctor?.specialty;
+                            const specialtyLabel = specialty ? (/^[a-z_]+$/.test(specialty) ? getSpecialtyLabel(specialty) : specialty) : null;
+                            const doctor = patient.doctorName || patient.nextAppointment?.doctor?.name || patient.lastAppointment?.doctor?.name;
+                            const saldo = patient.debt ?? 0;
+                            const convenioPending = (patient.totalPending ?? 0) - (patient.totalPendingParticular ?? 0);
+                            const daysSinceLast = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86_400_000) : null;
+                            const menuKey = `card-${patient.id}`;
+                            const isExpanded = expandedRows[patient.id];
+                            return (
+                                <li key={patient.id} className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+                                    <div className="flex items-center gap-2.5">
+                                        <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gray-100 text-sm font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                                            {patient.fullName?.charAt(0).toUpperCase()}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="flex items-center gap-1.5 truncate text-[15px] font-bold text-gray-900 dark:text-gray-50">
+                                                <span className="truncate">{patient.fullName || '-'}</span>
+                                                {patient.tags?.includes('vip') && <span className="rounded bg-amber-100 px-1.5 text-[10px] font-bold text-amber-700">VIP</span>}
+                                            </p>
+                                            <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-gray-600 dark:text-gray-400">
+                                                <span className="tabular-nums">{patient.phone || 'sem telefone'}</span>
+                                                <span aria-hidden>·</span>
+                                                <span className={`rounded-full px-1.5 text-[11px] font-semibold ${isConvenio ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300'}`}>
+                                                    {isConvenio ? (planName && planName.toLowerCase() !== 'particular' ? planName : 'Convênio') : 'Particular'}
+                                                </span>
+                                            </p>
+                                        </div>
+                                        <span className="relative">
+                                            <button type="button" aria-label="Mais ações" aria-haspopup="menu" aria-expanded={menuFor === menuKey}
+                                                onClick={(e) => { e.stopPropagation(); setMenuFor(m => (m === menuKey ? null : menuKey)); }}
+                                                className="grid h-11 w-11 place-items-center rounded-xl text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
+                                                <MoreHorizontal className="h-5 w-5" />
+                                            </button>
+                                            {menuFor === menuKey && (
+                                                <div role="menu" onClick={(e) => e.stopPropagation()}
+                                                    className="absolute right-0 top-11 z-20 min-w-[200px] rounded-xl border border-gray-200 bg-white p-1 text-left shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                                                    {patient.phone && (
+                                                        <button type="button" role="menuitem" onClick={() => { setMenuFor(null); openWhatsApp(patient.phone); }}
+                                                            className="block min-h-11 w-full rounded-lg px-3 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">Abrir WhatsApp</button>
+                                                    )}
+                                                    <button type="button" role="menuitem" onClick={() => { setMenuFor(null); onEditPatient?.(patient); }}
+                                                        className="block min-h-11 w-full rounded-lg px-3 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">Editar cadastro</button>
+                                                    <Link role="menuitem" to={`/patient-dashboard/${pid}?tab=evolucoes`} onClick={() => setMenuFor(null)}
+                                                        className="flex min-h-11 items-center rounded-lg px-3 text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">Ver evoluções</Link>
+                                                    <button type="button" role="menuitem" onClick={() => { setMenuFor(null); toggleRow(patient.id); }}
+                                                        className="block min-h-11 w-full rounded-lg px-3 text-left text-sm text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">{isExpanded ? 'Esconder números' : 'Ver números'}</button>
+                                                    {onDeletePatient && (
+                                                        <button type="button" role="menuitem" onClick={() => { setMenuFor(null); onDeletePatient(patient); }}
+                                                            className="block min-h-11 w-full rounded-lg px-3 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">Excluir paciente</button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-2.5 grid grid-cols-2 gap-2 text-[13px]">
+                                        <div className={`rounded-xl px-2.5 py-2 ${nextDate ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-amber-50 dark:bg-amber-500/10'}`}>
+                                            <p className="text-[11px] text-gray-600 dark:text-gray-400">Próxima sessão</p>
+                                            {nextDate ? (
+                                                <p className="font-semibold text-emerald-800 dark:text-emerald-300">{new Date(nextDate).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')}</p>
+                                            ) : (
+                                                <p className="font-bold text-amber-800 dark:text-amber-300">sem horário</p>
+                                            )}
+                                            <p className="truncate text-xs text-gray-600 dark:text-gray-400">
+                                                {nextDate
+                                                    ? (specialtyLabel || 'Terapia não definida') + (doctor ? ` · ${doctor}` : '')
+                                                    : daysSinceLast !== null ? `última há ${daysSinceLast} ${daysSinceLast === 1 ? 'dia' : 'dias'}` : (specialtyLabel || 'Terapia não definida')}
+                                            </p>
+                                        </div>
+                                        <div className={`rounded-xl px-2.5 py-2 ${saldo > 0 ? 'bg-red-50 dark:bg-red-500/10' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+                                            <p className="text-[11px] text-gray-600 dark:text-gray-400">Saldo</p>
+                                            {saldo > 0 ? (
+                                                <p className="font-bold tabular-nums text-red-700 dark:text-red-300">deve {brl(saldo)}</p>
+                                            ) : saldo < 0 ? (
+                                                <p className="font-semibold tabular-nums text-emerald-800 dark:text-emerald-300">crédito {brl(Math.abs(saldo))}</p>
+                                            ) : (
+                                                <p className="font-semibold text-gray-800 dark:text-gray-200">em dia</p>
+                                            )}
+                                            <p className="truncate text-xs text-gray-600 dark:text-gray-400">
+                                                {convenioPending > 0.01 ? `+${brl(convenioPending)} convênio` : pkg ? `pacote ${pkg.sessionsDone}/${pkg.totalSessions}${activePackages.length > 1 ? ` · +${activePackages.length - 1}` : ''}` : nextDate ? '' : (specialtyLabel || '')}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {pkg && pkgLeft !== null && pkgLeft <= 2 && (
+                                        <button type="button" onClick={() => openWhatsApp(patient.phone, renewalMessage({ name: patient.fullName, specialty: pkg.sessionType, remaining: pkgLeft }))}
+                                            disabled={!patient.phone}
+                                            className="mt-2 w-full rounded-xl bg-amber-50 px-3 py-2 text-left text-xs font-semibold text-amber-800 disabled:opacity-60 dark:bg-amber-500/10 dark:text-amber-300">
+                                            Pacote {pkgLeft === 0 ? 'acabou' : pkgLeft === 1 ? 'com 1 sessão restante' : 'com 2 sessões restantes'} · renovar pelo WhatsApp
+                                        </button>
+                                    )}
+
+                                    {isExpanded && (
+                                        <div className="mt-2 grid grid-cols-2 gap-2">
+                                            {[
+                                                { label: 'Atendidos', value: patient.totalCompleted ?? 0 },
+                                                { label: 'Cancelamentos', value: patient.totalCanceled ?? 0 },
+                                                { label: 'Receita total', value: brl(patient.totalRevenue ?? 0) },
+                                                { label: 'Pendente', value: (patient.totalPendingNet ?? patient.totalPending) > 0 ? brl(patient.totalPendingNet ?? patient.totalPending) : '—' },
+                                            ].map(st => (
+                                                <div key={st.label} className="rounded-xl border border-gray-200 px-2.5 py-2 dark:border-gray-700">
+                                                    <p className="text-[11px] text-gray-600 dark:text-gray-400">{st.label}</p>
+                                                    <p className="font-bold text-gray-900 dark:text-gray-50">{st.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="mt-2.5 flex gap-2">
+                                        <Link to={`/patient-dashboard/${pid}`}
+                                            className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">
+                                            Ver ficha
+                                        </Link>
+                                        {saldo > 0 && onRegisterPayment ? (
+                                            <button type="button" onClick={() => onRegisterPayment(patient)}
+                                                className="min-h-11 flex-1 rounded-xl bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800 dark:bg-emerald-500 dark:text-gray-950">Receber</button>
+                                        ) : !nextDate && patient.phone ? (
+                                            <button type="button" onClick={() => openWhatsApp(patient.phone, reactivationMessage({ name: patient.fullName, specialty }))}
+                                                className="min-h-11 flex-1 rounded-xl bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800 dark:bg-emerald-500 dark:text-gray-950">Chamar</button>
+                                        ) : (
+                                            <button type="button" onClick={() => onEditPatient?.(patient)}
+                                                className="min-h-11 flex-1 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">Editar</button>
+                                        )}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+
+                    <div className="hidden overflow-x-auto md:block">
                         <table className="w-full min-w-[640px] border-collapse text-sm">
                             <thead>
                                 <tr className="border-b border-gray-200 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">

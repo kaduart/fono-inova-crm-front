@@ -38,6 +38,7 @@ import {
 } from '../../types/calendarCapabilities';
 import { ymdSP } from '../../utils/dateFormat';
 import { toast } from '../../utils/toast';
+import { NEW_SCHEDULE_EVENT, PENDING_NEW_SCHEDULE } from '../../utils/scheduleIntent';
 /** yyyy-mm-dd na data local (as datas do FullCalendar chegam em horário local) */
 // "09:00 - 09:40" do FullCalendar; cai para o horário salvo se vier vazio
 const fmtSlimTime = (timeText?: string, fallback?: string) => (timeText || fallback || '').replace(/(\d{2}:\d{2}):\d{2}/g, '$1').trim();
@@ -2065,6 +2066,20 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         setMode(modeType);
         setOpenSchedule(true);
     };
+
+    // "Agendar sessão" do botão + no celular: abre o modal de nova sessão (ao montar ou na hora).
+    useEffect(() => {
+        if (!permissions.canCreate) return;
+        const consume = () => {
+            let pending: string | null = null;
+            try { pending = sessionStorage.getItem(PENDING_NEW_SCHEDULE); sessionStorage.removeItem(PENDING_NEW_SCHEDULE); } catch { /* sem storage */ }
+            if (pending) handleOpenSchedule(null, 'create');
+        };
+        consume();
+        window.addEventListener(NEW_SCHEDULE_EVENT, consume);
+        return () => window.removeEventListener(NEW_SCHEDULE_EVENT, consume);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [permissions.canCreate]);
 
     // "Agendar avaliação" vindo de Conversas: abre o modal já com o lead (paciente novo).
     // O lead é deixado em sessionStorage por ChatContextPanel antes de navegar para cá.

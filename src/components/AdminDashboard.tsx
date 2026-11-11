@@ -1,6 +1,7 @@
 import { Box, Typography, useTheme } from '@mui/material';
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NEW_SCHEDULE_EVENT, PENDING_NEW_SCHEDULE } from '../utils/scheduleIntent';
 import { toast } from '../utils/toast';
 import { monthEndYmd, monthStartYmd } from '../utils/dateSP';
 import { mapToCreateAppointmentDTO } from '../dtos/appointment.dto';
@@ -432,6 +433,18 @@ export default function AdminDashboard() {
         setIsModalOpen(true);
         setActiveTab('Dashboard');
     }, []);
+
+    // Botão + do celular (MobileTabBar). "Agendar" abre a Agenda já com o modal de nova sessão.
+    const mobileQuickActions = useMemo(() => ({
+        onSchedule: () => {
+            try { sessionStorage.setItem(PENDING_NEW_SCHEDULE, '1'); } catch { /* sem storage */ }
+            setActiveTab('Calendário');
+            window.dispatchEvent(new Event(NEW_SCHEDULE_EVENT));
+        },
+        onNewPatient: () => { setPatientToEdit(undefined); setIsModalOpen(true); },
+        onPayment: () => { setPaymentContext({ mode: 'create' }); setPaymentModalOpen(true); },
+        onLeads: () => setActiveTab('Leads'),
+    }), [setActiveTab]);
 
     const handleAddProfessional = useCallback(() => {
         setPatientToEdit(undefined);
@@ -1369,9 +1382,10 @@ export default function AdminDashboard() {
                 toggleMenu={toggleMenu}
                 setActiveTab={setActiveTab}
                 onLogout={handleLogout}
+                quickActions={mobileQuickActions}
             />
 
-            <main className={`w-full mx-auto px-2 sm:px-4 lg:px-8 py-3 md:py-4 overflow-x-hidden ${WIDE_TABS.has(activeTab) ? '' : 'max-w-[1600px]'}`}>
+            <main className={`w-full mx-auto px-2 sm:px-4 lg:px-8 pt-3 pb-[calc(96px+env(safe-area-inset-bottom))] md:pt-4 lg:pb-4 overflow-x-hidden ${WIDE_TABS.has(activeTab) ? '' : 'max-w-[1600px]'}`}>
 
                 {/* <div className="mb-6 flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">
