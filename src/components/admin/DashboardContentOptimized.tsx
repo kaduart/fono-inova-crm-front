@@ -20,6 +20,7 @@ import {
 } from '../../services/dashboardService';
 
 import BirthdayList, { isLateBirthday, withDaysUntil } from './BirthdayList';
+import { notifyBirthdaysChanged } from '../../hooks/useBirthdayAlert';
 import { ChurnPanel, EvaluationPanel, LeadsWaitingStrip, NextDayConfirmPanel, PackageEndingPanel, ReactivationPanel, useCommercialQueues } from '../commercial/CommercialParts';
 import PatientTable from '../patients/PatientTable';
 import { LateEvolutionsPanel, lateEvolutionsDetail, useLateEvolutions } from './LateEvolutionsPanel';
@@ -326,10 +327,10 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
                 <h2 id="precisa-de-voce" className="text-base font-bold text-gray-900 dark:text-gray-50">Precisa de você hoje</h2>
                 {visible.length > 0 && <span className="text-sm text-gray-600 dark:text-gray-400">{plural(visible.length, 'fila com pendência', 'filas com pendência')} · as mais urgentes primeiro</span>}
                 {bday && (
-                    <button type="button" onClick={bday.onClick} className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full bg-pink-50 px-3 text-sm font-semibold text-pink-700 ring-1 ring-inset ring-pink-200 hover:bg-pink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-pink-500/10 dark:text-pink-300 dark:ring-pink-500/30">
-                        <Cake size={15} aria-hidden />
-                        {bday.count} {bday.title.toLowerCase()}: {bday.detail} · {bday.cta}
-                        <ChevronRight size={15} aria-hidden />
+                    <button type="button" onClick={bday.onClick} className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-xl bg-pink-50 px-3 py-2 text-left text-sm sm:ml-auto sm:mt-0 sm:inline-flex sm:min-h-9 sm:w-auto sm:rounded-full sm:py-0 font-semibold text-pink-700 ring-1 ring-inset ring-pink-200 hover:bg-pink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-pink-500/10 dark:text-pink-300 dark:ring-pink-500/30">
+                        <Cake size={15} className="shrink-0" aria-hidden />
+                        <span className="min-w-0 flex-1">{bday.count} {bday.title.toLowerCase()}: {bday.detail} · {bday.cta}</span>
+                        <ChevronRight size={15} className="shrink-0" aria-hidden />
                     </button>
                 )}
             </div>
@@ -702,7 +703,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
 
     // Aniversariantes ficam sempre à vista (Kadu 10/11): busca logo depois da carga inicial.
     useEffect(() => { const t = setTimeout(fetchAniversariantes, 600); return () => clearTimeout(t); }, [fetchAniversariantes]);
-    const handleBirthdayMessageSent = useCallback(() => { loadAniversariantes(true); }, [loadAniversariantes]);
+    const handleBirthdayMessageSent = useCallback(() => { loadAniversariantes(true); notifyBirthdaysChanged(); }, [loadAniversariantes]);
     useEffect(() => {
         if (!aniversariantesFetched.current) return;
         const t = setTimeout(() => { loadAniversariantes(true); }, 1000);
@@ -754,31 +755,9 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
     const birthdayWeek = useMemo(() => withDaysUntil(aniversariantes).filter(a => a.daysUntil >= 0 && a.daysUntil <= 7).length, [aniversariantes]);
     const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
 
-    // Aniversariante do dia sem parabéns: a aba do navegador fica rosa com 🎂 e o título pisca
-    // quando a pessoa está em outra aba (Kadu 10/11: o comercial se distrai e o dia passa).
+    // Aniversariante do dia sem parabéns: o cartão fica em destaque. A aba do navegador (🎂 no
+    // título e no ícone) é cuidada pelo useBirthdayAlert, no cabeçalho, para valer no ERP inteiro.
     const bdayAlertCount = birthdayToday.length;
-    useEffect(() => {
-        if (!bdayAlertCount) return;
-        const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-        const prevHref = link?.href;
-        const baseTitle = document.title.replace(/^🎂 \(\d+\) /, '');
-        const alertTitle = `🎂 (${bdayAlertCount}) ${baseTitle}`;
-        const blinkTitle = bdayAlertCount === 1 ? '🎂 Aniversário hoje!' : `🎂 ${bdayAlertCount} aniversários hoje!`;
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#db2777"/><text x="32" y="45" font-size="38" text-anchor="middle">🎂</text></svg>`;
-        if (link) link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-        document.title = alertTitle;
-        let on = false;
-        const timer = window.setInterval(() => {
-            if (!document.hidden) { if (document.title !== alertTitle) document.title = alertTitle; return; }
-            on = !on;
-            document.title = on ? blinkTitle : alertTitle;
-        }, 1500);
-        return () => {
-            window.clearInterval(timer);
-            document.title = baseTitle;
-            if (link && prevHref) link.href = prevHref;
-        };
-    }, [bdayAlertCount]);
 
     const tomorrowYmd = localDay(new Date(Date.now() + 86400000));
     const nextDayPending = commercial.nextDay ? commercial.nextDay.total - commercial.nextDay.confirmed : 0;

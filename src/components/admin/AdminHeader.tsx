@@ -5,19 +5,16 @@ import {
     ChevronDown,
     ClipboardList,
     CalendarDays,
-    Clock,
     DollarSign,
     Eye,
     Gauge,
     Home,
     LogOut,
-    Menu,
     MessageCircle,
     Search,
     Stethoscope,
     User,
     Users,
-    X,
     Wallet,
     ShieldCheck,
 } from "lucide-react";
@@ -33,6 +30,8 @@ import NavDropdownItem from "../ui/NavDropdownItem";
 import CommandPalette, { useCommandPaletteHotkey, type CommandItem } from "../ui/CommandPalette";
 import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
 import { WhatsAppNotificationButton } from "../notifications/WhatsAppNotificationButton";
+import { useBirthdayAlert } from "../../hooks/useBirthdayAlert";
+import MobileTabBar, { type MobileQuickActions } from "./MobileTabBar";
 
 interface AdminHeaderProps {
     activeTab: string;
@@ -42,38 +41,55 @@ interface AdminHeaderProps {
     toggleMenu: (menuName: string) => void;
     setActiveTab: (tab: string) => void;
     onLogout?: () => void;
+    /** Ações do botão + no celular (ver MobileTabBar). */
+    quickActions?: MobileQuickActions;
 }
 
-// Item do menu mobile (fundo esmeralda escuro) — extraído porque os ~10 itens
-// abaixo eram botões repetidos com o mesmo miolo de classes/ternário.
-// Estilo próprio (não é NavButton/NavDropdownItem): esses assumem fundo claro
-// e ativo em tint suave (emerald-100/700); aqui o fundo já é esmeralda sólido,
-// então o ativo precisa de contraste forte (emerald-600/branco) — reusar os
-// componentes de nav claros deixaria o item ativo quase invisível no mobile.
+// Item do menu "Mais" no celular (mock aprovado 11/11): fundo claro, ícone numa cor só,
+// verde só no item ativo. Altura mínima de 48px para o dedo.
 const MobileNavItem = ({
     active,
     onClick,
     icon,
     children,
     badge,
-    indent = false,
+    hint,
 }: {
     active: boolean;
     onClick: () => void;
     icon: React.ReactNode;
     children: React.ReactNode;
     badge?: React.ReactNode;
-    indent?: boolean;
+    hint?: string;
 }) => (
     <button
+        type="button"
         onClick={onClick}
-        className={`flex items-center gap-3 w-full ${indent ? 'px-6' : 'px-4'} py-3 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-emerald-600 text-white' : 'text-emerald-100 hover:bg-emerald-700'
-            }`}
+        aria-current={active ? 'page' : undefined}
+        className={`flex min-h-12 w-full items-center gap-3 border-t border-gray-100 px-4 text-left text-[15px] transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:border-gray-800 ${active
+            ? 'bg-emerald-50 font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+            : 'text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800/60'}`}
     >
-        {icon}
-        <span className="flex-1 text-left">{children}</span>
+        <span aria-hidden className={`shrink-0 ${active ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>{icon}</span>
+        <span className="min-w-0 flex-1">
+            <span className="block truncate">{children}</span>
+            {hint && <span className="block truncate text-xs font-normal text-gray-500 dark:text-gray-400">{hint}</span>}
+        </span>
         {badge}
     </button>
+);
+
+// Grupo do menu "Mais" que abre e fecha; mostra quantos itens tem quando fechado.
+const MobileNavGroup = ({ title, open, onToggle, count, children }: { title: string; open: boolean; onToggle: () => void; count: number; children: React.ReactNode }) => (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-900 dark:ring-gray-800">
+        <button type="button" onClick={onToggle} aria-expanded={open}
+            className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:text-gray-400">
+            <span className="flex-1">{title}</span>
+            {!open && <span className="text-xs font-medium normal-case tracking-normal">{count} {count === 1 ? 'item' : 'itens'}</span>}
+            <ChevronDown size={18} aria-hidden className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && <div className="border-t border-gray-100 dark:border-gray-800">{children}</div>}
+    </section>
 );
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -84,6 +100,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     toggleMenu,
     setActiveTab,
     onLogout,
+    quickActions,
 }) => {
     const navigate = useNavigate();
     const { logout: authLogout, user: authUser } = useAuth();
@@ -93,6 +110,11 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const opCounts       = useOperationalCounts();
     const retentionAlert = useRetentionAlert();
+    const birthdayPending = useBirthdayAlert();
+    // Grupos do menu "Mais" no celular: abre o grupo da tela atual; Sistema começa fechado.
+    const [mobileGroups, setMobileGroups] = useState<Record<string, boolean>>({ gestao: true, vendas: true, sistema: false });
+    const toggleGroup = (k: string) => setMobileGroups(g => ({ ...g, [k]: !g[k] }));
+    useEffect(() => { setIsMobileMenuOpen(false); }, [activeTab]);
 
     const [cmdkOpen, setCmdkOpen] = useState(false);
     const openCmdk = React.useCallback(() => setCmdkOpen(true), []);
@@ -445,16 +467,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <NovidadesCenter area="admin" activeTab={activeTab} />
                         <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
 
-                        {/* Hamburguer - mobile */}
-                        <button
-                            type="button"
-                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className={`${HEADER_ICON_BUTTON_CLASS} lg:hidden`}
-                            aria-label="Menu"
-                            aria-expanded={isMobileMenuOpen}
-                        >
-                            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-                        </button>
 
                         {/* Perfil - desktop */}
                         <div className="relative hidden lg:block" ref={profileRef}>
@@ -516,177 +528,73 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                     </div>
                 </div>
 
-                {/* Menu Mobile - refinado */}
+                {/* Menu "Mais" no celular (mock aprovado 11/11): grupos que abrem e fecham, ícones numa
+                    cor só, sem e-mail na tela. Abre pela barra de baixo (MobileTabBar). */}
                 {isMobileMenuOpen && (
-                    <div className="lg:hidden border-t border-emerald-600 mt-3 pt-3 pb-2 space-y-1">
-                        <div className="px-3 py-2 bg-emerald-800/30 rounded-lg mb-2">
-                            <p className="text-xs text-emerald-200 font-medium">
-                                Olá, {adminInfo?.fullName?.split(' ')[0] || "Admin"}
-                            </p>
-                            <p className="text-xs text-emerald-300 truncate">{adminInfo?.email || ""}</p>
-                        </div>
+                    <div className="absolute inset-x-0 top-full h-[calc(100dvh-100%)] overflow-y-auto bg-gray-100 px-3 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3 text-left text-gray-900 lg:hidden dark:bg-gray-950 dark:text-gray-100">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-900 dark:ring-gray-800">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-sm font-bold text-amber-950">{adminInfo?.fullName?.charAt(0) || 'A'}</span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[15px] font-bold">{adminInfo?.fullName?.split(' ')[0] || 'Admin'}</span>
+                                    <span className="block text-xs text-gray-600 dark:text-gray-400">{adminInfo?.role === 'admin' || !adminInfo?.role ? 'Administrador' : adminInfo.role}</span>
+                                </span>
+                                <button type="button" onClick={() => { setActiveTab('Profile'); setIsMobileMenuOpen(false); }}
+                                    className="min-h-11 rounded-xl px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">Meu perfil</button>
+                            </div>
 
-                        <MobileNavItem
-                            active={activeTab === "Dashboard"}
-                            onClick={() => handleMobileTabChange("Dashboard")}
-                            icon={<Home size={18} className="text-blue-400" />}
-                        >
-                            Dashboard
-                        </MobileNavItem>
+                            <MobileNavGroup title="Gestão e financeiro" open={mobileGroups.gestao} onToggle={() => toggleGroup('gestao')} count={isAdmin ? 5 : 4}>
+                                <MobileNavItem active={activeTab === "Add Profissional"} onClick={() => handleMobileTabChange("Add Profissional")} icon={<Stethoscope size={20} />}>Profissionais</MobileNavItem>
+                                {isAdmin && <MobileNavItem active={activeTab === "Add Secretária"} onClick={() => handleMobileTabChange("Add Secretária")} icon={<User size={20} />}>Secretárias</MobileNavItem>}
+                                <MobileNavItem active={activeTab === "Convenios"} onClick={() => handleMobileTabChange("Convenios")} icon={<ShieldCheck size={20} />}>Convênios</MobileNavItem>
+                                <MobileNavItem active={activeTab === "Financeiro"} onClick={() => handleMobileTabChange("Financeiro")} icon={<DollarSign size={20} />} hint="Despesas, NFSe, resultados, repasse e metas">Financeiro</MobileNavItem>
+                                <MobileNavItem active={activeTab === "Mensagens"} onClick={() => handleMobileTabChange("Mensagens")} icon={<MessageCircle size={20} />} hint="Conversas com as famílias">WhatsApp</MobileNavItem>
+                            </MobileNavGroup>
 
-                        <div className="space-y-1">
-                            <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Gestão</p>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "Add Profissional"}
-                                onClick={() => handleMobileTabChange("Add Profissional")}
-                                icon={<Stethoscope size={18} className="text-purple-400" />}
-                            >
-                                Profissionais
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "Add Paciente"}
-                                onClick={() => handleMobileTabChange("Add Paciente")}
-                                icon={<Users size={18} className="text-blue-400" />}
-                            >
-                                Pacientes
-                            </MobileNavItem>
-                            <MobileNavItem
-                                active={activeTab === "Calendário"}
-                                onClick={() => handleMobileTabChange("Calendário")}
-                                icon={<Clock size={18} className="text-amber-400" />}
-                            >
-                                Agenda
-                            </MobileNavItem>
-                            <MobileNavItem
-                                active={activeTab === "Caixa"}
-                                onClick={() => handleMobileTabChange("Caixa")}
-                                icon={<Wallet size={18} className="text-green-400" />}
-                            >
-                                Caixa
-                            </MobileNavItem>
-                            <MobileNavItem
-                                active={activeTab === "Convenios"}
-                                onClick={() => handleMobileTabChange("Convenios")}
-                                icon={<ShieldCheck size={18} className="text-cyan-300" />}
-                            >
-                                Convênios
-                            </MobileNavItem>
-                            <MobileNavItem
-                                active={activeTab === "Financeiro"}
-                                onClick={() => handleMobileTabChange("Financeiro")}
-                                icon={<DollarSign size={18} className="text-green-400" />}
-                            >
-                                Financeiro
-                            </MobileNavItem>
-                        </div>
+                            <MobileNavGroup title="Vendas e marketing" open={mobileGroups.vendas} onToggle={() => toggleGroup('vendas')} count={6}>
+                                <MobileNavItem
+                                    active={activeTab === "Leads"}
+                                    onClick={() => handleMobileTabChange("Leads")}
+                                    icon={<Users size={20} />}
+                                    badge={opCounts.total > 0 && (
+                                        <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">{opCounts.total}</span>
+                                    )}
+                                >
+                                    Leads e follow-up
+                                </MobileNavItem>
+                                <MobileNavItem active={activeTab === "InteresseConvenios"} onClick={() => handleMobileTabChange("InteresseConvenios")} icon={<ClipboardList size={20} />}>Interesse em convênios</MobileNavItem>
+                                <MobileNavItem active={activeTab === "Conversao"} onClick={() => handleMobileTabChange("Conversao")} icon={<Gauge size={20} />}>Inteligência de conversão</MobileNavItem>
+                                <MobileNavItem active={activeTab === "ROI"} onClick={() => handleMobileTabChange("ROI")} icon={<DollarSign size={20} />}>ROI e atribuição</MobileNavItem>
+                                <MobileNavItem active={activeTab === "Analytics"} onClick={() => handleMobileTabChange("Analytics")} icon={<Activity size={20} />}>Analytics do site</MobileNavItem>
+                                <MobileNavItem active={activeTab === "SocialMedia"} onClick={() => handleMobileTabChange("SocialMedia")} icon={<Activity size={20} />}>Social media</MobileNavItem>
+                            </MobileNavGroup>
 
-                        <div className="space-y-1">
-                            <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Vendas & Marketing</p>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "Leads"}
-                                onClick={() => handleMobileTabChange("Leads")}
-                                icon={<Users size={18} className="text-cyan-400" />}
-                                badge={opCounts.total > 0 && (
-                                    <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                                        {opCounts.total}
-                                    </span>
-                                )}
-                            >
-                                Leads & Follow-up
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "InteresseConvenios"}
-                                onClick={() => handleMobileTabChange("InteresseConvenios")}
-                                icon={<ClipboardList size={18} className="text-emerald-300" />}
-                            >
-                                Interesse em Convênios
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "SocialMedia"}
-                                onClick={() => handleMobileTabChange("SocialMedia")}
-                                icon={<Activity size={18} className="text-pink-400" />}
-                            >
-                                Social Media
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "Analytics"}
-                                onClick={() => handleMobileTabChange("Analytics")}
-                                icon={<Activity size={18} className="text-indigo-400" />}
-                            >
-                                Analytics do Site
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "ROI"}
-                                onClick={() => handleMobileTabChange("ROI")}
-                                icon={<DollarSign size={18} className="text-green-400" />}
-                            >
-                                ROI & Atribuição
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "Conversao"}
-                                onClick={() => handleMobileTabChange("Conversao")}
-                                icon={<Gauge size={18} className="text-teal-400" />}
-                            >
-                                Inteligência de Conversão
-                            </MobileNavItem>
-                            <MobileNavItem
-                                active={activeTab === "Mensagens"}
-                                onClick={() => handleMobileTabChange("Mensagens")}
-                                icon={<MessageCircle size={18} className="text-emerald-400" />}
-                            >
-                                WhatsApp
-                            </MobileNavItem>
-                        </div>
+                            <MobileNavGroup title="Sistema" open={mobileGroups.sistema || isSistemaActive} onToggle={() => toggleGroup('sistema')} count={3}>
+                                <MobileNavItem active={activeTab === "Sistema"} onClick={() => handleMobileTabChange("Sistema")} icon={<Activity size={20} />} hint="Observabilidade, eventos e health">Sistema</MobileNavItem>
+                                <MobileNavItem active={activeTab === "AmandaMetrics"} onClick={() => handleMobileTabChange("AmandaMetrics")} icon={<MessageCircle size={20} />}>Amanda AI</MobileNavItem>
+                                <MobileNavItem active={activeTab === "WhatsApp"} onClick={() => handleMobileTabChange("WhatsApp")} icon={<MessageCircle size={20} />} hint="QR code, status e reconexão">WhatsApp conexão</MobileNavItem>
+                            </MobileNavGroup>
 
-                        <div className="space-y-1">
-                            <p className="px-4 pt-2 pb-1 text-xs text-emerald-300 font-semibold uppercase tracking-wide">Sistema</p>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "Sistema"}
-                                onClick={() => handleMobileTabChange("Sistema")}
-                                icon={<Activity size={18} className="text-orange-400" />}
-                            >
-                                Sistema
-                            </MobileNavItem>
-                            <MobileNavItem
-                                indent
-                                active={activeTab === "AmandaMetrics"}
-                                onClick={() => handleMobileTabChange("AmandaMetrics")}
-                                icon={<MessageCircle size={18} className="text-emerald-400" />}
-                            >
-                                Amanda AI
-                            </MobileNavItem>
-                        </div>
-
-                        <div className="border-t border-emerald-600 mt-2 pt-2">
-                            <MobileNavItem
-                                active={false}
-                                onClick={() => {
-                                    setActiveTab("Profile");
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                icon={<User size={18} className="text-emerald-300" />}
-                            >
-                                Meu Perfil
-                            </MobileNavItem>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors"
-                            >
-                                <LogOut size={18} /> Sair do Sistema
+                            <button type="button" onClick={handleLogout}
+                                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[15px] font-semibold text-red-700 shadow-sm ring-1 ring-gray-200/70 hover:bg-red-50 dark:bg-gray-900 dark:text-red-400 dark:ring-gray-800 dark:hover:bg-red-500/10">
+                                <LogOut size={18} aria-hidden /> Sair do sistema
                             </button>
                         </div>
                     </div>
                 )}
             </div>
+            <MobileTabBar
+                activeTab={activeTab}
+                moreOpen={isMobileMenuOpen}
+                onTab={(tab) => { setIsMobileMenuOpen(false); handleTabChange(tab); }}
+                onToggleMore={() => setIsMobileMenuOpen(v => !v)}
+                birthdayPending={birthdayPending}
+                leadsCount={opCounts.total}
+                onSchedule={quickActions?.onSchedule}
+                onNewPatient={quickActions?.onNewPatient}
+                onPayment={quickActions?.onPayment}
+                onLeads={quickActions?.onLeads ?? (() => handleTabChange('Leads'))}
+            />
         <CommandPalette open={cmdkOpen} onClose={() => setCmdkOpen(false)} items={cmdItems} />
             </header>
     );
