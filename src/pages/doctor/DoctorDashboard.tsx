@@ -600,7 +600,7 @@ export default function DoctorDashboard() {
         onLogout={handleLogout}
       />
 
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 pt-6 pb-[calc(96px+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
         {isStaffViewer && <DoctorViewPicker value={doctorId} onChange={(d) => selectViewDoctor(d)} />}
         {/* Dashboard tem painéis próprios: sem o card externo (evita card dentro de card) */}
         <div className={activeTab === 'overview' || activeTab === 'therapy' || activeTab === 'insights' || (activeTab === 'patients' && viewMode !== 'detail') ? '' : 'bg-white rounded-2xl border border-gray-200 shadow-sm'}>

@@ -31,7 +31,7 @@ import CommandPalette, { useCommandPaletteHotkey, type CommandItem } from "../ui
 import { NotificationBellFixed } from "../notifications/NotificationBellFixed";
 import { WhatsAppNotificationButton } from "../notifications/WhatsAppNotificationButton";
 import { useBirthdayAlert } from "../../hooks/useBirthdayAlert";
-import MobileTabBar, { type MobileQuickActions } from "./MobileTabBar";
+import MobileTabBar, { MobileNavGroup, MobileNavItem, type MobileQuickActions } from "./MobileTabBar";
 
 interface AdminHeaderProps {
     activeTab: string;
@@ -44,53 +44,6 @@ interface AdminHeaderProps {
     /** Ações do botão + no celular (ver MobileTabBar). */
     quickActions?: MobileQuickActions;
 }
-
-// Item do menu "Mais" no celular (mock aprovado 11/11): fundo claro, ícone numa cor só,
-// verde só no item ativo. Altura mínima de 48px para o dedo.
-const MobileNavItem = ({
-    active,
-    onClick,
-    icon,
-    children,
-    badge,
-    hint,
-}: {
-    active: boolean;
-    onClick: () => void;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-    badge?: React.ReactNode;
-    hint?: string;
-}) => (
-    <button
-        type="button"
-        onClick={onClick}
-        aria-current={active ? 'page' : undefined}
-        className={`flex min-h-12 w-full items-center gap-3 border-t border-gray-100 px-4 text-left text-[15px] transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:border-gray-800 ${active
-            ? 'bg-emerald-50 font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
-            : 'text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-800/60'}`}
-    >
-        <span aria-hidden className={`shrink-0 ${active ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>{icon}</span>
-        <span className="min-w-0 flex-1">
-            <span className="block truncate">{children}</span>
-            {hint && <span className="block truncate text-xs font-normal text-gray-500 dark:text-gray-400">{hint}</span>}
-        </span>
-        {badge}
-    </button>
-);
-
-// Grupo do menu "Mais" que abre e fecha; mostra quantos itens tem quando fechado.
-const MobileNavGroup = ({ title, open, onToggle, count, children }: { title: string; open: boolean; onToggle: () => void; count: number; children: React.ReactNode }) => (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-900 dark:ring-gray-800">
-        <button type="button" onClick={onToggle} aria-expanded={open}
-            className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:text-gray-400">
-            <span className="flex-1">{title}</span>
-            {!open && <span className="text-xs font-medium normal-case tracking-normal">{count} {count === 1 ? 'item' : 'itens'}</span>}
-            <ChevronDown size={18} aria-hidden className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-        {open && <div className="border-t border-gray-100 dark:border-gray-800">{children}</div>}
-    </section>
-);
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
     activeTab,

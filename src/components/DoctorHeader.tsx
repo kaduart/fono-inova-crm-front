@@ -1,5 +1,5 @@
 // src/pages/doctor/components/DoctorHeader.tsx
-import HeaderNavButton, { HeaderBrand, HEADER_ICON_BUTTON_CLASS, HEADER_SHELL_CLASS } from './ui/HeaderNavButton';
+import HeaderNavButton, { HeaderBrand, HEADER_SHELL_CLASS } from './ui/HeaderNavButton';
 import ThemeToggle from './common/ThemeToggle';
 import NovidadesCenter from './novidades/NovidadesCenter';
 import {
@@ -9,12 +9,11 @@ import {
     DollarSign,
     Home,
     LogOut,
-    Menu,
     Stethoscope,
     Users,
-    X
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import MobileTabBar, { MobileNavGroup, MobileNavItem, type MobileTab } from "./admin/MobileTabBar";
 import { BsSoundwave } from "react-icons/bs";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -31,6 +30,14 @@ const SPECIALTY_LABEL: Record<string, string> = {
     terapia_ocupacional: 'Terapeuta ocupacional', fisioterapia: 'Fisioterapeuta', musicoterapia: 'Musicoterapeuta',
 };
 
+// Barra de baixo no celular (mesmo estilo do admin, mock aprovado 11/11).
+const DOCTOR_TABS: MobileTab[] = [
+    { key: 'overview', label: 'Início', icon: Home, match: ['overview'] },
+    { key: 'appointments', label: 'Agenda', icon: Calendar, match: ['appointments'] },
+    { key: 'patients', label: 'Pacientes', icon: Users, match: ['patients'] },
+    { key: 'therapy', label: 'Evolução', icon: Stethoscope, match: ['therapy'] },
+];
+
 const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     doctorInfo,
     activeTab,
@@ -43,6 +50,8 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const [openMenu, setOpenMenu] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [moreGroupOpen, setMoreGroupOpen] = useState(true);
+    useEffect(() => { setIsMobileMenuOpen(false); }, [activeTab]);
 
     const handleLogout = async () => {
         await authLogout();
@@ -164,15 +173,6 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                     <div className="flex shrink-0 items-center gap-1.5">
                         <NovidadesCenter area="doctor" activeTab={activeTab} />
                         <ThemeToggle className="!h-10 !w-10 !rounded-[11px] border border-white/15 !bg-white/[0.08] hover:!bg-white/15" />
-                        {/* Hamburguer - só no mobile */}
-                        <button
-                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className={`${HEADER_ICON_BUTTON_CLASS} lg:hidden`}
-                            aria-label="Menu" aria-expanded={isMobileMenuOpen}
-                        >
-                            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-                        </button>
-
                     <div className="relative">
                         <button
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
@@ -224,37 +224,41 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                     </div>{/* fecha flex items-center gap-2 */}
                 </div>
 
-                {/* Menu Mobile */}
+                {/* Menu "Mais" no celular: mesmo estilo do admin (cartão do usuário, grupo recolhível,
+                    ícones numa cor só). Abre pela barra de baixo. */}
                 {isMobileMenuOpen && (
-                    <div className="lg:hidden border-t border-emerald-600 pt-3 mt-3 pb-2 space-y-1">
-                        <button onClick={() => handleMobileTabChange("overview")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "overview" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                            <Home size={18} className="text-blue-400" /> Dashboard
-                        </button>
-                        <button onClick={() => handleMobileTabChange("patients")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "patients" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                            <Users size={18} className="text-purple-400" /> Pacientes
-                        </button>
-                        <button onClick={() => handleMobileTabChange("therapy")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "therapy" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                            <Stethoscope size={18} className="text-green-400" /> Evolução
-                        </button>
-                        <button onClick={() => handleMobileTabChange("appointments")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "appointments" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                            <Calendar size={18} className="text-amber-400" /> Agenda
-                        </button>
-                        <button onClick={() => handleMobileTabChange("insights")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "insights" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                            <BarChart2 size={18} className="text-cyan-400" /> Insights
-                        </button>
-                        {isPrivate && (
-                            <button onClick={() => handleMobileTabChange("financial")} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "financial" ? "bg-emerald-600 text-white" : "text-white hover:bg-emerald-700"}`}>
-                                <DollarSign size={18} className="text-amber-400" /> Financeiro
-                            </button>
-                        )}
-                        <div className="border-t border-emerald-600 mt-2 pt-2">
-                            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-900/30 transition-colors">
-                                <LogOut size={18} /> Sair do Sistema
+                    <div className="absolute inset-x-0 top-full h-[calc(100dvh-100%)] overflow-y-auto bg-gray-100 px-3 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3 text-left text-gray-900 lg:hidden dark:bg-gray-950 dark:text-gray-100">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-900 dark:ring-gray-800">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-sm font-bold text-amber-950">{doctorInfo?.fullName?.charAt(0) || 'T'}</span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[15px] font-bold">{doctorInfo?.fullName || 'Terapeuta'}</span>
+                                    <span className="block text-xs text-gray-600 dark:text-gray-400">{SPECIALTY_LABEL[doctorInfo?.specialty] || doctorInfo?.specialty || 'Terapeuta'}</span>
+                                </span>
+                            </div>
+
+                            <MobileNavGroup title="Mais telas" open={moreGroupOpen} onToggle={() => setMoreGroupOpen(v => !v)} count={isPrivate ? 2 : 1}>
+                                <MobileNavItem active={activeTab === "insights"} onClick={() => handleMobileTabChange("insights")} icon={<BarChart2 size={20} />} hint="Seus números do mês">Insights</MobileNavItem>
+                                {isPrivate && <MobileNavItem active={activeTab === "financial"} onClick={() => handleMobileTabChange("financial")} icon={<DollarSign size={20} />}>Financeiro</MobileNavItem>}
+                            </MobileNavGroup>
+
+                            <button type="button" onClick={handleLogout}
+                                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-[15px] font-semibold text-red-700 shadow-sm ring-1 ring-gray-200/70 hover:bg-red-50 dark:bg-gray-900 dark:text-red-400 dark:ring-gray-800 dark:hover:bg-red-500/10">
+                                <LogOut size={18} aria-hidden /> Sair do sistema
                             </button>
                         </div>
                     </div>
                 )}
             </div>
+            <MobileTabBar
+                tabs={DOCTOR_TABS}
+                activeTab={activeTab}
+                moreOpen={isMobileMenuOpen}
+                onTab={(tab) => { setIsMobileMenuOpen(false); handleTabChange(tab); }}
+                onToggleMore={() => setIsMobileMenuOpen(v => !v)}
+                birthdayPending={0}
+                leadsCount={0}
+            />
         </header>
     );
 };
