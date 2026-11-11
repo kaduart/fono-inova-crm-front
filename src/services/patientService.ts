@@ -214,11 +214,14 @@ export const patientService = {
   /** Inativa (com motivo da lista) ou reativa o paciente. Só recepção e admin. */
   async setStatus(
     id: string,
-    payload: { status: 'active' | 'inactive'; reason?: string; note?: string }
-  ): Promise<{ futureAppointments: number | null }> {
+    payload: { status: 'active' | 'inactive'; reason?: string; note?: string; cancelFutureAppointments?: boolean }
+  ): Promise<{ futureAppointments: number | null; canceledFutureAppointments: number }> {
     const response = await API.patch(`/v2/patients/${id}/status`, payload);
     const data = response.data?.data || {};
-    return { futureAppointments: typeof data.futureAppointments === 'number' ? data.futureAppointments : null };
+    return {
+      futureAppointments: typeof data.futureAppointments === 'number' ? data.futureAppointments : null,
+      canceledFutureAppointments: typeof data.canceledFutureAppointments === 'number' ? data.canceledFutureAppointments : 0,
+    };
   },
 
   async delete(

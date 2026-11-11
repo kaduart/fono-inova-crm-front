@@ -8,21 +8,23 @@ interface Props {
   /** Texto da próxima sessão ainda agendada, se houver (ex.: "12/11 às 10:40"). */
   nextSessionLabel?: string | null;
   loading?: boolean;
-  onConfirm: (reason: PatientInactivationReason, note: string) => void;
+  onConfirm: (reason: PatientInactivationReason, note: string, cancelFutureAppointments: boolean) => void;
   onClose: () => void;
 }
 
 /**
  * Inativar paciente com motivo (Kadu, 09/11/2026). O motivo é obrigatório e
  * vem de uma lista fixa para dar para filtrar depois (campanhas de retorno).
- * Não cancela a agenda: só avisa se ainda há sessão marcada.
+ * 11/11/2026: por padrão cancela as sessões futuras junto (paciente inativo
+ * continuava na agenda). Dá para desmarcar e manter a agenda.
  */
 export default function PatientInactivateModal({ open, patientName, nextSessionLabel, loading = false, onConfirm, onClose }: Props) {
   const [reason, setReason] = useState<PatientInactivationReason | ''>('');
   const [note, setNote] = useState('');
+  const [cancelFuture, setCancelFuture] = useState(true);
   if (!open) return null;
 
-  const close = () => { if (!loading) { setReason(''); setNote(''); onClose(); } };
+  const close = () => { if (!loading) { setReason(''); setNote(''); setCancelFuture(true); onClose(); } };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={close}>
@@ -64,11 +66,18 @@ export default function PatientInactivateModal({ open, patientName, nextSessionL
           className="mb-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
 
-        {nextSessionLabel && (
-          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-            Ainda tem sessão marcada ({nextSessionLabel}). A agenda não é cancelada sozinha: cancele pela agenda se for o caso.
-          </p>
-        )}
+        <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+          <input
+            type="checkbox"
+            checked={cancelFuture}
+            onChange={(e) => setCancelFuture(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-emerald-600"
+          />
+          <span>
+            <span className="font-semibold">Cancelar as sessões futuras da agenda</span>
+            {nextSessionLabel ? ` (a próxima é ${nextSessionLabel})` : ''}. Desmarque só se ele ainda vai vir.
+          </span>
+        </label>
 
         <div className="flex gap-3">
           <button type="button" onClick={close} disabled={loading} className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
@@ -77,7 +86,7 @@ export default function PatientInactivateModal({ open, patientName, nextSessionL
           <button
             type="button"
             disabled={!reason || loading}
-            onClick={() => reason && onConfirm(reason, note.trim())}
+            onClick={() => reason && onConfirm(reason, note.trim(), cancelFuture)}
             className="flex-1 rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Inativando…' : 'Inativar'}
