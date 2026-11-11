@@ -1169,12 +1169,18 @@ export default function PatientDashboard() {
   };
 
   const statusPatientId = String(piLoose?.patientId || patientId || '');
-  const handleInactivate = async (reason: string, note: string) => {
+  const handleInactivate = async (reason: string, note: string, cancelFutureAppointments: boolean) => {
     if (!statusPatientId) return;
     setStatusSaving(true);
     try {
-      const { futureAppointments } = await patientService.setStatus(statusPatientId, { status: 'inactive', reason, note });
-      toast.success(futureAppointments ? `Paciente inativado. Ainda há ${futureAppointments} sessão(ões) marcada(s) na agenda.` : 'Paciente inativado');
+      const { futureAppointments, canceledFutureAppointments } = await patientService.setStatus(statusPatientId, {
+        status: 'inactive', reason, note, cancelFutureAppointments,
+      });
+      if (canceledFutureAppointments) {
+        toast.success(`Paciente inativado e ${canceledFutureAppointments} sessão(ões) futura(s) cancelada(s).`);
+      } else {
+        toast.success(futureAppointments ? `Paciente inativado. Ainda há ${futureAppointments} sessão(ões) marcada(s) na agenda.` : 'Paciente inativado');
+      }
       setShowInactivate(false);
       await fetchPatientProfile();
     } catch (err: unknown) {
