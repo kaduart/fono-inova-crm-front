@@ -261,9 +261,9 @@ export const NotificationBellFixed: React.FC = () => {
               />
             )}
             {loading && lista.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center' }}>Carregando...</div>
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--fx-gray-600)' }}>Carregando...</div>
             ) : lista.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--fx-gray-600)' }}>
                 {aba === 'site' ? <Globe size={36} style={{ opacity: 0.3, marginBottom: '10px' }} /> : <Bell size={36} style={{ opacity: 0.3, marginBottom: '10px' }} />}
                 <p>{aba === 'site' ? 'Ninguém agendou pelo site ainda' : 'Nenhum pré-agendamento do comercial'}</p>
               </div>
@@ -285,7 +285,7 @@ export const NotificationBellFixed: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-                      <strong style={{ color: '#111' }}>
+                      <strong style={{ color: 'var(--fx-gray-900)' }}>
                         {nomeDe(p)}
                         {novo && <span style={{ color: '#ef4444', marginLeft: '8px', fontSize: '11px' }}>● NOVO</span>}
                       </strong>
@@ -293,11 +293,11 @@ export const NotificationBellFixed: React.FC = () => {
                         <span style={{ fontSize: '11px', color: 'var(--fx-gray-500)', whiteSpace: 'nowrap' }}>marcou {haQuanto(p.createdAt)}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--fx-gray-600)' }}>
                       {[especialidade(p), quando(p), p.doctor?.fullName].filter(Boolean).join(' · ')}
                     </div>
                     {aba === 'site' && p.mainComplaint && (
-                      <div style={{ fontSize: '12px', color: '#555', marginTop: '3px', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--fx-gray-600)', marginTop: '3px', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         Queixa: {p.mainComplaint}
                       </div>
                     )}
