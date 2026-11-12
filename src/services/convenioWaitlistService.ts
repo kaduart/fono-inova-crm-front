@@ -80,6 +80,8 @@ export interface BulkSendBody {
   kind: BulkSendKind;
   convenio?: WaitlistConvenio | '';
   especialidades?: string;
+  /** Nome de quem assina a mensagem de "Retomar contato" ("Aqui é a [Atendente]") */
+  atendente?: string;
   confirm?: boolean;
 }
 
@@ -185,6 +187,15 @@ export const convenioWaitlistApi = {
       ...body,
       convenio: body.convenio || undefined,
     });
+    return data;
+  },
+
+  /** Envio individual pelo WhatsApp da clínica (fila do back, não abre o wa.me). confirm=false só devolve o texto pronto. */
+  sendWhatsapp: async (
+    id: string,
+    body: { kind: BulkSendKind; message?: string; especialidades?: string; atendente?: string; confirm?: boolean },
+  ): Promise<{ message?: string; sent: boolean; jobId?: string }> => {
+    const { data } = await api.post<{ message?: string; sent: boolean; jobId?: string }>(`/convenio-waitlist/${id}/whatsapp`, body);
     return data;
   },
 

@@ -42,6 +42,7 @@ import {
 } from '@mui/material';
 import { Campaign, EditNote, FileDownload, LocalOffer, ManageSearch, Refresh, Search, WhatsApp } from '@mui/icons-material';
 import ConvenioBulkSendDialog from './ConvenioBulkSendDialog';
+import ConvenioSendDialog from './ConvenioSendDialog';
 import { toast } from '../../utils/toast';
 import useConvenioWaitlist from '../../hooks/useConvenioWaitlist';
 import convenioWaitlistApi, {
@@ -57,8 +58,6 @@ import convenioWaitlistApi, {
 import { brl, KpiStrip } from '../Financial/components/finUi';
 import {
   buildWaitlistCsv,
-  buildWhatsAppUrl,
-  buildPrivateOfferUrl,
   CONVENIO_OPTIONS,
   convenioLabel,
   csvFileName,
@@ -159,6 +158,7 @@ const ConvenioInteressePage = () => {
   const [scanMenuAnchor, setScanMenuAnchor] = useState<HTMLElement | null>(null);
   const [startingScan, setStartingScan] = useState(false);
   const [bulkKind, setBulkKind] = useState<BulkSendKind | null>(null);
+  const [sendTarget, setSendTarget] = useState<WaitlistEntry | null>(null);
   const [deepRun, setDeepRun] = useState<WhatsappDeepScanRun | null>(null);
   const deepStatusSeen = useRef<WhatsappScanRun['status'] | null>(null);
   const deepCreatedSeen = useRef<number>(0);
@@ -517,35 +517,18 @@ const ConvenioInteressePage = () => {
           Contatado
         </Button>
       )}
-      {(entry.status === 'aguardando' || entry.status === 'contatado') && (
-        <Tooltip title="Oferecer o particular enquanto o convênio não sai (mensagem com valor antes do preço)">
-          <Button
-            size="small"
-            variant="outlined"
-            color="success"
-            component="a"
-            href={buildPrivateOfferUrl(entry)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => { if (entry.status === 'aguardando') changeStatus(entry, 'contatado'); }}
-            sx={{ mr: 0.5, whiteSpace: 'nowrap' }}
-          >
-            Oferecer particular
-          </Button>
-        </Tooltip>
-      )}
-      <Tooltip title="Abrir WhatsApp com mensagem pronta">
-        <IconButton
+      <Tooltip title="Enviar pelo WhatsApp da clínica (retomar contato ou avisar que agora atendemos). Não abre outra página.">
+        <Button
           size="small"
+          variant="outlined"
           color="success"
-          component="a"
-          href={buildWhatsAppUrl(entry)}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Abrir WhatsApp de ${entry.name}`}
+          startIcon={<WhatsApp fontSize="small" />}
+          onClick={() => setSendTarget(entry)}
+          aria-label={`Enviar WhatsApp para ${entry.name}`}
+          sx={{ mr: 0.5, whiteSpace: 'nowrap' }}
         >
-          <WhatsApp fontSize="small" />
-        </IconButton>
+          Enviar
+        </Button>
       </Tooltip>
       <Tooltip title={entry.notes ? 'Ver/editar notas' : 'Adicionar nota'}>
         <IconButton size="small" onClick={() => openNotes(entry)} aria-label={`Notas de ${entry.name}`}>
@@ -584,9 +567,9 @@ const ConvenioInteressePage = () => {
               </Button>
             </span>
           </Tooltip>
-          <Tooltip title="Mensagem para quem está esperando: dá para começar no particular enquanto o plano não sai. Mostra a prévia antes de enviar.">
+          <Tooltip title="Mensagem para quem está esperando: lembra a pessoa e pergunta se ainda precisa do atendimento. Mostra a prévia antes de enviar.">
             <Button variant="outlined" color="success" startIcon={<LocalOffer />} onClick={() => setBulkKind('particular')}>
-              Oferecer particular
+              Retomar contato
             </Button>
           </Tooltip>
           <Tooltip title="Novidade para a lista: agora atendemos o plano. Use só depois do credenciamento confirmado. Mostra a prévia antes de enviar.">
@@ -701,7 +684,7 @@ const ConvenioInteressePage = () => {
           ]} />
           {summary.insights.aged30 > 0 && (
             <Alert severity="warning" sx={{ mt: 1.5 }}>
-              {summary.insights.aged30} {summary.insights.aged30 === 1 ? 'família espera' : 'famílias esperam'} há mais de 30 dias e {summary.insights.aged30 === 1 ? 'pode desistir' : 'podem desistir'}. Use "Oferecer particular" para não perder o atendimento.
+              {summary.insights.aged30} {summary.insights.aged30 === 1 ? 'família espera' : 'famílias esperam'} há mais de 30 dias e {summary.insights.aged30 === 1 ? 'pode desistir' : 'podem desistir'}. Use "Retomar contato" para não perder o atendimento.
             </Alert>
           )}
         </Box>
@@ -1005,6 +988,8 @@ const ConvenioInteressePage = () => {
           </MenuItem>
         ))}
       </Menu>
+
+      <ConvenioSendDialog entry={sendTarget} onClose={() => setSendTarget(null)} onSent={refresh} />
 
       <ConvenioBulkSendDialog
         open={Boolean(bulkKind)}

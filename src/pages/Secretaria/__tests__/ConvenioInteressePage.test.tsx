@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 30000 });
 import type { WaitlistEntry, WaitlistListResponse, WaitlistSummary } from '../../../services/convenioWaitlistService';
 
-const api = vi.hoisted(() => ({ list: vi.fn(), summary: vi.fn(), update: vi.fn() }));
+const api = vi.hoisted(() => ({ list: vi.fn(), summary: vi.fn(), update: vi.fn(), sendWhatsapp: vi.fn() }));
 vi.mock('../../../services/convenioWaitlistService', () => ({ default: api, convenioWaitlistApi: api }));
 
 const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
@@ -88,14 +88,17 @@ describe('ConvenioInteressePage', () => {
     expect(screen.getByText(/confirmação formal do credenciamento/)).toBeInTheDocument();
   });
 
-  it('botão do WhatsApp abre wa.me com a mensagem pronta, sem prometer atendimento', async () => {
+  it('Enviar manda pelo WhatsApp da clínica (servidor), sem abrir outra página', async () => {
+    api.sendWhatsapp.mockImplementation(async (_id: string, body: { confirm?: boolean }) =>
+      body.confirm ? { sent: true, jobId: 'j1' } : { sent: false, message: 'Oi, Maria! Tudo bem? 🥰💚' });
     render(<ConvenioInteressePage />);
-    const link = await screen.findByRole('link', { name: 'Abrir WhatsApp de Maria da Silva' });
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
-    const href = link.getAttribute('href') as string;
-    expect(href.startsWith('https://wa.me/5562992013573?text=')).toBe(true);
-    expect(decodeURIComponent(href)).toContain('registrou interesse no convênio GEAP');
+    const btn = await screen.findByRole('button', { name: 'Enviar WhatsApp para Maria da Silva' });
+    expect(btn).not.toHaveAttribute('href');
+    fireEvent.click(btn);
+    const box = await screen.findByLabelText('Mensagem (pode editar)');
+    await waitFor(() => expect(box).toHaveValue('Oi, Maria! Tudo bem? 🥰💚'));
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => expect(api.sendWhatsapp).toHaveBeenCalledWith('e1', expect.objectContaining({ confirm: true, kind: 'particular', message: 'Oi, Maria! Tudo bem? 🥰💚' })));
   });
 
   it("'Contatado' atualiza o status no servidor, avisa e recarrega lista e totais", async () => {
@@ -305,7 +308,7 @@ describe('layout mobile (cartões em vez de tabela)', () => {
     expect(first.getByText('Terapia Ocupacional')).toBeInTheDocument();
     expect(first.getByText('4 anos · Manhã')).toBeInTheDocument();
     expect(first.getByRole('button', { name: /Alterar status de Maria da Silva/ })).toBeInTheDocument();
-    expect(first.getByRole('link', { name: 'Abrir WhatsApp de Maria da Silva' })).toBeInTheDocument();
+    expect(first.getByRole('button', { name: 'Enviar WhatsApp para Maria da Silva' })).toBeInTheDocument();
     expect(first.getByRole('button', { name: 'Notas de Maria da Silva' })).toBeInTheDocument();
   });
 
