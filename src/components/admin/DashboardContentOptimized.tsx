@@ -295,7 +295,7 @@ Section.displayName = 'Section';
 
 // --- Precisa de você ---
 
-interface NeedItem { key: string; count: number; title: string; detail: string; cta: string; onClick: () => void; tone: 'warn' | 'bad' | 'info' | 'pink'; error?: boolean; onRetry?: () => void }
+interface NeedItem { key: string; count: number; title: string; detail: string; cta: string; onClick: () => void; tone: 'warn' | 'bad' | 'info' | 'pink'; error?: boolean; onRetry?: () => void; alwaysShow?: boolean }
 
 // Cor por urgência: vermelho = dinheiro/paciente indo embora, âmbar = venda/agenda para fechar, azul = confirmar/retornar.
 const TONE: Record<NeedItem['tone'], { tile: string; icon: string; num: string; btn: string }> = {
@@ -317,7 +317,7 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
     // Erro ≠ zero: fila que não carregou aparece como "não carregou", nunca some como se estivesse em dia.
     // Aniversário não é pendência de dinheiro/agenda: vira um lembrete no título e a grade fica em linhas de 4.
     const bday = items.find(i => i.key === 'bday' && i.count > 0);
-    const visible = items.filter(i => i.key !== 'bday' && (i.count > 0 || i.error))
+    const visible = items.filter(i => i.key !== 'bday' && (i.count > 0 || i.error || i.alwaysShow))
         .map((i, idx) => ({ i, idx }))
         .sort((x, y) => (TONE_ORDER[x.i.tone] - TONE_ORDER[y.i.tone]) || (x.idx - y.idx))
         .map(x => x.i);
@@ -771,9 +771,12 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                 const list = commercial.evaluation?.items || [];
                 const old = list.filter(i => i.daysSince > 10).length;
                 const pot = (commercial.evaluation?.potentialMonthly || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+                if (!list.length) return 'ninguém nos últimos 30 dias · retome quem avaliou e sumiu';
                 return `${old ? `${old} há mais de 10 dias · ` : ''}${pot}/mês em aberto`;
             })(),
-            cta: 'Ver e oferecer pacote', onClick: () => setQueueOpen('evaluation'),
+            // Sempre visível (Kadu 12/11): o "Retomar contato" com quem sumiu fica aqui dentro.
+            alwaysShow: true,
+            cta: commercial.evaluation?.total ? 'Ver e oferecer pacote' : 'Retomar quem sumiu', onClick: () => setQueueOpen('evaluation'),
             error: commercial.queueErrors.evaluation, onRetry: commercial.reloadQueues,
         },
         {
@@ -961,7 +964,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {queueOpen === 'renewal' && <PackageEndingPanel items={commercial.packageEnding || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'churn' && <ChurnPanel items={commercial.churn || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'reactivation' && <ReactivationPanel items={commercial.reactivation || []} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
-            {queueOpen === 'evaluation' && commercial.evaluation && <EvaluationPanel queue={commercial.evaluation} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
+            {queueOpen === 'evaluation' && <EvaluationPanel queue={commercial.evaluation ?? { items: [], total: 0, potentialMonthly: 0 }} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} />}
             {queueOpen === 'nextDay' && commercial.nextDay && <NextDayConfirmPanel queue={commercial.nextDay} onClose={() => setQueueOpen(null)} onChanged={commercial.reloadQueues} onOpenAgenda={onNavigate ? () => { setQueueOpen(null); onNavigate('Calendário'); } : undefined} />}
 
             {/* 3. Aniversariantes: sempre à vista (Kadu 10/11), o comercial manda o parabéns daqui */}
