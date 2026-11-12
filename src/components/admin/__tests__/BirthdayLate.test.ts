@@ -1,18 +1,18 @@
-// "Passou sem parabéns" só vale para aniversário a partir de 12/11/2026 (Kadu).
+// "Passou sem parabéns": últimos 7 dias, sem parabéns no ano (automático ou "Já dei"). Sem data fixa.
 import { describe, expect, it } from 'vitest';
 import { isLateBirthday } from '../BirthdayList';
 
 describe('isLateBirthday', () => {
-    const now = new Date(2026, 10, 14, 10); // sáb 14/11/2026
-    it('aniversário antes de 12/11 não conta como atrasado', () => {
-        expect(isLateBirthday({ daysUntil: -6 }, now)).toBe(false); // 08/11
+    it('passou há até 7 dias sem parabéns conta', () => {
+        expect(isLateBirthday({ daysUntil: -1 })).toBe(true);
+        expect(isLateBirthday({ daysUntil: -7 })).toBe(true);
     });
-    it('aniversário de 12/11 em diante sem parabéns conta', () => {
-        expect(isLateBirthday({ daysUntil: -2 }, now)).toBe(true); // 12/11
-        expect(isLateBirthday({ daysUntil: -1 }, now)).toBe(true);
+    it('mais de 7 dias, hoje ou futuro não conta', () => {
+        expect(isLateBirthday({ daysUntil: -8 })).toBe(false);
+        expect(isLateBirthday({ daysUntil: 0 })).toBe(false);
+        expect(isLateBirthday({ daysUntil: 3 })).toBe(false);
     });
-    it('quem recebeu parabéns ou ainda não fez aniversário não conta', () => {
-        expect(isLateBirthday({ daysUntil: -1, birthdayMessageSent: true }, now)).toBe(false);
-        expect(isLateBirthday({ daysUntil: 0 }, now)).toBe(false);
+    it('quem recebeu ou foi marcado como parabenizado não conta', () => {
+        expect(isLateBirthday({ daysUntil: -1, birthdayMessageSent: true })).toBe(false);
     });
 });

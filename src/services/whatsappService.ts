@@ -266,6 +266,13 @@ export async function sendBirthdayMessage(patientId: string) {
     return res.data; // { success, sent, jobId }
 }
 
+// "Já dei parabéns": registra que a equipe parabenizou por fora (não envia nada). Back aceita do dia
+// do aniversário até 7 dias depois, 1x por ano (mesma trava do automático). Idempotente.
+export async function markBirthdayHandled(patientId: string) {
+    const res = await API.post(`/patients/${patientId}/birthday-message/mark`);
+    return res.data; // { success, marked, alreadyMarked }
+}
+
 export async function deleteWhatsAppMessage(messageId: string): Promise<any> {
     // se receber "m-<id>", tira o prefixo aqui
     const cleanId = messageId.startsWith('m-') ? messageId.slice(2) : messageId;
