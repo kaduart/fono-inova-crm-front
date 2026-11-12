@@ -107,7 +107,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     // ESTADOS
     // ============================================
     
-    const [activeTab, setActiveTab] = useState<'overview' | 'daily' | 'landing-pages' | 'anapolis-seo' | 'insights'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'acquisition' | 'pages' | 'daily' | 'landing-pages' | 'anapolis-seo' | 'insights'>('overview');
     const [datePreset, setDatePreset] = useState<'today' | '7d' | '30d' | 'custom'>('7d');
     const [showCustomDate, setShowCustomDate] = useState(false);
     
@@ -342,8 +342,10 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
         return `${mins}m`;
     };
 
-    const conversionRate = metrics?.sessions && metrics?.conversions 
-        ? ((metrics.conversions / metrics.sessions) * 100).toFixed(1)
+    // Agregado de conversoes: usa o total do GA4 e, se o back nao mandar, soma as fontes (coerencia com a tabela de Fontes de Trafego)
+    const totalConversions = metrics?.conversions ?? (sources?.length ? sources.reduce((acc, s) => acc + (s.conversions || 0), 0) : undefined);
+    const conversionRate = metrics?.sessions && totalConversions
+        ? ((totalConversions / metrics.sessions) * 100).toFixed(1)
         : '0';
 
     // Leitura das LPs (o back manda views/leads por LP; aqui só ordenamos para o alerta)
@@ -410,6 +412,26 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                     }`}
                 >
                     Visão Geral
+                </button>
+                <button
+                    onClick={() => setActiveTab('acquisition')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        activeTab === 'acquisition'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    Aquisição
+                </button>
+                <button
+                    onClick={() => setActiveTab('pages')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        activeTab === 'pages'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    Páginas & Serviços
                 </button>
                 <button
                     onClick={() => setActiveTab('daily')}
@@ -574,7 +596,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
         <div className="mb-4">
             <KpiStrip cols={5} loading={loading && !metrics} items={[
                 { label: 'Visitas', value: metrics?.totalUsers ?? '—', sub: metrics?.sessions != null ? `${metrics.sessions} sessões` : undefined },
-                { label: 'Conversões (GA4)', value: metrics?.conversions ?? '—', sub: `${conversionRate}% das sessões (cliques no WhatsApp/form)` },
+                { label: 'Conversões (GA4)', value: totalConversions ?? '—', sub: `${conversionRate}% das sessões (cliques no WhatsApp/form)` },
                 { label: 'Leads do site', value: siteRoi?.leads ?? metrics?.leadsPeriod ?? '—', sub: siteRoi ? 'origem Site no ERP' : 'leads do período' },
                 { label: 'Fecharam pacote', value: siteRoi?.patients ?? '—', hero: true, sub: siteRoi?.revenue ? `${brl(siteRoi.revenue)} em caixa` : 'pacientes novos do site' },
                 { label: 'LPs sem lead', value: lpsWithoutLead.length, danger: lpsWithoutLead.length > 0, sub: 'com 100+ visitas no período' },
@@ -610,133 +632,90 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                 </div>
             </div>
 
-            {/* Gráficos principais */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                {/* Evolução Temporal */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 relative">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-blue-500" />
-                        Evolução de Eventos
-                    </h2>
-                    {loading && (
-                        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
-                            <div className="flex flex-col items-center gap-2">
-                                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-                                <span className="text-sm text-gray-600">Carregando dados...</span>
-                            </div>
-                        </div>
-                    )}
-                    <ResponsiveContainer width="100%" height={250}>
-                        <AreaChart data={lineChartData}>
-                            <defs>
-                                <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="#f0f0f0" />
-                            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip />
-                            <Area type="monotone" dataKey="views" stroke="#3b82f6" fillOpacity={1} fill="url(#colorViews)" name="Page Views" />
-                        </AreaChart>
-                    </ResponsiveContainer>
+            {/* Funil: do clique ao paciente (separa GA4 x CRM) */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+                <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-800">Do clique ao paciente</h2>
+                        <p className="text-sm text-gray-500 mt-0.5">O que o site entrega e o que vira paciente no CRM — dois mundos, um funil.</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-green-500"></span>No site (GA4)</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span>No CRM (ERP)</span>
+                    </div>
                 </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="bg-white p-4">
+                        <div className="text-xs text-gray-500 min-h-[32px]">Sessões no site</div>
+                        <div className="text-3xl font-bold text-green-600 mt-1">{metrics?.sessions?.toLocaleString() ?? '—'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{metrics?.totalUsers ?? '—'} visitantes</div>
+                    </div>
+                    <div className="bg-white p-4">
+                        <div className="text-xs text-gray-500 min-h-[32px]">Conversões (clique WhatsApp / form)</div>
+                        <div className="text-3xl font-bold text-green-600 mt-1">{totalConversions ?? '—'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{conversionRate}% das sessões</div>
+                    </div>
+                    <div className="bg-white p-4">
+                        <div className="text-xs text-gray-500 min-h-[32px]">Leads atribuídos ao site</div>
+                        <div className="text-3xl font-bold text-amber-600 mt-1">{siteRoi?.leads ?? '—'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">via gclid / origem</div>
+                    </div>
+                    <div className="bg-white p-4">
+                        <div className="text-xs text-gray-500 min-h-[32px]">Avaliação agendada</div>
+                        <div className="text-3xl font-bold text-amber-600 mt-1">{(siteRoi as any)?.evaluations ?? '—'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">conversão offline</div>
+                    </div>
+                    <div className="bg-white p-4">
+                        <div className="text-xs text-gray-500 min-h-[32px]">Fechou pacote</div>
+                        <div className="text-3xl font-bold text-amber-600 mt-1">{siteRoi?.patients ?? '—'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{siteRoi?.revenue ? brl(siteRoi.revenue) : 'R$ em caixa'}</div>
+                    </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3 flex items-start gap-2">
+                    <span className="text-amber-500">⚠</span>
+                    As etapas do CRM preenchem quando a atribuição (gclid) começar a chegar ao CRM — aí o funil mostra receita, não só cliques.
+                </p>
+            </div>
 
-                {/* Distribuição de Eventos - Gráfico de Pizza Melhorado */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 relative">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-2">Distribuição de Eventos</h2>
-                    {loading && (
-                        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
-                            <div className="flex flex-col items-center gap-2">
-                                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-                                <span className="text-sm text-gray-600">Carregando...</span>
-                            </div>
+            {/* Evolução temporal (largura total) */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 relative mb-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-blue-500" />
+                    Evolução de Eventos
+                </h2>
+                {loading && (
+                    <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
+                        <div className="flex flex-col items-center gap-2">
+                            <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+                            <span className="text-sm text-gray-600">Carregando dados...</span>
                         </div>
-                    )}
-                    
-                    {pieChartData.length === 0 ? (
-                        <div className="h-[250px] flex items-center justify-center text-gray-400">
-                            Nenhum evento no período
-                        </div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={280}>
-                            <PieChart>
-                                <Pie
-                                    data={pieChartData}
-                                    cx="45%"
-                                    cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={90}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    label={({ name, percent, value }) => 
-                                        `${(percent * 100).toFixed(0)}%`
-                                    }
-                                    labelLine={true}
-                                >
-                                    {pieChartData.map((entry, index) => (
-                                        <Cell 
-                                            key={`cell-${index}`} 
-                                            fill={COLORS[index % COLORS.length]} 
-                                            stroke="#fff"
-                                            strokeWidth={2}
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip 
-                                    formatter={(value: number, name: string) => [
-                                        `${value.toLocaleString()} eventos`, 
-                                        name
-                                    ]}
-                                    contentStyle={{ 
-                                        borderRadius: '8px', 
-                                        border: 'none', 
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
-                                    }}
-                                />
-                                <Legend 
-                                    layout="vertical" 
-                                    verticalAlign="middle" 
-                                    align="right"
-                                    iconType="circle"
-                                    iconSize={10}
-                                    wrapperStyle={{ fontSize: '12px', paddingLeft: '10px' }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    )}
-                    
-                    {/* Resumo abaixo do gráfico */}
-                    {pieChartData.length > 0 && (
-                        <div className="mt-2 pt-3 border-t border-gray-100">
-                            <div className="text-xs text-gray-500 text-center">
-                                Total: <strong>{pieChartData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}</strong> eventos
-                            </div>
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
+                <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={lineChartData}>
+                        <defs>
+                            <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="#f0f0f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="views" stroke="#3b82f6" fillOpacity={1} fill="url(#colorViews)" name="Page Views" />
+                    </AreaChart>
+                </ResponsiveContainer>
             </div>
 
             {/* Fontes + Top Páginas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Fontes de Tráfego */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <Globe className="w-5 h-5 text-green-500" />
                         Fontes de Tráfego
                     </h2>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={sourcesChartData}>
-                            <CartesianGrid stroke="#f0f0f0" />
-                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip />
-                            <Bar dataKey="sessions" fill="#22c55e" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                    <div className="mt-4 space-y-2">
+                    <div className="space-y-2">
                         {sources?.slice(0, 5).map((source, idx) => (
                             <div key={idx} className="flex items-center justify-between text-sm">
                                 <div className="flex items-center gap-2">
@@ -755,7 +734,6 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                     </div>
                 </div>
 
-                {/* Top Páginas */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-purple-500" />
@@ -785,47 +763,132 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                     </div>
                 </div>
             </div>
+        </>
+    );
 
-            {/* Páginas de Serviço */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+    // ============================================
+    // RENDER - TAB: AQUISIÇÃO
+    // ============================================
+
+    const renderAcquisition = () => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <Smartphone className="w-5 h-5 text-orange-500" />
-                    Performance por Página de Serviço
+                    <Globe className="w-5 h-5 text-green-500" />
+                    Fontes de Tráfego
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {serviceMetrics.map((service) => (
-                        <div key={service.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="text-2xl">{service.icon}</span>
-                                <div className="text-xs font-medium text-gray-700 truncate">{service.title}</div>
+                <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={sourcesChartData}>
+                        <CartesianGrid stroke="#f0f0f0" />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Bar dataKey="sessions" fill="#22c55e" />
+                    </BarChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                    {sources?.map((source, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500">{idx + 1}.</span>
+                                <span className="font-medium">{source.source}</span>
+                                <span className="text-xs text-gray-400">({source.medium})</span>
                             </div>
-                            <div className="space-y-1 text-xs">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Views:</span>
-                                    <span className="font-semibold">{service.views?.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Users:</span>
-                                    <span className="font-semibold">{service.users?.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Bounce:</span>
-                                    <span className={`font-semibold ${service.bounceRate && service.bounceRate > 50 ? 'text-red-500' : service.bounceRate ? 'text-green-500' : 'text-gray-400'}`}>
-                                        {service.bounceRate ? `${service.bounceRate.toFixed(0)}%` : '-'}
-                                    </span>
-                                </div>
-                                {service.leads > 0 && (
-                                    <div className="flex justify-between pt-1 border-t">
-                                        <span className="text-green-600">Leads:</span>
-                                        <span className="font-bold text-green-600">{service.leads}</span>
-                                    </div>
-                                )}
+                            <div className="flex items-center gap-3">
+                                <span className="text-gray-600">{source.sessions?.toLocaleString()} sessões</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs ${source.conversions > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                                    {source.conversions} conv.
+                                </span>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
-        </>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-4 relative">
+                <h2 className="text-lg font-semibold text-gray-800 mb-2">Distribuição de Eventos</h2>
+                {pieChartData.length === 0 ? (
+                    <div className="h-[250px] flex items-center justify-center text-gray-400">
+                        Nenhum evento no período
+                    </div>
+                ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                            <Pie
+                                data={pieChartData}
+                                cx="45%"
+                                cy="50%"
+                                innerRadius={50}
+                                outerRadius={90}
+                                paddingAngle={3}
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                labelLine={true}
+                            >
+                                {pieChartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#fff" strokeWidth={2} />
+                                ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number, name: string) => [`${value.toLocaleString()} eventos`, name]} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} />
+                            <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" iconSize={10} wrapperStyle={{ fontSize: '12px', paddingLeft: '10px' }} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                )}
+                {pieChartData.length > 0 && (
+                    <div className="mt-2 pt-3 border-t border-gray-100">
+                        <div className="text-xs text-gray-500 text-center">
+                            Total: <strong>{pieChartData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}</strong> eventos
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    // ============================================
+    // RENDER - TAB: PÁGINAS & SERVIÇOS
+    // ============================================
+
+    const renderServices = () => (
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-orange-500" />
+                Performance por Página de Serviço
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {serviceMetrics.map((service) => (
+                    <div key={service.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-2xl">{service.icon}</span>
+                            <div className="text-xs font-medium text-gray-700 truncate">{service.title}</div>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Views:</span>
+                                <span className="font-semibold">{service.views?.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Users:</span>
+                                <span className="font-semibold">{service.users?.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Bounce:</span>
+                                <span className={`font-semibold ${service.bounceRate && service.bounceRate > 50 ? 'text-red-500' : service.bounceRate ? 'text-green-500' : 'text-gray-400'}`}>
+                                    {service.bounceRate ? `${service.bounceRate.toFixed(0)}%` : '-'}
+                                </span>
+                            </div>
+                            {service.leads > 0 && (
+                                <div className="flex justify-between pt-1 border-t">
+                                    <span className="text-green-600">Leads:</span>
+                                    <span className="font-bold text-green-600">{service.leads}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 
     // ============================================
@@ -1521,6 +1584,8 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             {renderMetrics()}
             
             {activeTab === 'overview' && renderOverview()}
+            {activeTab === 'acquisition' && renderAcquisition()}
+            {activeTab === 'pages' && renderServices()}
             {activeTab === 'daily' && renderDailyReport()}
             {activeTab === 'landing-pages' && (
                 <>
@@ -1536,7 +1601,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             )}
             {activeTab === 'insights' && renderInsights()}
             
-            {renderEvents()}
+            {activeTab === 'acquisition' && renderEvents()}
 
             {/* Footer */}
             <div className="mt-6 text-center text-xs text-gray-400">
