@@ -17,6 +17,46 @@ export interface WaitlistSubmission {
   at: string;
 }
 
+export type WaitlistChannel = 'site' | 'whatsapp_web';
+
+/** Dados da conversa quando o interessado veio do WhatsApp Web (varredura ou captura automática). */
+export interface WaitlistWhatsappInfo {
+  firstMentionAt: string | null;
+  lastMentionAt: string | null;
+  snippet: string | null;
+  snippetFromContact: boolean;
+  mentionedBy?: Array<'contato' | 'clinica'>;
+  capturedBy: 'scan' | 'live' | null;
+}
+
+/** Cruzamento feito no back (só leitura): o telefone já é paciente? tem sessão futura? */
+export interface WaitlistPatientMatch {
+  patientId: string;
+  patientName: string;
+  nextAppointmentAt: string | null;
+}
+
+export type WhatsappScanStatus = 'queued' | 'running' | 'done' | 'failed';
+
+export interface WhatsappScanRun {
+  _id: string;
+  convenio: WaitlistConvenio;
+  status: WhatsappScanStatus;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  stats: {
+    method?: string;
+    messages?: number;
+    contacts?: number;
+    created?: number;
+    updated?: number;
+    closed?: number;
+    unresolved?: number;
+  } | null;
+}
+
 export interface WaitlistEntry {
   _id: string;
   name: string;
@@ -34,6 +74,10 @@ export interface WaitlistEntry {
   submissions: WaitlistSubmission[];
   consent?: { accepted: boolean; acceptedAt: string | null; version: string | null };
   source?: { pagePath?: string | null; utmSource?: string | null; utmCampaign?: string | null };
+  /** Ausente em cadastro antigo = site. */
+  channel?: WaitlistChannel;
+  whatsapp?: WaitlistWhatsappInfo;
+  patientMatch?: WaitlistPatientMatch | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +85,7 @@ export interface WaitlistEntry {
 export interface WaitlistListParams {
   convenio?: WaitlistConvenio | '';
   status?: WaitlistStatus | '';
+  channel?: WaitlistChannel | '';
   especialidade?: string;
   search?: string;
   from?: string;
@@ -86,6 +131,17 @@ export const convenioWaitlistApi = {
   update: async (id: string, body: { status?: WaitlistStatus; notes?: string }): Promise<WaitlistEntry> => {
     const { data } = await api.patch<WaitlistEntry>(`/convenio-waitlist/${id}`, body);
     return data;
+  },
+
+  /** Busca (só leitura) no WhatsApp Web quem falou do convênio; roda no servidor do WhatsApp. */
+  startWhatsappScan: async (convenio: WaitlistConvenio): Promise<{ run: WhatsappScanRun; alreadyRunning: boolean }> => {
+    const { data } = await api.post<{ run: WhatsappScanRun; alreadyRunning: boolean }>('/convenio-waitlist/whatsapp-scan', { convenio });
+    return data;
+  },
+
+  latestWhatsappScan: async (convenio: WaitlistConvenio): Promise<WhatsappScanRun | null> => {
+    const { data } = await api.get<{ run: WhatsappScanRun | null }>('/convenio-waitlist/whatsapp-scan/latest', { params: { convenio } });
+    return data.run;
   },
 };
 
