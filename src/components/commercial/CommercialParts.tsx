@@ -2,7 +2,7 @@
 // acabando e reativação, e a faixa de lead sem resposta. Regras: back/docs/COMMERCIAL_QUEUES.md.
 import { CalendarPlus, Check, Clock, MessageCircle, RefreshCw, X } from 'lucide-react';
 import { createSharedPoll, PollState } from '../../utils/sharedPoll';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ChurnItem, commercialService, ContactKind, EvaluationQueue, FitLead, NextDayItem, NextDayQueue, PackageEndingItem, QueuePatient, WaitingLead,
@@ -367,12 +367,16 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: (
 
 // ── 5. Avaliou e não fechou pacote ──────────────────────────────────────────
 
+// Envio em massa "Retomar contato com quem sumiu" (12/11/2026): carrega só quando abre.
+const EvaluationReengageDialog = lazy(() => import('./EvaluationReengageDialog'));
+
 const LOST_REASONS = ['Preço', 'Vai usar o convênio', 'Distância ou horário', 'Vai pensar', 'Outro'];
 
 export const EvaluationPanel: React.FC<{ queue: EvaluationQueue; onClose: () => void; onChanged: () => void }> = ({ queue, onClose, onChanged }) => {
     const { done, mark } = useContact();
     const [range, setRange] = useState<'recent' | 'older'>('recent');
     const [lostFor, setLostFor] = useState<string | null>(null);
+    const [reengageOpen, setReengageOpen] = useState(false);
     const recent = queue.items.filter(i => i.daysSince <= 10);
     const older = queue.items.filter(i => i.daysSince > 10);
     const shown = range === 'recent' ? recent : older;
@@ -381,6 +385,20 @@ export const EvaluationPanel: React.FC<{ queue: EvaluationQueue; onClose: () => 
         <SidePanel kicker="Precisa de você" title="Avaliou e não fechou"
             subtitle={<>Avaliação particular feita nos últimos 30 dias, sem pacote e sem sessão marcada depois. Potencial: <b>{brl(queue.potentialMonthly)}/mês</b>.</>}
             onClose={onClose}>
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-950/40">
+                <p className="text-sm text-emerald-900 dark:text-emerald-100">
+                    <b>Avaliou e sumiu?</b> Mande uma mensagem para todos de uma vez, pelo WhatsApp da clínica.
+                </p>
+                <button type="button" onClick={() => setReengageOpen(true)}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                    <MessageCircle className="h-4 w-4" aria-hidden /> Retomar contato
+                </button>
+            </div>
+            {reengageOpen && (
+                <Suspense fallback={null}>
+                    <EvaluationReengageDialog open={reengageOpen} onClose={() => setReengageOpen(false)} onSent={onChanged} />
+                </Suspense>
+            )}
             <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Período">
                 {([['recent', '3 a 10 dias', recent.length], ['older', '11 a 30 dias', older.length]] as const).map(([k, label, n]) => (
                     <button key={k} type="button" aria-pressed={range === k} onClick={() => setRange(k)}
