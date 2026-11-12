@@ -751,7 +751,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
         });
     }, [aniversariantes]);
     // Passou nos últimos 7 dias sem parabéns: vai para o "Precisa de você" junto com os de hoje.
-    const birthdayLate = useMemo(() => withDaysUntil(aniversariantes).filter(isLateBirthday), [aniversariantes]);
+    const birthdayLate = useMemo(() => withDaysUntil(aniversariantes).filter(p => isLateBirthday(p)), [aniversariantes]);
     const birthdayWeek = useMemo(() => withDaysUntil(aniversariantes).filter(a => a.daysUntil >= 0 && a.daysUntil <= 7).length, [aniversariantes]);
     const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
 

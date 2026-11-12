@@ -73,9 +73,16 @@ export const withDaysUntil = (list: BirthdayRow[]): Row[] => {
         });
 };
 
-/** Passou nos últimos 7 dias e ninguém mandou parabéns. */
-export const isLateBirthday = (p: { daysUntil: number; birthdayMessageSent?: boolean }) =>
-    p.daysUntil < 0 && p.daysUntil >= -LATE_DAYS && !p.birthdayMessageSent;
+// Kadu (12/11/2026): a regra do parabéns automático vale a partir de hoje; aniversário de antes
+// não vira "Passou sem parabéns" (sai da lista e do aviso do Dashboard).
+const LATE_SINCE = new Date(2026, 10, 12).getTime();
+
+/** Passou nos últimos 7 dias (e depois de LATE_SINCE) e ninguém mandou parabéns. */
+export const isLateBirthday = (p: { daysUntil: number; birthdayMessageSent?: boolean }, now: Date = new Date()) => {
+    if (!(p.daysUntil < 0 && p.daysUntil >= -LATE_DAYS) || p.birthdayMessageSent) return false;
+    const bday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + p.daysUntil).getTime();
+    return bday >= LATE_SINCE;
+};
 
 const Chip: React.FC<{ active: boolean; onClick: () => void; tone?: 'red'; children: React.ReactNode }> = ({ active, onClick, tone, children }) => (
     <button type="button" aria-pressed={active} onClick={onClick}
