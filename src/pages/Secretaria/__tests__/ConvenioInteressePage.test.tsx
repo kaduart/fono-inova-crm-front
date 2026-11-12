@@ -39,6 +39,7 @@ const summary: WaitlistSummary = {
   total: 6,
   porConvenio: {
     geap: { label: 'GEAP', total: 3, aguardando: 2, contatado: 1, agendado: 0, descartado: 0 },
+    unimed: { label: 'Unimed', total: 0, aguardando: 0, contatado: 0, agendado: 0, descartado: 0 },
     ipasgo: { label: 'IPASGO', total: 2, aguardando: 1, contatado: 0, agendado: 1, descartado: 0 },
     bradesco: { label: 'Bradesco Saúde', total: 1, aguardando: 1, contatado: 0, agendado: 0, descartado: 0 },
   },

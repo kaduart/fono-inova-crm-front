@@ -138,3 +138,33 @@ describe('CSV', () => {
     expect(csvFileName(new Date(2026, 8, 21))).toBe('interesse-convenios-2026-09-21.csv');
   });
 });
+
+describe('origem WhatsApp', () => {
+  it('mensagem cita a conversa do WhatsApp e não usa o nome padrão', async () => {
+    const { buildContactMessage: msg, WHATSAPP_PLACEHOLDER_NAME } = await import('../convenioWaitlist');
+    const text = msg({ name: WHATSAPP_PLACEHOLDER_NAME, convenioLabel: 'GEAP', channel: 'whatsapp_web' });
+    expect(text.startsWith('Olá! Aqui é da Clínica Fono Inova.')).toBe(true);
+    expect(text).toContain('pelo WhatsApp sobre o atendimento pelo GEAP');
+    expect(msg({ name: 'Bruno Lima', convenioLabel: 'GEAP', channel: 'site' })).toContain('lista de interesse');
+  });
+
+  it('resume o resultado da busca no WhatsApp', async () => {
+    const { scanStatusText } = await import('../convenioWaitlist');
+    expect(scanStatusText({ status: 'done', error: null, convenioLabel: 'GEAP', stats: { contacts: 12, created: 9, updated: 2, closed: 1 } }))
+      .toBe('Busca de GEAP no WhatsApp concluída: 12 contatos, 9 novos na lista, 2 já estavam e 1 já tratados (agendado/descartado).');
+    expect(scanStatusText({ status: 'done', error: null, convenioLabel: 'GEAP', stats: { contacts: 0 } })).toContain('ninguém falou de GEAP');
+    expect(scanStatusText({ status: 'failed', error: 'WhatsApp não está conectado', convenioLabel: 'GEAP', stats: null })).toContain('WhatsApp não está conectado');
+  });
+
+  it('CSV traz origem, trecho e se já é paciente', async () => {
+    const { buildWaitlistCsv: csv } = await import('../convenioWaitlist');
+    const out = csv([entry({
+      channel: 'whatsapp_web',
+      whatsapp: { firstMentionAt: null, lastMentionAt: null, snippet: 'Atende GEAP?', snippetFromContact: true, capturedBy: 'scan' },
+      patientMatch: { patientId: 'p1', patientName: 'Ana Paciente', nextAppointmentAt: null },
+    })]);
+    expect(out).toContain('"WhatsApp"');
+    expect(out).toContain('"Atende GEAP?"');
+    expect(out).toContain('"Ana Paciente"');
+  });
+});

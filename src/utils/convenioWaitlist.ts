@@ -3,10 +3,11 @@
  */
 
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import type { WaitlistConvenio, WaitlistEntry, WaitlistStatus } from '../services/convenioWaitlistService';
+import type { WaitlistConvenio, WaitlistEntry, WaitlistStatus, WhatsappScanRun } from '../services/convenioWaitlistService';
 
 export const CONVENIO_OPTIONS: Array<{ value: WaitlistConvenio; label: string }> = [
   { value: 'geap', label: 'GEAP' },
+  { value: 'unimed', label: 'Unimed' },
   { value: 'ipasgo', label: 'IPASGO' },
   { value: 'bradesco', label: 'Bradesco Saúde' },
 ];
@@ -60,12 +61,23 @@ export const formatPhoneNational = (phone: string | null | undefined): string =>
 
 export const firstName = (name: string): string => name.trim().split(/\s+/)[0] || name;
 
-/** Mensagem neutra e honesta: a equipe edita antes de enviar e só deve usar depois da confirmação do credenciamento. */
-export const buildContactMessage = (entry: Pick<WaitlistEntry, 'name' | 'convenioLabel'>): string =>
-  `Olá, ${firstName(entry.name)}! Aqui é da Clínica Fono Inova. Você registrou interesse no convênio ${entry.convenioLabel} na nossa lista de interesse. ` +
-  `Estou entrando em contato para atualizar você sobre o atendimento pelo plano. Podemos conversar agora?`;
+/** Nome padrão que o back usa quando o contato do WhatsApp não tem nome salvo. */
+export const WHATSAPP_PLACEHOLDER_NAME = 'Contato do WhatsApp';
 
-export const buildWhatsAppUrl = (entry: Pick<WaitlistEntry, 'name' | 'phone' | 'convenioLabel'>): string => {
+export const isFromWhatsapp = (entry: Pick<WaitlistEntry, 'channel'>): boolean => entry.channel === 'whatsapp_web';
+
+const greeting = (name: string): string =>
+  name === WHATSAPP_PLACEHOLDER_NAME ? 'Olá!' : `Olá, ${firstName(name)}!`;
+
+/** Mensagem neutra e honesta: a equipe edita antes de enviar e só deve usar depois da confirmação do credenciamento. */
+export const buildContactMessage = (entry: Pick<WaitlistEntry, 'name' | 'convenioLabel' | 'channel'>): string =>
+  isFromWhatsapp(entry)
+    ? `${greeting(entry.name)} Aqui é da Clínica Fono Inova. Você nos perguntou aqui pelo WhatsApp sobre o atendimento pelo ${entry.convenioLabel}. ` +
+      `Estou entrando em contato para atualizar você sobre o atendimento pelo plano. Podemos conversar agora?`
+    : `${greeting(entry.name)} Aqui é da Clínica Fono Inova. Você registrou interesse no convênio ${entry.convenioLabel} na nossa lista de interesse. ` +
+      `Estou entrando em contato para atualizar você sobre o atendimento pelo plano. Podemos conversar agora?`;
+
+export const buildWhatsAppUrl = (entry: Pick<WaitlistEntry, 'name' | 'phone' | 'convenioLabel' | 'channel'>): string => {
   const digits = onlyDigits(entry.phone);
   const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
   return `https://wa.me/${withCountry}?text=${encodeURIComponent(buildContactMessage(entry))}`;
@@ -114,6 +126,10 @@ const CSV_COLUMNS: Array<{ header: string; value: (entry: WaitlistEntry) => stri
   { header: 'Consentimento em', value: (e) => (e.consent?.acceptedAt ? formatDateTimeBR(e.consent.acceptedAt) : '') },
   { header: 'Versão do consentimento', value: (e) => e.consent?.version ?? '' },
   { header: 'Notas', value: (e) => e.notes ?? '' },
+  { header: 'Origem', value: (e) => (isFromWhatsapp(e) ? 'WhatsApp' : 'Site') },
+  { header: 'Trecho da conversa', value: (e) => e.whatsapp?.snippet ?? '' },
+  { header: 'Já é paciente', value: (e) => (e.patientMatch ? e.patientMatch.patientName : '') },
+  { header: 'Próxima sessão', value: (e) => (e.patientMatch?.nextAppointmentAt ? formatDateTimeBR(e.patientMatch.nextAppointmentAt) : '') },
 ];
 
 /**
@@ -139,7 +155,8 @@ export const csvFileName = (now: Date = new Date()): string => `interesse-conven
  */
 export const buildPrivateOfferMessage = (entry: Pick<WaitlistEntry, 'name' | 'convenioLabel' | 'especialidade'>): string => {
   const esp = entry.especialidade ? ` de ${entry.especialidade.toLowerCase()}` : '';
-  return `Oi, ${firstName(entry.name)}! Aqui é da Clínica Fono Inova. O credenciamento com o ${entry.convenioLabel} ainda está em andamento e não queremos que vocês fiquem esperando. ` +
+  const oi = entry.name === WHATSAPP_PLACEHOLDER_NAME ? 'Oi!' : `Oi, ${firstName(entry.name)}!`;
+  return `${oi} Aqui é da Clínica Fono Inova. O credenciamento com o ${entry.convenioLabel} ainda está em andamento e não queremos que vocês fiquem esperando. ` +
     `Começar cedo faz diferença no desenvolvimento, então dá para iniciar o atendimento${esp} no particular e passar para o plano quando ele sair. ` +
     `No pacote de 1x por semana cada sessão sai por R$ 180 (cerca de R$ 720 por mês). Tenho horário quinta de manhã ou amanhã à tarde. Quer que eu reserve? 💚`;
 };
@@ -148,6 +165,18 @@ export const buildPrivateOfferUrl = (entry: Pick<WaitlistEntry, 'name' | 'phone'
   const digits = onlyDigits(entry.phone);
   const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
   return `https://wa.me/${withCountry}?text=${encodeURIComponent(buildPrivateOfferMessage(entry))}`;
+};
+
+/** Texto do andamento da busca no WhatsApp (para a faixa acima da lista). */
+export const scanStatusText = (run: Pick<WhatsappScanRun, 'status' | 'stats' | 'error'> & { convenioLabel: string }): string => {
+  if (run.status === 'queued') return `Busca de ${run.convenioLabel} no WhatsApp na fila. Começa assim que o WhatsApp da clínica estiver conectado.`;
+  if (run.status === 'running') return `Buscando ${run.convenioLabel} nas conversas do WhatsApp… pode levar alguns minutos.`;
+  if (run.status === 'failed') return `A busca de ${run.convenioLabel} no WhatsApp falhou${run.error ? `: ${run.error}` : ''}. Tente de novo com o WhatsApp conectado.`;
+  const s = run.stats ?? {};
+  const contatos = s.contacts ?? 0;
+  if (!contatos) return `Busca de ${run.convenioLabel} no WhatsApp concluída: ninguém falou de ${run.convenioLabel} nas conversas sincronizadas.`;
+  return `Busca de ${run.convenioLabel} no WhatsApp concluída: ${contatos} ${contatos === 1 ? 'contato' : 'contatos'}, ` +
+    `${s.created ?? 0} ${s.created === 1 ? 'novo' : 'novos'} na lista, ${s.updated ?? 0} já estavam e ${s.closed ?? 0} já tratados (agendado/descartado).`;
 };
 
 /** Dias desde o cadastro (para destacar quem está esfriando na lista). */

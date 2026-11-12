@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
   Alert,
   Badge,
@@ -39,14 +39,16 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { EditNote, FileDownload, Refresh, Search, WhatsApp } from '@mui/icons-material';
+import { EditNote, FileDownload, ManageSearch, Refresh, Search, WhatsApp } from '@mui/icons-material';
 import { toast } from '../../utils/toast';
 import useConvenioWaitlist from '../../hooks/useConvenioWaitlist';
 import convenioWaitlistApi, {
+  type WaitlistChannel,
   type WaitlistConvenio,
   type WaitlistEntry,
   type WaitlistListParams,
   type WaitlistStatus,
+  type WhatsappScanRun,
 } from '../../services/convenioWaitlistService';
 import { brl, KpiStrip } from '../Financial/components/finUi';
 import {
@@ -54,7 +56,11 @@ import {
   buildWhatsAppUrl,
   buildPrivateOfferUrl,
   CONVENIO_OPTIONS,
+  convenioLabel,
   csvFileName,
+  formatDateBR,
+  isFromWhatsapp,
+  scanStatusText,
   ESPECIALIDADE_OPTIONS,
   formatAge,
   formatDateTimeBR,
@@ -70,6 +76,8 @@ const DEFAULT_TAB: StatusTab = 'aguardando';
 const NOTES_MAX_LENGTH = 2000;
 const EXPORT_PAGE_SIZE = 100;
 const EXPORT_MAX_PAGES = 50; // teto de segurança: 5.000 linhas
+const SCAN_POLL_MS = 10_000;
+const SCAN_ACTIVE: Array<WhatsappScanRun['status']> = ['queued', 'running'];
 
 const apiErrorMessage = (error: unknown, fallback: string): string => {
   const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -140,6 +148,12 @@ const ConvenioInteressePage = () => {
 
   const [statusTab, setStatusTab] = useState<StatusTab>(DEFAULT_TAB);
   const [convenio, setConvenio] = useState<WaitlistConvenio | ''>('');
+  const [channel, setChannel] = useState<WaitlistChannel | ''>('');
+  // Busca no WhatsApp: última execução de cada convênio (a tela mostra a mais recente)
+  const [scanRuns, setScanRuns] = useState<Partial<Record<WaitlistConvenio, WhatsappScanRun>>>({});
+  const [scanMenuAnchor, setScanMenuAnchor] = useState<HTMLElement | null>(null);
+  const [startingScan, setStartingScan] = useState(false);
+  const scanStatusSeen = useRef<Partial<Record<WaitlistConvenio, WhatsappScanRun['status']>>>({});
   const [especialidade, setEspecialidade] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -160,11 +174,12 @@ const ConvenioInteressePage = () => {
     () => ({
       convenio,
       status: statusTab === 'todos' ? '' : statusTab,
+      channel,
       especialidade,
       search,
       order,
     }),
-    [convenio, statusTab, especialidade, search, order],
+    [convenio, statusTab, channel, especialidade, search, order],
   );
 
   const listParams = useMemo<WaitlistListParams>(
@@ -180,19 +195,87 @@ const ConvenioInteressePage = () => {
     fetchSummary();
   }, [fetchSummary]);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     fetchList(listParams);
     fetchSummary();
+  }, [fetchList, fetchSummary, listParams]);
+
+  const loadScanRuns = useCallback(async () => {
+    const results = await Promise.all(
+      CONVENIO_OPTIONS.map(async (option) => {
+        try {
+          return [option.value, await convenioWaitlistApi.latestWhatsappScan(option.value)] as const;
+        } catch {
+          return [option.value, null] as const; // back sem a rota ou sem permissão: só não mostra a faixa
+        }
+      }),
+    );
+    const next: Partial<Record<WaitlistConvenio, WhatsappScanRun>> = {};
+    results.forEach(([slug, run]) => { if (run) next[slug] = run; });
+    setScanRuns(next);
+  }, []);
+
+  useEffect(() => {
+    void loadScanRuns();
+  }, [loadScanRuns]);
+
+  const activeScan = useMemo(
+    () => Object.values(scanRuns).some((run) => run && SCAN_ACTIVE.includes(run.status)),
+    [scanRuns],
+  );
+
+  // Enquanto alguma busca está na fila/rodando, consulta a cada 10 s
+  useEffect(() => {
+    if (!activeScan) return undefined;
+    const timer = window.setInterval(() => { void loadScanRuns(); }, SCAN_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [activeScan, loadScanRuns]);
+
+  // Quando uma busca termina, avisa e recarrega a lista
+  useEffect(() => {
+    let finished = false;
+    (Object.entries(scanRuns) as Array<[WaitlistConvenio, WhatsappScanRun]>).forEach(([slug, run]) => {
+      const before = scanStatusSeen.current[slug];
+      if (before && SCAN_ACTIVE.includes(before) && run.status === 'done') {
+        finished = true;
+        toast.success(scanStatusText({ ...run, convenioLabel: convenioLabel(slug) }));
+      }
+      scanStatusSeen.current[slug] = run.status;
+    });
+    if (finished) refresh();
+  }, [scanRuns, refresh]);
+
+  const latestScan = useMemo(() => {
+    const runs = Object.values(scanRuns).filter(Boolean) as WhatsappScanRun[];
+    return runs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+  }, [scanRuns]);
+
+  const startScan = async (slug: WaitlistConvenio) => {
+    setScanMenuAnchor(null);
+    setStartingScan(true);
+    try {
+      const { run, alreadyRunning } = await convenioWaitlistApi.startWhatsappScan(slug);
+      scanStatusSeen.current[slug] = run.status;
+      setScanRuns((current) => ({ ...current, [slug]: run }));
+      toast(alreadyRunning
+        ? `Já existe uma busca de ${convenioLabel(slug)} em andamento.`
+        : `Buscando ${convenioLabel(slug)} no WhatsApp. Os interessados entram na lista sozinhos.`);
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Não foi possível iniciar a busca no WhatsApp.'));
+    } finally {
+      setStartingScan(false);
+    }
   };
 
   const resetPage = () => setPage(0);
 
   // A aba padrão (Aguardando) não conta como filtro do usuário
-  const hasActiveFilters = Boolean(convenio || especialidade || search || statusTab !== DEFAULT_TAB);
+  const hasActiveFilters = Boolean(convenio || channel || especialidade || search || statusTab !== DEFAULT_TAB);
   const nothingRegisteredYet = summary?.total === 0;
 
   const clearFilters = () => {
     setConvenio('');
+    setChannel('');
     setEspecialidade('');
     setSearch('');
     setSearchInput('');
@@ -329,6 +412,39 @@ const ConvenioInteressePage = () => {
       .filter(Boolean)
       .join(' · ');
 
+  // Origem WhatsApp + trecho da conversa + "já é paciente" (cruzamento feito no back)
+  const extrasFor = (entry: WaitlistEntry) => {
+    const fromWa = isFromWhatsapp(entry);
+    const match = entry.patientMatch;
+    if (!fromWa && !match && !entry.whatsapp?.snippet) return null;
+    return (
+      <Box mt={0.5} display="flex" flexDirection="column" gap={0.5} alignItems="flex-start">
+        <Box display="flex" gap={0.5} flexWrap="wrap">
+          {fromWa && (
+            <Tooltip title={entry.whatsapp?.mentionedBy?.includes('contato') ? 'A pessoa citou o convênio no WhatsApp' : 'Só a clínica citou o convênio nessa conversa: confira antes de chamar'}>
+              <Chip size="small" color="success" variant="outlined" icon={<WhatsApp />} label={entry.whatsapp?.mentionedBy?.includes('contato') ? 'WhatsApp' : 'WhatsApp · só a clínica citou'} />
+            </Tooltip>
+          )}
+          {match && (
+            <Tooltip title={`Cadastrada como paciente: ${match.patientName}`}>
+              <Chip
+                size="small"
+                color={match.nextAppointmentAt ? 'info' : 'default'}
+                label={match.nextAppointmentAt ? `Já é paciente · próx. sessão ${formatDateBR(match.nextAppointmentAt)}` : 'Já é paciente · sem sessão marcada'}
+              />
+            </Tooltip>
+          )}
+        </Box>
+        {entry.whatsapp?.snippet && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', maxWidth: 360, wordBreak: 'break-word' }}>
+            “{entry.whatsapp.snippet.length > 140 ? `${entry.whatsapp.snippet.slice(0, 140)}…` : entry.whatsapp.snippet}”
+            {entry.whatsapp.lastMentionAt ? ` · ${formatDateBR(entry.whatsapp.lastMentionAt)}` : ''}
+          </Typography>
+        )}
+      </Box>
+    );
+  };
+
   const statusChipFor = (entry: WaitlistEntry) => {
     const meta = STATUS_META[entry.status];
     if (savingId === entry._id) return <CircularProgress size={20} aria-label="Salvando" />;
@@ -408,10 +524,23 @@ const ConvenioInteressePage = () => {
             📋 Interesse em Convênios
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Pessoas que registraram interesse enquanto o credenciamento está em andamento (cadastros do site).
+            Pessoas que registraram interesse enquanto o credenciamento está em andamento (site e conversas do WhatsApp).
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Tooltip title="Procura nas conversas do WhatsApp da clínica quem falou do convênio e coloca na lista. Só lê, não envia nada.">
+            <span>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={startingScan || activeScan ? <CircularProgress size={16} color="inherit" /> : <ManageSearch />}
+                onClick={(event) => setScanMenuAnchor(event.currentTarget)}
+                disabled={startingScan}
+              >
+                Buscar no WhatsApp
+              </Button>
+            </span>
+          </Tooltip>
           <Button
             variant="outlined"
             startIcon={exporting ? <CircularProgress size={16} /> : <FileDownload />}
@@ -431,6 +560,22 @@ const ConvenioInteressePage = () => {
         informe apenas as especialidades realmente liberadas para o plano.
       </Alert>
 
+      {latestScan && (
+        <Alert
+          severity={latestScan.status === 'failed' ? 'error' : latestScan.status === 'done' ? 'success' : 'info'}
+          icon={SCAN_ACTIVE.includes(latestScan.status) ? <CircularProgress size={18} /> : undefined}
+          sx={{ mb: 2 }}
+          action={latestScan.status === 'done' && (latestScan.stats?.contacts ?? 0) > 0 ? (
+            <Button color="inherit" size="small" onClick={() => { setChannel('whatsapp_web'); setConvenio(latestScan.convenio); setStatusTab('todos'); resetPage(); }}>
+              Ver
+            </Button>
+          ) : undefined}
+        >
+          {scanStatusText({ ...latestScan, convenioLabel: convenioLabel(latestScan.convenio) })}
+          {latestScan.finishedAt ? ` (${formatDateTimeBR(latestScan.finishedAt)})` : ''}
+        </Alert>
+      )}
+
       {summaryError && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {summaryError}
@@ -442,7 +587,7 @@ const ConvenioInteressePage = () => {
           display: 'grid',
           gap: 2,
           mb: 3,
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
         }}
       >
         {CONVENIO_OPTIONS.map((option) => {
@@ -529,6 +674,22 @@ const ConvenioInteressePage = () => {
             ))}
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel id="waitlist-origem-label">Origem</InputLabel>
+          <Select
+            labelId="waitlist-origem-label"
+            label="Origem"
+            value={channel}
+            onChange={(event) => {
+              setChannel(event.target.value as WaitlistChannel | '');
+              resetPage();
+            }}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="site">Site</MenuItem>
+            <MenuItem value="whatsapp_web">WhatsApp</MenuItem>
+          </Select>
+        </FormControl>
         {hasActiveFilters && (
           <Button size="small" onClick={clearFilters}>
             Limpar filtros
@@ -575,7 +736,7 @@ const ConvenioInteressePage = () => {
           <Box py={4} px={2} textAlign="center">
             <Typography color="text.secondary">
               {nothingRegisteredYet
-                ? 'Nenhum interesse registrado ainda. Os cadastros feitos nas páginas de convênios em credenciamento do site aparecem aqui.'
+                ? 'Nenhum interesse registrado ainda. Os cadastros do site e quem falar do convênio no WhatsApp aparecem aqui. Use "Buscar no WhatsApp" para trazer as conversas antigas.'
                 : hasActiveFilters
                   ? 'Nenhum cadastro encontrado com esses filtros.'
                   : 'Ninguém aguardando contato no momento.'}
@@ -624,8 +785,9 @@ const ConvenioInteressePage = () => {
                     </Typography>
                   )}
                 </Box>
+                {extrasFor(entry)}
                 <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                  Cadastro {formatDateTimeBR(entry.createdAt)} · {waitingLabel(entry.createdAt)}
+                  {isFromWhatsapp(entry) ? 'Procurou em' : 'Cadastro'} {formatDateTimeBR(entry.createdAt)} · {waitingLabel(entry.createdAt)}
                   {entry.requestCount > 1 ? ` · ${entry.requestCount} cadastros` : ''}
                   {entry.notifiedAt ? ` · contatado ${formatDateTimeBR(entry.notifiedAt)}` : ''}
                 </Typography>
@@ -674,6 +836,7 @@ const ConvenioInteressePage = () => {
                             {entry.email}
                           </Typography>
                         )}
+                        {extrasFor(entry)}
                       </TableCell>
                       <TableCell>
                         <Chip size="small" variant="outlined" label={entry.convenioLabel} />
@@ -718,6 +881,23 @@ const ConvenioInteressePage = () => {
         />
       </Paper>
 
+      <Menu anchorEl={scanMenuAnchor} open={Boolean(scanMenuAnchor)} onClose={() => setScanMenuAnchor(null)}>
+        {CONVENIO_OPTIONS.map((option) => {
+          const run = scanRuns[option.value];
+          const busy = Boolean(run && SCAN_ACTIVE.includes(run.status));
+          return (
+            <MenuItem key={option.value} onClick={() => { void startScan(option.value); }} disabled={busy}>
+              <Box>
+                <Typography variant="body2" fontWeight={600}>Buscar {option.label}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {busy ? 'Busca em andamento…' : run?.finishedAt ? `Última busca: ${formatDateTimeBR(run.finishedAt)}` : 'Nunca buscado'}
+                </Typography>
+              </Box>
+            </MenuItem>
+          );
+        })}
+      </Menu>
+
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeStatusMenu}>
         {STATUS_ORDER.map((status) => (
           <MenuItem
@@ -759,13 +939,22 @@ const ConvenioInteressePage = () => {
           {notesTarget && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="caption" color="text.secondary" display="block">
-                {notesTarget.consent?.accepted
+                {isFromWhatsapp(notesTarget)
+                  ? 'Veio de conversa no WhatsApp: a pessoa procurou a clínica (não passou pelo formulário do site).'
+                  : notesTarget.consent?.accepted
                   ? `Consentimento de contato e privacidade: ${formatDateTimeBR(notesTarget.consent.acceptedAt)} (versão ${notesTarget.consent.version ?? '—'})`
                   : 'Sem consentimento registrado — não entre em contato.'}
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block">
-                Origem: {notesTarget.source?.pagePath || '—'} · {notesTarget.requestCount} cadastro(s) enviado(s)
+                {isFromWhatsapp(notesTarget)
+                  ? `Origem: WhatsApp · citou o convênio em ${formatDateTimeBR(notesTarget.whatsapp?.firstMentionAt)}${notesTarget.whatsapp?.lastMentionAt && notesTarget.whatsapp.lastMentionAt !== notesTarget.whatsapp.firstMentionAt ? ` e ${formatDateTimeBR(notesTarget.whatsapp.lastMentionAt)}` : ''}`
+                  : `Origem: ${notesTarget.source?.pagePath || '—'} · ${notesTarget.requestCount} cadastro(s) enviado(s)`}
               </Typography>
+              {notesTarget.whatsapp?.snippet && (
+                <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                  “{notesTarget.whatsapp.snippet}”
+                </Typography>
+              )}
             </Box>
           )}
           <TextField
