@@ -64,6 +64,25 @@ export interface WhatsappScanRun {
   } | null;
 }
 
+export type BulkSendKind = 'particular' | 'credenciado';
+
+export interface BulkSendPreview {
+  kind: BulkSendKind;
+  eligible: number;
+  willSend: number;
+  skippedWithSession: number;
+  sentToday: number;
+  limitReason: 'limite_diario' | 'fim_do_horario' | 'fim_de_semana' | 'antes_do_horario';
+  sample: string | null;
+}
+
+export interface BulkSendBody {
+  kind: BulkSendKind;
+  convenio?: WaitlistConvenio | '';
+  especialidades?: string;
+  confirm?: boolean;
+}
+
 /** Varredura profunda: convenio vem como 'todos'. */
 export type WhatsappDeepScanRun = Omit<WhatsappScanRun, 'convenio'> & { convenio: 'todos' };
 
@@ -157,6 +176,15 @@ export const convenioWaitlistApi = {
   /** Varredura profunda: conversa por conversa, puxando o histórico antigo do celular (horas; retoma sozinha). */
   startDeepWhatsappScan: async (): Promise<{ run: WhatsappDeepScanRun; alreadyRunning: boolean }> => {
     const { data } = await api.post<{ run: WhatsappDeepScanRun; alreadyRunning: boolean }>('/convenio-waitlist/whatsapp-scan', { deep: true });
+    return data;
+  },
+
+  /** Envio em massa pelo WhatsApp. confirm=false (padrão) só devolve a prévia, não envia nada. */
+  bulkSend: async (body: BulkSendBody): Promise<{ preview: BulkSendPreview; queued: number; failed?: number }> => {
+    const { data } = await api.post<{ preview: BulkSendPreview; queued: number; failed?: number }>('/convenio-waitlist/bulk-offer', {
+      ...body,
+      convenio: body.convenio || undefined,
+    });
     return data;
   },
 
