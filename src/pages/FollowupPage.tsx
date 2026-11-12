@@ -280,7 +280,6 @@ const FollowupPage = () => {
     changeLimit,
     createLeadFromSheet,
     updateLeadStatus,
-    updateOperational,
   } = useLeads({
     search,
     page: 1,
@@ -288,6 +287,15 @@ const FollowupPage = () => {
     status: leadFilters.status,
     origin: leadFilters.origin
   });
+
+  // Fila de trabalho: lista própria, filtrada no back (quem já agendou sai — 12/11/2026).
+  // Antes a fila era a 1ª página da Base completa (20 leads mais novos), cheia de "Agenda Direta".
+  const {
+    leads: queueLeads,
+    loading: queueLoading,
+    refetch: refetchQueue,
+    updateOperational: updateQueueOperational,
+  } = useLeads({ queue: 'operational', page: 1, limit: 200 });
 
   const {
     data: analyticsData,
@@ -313,14 +321,14 @@ const FollowupPage = () => {
     try {
       setSummaryTick((t) => t + 1);
       loadWaiting();
-      await Promise.all([refetchLeads(), activeTab === "metricas" ? refetchAnalytics() : Promise.resolve()]);
+      await Promise.all([refetchLeads(), refetchQueue(), activeTab === "metricas" ? refetchAnalytics() : Promise.resolve()]);
       toast.success("Dados atualizados!");
     } catch (error) {
       toast.error("Erro ao atualizar dados");
     } finally {
       setTimeout(() => setRefreshing(false), 600);
     }
-  }, [refetchLeads, refetchAnalytics, loadWaiting, activeTab]);
+  }, [refetchLeads, refetchQueue, refetchAnalytics, loadWaiting, activeTab]);
 
   const openLeadTimeline = useCallback((lead: any) => {
     setSelectedLead(lead);
@@ -358,8 +366,8 @@ const FollowupPage = () => {
     if (!res.success) {
       throw new Error(extractErrorMessage(res.error, "Erro ao criar acompanhamento"));
     }
-    await refetchLeads();
-  }, [refetchLeads]);
+    await Promise.all([refetchLeads(), refetchQueue()]);
+  }, [refetchLeads, refetchQueue]);
 
   const handleViewModeChange = useCallback((mode: "marketing" | "operacional") => {
     setViewMode(mode);
@@ -368,11 +376,12 @@ const FollowupPage = () => {
 
   const handleUpdateOperational = useCallback(async (leadId: string, fields: Record<string, any>) => {
     try {
-      await updateOperational(leadId, fields);
+      // A Base completa recarrega no próximo ciclo (60s) ou ao trocar de vista.
+      await updateQueueOperational(leadId, fields);
     } catch (error: any) {
       notifyApiError(error, "Erro ao atualizar");
     }
-  }, [updateOperational]);
+  }, [updateQueueOperational]);
 
   // ✅ CORRIGIDO: atualiza filtros e recarrega leads
   const handleFilter = (filters: any) => {
@@ -386,7 +395,7 @@ const FollowupPage = () => {
 
   // 60s: fila + leads esperando. Os KPIs do período não mudam a cada minuto
   // (cache de 60s no back). Pausa com a aba oculta e só roda na aba "leads".
-  useVisiblePolling(() => { refetchLeads(); loadWaiting(); }, 60000, activeTab === "leads");
+  useVisiblePolling(() => { refetchLeads(); refetchQueue(); loadWaiting(); }, 60000, activeTab === "leads");
 
   useEffect(() => {
     const loadHistoryMetrics = async () => {
@@ -485,8 +494,8 @@ const FollowupPage = () => {
           {viewMode === "operacional" && (
             <ErrorBoundary>
               <OperationalView
-                leads={leads}
-                loading={leadsLoading}
+                leads={queueLeads}
+                loading={queueLoading}
                 onUpdateLead={handleUpdateOperational}
                 onOpenTimeline={openLeadTimeline}
                 onCreateNew={handleCreateNewFollowup}

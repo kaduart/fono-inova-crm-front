@@ -304,7 +304,11 @@ export const OperationalView: React.FC<OperationalViewProps> = ({
   const setMode = (m: 'lista' | 'quadro') => { setModeState(m); try { localStorage.setItem('fono-leads-mode', m); } catch { /* sem storage */ } };
   const [sheet, setSheet] = useState<BoardLeadView | null>(null);
 
-  const safeleads = (leads || []).filter(l => !['virou_paciente', 'nao_fechou', 'agendado'].includes(l.operational?.pipeline));
+  // Quem já agendou ou virou paciente não é lead para retornar (o back já filtra; aqui é a 2ª trava).
+  const safeleads = (leads || []).filter(l =>
+    !['virou_paciente', 'nao_fechou', 'agendado'].includes(l.operational?.pipeline)
+    && !['agendado', 'virou_paciente', 'convertido'].includes(l.status)
+    && !l.convertedToPatient);
 
   const sorted = [...safeleads].sort((a, b) => {
     const sa = getSeverity(a);
