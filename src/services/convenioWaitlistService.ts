@@ -27,6 +27,20 @@ export interface WaitlistWhatsappInfo {
   snippetFromContact: boolean;
   mentionedBy?: Array<'contato' | 'clinica'>;
   capturedBy: 'scan' | 'live' | null;
+  /** Última mensagem que a clínica mandou para esse número (manual, lembrete ou envio em massa) */
+  lastClinicMessageAt?: string | null;
+  lastContactMessageAt?: string | null;
+}
+
+/** Envio pela tela (campos offer = Retomar contato, announce = Agora atendemos) */
+export interface WaitlistSendInfo {
+  queuedAt: string | null;
+  scheduledFor?: string | null;
+  sentAt: string | null;
+  error: string | null;
+  /** Não enviado de propósito (ex.: a clínica conversou com a pessoa há pouco) */
+  skippedAt?: string | null;
+  skipReason?: string | null;
 }
 
 /** Cruzamento feito no back (só leitura): o telefone já é paciente? tem sessão futura? */
@@ -66,14 +80,46 @@ export interface WhatsappScanRun {
 
 export type BulkSendKind = 'particular' | 'credenciado';
 
+export interface BulkSendPerson {
+  id: string;
+  name: string;
+  phoneTail: string;
+  convenio: WaitlistConvenio;
+  since: string | null;
+  lastClinicMessageAt: string | null;
+  /** recipients: sai no lote de hoje */
+  today?: boolean;
+  /** recipients: desmarcado na tela */
+  excluded?: boolean;
+  /** recipients: quando a mensagem sai (agendado em dias úteis, até 40 por dia) */
+  scheduledFor?: string | null;
+  /** skipped: motivo */
+  reason?: 'sessao_futura' | 'conversa_recente';
+}
+
 export interface BulkSendPreview {
   kind: BulkSendKind;
   eligible: number;
   willSend: number;
+  unchecked?: number;
   skippedWithSession: number;
+  skippedRecentChat?: number;
+  alreadySent?: number;
+  markedContatado?: number;
+  recentDays?: number;
   sentToday: number;
+  capacity?: number;
+  /** quantas saem hoje (o resto vai sozinho nos próximos dias úteis) */
+  todayCount?: number;
+  /** em quantos dias úteis o envio termina */
+  days?: number;
+  finishesAt?: string | null;
   limitReason: 'limite_diario' | 'fim_do_horario' | 'fim_de_semana' | 'antes_do_horario';
   sample: string | null;
+  recipients?: BulkSendPerson[];
+  skipped?: BulkSendPerson[];
+  /** Conferência das conversas no WhatsApp (quem a clínica já falou há pouco) */
+  activity?: { status: WhatsappScanStatus; finishedAt: string | null } | null;
 }
 
 export interface BulkSendBody {
@@ -82,6 +128,8 @@ export interface BulkSendBody {
   especialidades?: string;
   /** Nome de quem assina a mensagem de "Retomar contato" ("Aqui é a [Atendente]") */
   atendente?: string;
+  /** Pessoas desmarcadas na lista (id do cadastro) */
+  excludeIds?: string[];
   confirm?: boolean;
 }
 
@@ -109,6 +157,8 @@ export interface WaitlistEntry {
   channel?: WaitlistChannel;
   whatsapp?: WaitlistWhatsappInfo;
   patientMatch?: WaitlistPatientMatch | null;
+  offer?: WaitlistSendInfo | null;
+  announce?: WaitlistSendInfo | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -182,8 +232,8 @@ export const convenioWaitlistApi = {
   },
 
   /** Envio em massa pelo WhatsApp. confirm=false (padrão) só devolve a prévia, não envia nada. */
-  bulkSend: async (body: BulkSendBody): Promise<{ preview: BulkSendPreview; queued: number; failed?: number }> => {
-    const { data } = await api.post<{ preview: BulkSendPreview; queued: number; failed?: number }>('/convenio-waitlist/bulk-offer', {
+  bulkSend: async (body: BulkSendBody): Promise<{ preview: BulkSendPreview; queued: number; failed?: number; finishesAt?: string | null }> => {
+    const { data } = await api.post<{ preview: BulkSendPreview; queued: number; failed?: number; finishesAt?: string | null }>('/convenio-waitlist/bulk-offer', {
       ...body,
       convenio: body.convenio || undefined,
     });

@@ -204,3 +204,27 @@ export const daysOnList = (iso: string | null | undefined): number | null => {
   const t = new Date(iso).getTime();
   return Number.isNaN(t) ? null : Math.floor((Date.now() - t) / 86_400_000);
 };
+
+/** Selos de envio pela tela: quem já recebeu (e quando), quem está na fila, quem foi pulado e por quê. */
+export interface SendBadge { label: string; color: ChipColor; tooltip: string }
+const SEND_KIND_LABEL = { offer: 'Retomar contato', announce: 'Agora atendemos' } as const;
+
+export const sendBadgesFor = (entry: Pick<WaitlistEntry, 'offer' | 'announce'>): SendBadge[] => {
+  const out: SendBadge[] = [];
+  (['offer', 'announce'] as const).forEach((field) => {
+    const info = entry[field];
+    const kind = SEND_KIND_LABEL[field];
+    if (!info?.queuedAt) return;
+    if (info.sentAt) {
+      out.push({ label: `${kind} enviado ${formatDateBR(info.sentAt)}`, color: 'success', tooltip: `Mensagem "${kind}" enviada pelo WhatsApp da clínica em ${formatDateTimeBR(info.sentAt)}` });
+    } else if (info.skippedAt) {
+      out.push({ label: `${kind} não enviado`, color: 'default', tooltip: info.skipReason || 'A clínica já tinha conversado com a pessoa há pouco, então não mandamos.' });
+    } else if (info.error) {
+      out.push({ label: `${kind}: falhou`, color: 'error', tooltip: info.error });
+    } else {
+      const when = info.scheduledFor || info.queuedAt;
+      out.push({ label: `${kind} agendado ${formatDateBR(when)}`, color: 'warning', tooltip: `Sai pelo WhatsApp da clínica por volta de ${formatDateTimeBR(when)}. Antes de enviar o sistema confere se alguém já falou com a pessoa.` });
+    }
+  });
+  return out;
+};

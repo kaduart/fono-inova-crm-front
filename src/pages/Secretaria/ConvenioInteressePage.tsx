@@ -40,7 +40,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Campaign, EditNote, FileDownload, LocalOffer, ManageSearch, Refresh, Search, WhatsApp } from '@mui/icons-material';
+import { Campaign, EditNote, FileDownload, LocalOffer, ManageSearch, MarkChatRead, Refresh, Search, WhatsApp } from '@mui/icons-material';
 import ConvenioBulkSendDialog from './ConvenioBulkSendDialog';
 import ConvenioSendDialog from './ConvenioSendDialog';
 import { toast } from '../../utils/toast';
@@ -64,6 +64,7 @@ import {
   formatDateBR,
   isFromWhatsapp,
   scanStatusText,
+  sendBadgesFor,
   deepScanStatusText,
   ESPECIALIDADE_OPTIONS,
   formatAge,
@@ -459,7 +460,9 @@ const ConvenioInteressePage = () => {
   const extrasFor = (entry: WaitlistEntry) => {
     const fromWa = isFromWhatsapp(entry);
     const match = entry.patientMatch;
-    if (!fromWa && !match && !entry.whatsapp?.snippet) return null;
+    const sendBadges = sendBadgesFor(entry);
+    const lastClinic = entry.whatsapp?.lastClinicMessageAt;
+    if (!fromWa && !match && !entry.whatsapp?.snippet && !sendBadges.length && !lastClinic) return null;
     return (
       <Box mt={0.5} display="flex" flexDirection="column" gap={0.5} alignItems="flex-start">
         <Box display="flex" gap={0.5} flexWrap="wrap">
@@ -477,7 +480,17 @@ const ConvenioInteressePage = () => {
               />
             </Tooltip>
           )}
+          {sendBadges.map((badge) => (
+            <Tooltip key={badge.label} title={badge.tooltip}>
+              <Chip size="small" color={badge.color} icon={<MarkChatRead />} label={badge.label} />
+            </Tooltip>
+          ))}
         </Box>
+        {lastClinic && (
+          <Typography variant="caption" color="text.secondary">
+            Última mensagem da clínica: {formatDateBR(lastClinic)}
+          </Typography>
+        )}
         {entry.whatsapp?.snippet && (
           <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', maxWidth: 360, wordBreak: 'break-word' }}>
             “{entry.whatsapp.snippet.length > 140 ? `${entry.whatsapp.snippet.slice(0, 140)}…` : entry.whatsapp.snippet}”
