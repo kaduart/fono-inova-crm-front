@@ -1,5 +1,5 @@
 /**
- * 📋 Interesse em convênios (GEAP / IPASGO / Bradesco...)
+ * 📋 Interesse em convênios (GEAP / Unimed / IPASGO / Bradesco...)
  * Cadastros vindos do site enquanto o credenciamento está em andamento (lista de interesse).
  * Backend: back/routes/convenioWaitlist.js (API /convenio-waitlist, coleção convenio_waitlist —
  * nome técnico; não confundir com a fila de horários da Amanda).
@@ -7,7 +7,7 @@
 
 import api from './api';
 
-export type WaitlistConvenio = 'geap' | 'ipasgo' | 'bradesco';
+export type WaitlistConvenio = 'geap' | 'unimed' | 'ipasgo' | 'bradesco';
 export type WaitlistStatus = 'aguardando' | 'contatado' | 'agendado' | 'descartado';
 
 export interface WaitlistSubmission {

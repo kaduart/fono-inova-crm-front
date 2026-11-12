@@ -7,6 +7,7 @@ import type { WaitlistConvenio, WaitlistEntry, WaitlistStatus, WhatsappScanRun }
 
 export const CONVENIO_OPTIONS: Array<{ value: WaitlistConvenio; label: string }> = [
   { value: 'geap', label: 'GEAP' },
+  { value: 'unimed', label: 'Unimed' },
   { value: 'ipasgo', label: 'IPASGO' },
   { value: 'bradesco', label: 'Bradesco Saúde' },
 ];

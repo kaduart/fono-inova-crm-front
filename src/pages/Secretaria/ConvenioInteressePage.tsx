@@ -587,7 +587,7 @@ const ConvenioInteressePage = () => {
           display: 'grid',
           gap: 2,
           mb: 3,
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
         }}
       >
         {CONVENIO_OPTIONS.map((option) => {
