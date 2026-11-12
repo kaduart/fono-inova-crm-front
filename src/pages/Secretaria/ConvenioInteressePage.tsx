@@ -40,7 +40,8 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { EditNote, FileDownload, ManageSearch, Refresh, Search, WhatsApp } from '@mui/icons-material';
+import { Campaign, EditNote, FileDownload, LocalOffer, ManageSearch, Refresh, Search, WhatsApp } from '@mui/icons-material';
+import ConvenioBulkSendDialog from './ConvenioBulkSendDialog';
 import { toast } from '../../utils/toast';
 import useConvenioWaitlist from '../../hooks/useConvenioWaitlist';
 import convenioWaitlistApi, {
@@ -49,6 +50,7 @@ import convenioWaitlistApi, {
   type WaitlistEntry,
   type WaitlistListParams,
   type WaitlistStatus,
+  type BulkSendKind,
   type WhatsappDeepScanRun,
   type WhatsappScanRun,
 } from '../../services/convenioWaitlistService';
@@ -156,6 +158,7 @@ const ConvenioInteressePage = () => {
   const [scanRuns, setScanRuns] = useState<Partial<Record<WaitlistConvenio, WhatsappScanRun>>>({});
   const [scanMenuAnchor, setScanMenuAnchor] = useState<HTMLElement | null>(null);
   const [startingScan, setStartingScan] = useState(false);
+  const [bulkKind, setBulkKind] = useState<BulkSendKind | null>(null);
   const [deepRun, setDeepRun] = useState<WhatsappDeepScanRun | null>(null);
   const deepStatusSeen = useRef<WhatsappScanRun['status'] | null>(null);
   const deepCreatedSeen = useRef<number>(0);
@@ -581,6 +584,16 @@ const ConvenioInteressePage = () => {
               </Button>
             </span>
           </Tooltip>
+          <Tooltip title="Mensagem para quem está esperando: dá para começar no particular enquanto o plano não sai. Mostra a prévia antes de enviar.">
+            <Button variant="outlined" color="success" startIcon={<LocalOffer />} onClick={() => setBulkKind('particular')}>
+              Oferecer particular
+            </Button>
+          </Tooltip>
+          <Tooltip title="Novidade para a lista: agora atendemos o plano. Use só depois do credenciamento confirmado. Mostra a prévia antes de enviar.">
+            <Button variant="outlined" color="success" startIcon={<Campaign />} onClick={() => setBulkKind('credenciado')}>
+              Agora atendemos
+            </Button>
+          </Tooltip>
           <Button
             variant="outlined"
             startIcon={exporting ? <CircularProgress size={16} /> : <FileDownload />}
@@ -992,6 +1005,14 @@ const ConvenioInteressePage = () => {
           </MenuItem>
         ))}
       </Menu>
+
+      <ConvenioBulkSendDialog
+        open={Boolean(bulkKind)}
+        kind={bulkKind ?? 'particular'}
+        initialConvenio={convenio}
+        onClose={() => setBulkKind(null)}
+        onSent={refresh}
+      />
 
       <Dialog open={Boolean(discardTarget)} onClose={() => setDiscardTarget(null)}>
         <DialogTitle>Tirar da lista de interesse?</DialogTitle>
