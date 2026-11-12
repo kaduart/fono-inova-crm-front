@@ -23,9 +23,10 @@ export interface NovidadesScreen {
 export const NOVIDADES_SCREENS: NovidadesScreen[] = [
     // ── Admin / secretária ───────────────────────────────────────────────
     {
-        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-11-03', tabs: ['Dashboard'],
+        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-11-12', tabs: ['Dashboard'],
         summary: 'O que precisa de você hoje fica logo no topo.',
         items: [
+            { title: 'Retomar contato com quem avaliou e sumiu', what: 'Manda uma mensagem pelo WhatsApp da clínica, de uma vez, para quem fez avaliação e depois não teve sessão nem pacote. Dá para pegar todo o histórico ou só quem avaliou há mais de 15, 30 ou 60 dias. Sai até 40 por dia útil (somando o envio de convênios), das 8h às 18h45, e ninguém recebe duas vezes.', how: 'Abra "Avaliou e não fechou" no "Precisa de você", clique em Retomar contato, escolha o período, desmarque quem não deve receber e clique em Enviar. Ficam de fora sozinhos: quem falou com a clínica nos últimos 30 dias, inativados, "Não vai fechar" e quem não tem celular.' },
             { title: 'Evoluções em atraso', what: 'Nova linha no "Precisa de você": quais terapeutas têm evoluções para fechar, há quantos dias e quantas estão em rascunho.', how: 'Abra a linha, filtre por "Mais de 2 dias" ou "Só rascunhos" e use Lembrar para mandar o lembrete pronto pelo WhatsApp.' },
             { title: 'Tela inteira em monitores grandes', what: 'O sistema ocupa a tela toda, sem as faixas pretas dos lados. Agenda, Caixa, Convênios e Financeiro usam toda a largura; as outras telas ficam numa coluna centralizada para facilitar a leitura.', how: 'Nada a fazer.' },
             { title: 'Ir para… (Ctrl+K)', what: 'Um atalho para abrir qualquer tela do ERP digitando o nome, sem procurar no menu.', how: 'Aperte Ctrl+K (no Mac, Cmd+K), digite "caixa", "convênios", "agenda"… e dê Enter.' },
@@ -93,10 +94,14 @@ export const NOVIDADES_SCREENS: NovidadesScreen[] = [
         ],
     },
     {
-        id: 'admin-vendas', area: 'admin', name: 'Vendas & Marketing', version: '2026-11-01',
+        id: 'admin-vendas', area: 'admin', name: 'Vendas & Marketing', version: '2026-11-12',
         tabs: ['Leads', 'InteresseConvenios', 'SocialMedia', 'Analytics', 'ROI'],
         summary: 'Do lead ao paciente, com o próximo passo de cada um.',
         items: [
+            { title: 'Interesse em Convênios: enviar para todos com um clique', what: 'Os botões Retomar contato (oferece o particular) e Agora atendemos (avisa quando a clínica já é credenciada) mandam a mensagem para todo o convênio de uma vez, pelo WhatsApp da clínica. O sistema agenda sozinho até 40 por dia útil (somando com o recontato de avaliações), das 8h às 18h45. Você não precisa voltar todo dia.', how: 'Escolha o convênio, clique no botão, confira a lista (dá para desmarcar quem não deve receber, ou usar Todos e Nenhum) e clique em Enviar para N. A janela mostra em quantos dias termina.' },
+            { title: 'Ninguém recebe duas vezes', what: 'Fica de fora sozinho quem já recebeu, quem tem sessão marcada e quem já conversou com a clínica no WhatsApp, mesmo que a mensagem tenha sido mandada na mão: 30 dias para Retomar contato e 7 dias para Agora atendemos. O sistema confere de novo logo antes de cada envio.', how: 'Abra "Ver quem fica de fora" na janela de envio para ver quem foi pulado e por quê.' },
+            { title: 'Selos de envio em cada pessoa', what: 'Cada pessoa da lista mostra "enviado dd/mm", "agendado dd/mm", "não enviado" ou "falhou", e a data da última mensagem da clínica.', how: 'Só olhar a lista: o selo mostra em que pé está cada um.' },
+            { title: 'Buscar conversas novas', what: 'A busca no WhatsApp lê só o que chegou desde a última busca, nos 4 convênios de uma vez, e é bem mais rápida. A busca rápida antiga saiu porque travava o WhatsApp.', how: 'Menu Buscar no WhatsApp → Buscar conversas novas.' },
             { title: 'Follow-up em Quadro', what: 'Além da Lista, os leads podem ser vistos em Quadro, com uma coluna por etapa. Arraste o cartão para mudar a etapa; solte em Agendado, Virou paciente ou Não fechou para encerrar.', how: 'Use o botão Lista | Quadro; a escolha fica guardada.' },
             { title: 'Ficha do lead', what: 'Clicar no nome do lead abre uma ficha lateral (no celular, de baixo para cima) com contato, etapa e histórico.', how: 'Clique no nome do lead.' },
             { title: 'Leads com próximo passo', what: 'KPIs do funil no período e a fila mostra o próximo passo de cada lead.', how: 'Clique no lead para abrir o WhatsApp com a mensagem.' },
