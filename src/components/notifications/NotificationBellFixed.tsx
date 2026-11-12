@@ -1,7 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, User, Calendar, Clock } from 'lucide-react';
+import { Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useGmbAlert } from '../../hooks/useGmbAlert';
 import api from '../../services/api';
+
+interface PreItem {
+  _id: string;
+  operationalStatus?: string;
+  status?: string;
+  date?: string;
+  time?: string;
+  preferredDate?: string;
+  preferredTime?: string;
+  specialty?: string;
+  doctor?: { fullName?: string; specialty?: string } | null;
+}
 
 /**
  * 🔔 NotificationBell - Versão Final Corrigida
@@ -19,6 +32,11 @@ export const NotificationBellFixed: React.FC = () => {
 
   // 📍 Saúde dos posts GMB (falhou / sem confirmação / sem imagem)
   const gmbAlert = useGmbAlert();
+  // O sininho só olha os últimos 7 dias; o acumulado (centenas de posts antigos)
+  // fica no painel Social Media → GMB. Back antigo sem `recent` → não mostra.
+  const gmbRecent = gmbAlert.recent;
+  const gmbRecentTotal = gmbRecent?.total ?? 0;
+  const navigate = useNavigate();
 
   const STORAGE_KEY = 'notificationBell_seenIds_v3';
 
@@ -114,7 +132,7 @@ export const NotificationBellFixed: React.FC = () => {
     }
   }, []);
 
-  const GMB_SEEN_KEY = 'notificationBell_gmbSeenTotal_v1';
+  const GMB_SEEN_KEY = 'notificationBell_gmbSeenRecent_v2';
   const [gmbSeenTotal, setGmbSeenTotal] = useState<number>(() => {
     const v = localStorage.getItem(GMB_SEEN_KEY);
     return v !== null ? parseInt(v, 10) : -1;
@@ -130,8 +148,8 @@ export const NotificationBellFixed: React.FC = () => {
       const allIds = new Set(preAgendamentos.map(p => p._id));
       setSeenIds(prev => new Set([...(prev || new Set()), ...allIds]));
       // Marca alertas GMB como vistos
-      localStorage.setItem(GMB_SEEN_KEY, String(gmbAlert.total));
-      setGmbSeenTotal(gmbAlert.total);
+      localStorage.setItem(GMB_SEEN_KEY, String(gmbRecentTotal));
+      setGmbSeenTotal(gmbRecentTotal);
     }
   };
 
@@ -142,7 +160,7 @@ export const NotificationBellFixed: React.FC = () => {
 
   const hasNewItems = newCount > 0;
   // GMB só conta no badge se o total for diferente do que foi visto (novo problema surgiu)
-  const gmbBadgeCount = gmbAlert.total !== gmbSeenTotal ? gmbAlert.total : 0;
+  const gmbBadgeCount = gmbRecentTotal > 0 && gmbRecentTotal !== gmbSeenTotal ? gmbRecentTotal : 0;
   const displayCount = (seenIds !== null && !hasNewItems ? 0 : newCount) + gmbBadgeCount;
 
   // Limpar vistos (para teste)
@@ -151,27 +169,33 @@ export const NotificationBellFixed: React.FC = () => {
     setSeenIds(new Set());
   };
 
-  const getStatusBadge = (item: any) => {
-    const status = item.operationalStatus || item.status;
-    const colors: Record<string, string> = {
-      novo: '#ef4444',
-      em_analise: '#f59e0b', 
-      contatado: '#3b82f6',
-      confirmado: '#10b981'
-    };
-    return colors[status] || 'var(--fx-gray-500)';
+  const STATUS_META: Record<string, { label: string; color: string }> = {
+    pre_agendado: { label: 'Pré-agendado', color: '#d97706' },
+    novo: { label: 'Novo', color: '#ef4444' },
+    em_analise: { label: 'Em análise', color: '#f59e0b' },
+    contatado: { label: 'Contatado', color: '#3b82f6' },
+    confirmado: { label: 'Confirmado', color: '#10b981' },
   };
+  const statusOf = (item: PreItem) => STATUS_META[item.operationalStatus || item.status] || { label: item.operationalStatus || item.status || '—', color: 'var(--fx-gray-500)' };
+  const getStatusBadge = (item: PreItem) => statusOf(item).color;
+  const getStatusLabel = (item: PreItem) => statusOf(item).label;
 
-  const getStatusLabel = (item: any) => {
-    const status = item.operationalStatus || item.status;
-    const labels: Record<string, string> = {
-      novo: 'NOVO',
-      em_analise: 'EM ANÁLISE',
-      contatado: 'CONTATADO',
-      confirmado: 'CONFIRMADO'
-    };
-    return labels[status] || status;
+  // A API devolve `date` (Date em UTC) e `time` ("HH:mm"); `preferredDate` era do
+  // modelo antigo e vinha undefined → "Invalid Date". Formata no fuso de SP.
+  const formatWhen = (item: PreItem) => {
+    const raw = item.date || item.preferredDate;
+    const d = raw ? new Date(raw) : null;
+    const dia = d && !Number.isNaN(d.getTime())
+      ? d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'short', day: '2-digit', month: '2-digit' })
+      : 'sem data';
+    const hora = item.time || item.preferredTime;
+    return hora ? `${dia} às ${hora}` : dia;
   };
+  const especialidade = (item: PreItem) => {
+    const sp = item.specialty || item.doctor?.specialty || '';
+    return sp ? sp.charAt(0).toUpperCase() + sp.slice(1) : '';
+  };
+  const openPre = () => { setIsOpen(false); navigate('/admin?tab=Pré-Agendamentos'); };
 
   const isNew = (id: string) => seenIds !== null && !seenIds.has(id);
 
@@ -285,7 +309,12 @@ export const NotificationBellFixed: React.FC = () => {
           </div>
 
           <div style={{ maxHeight: '350px', overflow: 'auto' }}>
-            {gmbAlert.total > 0 && <GmbAlertSection alert={gmbAlert} />}
+            {gmbRecent && gmbRecentTotal > 0 && (
+              <GmbAlertSection
+                alert={gmbAlert}
+                onOpenPanel={() => { setIsOpen(false); navigate('/admin?tab=SocialMedia&socialTab=gmb'); }}
+              />
+            )}
             {loading ? (
               <div style={{ padding: '30px', textAlign: 'center' }}>Carregando...</div>
             ) : preAgendamentos.length === 0 ? (
@@ -297,7 +326,13 @@ export const NotificationBellFixed: React.FC = () => {
               preAgendamentos.map((p: any) => (
                 <div
                   key={p._id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={openPre}
+                  onKeyDown={(e) => { if (e.key === 'Enter') openPre(); }}
+                  title="Abrir Pré-Agendamentos"
                   style={{
+                    cursor: 'pointer',
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--fx-gray-100)',
                     background: isNew(p._id) ? 'var(--fx-red-50)' : 'var(--fx-white)',
@@ -306,7 +341,7 @@ export const NotificationBellFixed: React.FC = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <strong style={{ color: '#111' }}>
-                      {p.patientInfo?.fullName}
+                      {p.patientInfo?.fullName || p.patient?.fullName || 'Paciente sem nome'}
                       {isNew(p._id) && <span style={{ color: '#ef4444', marginLeft: '8px', fontSize: '11px' }}>● NOVO</span>}
                     </strong>
                     <span style={{
@@ -320,7 +355,7 @@ export const NotificationBellFixed: React.FC = () => {
                     </span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#666' }}>
-                    {p.specialty} · {new Date(p.preferredDate).toLocaleDateString('pt-BR')} · {p.preferredTime}
+                    {[especialidade(p), formatWhen(p), p.doctor?.fullName].filter(Boolean).join(' · ')}
                   </div>
                 </div>
               ))
@@ -382,8 +417,9 @@ function PostList({ posts, label }: { posts: GmbPostSample[]; label: string }) {
   );
 }
 
-function GmbAlertSection({ alert }: { alert: GmbHealth }) {
+function GmbAlertSection({ alert, onOpenPanel }: { alert: GmbHealth; onOpenPanel: () => void }) {
   const [open, setOpen] = React.useState(false);
+  const r = alert.recent!;
   const hasDetails =
     alert.details.noImageSample.length > 0 ||
     alert.details.retryingSample.length > 0 ||
@@ -396,20 +432,26 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
       background: 'var(--fx-orange-50)',
       borderLeft: '3px solid #f97316',
     }}>
-      {/* Cabeçalho clicável */}
       <div
         onClick={() => setOpen(o => !o)}
         style={{ padding: '12px 16px', cursor: hasDetails ? 'pointer' : 'default', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
       >
         <div>
-          <strong style={{ color: 'var(--fx-orange-800)', fontSize: '13px' }}>📍 Google Meu Negócio</strong>
+          <strong style={{ color: 'var(--fx-orange-800)', fontSize: '13px' }}>📍 Google Meu Negócio · últimos 7 dias</strong>
           <div style={{ fontSize: '12px', color: 'var(--fx-orange-800)', marginTop: '4px' }}>
-            {alert.failed > 0    && <div>❌ {alert.failed} post(s) com falha permanente</div>}
-            {alert.unconfirmed > 0 && <div>❓ {alert.unconfirmed} post(s) sem confirmação do Make — pode já ter publicado, checar no Google</div>}
-            {alert.retrying > 0  && <div>🔄 {alert.retrying} falhando repetidamente no Google</div>}
-            {alert.stuckPublished > 0 && <div>⏳ {alert.stuckPublished} sem confirmação do Make</div>}
-            {alert.noImage > 0   && <div>🖼️ {alert.noImage} sem imagem (bloqueados)</div>}
+            {r.failed > 0         && <div>❌ {r.failed} post(s) com falha</div>}
+            {r.retrying > 0       && <div>🔄 {r.retrying} falhando repetidamente no Google</div>}
+            {r.unconfirmed > 0    && <div>❓ {r.unconfirmed} sem confirmação do Make (pode já ter publicado)</div>}
+            {r.stuckPublished > 0 && <div>⏳ {r.stuckPublished} marcados como publicados sem ID do Google</div>}
+            {r.noImage > 0        && <div>🖼️ {r.noImage} agendados sem imagem (não vão sair)</div>}
           </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpenPanel(); }}
+            style={{ marginTop: '6px', background: 'none', border: 'none', padding: 0, color: 'var(--fx-orange-800)', fontSize: '12px', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            Abrir painel do GMB
+          </button>
         </div>
         {hasDetails && (
           <span style={{ fontSize: '11px', color: 'var(--fx-amber-700)', marginLeft: '8px', marginTop: '2px', flexShrink: 0 }}>
@@ -418,10 +460,9 @@ function GmbAlertSection({ alert }: { alert: GmbHealth }) {
         )}
       </div>
 
-      {/* Lista de detalhes expandível */}
       {open && hasDetails && (
         <div style={{ padding: '0 16px 12px', maxHeight: '240px', overflowY: 'auto' }}>
-          <PostList posts={alert.details.failedSample}      label="Com falha permanente" />
+          <PostList posts={alert.details.failedSample}      label="Com falha (mais recentes)" />
           <PostList posts={alert.details.unconfirmedSample} label="Sem confirmação do Make (verificar no Google)" />
           <PostList posts={alert.details.retryingSample}    label="Falhando repetidamente" />
           <PostList posts={alert.details.noImageSample}     label="Sem imagem (amostras)" />

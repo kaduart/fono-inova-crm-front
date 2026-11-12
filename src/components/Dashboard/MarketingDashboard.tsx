@@ -35,7 +35,11 @@ import {
 import { confirmDialog } from '../ui/ConfirmHost';
 
 export default function MarketingDashboard() {
-  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>('instagram');
+  // ?socialTab=gmb abre direto na aba (link "Abrir painel do GMB" do sininho).
+  const [activeTab, setActiveTab] = useState<'gmb' | 'instagram' | 'facebook' | 'landingpages' | 'metaads' | 'videos' | 'spy'>(() => {
+    const t = new URLSearchParams(window.location.search).get('socialTab');
+    return (['gmb', 'instagram', 'facebook', 'landingpages', 'metaads', 'videos', 'spy'] as const).find(x => x === t) ?? 'instagram';
+  });
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'top' | 'middle' | 'bottom'>('all');
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('');

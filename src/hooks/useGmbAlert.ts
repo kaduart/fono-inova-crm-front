@@ -19,6 +19,15 @@ export interface GmbHealth {
   noImage: number;
   retrying: number;
   total: number;
+  /** Só os últimos 7 dias — é o que o sininho mostra. Back antigo não manda. */
+  recent?: {
+    failed: number;
+    unconfirmed: number;
+    noImage: number;
+    stuckPublished: number;
+    retrying: number;
+    total: number;
+  };
   details: {
     noImageSample: GmbPostSample[];
     retryingSample: GmbPostSample[];
