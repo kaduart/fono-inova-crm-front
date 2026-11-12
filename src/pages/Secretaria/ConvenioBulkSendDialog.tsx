@@ -15,7 +15,6 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
   Typography,
@@ -64,8 +63,8 @@ const dayGroup = (p: BulkSendPerson): string => {
 
 const skipReasonText = (p: BulkSendPerson) =>
   p.reason === 'sessao_futura'
-    ? 'Já tem sessão marcada'
-    : `Conversou com a clínica em ${formatDateBR(p.lastClinicMessageAt)}`;
+    ? 'já tem sessão marcada'
+    : `a clínica falou em ${formatDateBR(p.lastClinicMessageAt).slice(0, 5)}`;
 
 interface Props {
   open: boolean;
@@ -157,14 +156,29 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
   );
   const skipped = preview?.skipped ?? [];
 
+  // Plano por dia (quem está marcado): vira a faixa "Hoje 40 | sex 13/11 40 | seg 16/11 22".
+  const dayPlan = useMemo(() => {
+    const plan: Array<{ label: string; count: number; today: boolean }> = [];
+    for (const p of recipients) {
+      if (p.excluded) continue;
+      const label = dayGroup(p);
+      const last = plan[plan.length - 1];
+      if (last?.label === label) last.count++;
+      else plan.push({ label, count: 1, today: Boolean(p.today) });
+    }
+    return plan;
+  }, [recipients]);
+  const showConvenio = !convenio;
+  const shortDate = (iso: string | null | undefined) => formatDateBR(iso).slice(0, 5);
+
   const leftOut = useMemo(() => {
     if (!preview) return [];
     const rows: string[] = [];
-    if (preview.alreadySent) rows.push(`${plural(preview.alreadySent, 'já recebeu', 'já receberam')} esta mensagem`);
-    if (preview.skippedRecentChat) rows.push(`${plural(preview.skippedRecentChat, 'conversou', 'conversaram')} com a clínica nos últimos ${preview.recentDays ?? 30} dias`);
-    if (preview.skippedWithSession) rows.push(`${plural(preview.skippedWithSession, 'já tem', 'já têm')} sessão marcada`);
-    if (preview.markedContatado) rows.push(`${plural(preview.markedContatado, 'marcado', 'marcados')} como Contatado pela equipe`);
-    if (preview.unchecked) rows.push(`${plural(preview.unchecked, 'desmarcado', 'desmarcados')} por você`);
+    if (preview.alreadySent) rows.push(`${preview.alreadySent} já ${preview.alreadySent === 1 ? 'recebeu' : 'receberam'} esta mensagem`);
+    if (preview.skippedRecentChat) rows.push(`${preview.skippedRecentChat} ${preview.skippedRecentChat === 1 ? 'conversou' : 'conversaram'} com a clínica nos últimos ${preview.recentDays ?? 30} dias`);
+    if (preview.skippedWithSession) rows.push(`${preview.skippedWithSession} já ${preview.skippedWithSession === 1 ? 'tem' : 'têm'} sessão marcada`);
+    if (preview.markedContatado) rows.push(`${preview.markedContatado} ${preview.markedContatado === 1 ? 'foi marcado' : 'foram marcados'} como Contatado`);
+    if (preview.unchecked) rows.push(`${preview.unchecked} ${preview.unchecked === 1 ? 'foi desmarcado' : 'foram desmarcados'} por você`);
     return rows;
   }, [preview]);
 
@@ -231,39 +245,70 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
               </Alert>
             )}
 
-            <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
-              <Typography variant="h6" component="p">
-                {preview.willSend > 0 ? `Vão receber ${plural(preview.willSend, 'pessoa', 'pessoas')}` : 'Ninguém para receber agora'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
+            <Box mb={2}>
+              <Typography variant="h6" component="p" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
                 {preview.willSend === 0
-                  ? (preview.eligible === 0 ? 'Todo mundo da lista já recebeu ou está fora pelos motivos abaixo.' : `Nada sai agora: ${LIMIT_TEXT[preview.limitReason]}.`)
+                  ? 'Ninguém para receber agora'
                   : (preview.days ?? 1) <= 1
-                    ? `Todas saem ${preview.todayCount ? 'hoje' : 'no próximo dia útil'}, 1 a cada ~1,5 min.`
-                    : `${preview.todayCount ?? 0} hoje e o resto sozinho nos próximos dias úteis (até 40 por dia, para o chip não ser bloqueado). Termina ${formatDateBR(preview.finishesAt)}. Você não precisa voltar aqui.`}
+                    ? `${plural(preview.willSend, 'pessoa recebe', 'pessoas recebem')} ${preview.todayCount ? 'hoje' : 'no próximo dia útil'}`
+                    : `${plural(preview.willSend, 'pessoa', 'pessoas')} em ${preview.days} dias úteis`}
               </Typography>
-              {leftOut.length > 0 && (
-                <Box mt={1}>
-                  <Typography variant="body2" fontWeight={600}>Ficam de fora (não recebem de novo):</Typography>
-                  {leftOut.map((line) => (
-                    <Typography key={line} variant="body2" color="text.secondary">• {line}</Typography>
-                  ))}
-                </Box>
+              {preview.willSend === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {preview.eligible === 0 ? 'Todo mundo já recebeu ou ficou de fora pelos motivos abaixo.' : `Nada sai agora: ${LIMIT_TEXT[preview.limitReason]}.`}
+                </Typography>
+              ) : (
+                <>
+                  {/* Faixa do plano: cada dia ocupa a largura proporcional ao número de mensagens */}
+                  <Box
+                    role="img"
+                    aria-label={dayPlan.map((d) => `${d.label}: ${d.count}`).join(', ')}
+                    sx={{ display: 'flex', gap: 0.5, mt: 1.25, mb: 1 }}
+                  >
+                    {dayPlan.map((d) => (
+                      <Box
+                        key={d.label}
+                        sx={{
+                          flexGrow: d.count,
+                          flexBasis: 0,
+                          minWidth: 64,
+                          px: 1,
+                          py: 0.75,
+                          borderRadius: 1,
+                          bgcolor: d.today ? 'success.main' : 'action.selected',
+                          color: d.today ? 'success.contrastText' : 'text.primary',
+                        }}
+                      >
+                        <Typography variant="caption" component="div" sx={{ opacity: 0.85, lineHeight: 1.2 }}>{d.label}</Typography>
+                        <Typography variant="subtitle1" component="div" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{d.count}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {(preview.days ?? 1) > 1
+                      ? `Até 40 por dia, para o chip não ser bloqueado. Termina ${dayPlan[dayPlan.length - 1]?.label ?? shortDate(preview.finishesAt)} sem você precisar voltar aqui.`
+                      : 'Uma mensagem a cada 1,5 minuto, mais ou menos.'}
+                  </Typography>
+                </>
               )}
-            </Paper>
+              {leftOut.length > 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>Não recebem de novo: </Box>
+                  {leftOut.join('; ')}.
+                </Typography>
+              )}
+            </Box>
 
             {recipients.length > 0 && (
               <Accordion disableGutters variant="outlined" defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="body2" fontWeight={600}>
-                    Quem vai receber ({preview.eligible}){preview.unchecked ? ` · ${preview.unchecked} desmarcados` : ''}
-                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>Quem vai receber ({preview.eligible})</Typography>
                 </AccordionSummary>
-                <Box display="flex" justifyContent="space-between" alignItems="center" px={1.5} pb={0.5}>
-                  <Typography variant="caption" color="text.secondary">Desmarque quem não deve receber.</Typography>
-                  <Box>
-                    <Button size="small" onClick={() => setExcludeIds([])} disabled={!excludeIds.length}>Marcar todos</Button>
-                    <Button size="small" onClick={() => setExcludeIds(recipients.map((p) => p.id))} disabled={excludeIds.length >= recipients.length}>Desmarcar todos</Button>
+                <Box display="flex" justifyContent="space-between" alignItems="center" gap={1} px={1.5} pb={0.5}>
+                  <Typography variant="caption" color="text.secondary">{fullScreen ? 'Desmarque quem não deve' : 'Desmarque quem não deve receber'}</Typography>
+                  <Box display="flex" flexShrink={0}>
+                    <Button size="small" onClick={() => setExcludeIds([])} disabled={!excludeIds.length}>Todos</Button>
+                    <Button size="small" onClick={() => setExcludeIds(recipients.map((p) => p.id))} disabled={excludeIds.length >= recipients.length}>Nenhum</Button>
                   </Box>
                 </Box>
                 <AccordionDetails sx={{ p: 0, maxHeight: fullScreen ? 'none' : 320, overflowY: 'auto' }}>
@@ -275,7 +320,11 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
                       <Fragment key={p.id}>
                         {newGroup && (
                           <Box px={1.5} py={0.5} sx={{ bgcolor: 'action.hover', borderTop: 1, borderColor: 'divider', position: 'sticky', top: 0, zIndex: 1 }}>
-                            <Typography variant="caption" fontWeight={700}>{group} · {count}</Typography>
+                            <Typography variant="caption" fontWeight={700}>{group}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>{plural(count, 'pessoa', 'pessoas')}</Typography>
+                            {i === 0 && (
+                              <Typography variant="caption" color="text.secondary" sx={{ float: 'right', pr: 0.5 }}>procurou em</Typography>
+                            )}
                           </Box>
                         )}
                         <Box
@@ -296,10 +345,15 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
                           <Box flex={1} minWidth={0}>
                             <Typography variant="body2" noWrap>{p.name}</Typography>
                             <Typography variant="caption" color="text.secondary" component="div" noWrap>
-                              {convenioLabel(p.convenio)} · final {p.phoneTail}{p.since ? ` · procurou em ${formatDateBR(p.since)}` : ''}
-                              {p.lastClinicMessageAt ? ` · última msg da clínica ${formatDateBR(p.lastClinicMessageAt)}` : ''}
+                              {showConvenio ? `${convenioLabel(p.convenio)}, ` : ''}final {p.phoneTail}
+                              {p.lastClinicMessageAt ? `, a clínica falou em ${shortDate(p.lastClinicMessageAt)}` : ''}
                             </Typography>
                           </Box>
+                          {p.since && (
+                            <Box textAlign="right" flexShrink={0} pr={0.5}>
+                              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>{shortDate(p.since)}</Typography>
+                            </Box>
+                          )}
                         </Box>
                       </Fragment>
                     );
@@ -311,14 +365,14 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
             {skipped.length > 0 && (
               <Accordion disableGutters variant="outlined">
                 <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="body2">Quem fica de fora agora ({skipped.length})</Typography>
+                  <Typography variant="body2">Ver quem fica de fora ({skipped.length})</Typography>
                 </AccordionSummary>
                 <AccordionDetails sx={{ p: 0, maxHeight: 240, overflowY: 'auto' }}>
                   {skipped.map((p) => (
                     <Box key={p.id} px={2} py={0.75} sx={{ borderTop: 1, borderColor: 'divider' }}>
                       <Typography variant="body2" noWrap>{p.name}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {convenioLabel(p.convenio)} · final {p.phoneTail} · {skipReasonText(p)}
+                        {showConvenio ? `${convenioLabel(p.convenio)}, ` : ''}final {p.phoneTail}: {skipReasonText(p)}
                       </Typography>
                     </Box>
                   ))}
