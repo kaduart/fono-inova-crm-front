@@ -79,6 +79,47 @@ export interface EvaluationItem {
 
 export interface EvaluationQueue { items: EvaluationItem[]; total: number; potentialMonthly: number }
 
+/** Retomar contato com quem avaliou e não deu continuidade (envio em massa). docs/flows/evaluation_reengagement.md */
+export type ReengagePeriod = 'all' | 15 | 30 | 60;
+
+export interface ReengagePerson {
+    id: string;
+    name: string;
+    phoneTail: string;
+    specialty: string | null;
+    /** data da avaliação */
+    since: string | null;
+    lastClinicMessageAt?: string | null;
+    today?: boolean;
+    excluded?: boolean;
+    scheduledFor?: string | null;
+    reason?: 'sem_telefone' | 'inativo' | 'nao_vai_fechar' | 'conversa_recente';
+}
+
+export interface ReengagePreview {
+    period: ReengagePeriod;
+    eligible: number;
+    willSend: number;
+    unchecked: number;
+    alreadySent: number;
+    skippedRecentChat: number;
+    skippedNoPhone: number;
+    skippedInactive: number;
+    skippedLost: number;
+    recentDays: number;
+    sentToday: number;
+    capacity: number;
+    limitReason: 'limite_diario' | 'fim_do_horario' | 'fim_de_semana' | 'antes_do_horario';
+    todayCount: number;
+    days: number;
+    finishesAt: string | null;
+    recipients: ReengagePerson[];
+    skipped: ReengagePerson[];
+    sample: string | null;
+}
+
+export interface ReengageResult { preview: ReengagePreview; queued: number; failed?: number; finishesAt?: string | null }
+
 export type NextDayState = 'not_sent' | 'no_reply' | 'change_requested' | 'review_required' | 'no_phone';
 
 export interface NextDayItem {
@@ -143,6 +184,10 @@ export const commercialService = {
         const d = unwrap<Partial<EvaluationQueue>>(await API.get('/v2/commercial/evaluation-no-package'));
         const items = Array.isArray(d?.items) ? d.items : [];
         return { items, total: d?.total ?? items.length, potentialMonthly: d?.potentialMonthly ?? 0 };
+    },
+    /** Sem confirm = só prévia. Com confirm = agenda todos (até 40 por dia útil, somado ao envio de convênios). */
+    async evaluationReengage(body: { period: ReengagePeriod; atendente?: string; excludeIds?: string[]; confirm?: boolean }): Promise<ReengageResult> {
+        return unwrap<ReengageResult>(await API.post('/v2/commercial/evaluation-reengage', body));
     },
     async unconfirmedNextDay(): Promise<NextDayQueue> {
         const d = unwrap<Partial<NextDayQueue>>(await API.get('/v2/commercial/unconfirmed-next-day'));

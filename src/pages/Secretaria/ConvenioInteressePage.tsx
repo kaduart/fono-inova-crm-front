@@ -10,7 +10,6 @@ import {
   Chip,
   CircularProgress,
   Dialog,
-  Divider,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -284,28 +283,6 @@ const ConvenioInteressePage = () => {
         : 'Busca completa iniciada: lê todo o histórico, conversa por conversa. Pode levar horas; os interessados vão entrando na lista.');
     } catch (err) {
       toast.error(apiErrorMessage(err, 'Não foi possível iniciar a busca completa no WhatsApp.'));
-    } finally {
-      setStartingScan(false);
-    }
-  };
-
-  const latestScan = useMemo(() => {
-    const runs = Object.values(scanRuns).filter(Boolean) as WhatsappScanRun[];
-    return runs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
-  }, [scanRuns]);
-
-  const startScan = async (slug: WaitlistConvenio) => {
-    setScanMenuAnchor(null);
-    setStartingScan(true);
-    try {
-      const { run, alreadyRunning } = await convenioWaitlistApi.startWhatsappScan(slug);
-      scanStatusSeen.current[slug] = run.status;
-      setScanRuns((current) => ({ ...current, [slug]: run }));
-      toast(alreadyRunning
-        ? `Já existe uma busca de ${convenioLabel(slug)} em andamento.`
-        : `Buscando ${convenioLabel(slug)} no WhatsApp. Os interessados entram na lista sozinhos.`);
-    } catch (err) {
-      toast.error(apiErrorMessage(err, 'Não foi possível iniciar a busca no WhatsApp.'));
     } finally {
       setStartingScan(false);
     }
@@ -632,21 +609,6 @@ const ConvenioInteressePage = () => {
         </Alert>
       )}
 
-      {latestScan && (
-        <Alert
-          severity={latestScan.status === 'failed' ? 'error' : latestScan.status === 'done' ? 'success' : 'info'}
-          icon={SCAN_ACTIVE.includes(latestScan.status) ? <CircularProgress size={18} /> : undefined}
-          sx={{ mb: 2 }}
-          action={latestScan.status === 'done' && (latestScan.stats?.contacts ?? 0) > 0 ? (
-            <Button color="inherit" size="small" onClick={() => { setChannel('whatsapp_web'); setConvenio(latestScan.convenio); setStatusTab('todos'); resetPage(); }}>
-              Ver
-            </Button>
-          ) : undefined}
-        >
-          {scanStatusText({ ...latestScan, convenioLabel: convenioLabel(latestScan.convenio) })}
-          {latestScan.finishedAt ? ` (${formatDateTimeBR(latestScan.finishedAt)})` : ''}
-        </Alert>
-      )}
 
       {summaryError && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -958,29 +920,14 @@ const ConvenioInteressePage = () => {
       <Menu anchorEl={scanMenuAnchor} open={Boolean(scanMenuAnchor)} onClose={() => setScanMenuAnchor(null)}>
         <MenuItem onClick={() => { void startDeepScan(); }} disabled={Boolean(deepRun && SCAN_ACTIVE.includes(deepRun.status))}>
           <Box>
-            <Typography variant="body2" fontWeight={700}>Busca completa (todo o histórico)</Typography>
+            <Typography variant="body2" fontWeight={700}>Buscar conversas novas (os 4 convênios)</Typography>
             <Typography variant="caption" color="text.secondary" component="div">
               {deepRun && SCAN_ACTIVE.includes(deepRun.status)
                 ? `Em andamento: ${deepRun.stats?.done ?? 0} de ${deepRun.stats?.total ?? '…'} conversas`
-                : deepRun?.finishedAt ? `Última: ${formatDateTimeBR(deepRun.finishedAt)}` : 'Os 4 convênios, conversa por conversa. Demora horas.'}
+                : deepRun?.finishedAt ? `Última: ${formatDateTimeBR(deepRun.finishedAt)}. Agora lê só o que chegou depois.` : 'Os 4 convênios, conversa por conversa.'}
             </Typography>
           </Box>
         </MenuItem>
-        <Divider />
-        {CONVENIO_OPTIONS.map((option) => {
-          const run = scanRuns[option.value];
-          const busy = Boolean(run && SCAN_ACTIVE.includes(run.status));
-          return (
-            <MenuItem key={option.value} onClick={() => { void startScan(option.value); }} disabled={busy}>
-              <Box>
-                <Typography variant="body2" fontWeight={600}>Busca rápida: {option.label} (últimos ~2 meses)</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {busy ? 'Busca em andamento…' : run?.finishedAt ? `Última busca: ${formatDateTimeBR(run.finishedAt)}` : 'Nunca buscado'}
-                </Typography>
-              </Box>
-            </MenuItem>
-          );
-        })}
       </Menu>
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeStatusMenu}>
