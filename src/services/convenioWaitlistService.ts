@@ -40,6 +40,8 @@ export type WhatsappScanStatus = 'queued' | 'running' | 'done' | 'failed';
 
 export interface WhatsappScanRun {
   _id: string;
+  /** convenio_interest = busca rápida de 1 convênio; convenio_interest_deep = histórico inteiro, os 4 de uma vez */
+  kind?: 'convenio_interest' | 'convenio_interest_deep';
   convenio: WaitlistConvenio;
   status: WhatsappScanStatus;
   createdAt: string;
@@ -54,8 +56,16 @@ export interface WhatsappScanRun {
     updated?: number;
     closed?: number;
     unresolved?: number;
+    /** só na profunda */
+    total?: number;
+    done?: number;
+    oldest?: string | null;
+    byConvenio?: Partial<Record<WaitlistConvenio, number>>;
   } | null;
 }
+
+/** Varredura profunda: convenio vem como 'todos'. */
+export type WhatsappDeepScanRun = Omit<WhatsappScanRun, 'convenio'> & { convenio: 'todos' };
 
 export interface WaitlistEntry {
   _id: string;
@@ -141,6 +151,17 @@ export const convenioWaitlistApi = {
 
   latestWhatsappScan: async (convenio: WaitlistConvenio): Promise<WhatsappScanRun | null> => {
     const { data } = await api.get<{ run: WhatsappScanRun | null }>('/convenio-waitlist/whatsapp-scan/latest', { params: { convenio } });
+    return data.run;
+  },
+
+  /** Varredura profunda: conversa por conversa, puxando o histórico antigo do celular (horas; retoma sozinha). */
+  startDeepWhatsappScan: async (): Promise<{ run: WhatsappDeepScanRun; alreadyRunning: boolean }> => {
+    const { data } = await api.post<{ run: WhatsappDeepScanRun; alreadyRunning: boolean }>('/convenio-waitlist/whatsapp-scan', { deep: true });
+    return data;
+  },
+
+  latestDeepWhatsappScan: async (): Promise<WhatsappDeepScanRun | null> => {
+    const { data } = await api.get<{ run: WhatsappDeepScanRun | null }>('/convenio-waitlist/whatsapp-scan/latest', { params: { deep: true } });
     return data.run;
   },
 };

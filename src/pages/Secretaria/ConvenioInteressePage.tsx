@@ -10,6 +10,7 @@ import {
   Chip,
   CircularProgress,
   Dialog,
+  Divider,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -48,6 +49,7 @@ import convenioWaitlistApi, {
   type WaitlistEntry,
   type WaitlistListParams,
   type WaitlistStatus,
+  type WhatsappDeepScanRun,
   type WhatsappScanRun,
 } from '../../services/convenioWaitlistService';
 import { brl, KpiStrip } from '../Financial/components/finUi';
@@ -61,6 +63,7 @@ import {
   formatDateBR,
   isFromWhatsapp,
   scanStatusText,
+  deepScanStatusText,
   ESPECIALIDADE_OPTIONS,
   formatAge,
   formatDateTimeBR,
@@ -153,6 +156,9 @@ const ConvenioInteressePage = () => {
   const [scanRuns, setScanRuns] = useState<Partial<Record<WaitlistConvenio, WhatsappScanRun>>>({});
   const [scanMenuAnchor, setScanMenuAnchor] = useState<HTMLElement | null>(null);
   const [startingScan, setStartingScan] = useState(false);
+  const [deepRun, setDeepRun] = useState<WhatsappDeepScanRun | null>(null);
+  const deepStatusSeen = useRef<WhatsappScanRun['status'] | null>(null);
+  const deepCreatedSeen = useRef<number>(0);
   const scanStatusSeen = useRef<Partial<Record<WaitlistConvenio, WhatsappScanRun['status']>>>({});
   const [especialidade, setEspecialidade] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -213,6 +219,11 @@ const ConvenioInteressePage = () => {
     const next: Partial<Record<WaitlistConvenio, WhatsappScanRun>> = {};
     results.forEach(([slug, run]) => { if (run) next[slug] = run; });
     setScanRuns(next);
+    try {
+      setDeepRun(await convenioWaitlistApi.latestDeepWhatsappScan());
+    } catch {
+      setDeepRun(null); // back sem a varredura profunda: só não mostra
+    }
   }, []);
 
   useEffect(() => {
@@ -220,8 +231,9 @@ const ConvenioInteressePage = () => {
   }, [loadScanRuns]);
 
   const activeScan = useMemo(
-    () => Object.values(scanRuns).some((run) => run && SCAN_ACTIVE.includes(run.status)),
-    [scanRuns],
+    () => Object.values(scanRuns).some((run) => run && SCAN_ACTIVE.includes(run.status))
+      || Boolean(deepRun && SCAN_ACTIVE.includes(deepRun.status)),
+    [scanRuns, deepRun],
   );
 
   // Enquanto alguma busca está na fila/rodando, consulta a cada 10 s
@@ -244,6 +256,34 @@ const ConvenioInteressePage = () => {
     });
     if (finished) refresh();
   }, [scanRuns, refresh]);
+
+  // Profunda: recarrega a lista quando entram novos interessados e avisa ao terminar
+  useEffect(() => {
+    if (!deepRun) return;
+    const before = deepStatusSeen.current;
+    const created = deepRun.stats?.created ?? 0;
+    if (before && SCAN_ACTIVE.includes(before) && deepRun.status === 'done') toast.success(deepScanStatusText(deepRun));
+    if (created > deepCreatedSeen.current && before !== null) refresh();
+    deepStatusSeen.current = deepRun.status;
+    deepCreatedSeen.current = created;
+  }, [deepRun, refresh]);
+
+  const startDeepScan = async () => {
+    setScanMenuAnchor(null);
+    setStartingScan(true);
+    try {
+      const { run, alreadyRunning } = await convenioWaitlistApi.startDeepWhatsappScan();
+      deepStatusSeen.current = run.status;
+      setDeepRun(run);
+      toast(alreadyRunning
+        ? 'A busca completa no WhatsApp já está em andamento.'
+        : 'Busca completa iniciada: lê todo o histórico, conversa por conversa. Pode levar horas; os interessados vão entrando na lista.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Não foi possível iniciar a busca completa no WhatsApp.'));
+    } finally {
+      setStartingScan(false);
+    }
+  };
 
   const latestScan = useMemo(() => {
     const runs = Object.values(scanRuns).filter(Boolean) as WhatsappScanRun[];
@@ -560,6 +600,29 @@ const ConvenioInteressePage = () => {
         informe apenas as especialidades realmente liberadas para o plano.
       </Alert>
 
+      {deepRun && (
+        <Alert
+          severity={deepRun.status === 'failed' ? 'error' : deepRun.status === 'done' ? 'success' : 'info'}
+          icon={SCAN_ACTIVE.includes(deepRun.status) ? <CircularProgress size={18} /> : undefined}
+          sx={{ mb: 2 }}
+          action={(deepRun.stats?.contacts ?? 0) > 0 ? (
+            <Button color="inherit" size="small" onClick={() => { setChannel('whatsapp_web'); setConvenio(''); setStatusTab('todos'); resetPage(); }}>
+              Ver
+            </Button>
+          ) : undefined}
+        >
+          {deepScanStatusText(deepRun)}
+          {deepRun.finishedAt ? ` (${formatDateTimeBR(deepRun.finishedAt)})` : ''}
+          {SCAN_ACTIVE.includes(deepRun.status) && (deepRun.stats?.total ?? 0) > 0 && (
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(100, ((deepRun.stats?.done ?? 0) / (deepRun.stats?.total ?? 1)) * 100)}
+              sx={{ mt: 1, borderRadius: 1 }}
+            />
+          )}
+        </Alert>
+      )}
+
       {latestScan && (
         <Alert
           severity={latestScan.status === 'failed' ? 'error' : latestScan.status === 'done' ? 'success' : 'info'}
@@ -592,12 +655,14 @@ const ConvenioInteressePage = () => {
       >
         {CONVENIO_OPTIONS.map((option) => {
           const item = summary?.porConvenio[option.value];
+          // 0 sem nenhuma busca no WhatsApp quer dizer "não procurado", não "ninguém pediu"
+          const neverSearched = !scanRuns[option.value] && deepRun?.status !== 'done' && !item?.total;
           return (
             <SummaryCard
               key={option.value}
               title={option.label}
               value={item ? item.aguardando : '—'}
-              subtitle={item ? `aguardando · ${item.contatado} contatados · ${item.agendado} agendados${summary?.insights?.porConvenio[option.value]?.avgDays ? ` · média ${summary.insights.porConvenio[option.value]!.avgDays} dias` : ''}` : 'carregando…'}
+              subtitle={neverSearched ? 'ainda não buscado no WhatsApp' : item ? `aguardando · ${item.contatado} contatados · ${item.agendado} agendados${summary?.insights?.porConvenio[option.value]?.avgDays ? ` · média ${summary.insights.porConvenio[option.value]!.avgDays} dias` : ''}` : 'carregando…'}
               selected={convenio === option.value}
               onClick={() => {
                 setConvenio((current) => (current === option.value ? '' : option.value));
@@ -882,13 +947,24 @@ const ConvenioInteressePage = () => {
       </Paper>
 
       <Menu anchorEl={scanMenuAnchor} open={Boolean(scanMenuAnchor)} onClose={() => setScanMenuAnchor(null)}>
+        <MenuItem onClick={() => { void startDeepScan(); }} disabled={Boolean(deepRun && SCAN_ACTIVE.includes(deepRun.status))}>
+          <Box>
+            <Typography variant="body2" fontWeight={700}>Busca completa (todo o histórico)</Typography>
+            <Typography variant="caption" color="text.secondary" component="div">
+              {deepRun && SCAN_ACTIVE.includes(deepRun.status)
+                ? `Em andamento: ${deepRun.stats?.done ?? 0} de ${deepRun.stats?.total ?? '…'} conversas`
+                : deepRun?.finishedAt ? `Última: ${formatDateTimeBR(deepRun.finishedAt)}` : 'Os 4 convênios, conversa por conversa. Demora horas.'}
+            </Typography>
+          </Box>
+        </MenuItem>
+        <Divider />
         {CONVENIO_OPTIONS.map((option) => {
           const run = scanRuns[option.value];
           const busy = Boolean(run && SCAN_ACTIVE.includes(run.status));
           return (
             <MenuItem key={option.value} onClick={() => { void startScan(option.value); }} disabled={busy}>
               <Box>
-                <Typography variant="body2" fontWeight={600}>Buscar {option.label}</Typography>
+                <Typography variant="body2" fontWeight={600}>Busca rápida: {option.label} (últimos ~2 meses)</Typography>
                 <Typography variant="caption" color="text.secondary">
                   {busy ? 'Busca em andamento…' : run?.finishedAt ? `Última busca: ${formatDateTimeBR(run.finishedAt)}` : 'Nunca buscado'}
                 </Typography>

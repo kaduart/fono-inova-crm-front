@@ -3,7 +3,7 @@
  */
 
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import type { WaitlistConvenio, WaitlistEntry, WaitlistStatus, WhatsappScanRun } from '../services/convenioWaitlistService';
+import type { WaitlistConvenio, WaitlistEntry, WaitlistStatus, WhatsappDeepScanRun, WhatsappScanRun } from '../services/convenioWaitlistService';
 
 export const CONVENIO_OPTIONS: Array<{ value: WaitlistConvenio; label: string }> = [
   { value: 'geap', label: 'GEAP' },
@@ -177,6 +177,25 @@ export const scanStatusText = (run: Pick<WhatsappScanRun, 'status' | 'stats' | '
   if (!contatos) return `Busca de ${run.convenioLabel} no WhatsApp concluída: ninguém falou de ${run.convenioLabel} nas conversas sincronizadas.`;
   return `Busca de ${run.convenioLabel} no WhatsApp concluída: ${contatos} ${contatos === 1 ? 'contato' : 'contatos'}, ` +
     `${s.created ?? 0} ${s.created === 1 ? 'novo' : 'novos'} na lista, ${s.updated ?? 0} já estavam e ${s.closed ?? 0} já tratados (agendado/descartado).`;
+};
+
+/** Texto da varredura profunda (histórico inteiro, os 4 convênios). */
+export const deepScanStatusText = (run: Pick<WhatsappDeepScanRun, 'status' | 'stats' | 'error'>): string => {
+  const s = run.stats ?? {};
+  const progresso = s.total ? `${s.done ?? 0} de ${s.total} conversas` : '';
+  const ate = s.oldest ? ` Histórico lido até ${new Date(s.oldest).toLocaleDateString('pt-BR')}.` : '';
+  const porConvenio = Object.entries(s.byConvenio ?? {})
+    .map(([slug, n]) => `${CONVENIO_OPTIONS.find((o) => o.value === slug)?.label ?? slug} ${n}`)
+    .join(' · ');
+  const achados = s.contacts ? ` ${s.contacts} ${s.contacts === 1 ? 'contato' : 'contatos'} (${porConvenio}), ${s.created ?? 0} novos na lista.` : '';
+  if (run.status === 'queued') {
+    return progresso
+      ? `Busca completa pausada em ${progresso}; continua sozinha quando o WhatsApp da clínica voltar.${achados}`
+      : 'Busca completa no WhatsApp na fila. Começa assim que o WhatsApp da clínica estiver conectado.';
+  }
+  if (run.status === 'running') return `Busca completa no WhatsApp: ${progresso || 'começando'}… pode levar horas, os interessados já vão entrando na lista.${achados}${ate}`;
+  if (run.status === 'failed') return `A busca completa no WhatsApp falhou${run.error ? `: ${run.error}` : ''}${progresso ? ` (parou em ${progresso})` : ''}.${achados}`;
+  return `Busca completa no WhatsApp concluída: ${s.total ?? 0} conversas lidas.${achados || ' Ninguém falou dos convênios.'}${ate}`;
 };
 
 /** Dias desde o cadastro (para destacar quem está esfriando na lista). */
