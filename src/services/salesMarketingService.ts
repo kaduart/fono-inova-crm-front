@@ -28,6 +28,8 @@ export interface RoiSummary {
     totals: Omit<RoiChannel, 'key' | 'label' | 'verdict'>;
     coverage: { leads: number; attributed: number; withOrigin: number; rate: number };
     channels: RoiChannel[];
+    /** Todos os canais que passaram pelo site (assinatura do site no WhatsApp ou lead criado pelo site) */
+    site?: { leads: number; patients: number; scheduled: number; revenue: number };
 }
 
 export interface IdleSpecialty { specialty: string; idleSlots: number; period: 'manhã' | 'tarde'; weekday: string | null }

@@ -169,15 +169,21 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-3">Leads por Página</h4>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={anapolisMetrics} layout="vertical">
-              <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis dataKey="title" type="category" width={130} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(value) => [`${value} leads`, 'Leads']} />
-              <Bar dataKey="leads" fill="#10b981" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {totals.leads > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={anapolisMetrics} layout="vertical">
+                <CartesianGrid stroke="#f0f0f0" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                <YAxis dataKey="title" type="category" width={130} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(value) => [`${value} leads`, 'Leads']} />
+                <Bar dataKey="leads" fill="#10b981" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="rounded-lg bg-gray-50 px-4 py-6 text-sm text-gray-600">
+              Nenhum lead com página de origem no período. Quem chega pelo Google costuma chamar no WhatsApp; essas conversas aparecem em ROI & Atribuição, no canal Google orgânico.
+            </p>
+          )}
         </div>
       </div>
 

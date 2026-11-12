@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from '../../utils/toast';
 import { toDateString } from '../../utils/dateUtils';
 import {
@@ -37,7 +38,7 @@ import { translateEvent } from '../../services/analytics';
 import API from '../../services/api';
 import AnapolisSEOPagesCard from './AnapolisSEOPagesCard';
 import LandingPagesTab from './LandingPagesTab';
-import { brl, KpiStrip } from '../../pages/Financial/components/finUi';
+import { KpiStrip } from '../../pages/Financial/components/finUi';
 import { useRoiSummary } from '../mkt/SalesParts';
 import { ymdSP } from '../../utils/dateFormat';
 import { 
@@ -130,6 +131,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     });
 
     const [selectedEventType, setSelectedEventType] = useState('Todos');
+    const [, setSearchParams] = useSearchParams();
 
     // Leads e pacientes do canal Site vêm do ERP (mesma regra do ROI)
     const roiRange = useMemo(() => ({ key: 'custom' as const, start: dateRange.startDate, end: dateRange.endDate, label: '' }), [dateRange.startDate, dateRange.endDate]);
@@ -351,7 +353,10 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     // Leitura das LPs (o back manda views/leads por LP; aqui só ordenamos para o alerta)
     const lpsWithoutLead = landingPages.filter(lp => (lp.views || 0) >= 100 && !lp.leads).sort((a, b) => b.views - a.views);
     const bestLp = landingPages.filter(lp => lp.leads > 0 && lp.views >= 30).sort((a, b) => (b.leads / b.views) - (a.leads / a.views))[0];
-    const siteRoi = roiSummary?.channels.find(c => c.key === 'site');
+    // Leads que passaram pelo site, em qualquer canal (o back soma; versões antigas só tinham o canal "site")
+    const siteRoi = roiSummary
+        ? (roiSummary.site ?? (() => { const c = roiSummary.channels.find(ch => ch.key === 'site'); return { leads: c?.leads ?? 0, patients: c?.patients ?? 0, scheduled: 0, revenue: c?.revenue ?? 0 }; })())
+        : undefined;
 
     if (error) {
         return (
@@ -594,11 +599,11 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
         )}
         {/* KPIs do site até o agendamento: GA4 (visitas) + ERP (leads e pacientes do canal Site) */}
         <div className="mb-4">
-            <KpiStrip cols={5} loading={loading && !metrics} items={[
+            {/* Analytics = tráfego do site. Dinheiro (pacientes, receita, custo) fica em ROI & Atribuição (Kadu, 12/11/2026). */}
+            <KpiStrip cols={4} loading={loading && !metrics} items={[
                 { label: 'Visitas', value: metrics?.totalUsers ?? '—', sub: metrics?.sessions != null ? `${metrics.sessions} sessões` : undefined },
-                { label: 'Conversões (GA4)', value: totalConversions ?? '—', sub: `${conversionRate}% das sessões (cliques no WhatsApp/form)` },
-                { label: 'Leads do site', value: siteRoi?.leads ?? metrics?.leadsPeriod ?? '—', sub: siteRoi ? 'origem Site no ERP' : 'leads do período' },
-                { label: 'Fecharam pacote', value: siteRoi?.patients ?? '—', hero: true, sub: siteRoi?.revenue ? `${brl(siteRoi.revenue)} em caixa` : 'pacientes novos do site' },
+                { label: 'Cliques no WhatsApp e formulário', value: totalConversions ?? '—', sub: `${conversionRate}% das sessões (GA4)` },
+                { label: 'Leads que vieram do site', value: siteRoi?.leads ?? '—', hero: true, sub: siteRoi ? `${siteRoi.scheduled} agendaram · receita em ROI` : 'conversas com a assinatura do site' },
                 { label: 'LPs sem lead', value: lpsWithoutLead.length, danger: lpsWithoutLead.length > 0, sub: 'com 100+ visitas no período' },
             ]} />
         </div>
@@ -636,15 +641,15 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
             <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
                 <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-800">Do clique ao paciente</h2>
-                        <p className="text-sm text-gray-500 mt-0.5">O que o site entrega e o que vira paciente no CRM — dois mundos, um funil.</p>
+                        <h2 className="text-lg font-semibold text-gray-800">Do clique ao agendamento</h2>
+                        <p className="text-sm text-gray-500 mt-0.5">O que o site entrega e quantos agendaram no ERP.</p>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-green-500"></span>No site (GA4)</span>
                         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span>No CRM (ERP)</span>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-gray-100 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 rounded-lg overflow-hidden">
                     <div className="bg-white p-4">
                         <div className="text-xs text-gray-500 min-h-[32px]">Sessões no site</div>
                         <div className="text-3xl font-bold text-green-600 mt-1">{metrics?.sessions?.toLocaleString() ?? '—'}</div>
@@ -658,23 +663,21 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                     <div className="bg-white p-4">
                         <div className="text-xs text-gray-500 min-h-[32px]">Leads atribuídos ao site</div>
                         <div className="text-3xl font-bold text-amber-600 mt-1">{siteRoi?.leads ?? '—'}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">via gclid / origem</div>
+                        <div className="text-xs text-gray-400 mt-0.5">assinatura do site no WhatsApp</div>
                     </div>
                     <div className="bg-white p-4">
                         <div className="text-xs text-gray-500 min-h-[32px]">Avaliação agendada</div>
-                        <div className="text-3xl font-bold text-amber-600 mt-1">{(siteRoi as any)?.evaluations ?? '—'}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">conversão offline</div>
-                    </div>
-                    <div className="bg-white p-4">
-                        <div className="text-xs text-gray-500 min-h-[32px]">Fechou pacote</div>
-                        <div className="text-3xl font-bold text-amber-600 mt-1">{siteRoi?.patients ?? '—'}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{siteRoi?.revenue ? brl(siteRoi.revenue) : 'R$ em caixa'}</div>
+                        <div className="text-3xl font-bold text-amber-600 mt-1">{siteRoi?.scheduled ?? '—'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">no ERP</div>
                     </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-3 flex items-start gap-2">
-                    <span className="text-amber-500">⚠</span>
-                    As etapas do CRM preenchem quando a atribuição (gclid) começar a chegar ao CRM — aí o funil mostra receita, não só cliques.
-                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                    <span>Conta como lead do site quem chamou no WhatsApp com a assinatura do site ou preencheu o formulário. Custo e retorno por canal ficam no ROI.</span>
+                    <button type="button" onClick={() => setSearchParams({ tab: 'ROI' })}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                        Abrir ROI & Atribuição
+                    </button>
+                </div>
             </div>
 
             {/* Evolução temporal (largura total) */}
@@ -984,70 +987,48 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     const renderLandingPages = () => (
         <div className="space-y-6">
             {/* Stats das LPs */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Total LPs</div>
-                    <div className="text-2xl font-bold text-gray-900">{landingPages.length}</div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Total Views</div>
-                    <div className="text-2xl font-bold text-blue-600">
-                        {landingPages.reduce((sum, lp) => sum + (lp.views || 0), 0).toLocaleString()}
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Total Leads</div>
-                    <div className="text-2xl font-bold text-green-600">
-                        {landingPages.reduce((sum, lp) => sum + (lp.leads || 0), 0).toLocaleString()}
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Taxa Conv.</div>
-                    <div className="text-2xl font-bold text-purple-600">
-                        {(() => {
-                            const totalViews = landingPages.reduce((sum, lp) => sum + (lp.views || 0), 0);
-                            const totalLeads = landingPages.reduce((sum, lp) => sum + (lp.leads || 0), 0);
-                            return totalViews > 0 ? ((totalLeads / totalViews) * 100).toFixed(1) : 0;
-                        })()}%
-                    </div>
-                </div>
-            </div>
+            {(() => {
+                const totalViews = landingPages.reduce((sum, lp) => sum + (lp.views || 0), 0);
+                const totalLeads = landingPages.reduce((sum, lp) => sum + (lp.leads || 0), 0);
+                const withViews = landingPages.filter(lp => (lp.views || 0) > 0).length;
+                return (
+                    <KpiStrip cols={4} loading={loading && !landingPages.length} items={[
+                        { label: 'LPs no ar', value: landingPages.length, sub: `${withViews} com visita no período` },
+                        { label: 'Visualizações', value: totalViews.toLocaleString('pt-BR'), sub: 'GA4, no período' },
+                        { label: 'Leads das LPs', value: totalLeads, sub: 'formulário do site com a LP de origem' },
+                        { label: 'Taxa de conversão', value: totalViews > 0 ? `${((totalLeads / totalViews) * 100).toFixed(1)}%` : '—', hero: totalLeads > 0, sub: 'leads ÷ visualizações' },
+                    ]} />
+                );
+            })()}
 
-            {/* Gráficos de Performance */}
+            {/* Gráficos de Performance: ordena antes de cortar e mostra só quem tem número */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top 10 LPs por Views */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-blue-500" />
-                        Top 10 LPs por Views
-                    </h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={landingPages.slice(0, 10).sort((a, b) => (b.views || 0) - (a.views || 0))} layout="vertical">
-                            <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-                            <XAxis type="number" tick={{ fontSize: 11 }} />
-                            <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
-                            <Tooltip formatter={(value) => [`${value.toLocaleString()} views`, 'Views']} />
-                            <Bar dataKey="views" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Top 10 LPs por Leads */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <Users className="w-5 h-5 text-green-500" />
-                        Top 10 LPs por Leads
-                    </h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={landingPages.slice(0, 10).sort((a, b) => (b.leads || 0) - (a.leads || 0))} layout="vertical">
-                            <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-                            <XAxis type="number" tick={{ fontSize: 11 }} />
-                            <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
-                            <Tooltip formatter={(value) => [`${value.toLocaleString()} leads`, 'Leads']} />
-                            <Bar dataKey="leads" fill="#10b981" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                {([
+                    { key: 'views' as const, title: 'LPs mais vistas', icon: <TrendingUp className="w-5 h-5 text-blue-500" />, color: '#3b82f6', unit: 'visualizações',
+                      empty: 'Nenhuma LP teve visita registrada no GA4 neste período. Tente 30 dias, ou confira se a tag do GA4 está carregando nas páginas /lp/.' },
+                    { key: 'leads' as const, title: 'LPs que mais geram lead', icon: <Users className="w-5 h-5 text-green-500" />, color: '#10b981', unit: 'leads',
+                      empty: 'Nenhum lead com LP de origem neste período. Quem vem da LP costuma chamar no WhatsApp, e essa conversa aparece em ROI & Atribuição pelo canal. O rastreio do site passou a gravar a página de origem em 12/11.' },
+                ]).map(c => {
+                    const top = [...landingPages].filter(lp => (lp[c.key] || 0) > 0).sort((a, b) => (b[c.key] || 0) - (a[c.key] || 0)).slice(0, 10);
+                    return (
+                        <div key={c.key} className="bg-white rounded-xl border border-gray-200 p-4 dark:bg-[#161d1b] dark:border-white/10">
+                            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">{c.icon}{c.title}</h2>
+                            {top.length ? (
+                                <ResponsiveContainer width="100%" height={Math.max(120, top.length * 28)}>
+                                    <BarChart data={top} layout="vertical">
+                                        <CartesianGrid stroke="#f0f0f0" horizontal={false} />
+                                        <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                                        <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
+                                        <Tooltip formatter={(value) => [`${Number(value).toLocaleString('pt-BR')} ${c.unit}`, c.title]} />
+                                        <Bar dataKey={c.key} fill={c.color} radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <p className="rounded-lg bg-gray-50 px-4 py-6 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">{c.empty}</p>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Distribuição por Categoria */}
@@ -1294,8 +1275,15 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                 </button>
             </div>
 
+            {/* Sem visita nem lead, todo score cai no piso: avisa em vez de mostrar um ranking que não diz nada */}
+            {scoringData.length > 0 && new Set(scoringData.map(lp => lp.score)).size === 1 && (
+                <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                    Todas as LPs estão com a mesma nota ({scoringData[0]?.score}) porque não há visitas nem leads suficientes no período para comparar. Escolha 30 dias ou espere mais dados antes de mexer nas páginas.
+                </p>
+            )}
+
             {/* Gráfico de Scores */}
-            {scoringData.length > 0 && (
+            {scoringData.length > 0 && new Set(scoringData.map(lp => lp.score)).size > 1 && (
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">📊 Ranking de Performance</h2>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

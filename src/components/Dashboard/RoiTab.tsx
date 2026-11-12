@@ -2,6 +2,7 @@
 // Antes o ROI aparecia em Leads, em Métricas do Funil e aqui, com fontes diferentes.
 // Números do back: /v2/commercial/roi-summary (docs/SALES_MARKETING.md).
 import { lazy, Suspense, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Chip, PeriodBar } from '../../pages/Financial/components/finUi';
 import { CUR_MONTH, CUR_YEAR, RoiChannelTable, RoiKpis, useRoiSummary, useSalesPeriod } from '../mkt/SalesParts';
 import AcquisitionByChannel from './AcquisitionByChannel';
@@ -15,12 +16,18 @@ export default function RoiTab() {
     const [view, setView] = useState<View>('canal');
     const { data, loading, error } = useRoiSummary(period);
     const cov = data?.coverage;
+    const [, setSearchParams] = useSearchParams();
 
     return (
         <div className="flex flex-col gap-4 p-4 md:p-6">
             <div>
                 <h1 className="text-xl font-bold text-gray-900 md:text-2xl">ROI &amp; Atribuição</h1>
-                <p className="text-sm text-gray-600">Quanto cada canal custou e quanto trouxe de paciente novo. A receita segue a regra de caixa do Financeiro.</p>
+                <p className="text-sm text-gray-600">
+                    Quanto cada canal custou e quanto trouxe de paciente novo. A receita segue a regra de caixa do Financeiro.{' '}
+                    <button type="button" onClick={() => setSearchParams({ tab: 'Analytics' })} className="font-semibold text-emerald-700 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-emerald-400">
+                        Ver visitas e páginas do site
+                    </button>
+                </p>
             </div>
 
             <PeriodBar value={period} month={CUR_MONTH} year={CUR_YEAR} onChange={setPeriod} />
