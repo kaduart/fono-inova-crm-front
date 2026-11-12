@@ -23,9 +23,10 @@ export interface NovidadesScreen {
 export const NOVIDADES_SCREENS: NovidadesScreen[] = [
     // ── Admin / secretária ───────────────────────────────────────────────
     {
-        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-11-03', tabs: ['Dashboard'],
+        id: 'admin-dashboard', area: 'admin', name: 'Dashboard', version: '2026-11-12', tabs: ['Dashboard'],
         summary: 'O que precisa de você hoje fica logo no topo.',
         items: [
+            { title: 'Retomar contato com quem avaliou e sumiu', what: 'Manda uma mensagem pelo WhatsApp da clínica, de uma vez, para quem fez avaliação e depois não teve sessão nem pacote. Dá para pegar todo o histórico ou só quem avaliou há mais de 15, 30 ou 60 dias. Sai até 40 por dia útil (somando o envio de convênios), das 8h às 18h45, e ninguém recebe duas vezes.', how: 'Abra "Avaliou e não fechou" no "Precisa de você", clique em Retomar contato, escolha o período, desmarque quem não deve receber e clique em Enviar. Ficam de fora sozinhos: quem falou com a clínica nos últimos 30 dias, inativados, "Não vai fechar" e quem não tem celular.' },
             { title: 'Evoluções em atraso', what: 'Nova linha no "Precisa de você": quais terapeutas têm evoluções para fechar, há quantos dias e quantas estão em rascunho.', how: 'Abra a linha, filtre por "Mais de 2 dias" ou "Só rascunhos" e use Lembrar para mandar o lembrete pronto pelo WhatsApp.' },
             { title: 'Tela inteira em monitores grandes', what: 'O sistema ocupa a tela toda, sem as faixas pretas dos lados. Agenda, Caixa, Convênios e Financeiro usam toda a largura; as outras telas ficam numa coluna centralizada para facilitar a leitura.', how: 'Nada a fazer.' },
             { title: 'Ir para… (Ctrl+K)', what: 'Um atalho para abrir qualquer tela do ERP digitando o nome, sem procurar no menu.', how: 'Aperte Ctrl+K (no Mac, Cmd+K), digite "caixa", "convênios", "agenda"… e dê Enter.' },
