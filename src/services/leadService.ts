@@ -25,6 +25,7 @@ export interface LeadFilters {
     to?: string;     // ISO
     page?: number;
     limit?: number;
+    queue?: 'operational';
 }
 
 export interface CreateLeadFromSheetPayload {

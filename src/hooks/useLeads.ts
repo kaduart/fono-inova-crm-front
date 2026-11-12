@@ -8,6 +8,8 @@ interface UseLeadsProps {
   limit?: number;
   status?: string;
   origin?: string;
+  /** 'operational' = Fila de trabalho: o back tira quem já agendou ou virou paciente */
+  queue?: 'operational';
 }
 
 export const useLeads = (filters: UseLeadsProps = {}) => {

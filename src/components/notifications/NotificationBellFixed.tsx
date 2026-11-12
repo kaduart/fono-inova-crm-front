@@ -1,8 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Bell, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGmbAlert } from '../../hooks/useGmbAlert';
 import api from '../../services/api';
+import { socketManager } from '../../utils/socketManager';
+import { toast } from '../../utils/toast';
+
+/**
+ * 🔔 Sininho do header admin.
+ *
+ * Duas abas de pré-agendamentos:
+ * - "Pelo site": a família marcou sozinha no /agendar (metadata.origin.channel =
+ *   'link_agendamento'). SÓ esses acendem o número vermelho e geram aviso na hora,
+ *   porque o comercial precisa confirmar no WhatsApp. Kadu, 12/11/2026.
+ * - "Comercial": o que a própria equipe pré-agendou (agenda externa/secretaria).
+ *   Fica para consulta, sem badge.
+ * Mais o alerta do Google Meu Negócio (só últimos 7 dias).
+ */
 
 interface PreItem {
   _id: string;
@@ -13,88 +27,113 @@ interface PreItem {
   preferredDate?: string;
   preferredTime?: string;
   specialty?: string;
+  channel?: string | null;
+  createdAt?: string;
+  mainComplaint?: string;
+  patientInfo?: { fullName?: string; phone?: string } | null;
+  patient?: { fullName?: string } | null;
   doctor?: { fullName?: string; specialty?: string } | null;
 }
 
-/**
- * 🔔 NotificationBell - Versão Final Corrigida
- * Aguarda carregar do localStorage antes de renderizar badge
- */
-export const NotificationBellFixed: React.FC = () => {
-  const [count, setCount] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
-  const [preAgendamentos, setPreAgendamentos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isReady, setIsReady] = useState(false); // Só mostra badge depois de carregar
-  
-  // seenIds inicia como null para saber quando carregou do storage
-  const [seenIds, setSeenIds] = useState<Set<string> | null>(null);
+interface PreNewSocket {
+  patientName?: string;
+  source?: string;
+}
 
-  // 📍 Saúde dos posts GMB (falhou / sem confirmação / sem imagem)
+type Aba = 'site' | 'comercial';
+const ONLINE = 'link_agendamento';
+const STORAGE_KEY = 'notificationBell_seenIds_v3';
+const GMB_SEEN_KEY = 'notificationBell_gmbSeenRecent_v2';
+
+const loadSeen = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+const nomeDe = (p: PreItem) => p.patientInfo?.fullName || p.patient?.fullName || 'Paciente sem nome';
+
+const especialidade = (p: PreItem) => {
+  const sp = p.specialty || p.doctor?.specialty || '';
+  return sp ? sp.charAt(0).toUpperCase() + sp.slice(1) : '';
+};
+
+// A API devolve `date` (UTC) e `time` ("HH:mm"); `preferredDate` era do modelo
+// antigo e vinha vazio → "Invalid Date". Formata no fuso de SP.
+const quando = (p: PreItem) => {
+  const raw = p.date || p.preferredDate;
+  const d = raw ? new Date(raw) : null;
+  const dia = d && !Number.isNaN(d.getTime())
+    ? d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'short', day: '2-digit', month: '2-digit' })
+    : 'sem data';
+  const hora = p.time || p.preferredTime;
+  return hora ? `${dia} às ${hora}` : dia;
+};
+
+const haQuanto = (iso?: string) => {
+  if (!iso) return '';
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (Number.isNaN(min)) return '';
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const dias = Math.round(h / 24);
+  return `há ${dias} dia${dias > 1 ? 's' : ''}`;
+};
+
+export const NotificationBellFixed: React.FC = () => {
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const [aba, setAba] = useState<Aba>('site');
+  const [site, setSite] = useState<PreItem[]>([]);
+  const [comercial, setComercial] = useState<PreItem[]>([]);
+  const [totais, setTotais] = useState({ site: 0, comercial: 0 });
+  const [loading, setLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [seenIds, setSeenIds] = useState<Set<string>>(loadSeen);
+
+  // 📍 GMB: só últimos 7 dias; o acumulado fica no painel Social Media → GMB.
   const gmbAlert = useGmbAlert();
-  // O sininho só olha os últimos 7 dias; o acumulado (centenas de posts antigos)
-  // fica no painel Social Media → GMB. Back antigo sem `recent` → não mostra.
   const gmbRecent = gmbAlert.recent;
   const gmbRecentTotal = gmbRecent?.total ?? 0;
-  const navigate = useNavigate();
+  const [gmbSeenTotal, setGmbSeenTotal] = useState<number>(() => {
+    const v = localStorage.getItem(GMB_SEEN_KEY);
+    return v !== null ? parseInt(v, 10) : -1;
+  });
 
-  const STORAGE_KEY = 'notificationBell_seenIds_v3';
-
-  // Carregar do localStorage IMEDIATAMENTE (antes de qualquer render)
-  const loadedFromStorage = useRef(false);
-  const hasFetchedOnMount = useRef(false);
-  
   useEffect(() => {
-    if (loadedFromStorage.current) return;
-    loadedFromStorage.current = true;
-    
-    const stored = localStorage.getItem(STORAGE_KEY);
-    
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSeenIds(new Set(parsed));
-      } catch (e) {
-        setSeenIds(new Set());
-      }
-    } else {
-      setSeenIds(new Set());
-    }
-  }, []);
-
-  // Salvar no localStorage
-  useEffect(() => {
-    if (seenIds === null) return; // Ainda não carregou
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(seenIds)));
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(seenIds).slice(-500))); } catch { /* sem storage */ }
   }, [seenIds]);
 
-  // Buscar pré-agendamentos
-  // 🔧 Antes chamava fetch() direto com um token de serviço fixo
-  // (agenda_export_token_...) que nunca teve escopo pra essa rota — sempre
-  // devolvia 403 (AGENDA_SERVICE_SCOPE_DENIED, ver back/middleware/amandaAuth.js).
-  // O client `api` compartilhado já anexa a sessão real do usuário logado, que
-  // essa rota aceita sem exigir role específica (ver back/routes/preAgendamentoTriage.routes.js).
-  const fetchPreAgendamentos = async () => {
+  const fetchPreAgendamentos = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/v2/pre-appointments?limit=50');
-      const items = response.data?.data || [];
-      // A rota lê Appointments com operationalStatus 'pre_agendado' (a collection antiga
-      // de pré-agendamento, com status novo/em_analise/contatado, não é mais usada —
-      // por isso o sino ficava em 0). Auditoria do Dashboard admin, 31/10/2026.
-      const pendentes = items.filter((p: any) => (p.operationalStatus || 'pre_agendado') === 'pre_agendado');
-
-      setPreAgendamentos(pendentes);
-      // Total real vem da paginação (a lista traz no máximo 50).
-      setCount(Number(response.data?.pagination?.total ?? pendentes.length));
-      setIsReady(true); // Marca como pronto
+      const [rSite, rCom] = await Promise.all([
+        api.get(`/v2/pre-appointments?limit=30&channel=${ONLINE}`),
+        api.get('/v2/pre-appointments?limit=50&channel=comercial'),
+      ]);
+      const pend = (arr: PreItem[] | undefined) => (arr || []).filter(p => (p.operationalStatus || 'pre_agendado') === 'pre_agendado');
+      // Filtra também no front: back antigo ignora ?channel e devolveria tudo.
+      const s = pend(rSite.data?.data).filter(p => p.channel === ONLINE);
+      const c = pend(rCom.data?.data).filter(p => p.channel !== ONLINE);
+      setSite(s);
+      setComercial(c);
+      setTotais({
+        site: s.length && rSite.data?.data?.length === s.length ? Number(rSite.data?.pagination?.total ?? s.length) : s.length,
+        comercial: Number(rCom.data?.pagination?.total ?? c.length),
+      });
+      setIsReady(true);
     } catch (e) {
-      console.log('Erro:', e);
+      console.warn('[sininho] erro ao buscar pré-agendamentos', e);
     }
     setLoading(false);
-  };
+  }, []);
 
+  const hasFetchedOnMount = useRef(false);
   useEffect(() => {
     if (!hasFetchedOnMount.current) {
       hasFetchedOnMount.current = true;
@@ -102,167 +141,90 @@ export const NotificationBellFixed: React.FC = () => {
     }
     const interval = setInterval(fetchPreAgendamentos, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchPreAgendamentos]);
 
-  // Ouvir sockets
-  // 🐛 FIX (2026-09-18): sem debounce, cada evento `preagendamento:new` disparava seu
-  // próprio fetchPreAgendamentos() imediato — este componente fica sempre montado
-  // (AdminHeader, toda página admin), então é uma das duas fontes que juntas causaram
-  // 12+ chamadas idênticas a GET /pre-appointments em produção (a outra era
-  // usePreAgendamentos.ts, mesmo fix aplicado lá). Debounce de 800ms agrupa rajadas de
-  // eventos próximos numa única busca, sem perder a atualização em tempo real.
+  // Tempo real. Antes usava window.socketManager, que só existe depois que o
+  // socket conecta — no mount ainda não existia e o listener nunca era registrado.
+  // Debounce de 800ms agrupa rajadas (fix de 18/09: 12+ GETs iguais em prod).
   useEffect(() => {
-    if (window.socketManager) {
-      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-      const unsubscribe = window.socketManager.on('preagendamento:new', (data: any) => {
-        console.log('📅 Novo pré-agendamento:', data);
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          debounceTimer = null;
-          fetchPreAgendamentos();
-        }, 800);
-        if (typeof toast !== 'undefined') {
-          toast.info(`📅 Novo: ${data.patientName}`);
-        }
-      });
-      return () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        unsubscribe();
-      };
-    }
-  }, []);
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = socketManager.on('preagendamento:new', (data: PreNewSocket) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => { debounceTimer = null; fetchPreAgendamentos(); }, 800);
+      if (data?.source === ONLINE) {
+        // Fica na tela até alguém clicar: o comercial precisa ver (Kadu, 12/11).
+        toast.info(`🌐 ${data.patientName || 'Uma família'} agendou pelo site. Confirmar no WhatsApp.`, {
+          duration: Infinity,
+          action: { label: 'Ver', onClick: () => navigate('/admin?tab=Pré-Agendamentos') },
+        });
+      }
+    });
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubscribe();
+    };
+  }, [fetchPreAgendamentos, navigate]);
 
-  const GMB_SEEN_KEY = 'notificationBell_gmbSeenRecent_v2';
-  const [gmbSeenTotal, setGmbSeenTotal] = useState<number>(() => {
-    const v = localStorage.getItem(GMB_SEEN_KEY);
-    return v !== null ? parseInt(v, 10) : -1;
-  });
+  const isNew = (id: string) => !seenIds.has(id);
+  const novosSite = site.filter(p => isNew(p._id)).length;
+  const gmbBadgeCount = gmbRecentTotal > 0 && gmbRecentTotal !== gmbSeenTotal ? gmbRecentTotal : 0;
+  const displayCount = novosSite + gmbBadgeCount;
 
   const handleClick = () => {
-    const newIsOpen = !isOpen;
-    setIsOpen(newIsOpen);
-
-    if (newIsOpen && seenIds !== null) {
-      fetchPreAgendamentos();
-      // Marca pré-agendamentos como vistos
-      const allIds = new Set(preAgendamentos.map(p => p._id));
-      setSeenIds(prev => new Set([...(prev || new Set()), ...allIds]));
-      // Marca alertas GMB como vistos
-      localStorage.setItem(GMB_SEEN_KEY, String(gmbRecentTotal));
-      setGmbSeenTotal(gmbRecentTotal);
-    }
+    const abrindo = !isOpen;
+    setIsOpen(abrindo);
+    if (!abrindo) return;
+    fetchPreAgendamentos();
+    if (novosSite > 0) setAba('site');
+    // Marca os do site como vistos ao abrir (o destaque "NOVO" some na próxima abertura).
+    setSeenIds(prev => new Set([...prev, ...site.map(p => p._id)]));
+    localStorage.setItem(GMB_SEEN_KEY, String(gmbRecentTotal));
+    setGmbSeenTotal(gmbRecentTotal);
   };
 
-  // Só calcula newCount quando seenIds estiver carregado
-  const newCount = seenIds !== null
-    ? preAgendamentos.filter(p => !seenIds.has(p._id)).length
-    : 0;
+  const abrirTriagem = () => { setIsOpen(false); navigate('/admin?tab=Pré-Agendamentos'); };
 
-  const hasNewItems = newCount > 0;
-  // GMB só conta no badge se o total for diferente do que foi visto (novo problema surgiu)
-  const gmbBadgeCount = gmbRecentTotal > 0 && gmbRecentTotal !== gmbSeenTotal ? gmbRecentTotal : 0;
-  const displayCount = (seenIds !== null && !hasNewItems ? 0 : newCount) + gmbBadgeCount;
-
-  // Limpar vistos (para teste)
-  const clearSeen = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setSeenIds(new Set());
-  };
-
-  const STATUS_META: Record<string, { label: string; color: string }> = {
-    pre_agendado: { label: 'Pré-agendado', color: '#d97706' },
-    novo: { label: 'Novo', color: '#ef4444' },
-    em_analise: { label: 'Em análise', color: '#f59e0b' },
-    contatado: { label: 'Contatado', color: '#3b82f6' },
-    confirmado: { label: 'Confirmado', color: '#10b981' },
-  };
-  const statusOf = (item: PreItem) => STATUS_META[item.operationalStatus || item.status] || { label: item.operationalStatus || item.status || '—', color: 'var(--fx-gray-500)' };
-  const getStatusBadge = (item: PreItem) => statusOf(item).color;
-  const getStatusLabel = (item: PreItem) => statusOf(item).label;
-
-  // A API devolve `date` (Date em UTC) e `time` ("HH:mm"); `preferredDate` era do
-  // modelo antigo e vinha undefined → "Invalid Date". Formata no fuso de SP.
-  const formatWhen = (item: PreItem) => {
-    const raw = item.date || item.preferredDate;
-    const d = raw ? new Date(raw) : null;
-    const dia = d && !Number.isNaN(d.getTime())
-      ? d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'short', day: '2-digit', month: '2-digit' })
-      : 'sem data';
-    const hora = item.time || item.preferredTime;
-    return hora ? `${dia} às ${hora}` : dia;
-  };
-  const especialidade = (item: PreItem) => {
-    const sp = item.specialty || item.doctor?.specialty || '';
-    return sp ? sp.charAt(0).toUpperCase() + sp.slice(1) : '';
-  };
-  const openPre = () => { setIsOpen(false); navigate('/admin?tab=Pré-Agendamentos'); };
-
-  const isNew = (id: string) => seenIds !== null && !seenIds.has(id);
-
-  // Não renderiza nada até carregar do storage (evita flash)
-  if (!isReady || seenIds === null) {
+  if (!isReady) {
     return (
-      <div style={{ 
-        width: '40px', 
-        height: '40px', 
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'rgba(255,255,255,0.5)'
-      }}>
+      <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)' }}>
         <Bell size={22} />
       </div>
     );
   }
 
+  const lista = aba === 'site' ? site : comercial;
+
+  const AbaBtn = ({ id, label, n }: { id: Aba; label: string; n: number }) => (
+    <button
+      type="button"
+      onClick={() => setAba(id)}
+      style={{
+        flex: 1, padding: '8px 6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+        background: aba === id ? 'var(--fx-white)' : 'transparent',
+        color: aba === id ? 'var(--fx-emerald-700)' : 'var(--fx-gray-500)',
+        borderBottom: aba === id ? '2px solid var(--fx-emerald-700)' : '2px solid transparent',
+      }}
+    >
+      {label} ({n})
+    </button>
+  );
+
   return (
     <div style={{ position: 'relative' }}>
-      {/* Debug - remover depois */}
-      {/* <div style={{
-        position: 'fixed',
-        bottom: '10px',
-        right: '10px',
-        background: 'rgba(0,0,0,0.8)',
-        color: '#0f0',
-        padding: '8px',
-        borderRadius: '4px',
-        fontSize: '11px',
-        fontFamily: 'monospace',
-        zIndex: 10000,
-      }}>
-        Vistos: {seenIds.size} | Novos: {newCount} | {hasNewItems ? '🔴' : '⚪'}
-        <button onClick={clearSeen} style={{ marginLeft: '8px', fontSize: '10px' }}>
-          Limpar
-        </button>
-      </div> */}
-
-      {/* Botão */}
       <button
         type="button"
         onClick={handleClick}
         aria-label="Notificações"
+        title={novosSite > 0 ? `${novosSite} agendamento(s) novo(s) pelo site` : 'Notificações'}
+        data-alerta={novosSite > 0 ? 'site' : undefined}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-[11px] border border-white/15 bg-white/[0.08] text-white transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
-        <Bell size={18} />
-        
-        {/* Badge - só mostra se tem NOVOS */}
+        <Bell size={18} className={novosSite > 0 ? 'sino-balanca' : undefined} />
         {displayCount > 0 && (
           <span style={{
-            position: 'absolute',
-            top: '-6px',
-            right: '-8px',
-            background: '#f43f5e',
-            boxShadow: '0 0 0 2px #0d8a6c',
-            color: 'white',
-            borderRadius: '999px',
-            padding: '2px 6px',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            minWidth: '18px',
-            height: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            position: 'absolute', top: '-6px', right: '-8px', background: '#f43f5e', boxShadow: '0 0 0 2px #0d8a6c',
+            color: 'white', borderRadius: '999px', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold',
+            minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: 'pulse 2s infinite',
           }}>
             {displayCount > 99 ? '99+' : displayCount}
@@ -270,101 +232,105 @@ export const NotificationBellFixed: React.FC = () => {
         )}
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
         <div style={{
-          position: 'fixed',
-          right: '8px',
-          top: '60px',
-          width: 'min(380px, calc(100vw - 16px))',
-          background: 'var(--fx-white)',
-          borderRadius: '12px',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
-          zIndex: 9999,
-          overflow: 'hidden',
+          position: 'fixed', right: '8px', top: '60px', width: 'min(380px, calc(100vw - 16px))',
+          background: 'var(--fx-white)', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+          zIndex: 9999, overflow: 'hidden',
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #059669, var(--fx-emerald-700))',
-            padding: '14px 16px',
-            color: 'white',
-          }}>
+          <div style={{ background: 'linear-gradient(135deg, #059669, var(--fx-emerald-700))', padding: '14px 16px', color: 'white' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <span style={{ fontWeight: 'bold' }}>📅 Pré-Agendamentos</span>
+                <span style={{ fontWeight: 'bold' }}>📅 Pré-agendamentos</span>
                 <div style={{ fontSize: '12px', opacity: 0.9 }}>
-                  {count} total · <strong>{newCount} novo{newCount !== 1 ? 's' : ''}</strong>
+                  <strong>{novosSite} novo{novosSite !== 1 ? 's' : ''} pelo site</strong> · {totais.site + totais.comercial} aguardando confirmação
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: 'none',
-                color: 'white',
-                width: '28px',
-                height: '28px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '16px',
+              <button onClick={() => setIsOpen(false)} aria-label="Fechar" style={{
+                background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '28px', height: '28px',
+                borderRadius: '6px', cursor: 'pointer', fontSize: '16px',
               }}>×</button>
             </div>
           </div>
 
-          <div style={{ maxHeight: '350px', overflow: 'auto' }}>
+          <div style={{ display: 'flex', background: 'var(--fx-gray-50)', borderBottom: '1px solid var(--fx-gray-100)' }}>
+            <AbaBtn id="site" label="🌐 Pelo site" n={totais.site} />
+            <AbaBtn id="comercial" label="Comercial" n={totais.comercial} />
+          </div>
+
+          <div style={{ maxHeight: '380px', overflow: 'auto' }}>
             {gmbRecent && gmbRecentTotal > 0 && (
               <GmbAlertSection
                 alert={gmbAlert}
                 onOpenPanel={() => { setIsOpen(false); navigate('/admin?tab=SocialMedia&socialTab=gmb'); }}
               />
             )}
-            {loading ? (
-              <div style={{ padding: '30px', textAlign: 'center' }}>Carregando...</div>
-            ) : preAgendamentos.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
-                <Bell size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <p>Nenhum pré-agendamento pendente</p>
+            {loading && lista.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--fx-gray-600)' }}>Carregando...</div>
+            ) : lista.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--fx-gray-600)' }}>
+                {aba === 'site' ? <Globe size={36} style={{ opacity: 0.3, marginBottom: '10px' }} /> : <Bell size={36} style={{ opacity: 0.3, marginBottom: '10px' }} />}
+                <p>{aba === 'site' ? 'Ninguém agendou pelo site ainda' : 'Nenhum pré-agendamento do comercial'}</p>
               </div>
             ) : (
-              preAgendamentos.map((p: any) => (
-                <div
-                  key={p._id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={openPre}
-                  onKeyDown={(e) => { if (e.key === 'Enter') openPre(); }}
-                  title="Abrir Pré-Agendamentos"
-                  style={{
-                    cursor: 'pointer',
-                    padding: '12px 16px',
-                    borderBottom: '1px solid var(--fx-gray-100)',
-                    background: isNew(p._id) ? 'var(--fx-red-50)' : 'var(--fx-white)',
-                    borderLeft: isNew(p._id) ? '3px solid #ef4444' : '3px solid transparent',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <strong style={{ color: '#111' }}>
-                      {p.patientInfo?.fullName || p.patient?.fullName || 'Paciente sem nome'}
-                      {isNew(p._id) && <span style={{ color: '#ef4444', marginLeft: '8px', fontSize: '11px' }}>● NOVO</span>}
-                    </strong>
-                    <span style={{
-                      fontSize: '10px',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      background: `color-mix(in srgb, ${getStatusBadge(p)} 13%, transparent)`,
-                      color: getStatusBadge(p),
-                    }}>
-                      {getStatusLabel(p)}
-                    </span>
+              lista.map(p => {
+                const novo = aba === 'site' && isNew(p._id);
+                return (
+                  <div
+                    key={p._id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={abrirTriagem}
+                    onKeyDown={(e) => { if (e.key === 'Enter') abrirTriagem(); }}
+                    title="Abrir Pré-Agendamentos para confirmar"
+                    style={{
+                      cursor: 'pointer', padding: '12px 16px', borderBottom: '1px solid var(--fx-gray-100)',
+                      background: novo ? 'var(--fx-red-50)' : 'var(--fx-white)',
+                      borderLeft: novo ? '3px solid #ef4444' : '3px solid transparent',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                      <strong style={{ color: 'var(--fx-gray-900)' }}>
+                        {nomeDe(p)}
+                        {novo && <span style={{ color: '#ef4444', marginLeft: '8px', fontSize: '11px' }}>● NOVO</span>}
+                      </strong>
+                      {aba === 'site' && p.createdAt && (
+                        <span style={{ fontSize: '11px', color: 'var(--fx-gray-500)', whiteSpace: 'nowrap' }}>marcou {haQuanto(p.createdAt)}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--fx-gray-600)' }}>
+                      {[especialidade(p), quando(p), p.doctor?.fullName].filter(Boolean).join(' · ')}
+                    </div>
+                    {aba === 'site' && p.mainComplaint && (
+                      <div style={{ fontSize: '12px', color: 'var(--fx-gray-600)', marginTop: '3px', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        Queixa: {p.mainComplaint}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>
-                    {[especialidade(p), formatWhen(p), p.doctor?.fullName].filter(Boolean).join(' · ')}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
       )}
 
       <style>{`
+        /* Agendamento novo pelo site: sino balança e o botão pulsa até abrir. */
+        button[data-alerta="site"] { animation: sino-anel 1.6s ease-out infinite; background: rgba(244,63,94,0.25); border-color: rgba(255,255,255,0.6); }
+        .sino-balanca { animation: sino-balanca 1.6s ease-in-out infinite; transform-origin: 50% 0; }
+        @keyframes sino-anel {
+          0% { box-shadow: 0 0 0 0 rgba(244,63,94,0.75); }
+          70% { box-shadow: 0 0 0 12px rgba(244,63,94,0); }
+          100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); }
+        }
+        @keyframes sino-balanca {
+          0%, 50%, 100% { transform: rotate(0); }
+          10%, 30% { transform: rotate(14deg); }
+          20%, 40% { transform: rotate(-14deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          button[data-alerta="site"], .sino-balanca { animation: none; }
+        }
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.1); }

@@ -2,11 +2,12 @@
 // importante passou batido quando a lista estava escondida numa aba).
 // O envio usa o mesmo serviço do cron das 10h: o back só manda no dia do aniversário e uma vez
 // por ano (409 = já enviado). Quem passou sem parabéns nos últimos 7 dias aparece em vermelho,
-// com a mensagem pronta para o WhatsApp.
+// com a mensagem pronta para o WhatsApp; abrir o WhatsApp ou tocar "Já dei" grava no paciente
+// (POST /patients/:id/birthday-message/mark) e ele sai da lista. Sem data fixa: vale todo ano.
 import { Check, MessageCircle, Send } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
-import { sendBirthdayMessage } from '../../services/whatsappService';
+import { markBirthdayHandled, sendBirthdayMessage } from '../../services/whatsappService';
 
 export interface BirthdayRow {
     _id: string;
@@ -73,7 +74,7 @@ export const withDaysUntil = (list: BirthdayRow[]): Row[] => {
         });
 };
 
-/** Passou nos últimos 7 dias e ninguém mandou parabéns. */
+/** Passou nos últimos 7 dias e ninguém deu parabéns (nem o automático, nem a equipe por fora). */
 export const isLateBirthday = (p: { daysUntil: number; birthdayMessageSent?: boolean }) =>
     p.daysUntil < 0 && p.daysUntil >= -LATE_DAYS && !p.birthdayMessageSent;
 
@@ -124,6 +125,7 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
             : patients.some(p => p.daysUntil === 0) ? 'hoje' : 'semana'
     ));
     const [sending, setSending] = useState<string | null>(null);
+    const [marking, setMarking] = useState(false);
 
     const rows = useMemo(() => {
         const list = period === 'atrasados' ? patients.filter(p => isLateBirthday(p))
@@ -163,6 +165,21 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
         }
     };
 
+    // "Já dei parabéns": grava no paciente (1x por ano, mesma trava do automático) e some da lista.
+    const mark = async (ids: string[], silent = false) => {
+        if (!ids.length || marking) return;
+        setMarking(true);
+        const ok: string[] = [];
+        for (const id of ids) {
+            try { await markBirthdayHandled(id); ok.push(id); } catch { /* conta abaixo */ }
+        }
+        setMarking(false);
+        if (ok.length) { setSent(s => { const n = new Set(s); ok.forEach(id => n.add(id)); return n; }); onSent?.(); }
+        if (ok.length < ids.length) toast.error(`Não consegui marcar ${ids.length - ok.length} paciente(s). Tente de novo.`);
+        else if (!silent) toast.success(ok.length === 1 ? 'Marcado como parabenizado' : `${ok.length} marcados como parabenizados`);
+    };
+    const lateIds = rows.filter(p => isLateBirthday(p) && !sent.has(p._id)).map(p => p._id);
+
     const empty = period === 'atrasados' ? 'Nenhum aniversário passou sem parabéns nos últimos 7 dias.'
         : period === 'hoje' ? 'Ninguém faz aniversário hoje.'
         : 'Nenhum aniversariante neste período.';
@@ -179,6 +196,16 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
                 <Chip active={period === 'semana'} onClick={() => setPeriod('semana')}>Próximos 7 dias <b className="tabular-nums">{counts.semana}</b></Chip>
                 <Chip active={period === 'mes'} onClick={() => setPeriod('mes')}>Mês todo <b className="tabular-nums">{counts.mes}</b></Chip>
             </div>
+
+            {period === 'atrasados' && lateIds.length > 1 && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-red-50/60 px-3 py-2 text-[13px] text-red-800 dark:bg-red-500/[0.06] dark:text-red-200">
+                    <span>Já deu parabéns por fora? Marque para sair da lista.</span>
+                    <button type="button" onClick={() => mark(lateIds)} disabled={marking}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 disabled:opacity-60 dark:bg-gray-900 dark:text-red-300 dark:ring-red-500/30">
+                        <Check size={14} aria-hidden /> {marking ? 'Marcando…' : `Marcar os ${lateIds.length} como parabenizados`}
+                    </button>
+                </div>
+            )}
 
             {rows.length === 0 ? (
                 <p className="rounded-xl bg-gray-50 px-4 py-5 text-sm text-gray-600 dark:bg-gray-800/40 dark:text-gray-400">{empty}</p>
@@ -215,12 +242,18 @@ const BirthdayList: React.FC<{ patients: BirthdayRow[]; onSent?: () => void }> =
                                             <Send size={14} aria-hidden /> {sending === p._id ? 'Enviando…' : p.phone ? 'Enviar parabéns' : 'Sem telefone'}
                                         </button>
                                     ) : isLate ? (
-                                        wa ? (
-                                            <a href={wa} target="_blank" rel="noopener noreferrer"
+                                        <span className="inline-flex flex-wrap items-center gap-2">
+                                        {wa ? (
+                                            <a href={wa} target="_blank" rel="noopener noreferrer" onClick={() => mark([p._id], true)}
                                                 className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-600 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:bg-gray-900 dark:text-red-300 dark:ring-red-500/30 dark:hover:bg-red-500 dark:hover:text-gray-950">
                                                 <MessageCircle size={14} aria-hidden /> Mandar no WhatsApp
                                             </a>
-                                        ) : <span className="text-[13px] font-semibold text-red-700 dark:text-red-300">sem telefone</span>
+                                        ) : <span className="text-[13px] font-semibold text-red-700 dark:text-red-300">sem telefone</span>}
+                                            <button type="button" onClick={() => mark([p._id])} disabled={marking}
+                                                className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-60 dark:text-gray-300 dark:hover:bg-gray-800">
+                                                <Check size={14} aria-hidden /> Já dei
+                                            </button>
+                                        </span>
                                     ) : p.daysUntil < 0 ? (
                                         <span className="text-[13px] text-gray-500 dark:text-gray-400">já passou</span>
                                     ) : (
