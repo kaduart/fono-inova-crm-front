@@ -70,12 +70,14 @@ export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loadi
     // Novo design: rótulo em caixa normal, número maior, "hero" com fio esmeralda no topo e "danger" com fio vermelho.
     return (
         <div className={`grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 shadow-sm dark:border-white/10 dark:bg-white/10 ${KPI_COLS[cols]}`}>
-            {items.map((k) => {
+            {items.map((k, i) => {
                 const Tag = k.onClick ? 'button' : 'div';
+                // Com 5 cartões, o último ocupa a sobra da linha (sem buraco cinza no celular e no tablet).
+                const isLastOdd = cols === 5 && i === items.length - 1 && items.length === 5;
                 const rule = k.danger ? 'before:bg-red-500' : k.hero ? 'before:bg-emerald-500' : 'before:bg-transparent';
                 return (
                     <Tag key={k.label} type={k.onClick ? 'button' : undefined} onClick={k.onClick}
-                        className={`relative min-w-0 bg-white px-4 pb-3.5 pt-3 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${rule} dark:bg-[#161d1b] ${k.onClick ? 'transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-white/5' : ''}`}>
+                        className={`relative min-w-0 ${isLastOdd ? 'col-span-2 xl:col-span-1' : ''} bg-white px-4 pb-3.5 pt-3 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${rule} dark:bg-[#161d1b] ${k.onClick ? 'transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-white/5' : ''}`}>
                         <div className="truncate text-[13px] font-medium text-gray-500 dark:text-gray-400">{k.label}</div>
                         <div className={`mt-1 text-[1.65rem] font-bold leading-none tracking-tight tabular-nums ${loading ? 'animate-pulse text-gray-300 dark:text-gray-600' : k.danger ? 'text-red-700 dark:text-red-400' : k.hero ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{loading ? k.value : <AnimatedValue value={k.value} />}</div>
                         {k.trend && !loading && <Sparkline values={k.trend} tone={k.danger ? 'red' : 'emerald'} />}
