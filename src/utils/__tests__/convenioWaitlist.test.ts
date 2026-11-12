@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WaitlistEntry } from '../../services/convenioWaitlistService';
 import {
+  sendBadgesFor,
   buildContactMessage,
   buildWaitlistCsv,
   buildWhatsAppUrl,
@@ -180,5 +181,26 @@ describe('deepScanStatusText', () => {
     const done = deepScanStatusText({ status: 'done', error: null, stats: { total: 800, done: 800, contacts: 0, oldest: '2024-12-01T12:00:00Z' } });
     expect(done).toContain('Ninguém falou');
     expect(done).toContain('01/12/2024');
+  });
+});
+
+describe('sendBadgesFor', () => {
+  const q = '2026-11-12T13:00:00.000Z';
+  it('sem envio: nenhum selo', () => {
+    expect(sendBadgesFor({})).toEqual([]);
+    expect(sendBadgesFor({ offer: { queuedAt: null, sentAt: null, error: null } })).toEqual([]);
+  });
+  it('enviado, na fila, pulado e falha', () => {
+    const b = sendBadgesFor({
+      offer: { queuedAt: q, sentAt: q, error: null },
+      announce: { queuedAt: q, sentAt: null, error: null },
+    });
+    expect(b[0]).toMatchObject({ color: 'success' });
+    expect(b[0].label).toMatch(/^Retomar contato enviado \d{2}\/\d{2}/);
+    expect(b[1]).toMatchObject({ color: 'warning' });
+    expect(b[1].label).toMatch(/^Agora atendemos agendado \d{2}\/\d{2}/);
+    expect(sendBadgesFor({ offer: { queuedAt: q, sentAt: null, error: null, skippedAt: q, skipReason: 'Conversa recente' } })[0])
+      .toMatchObject({ label: 'Retomar contato não enviado', tooltip: 'Conversa recente' });
+    expect(sendBadgesFor({ offer: { queuedAt: q, sentAt: null, error: 'sem WhatsApp' } })[0]).toMatchObject({ color: 'error' });
   });
 });
