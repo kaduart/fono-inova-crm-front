@@ -113,6 +113,7 @@ const FinancialDashboard = lazyWithRetry(() => import('../pages/Financial/Financ
 const FollowupPage = lazyWithRetry(() => import('../pages/FollowupPage'));
 const PreAgendamentosPage = lazyWithRetry(() => import('../pages/Secretaria/PreAgendamentosPage'));
 const ConvenioInteressePage = lazyWithRetry(() => import('../pages/Secretaria/ConvenioInteressePage'));
+const NeuroCandidatosPage = lazyWithRetry(() => import('../pages/Secretaria/NeuroCandidatosPage'));
 
 // Telas de tabela/grade usam a largura toda; o resto fica numa coluna de até 1600px.
 const WIDE_TABS = new Set(['Calendário', 'Convenios', 'Financeiro', 'Caixa']);
@@ -1286,6 +1287,14 @@ export default function AdminDashboard() {
                     <TabErrorBoundary tabName="Interesse em Convênios">
                         <Suspense fallback={<TabSpinner />}>
                             <ConvenioInteressePage />
+                        </Suspense>
+                    </TabErrorBoundary>
+                );
+            case 'CandidatosNeuro':
+                return (
+                    <TabErrorBoundary tabName="Candidatos a neuro">
+                        <Suspense fallback={<TabSpinner />}>
+                            <NeuroCandidatosPage />
                         </Suspense>
                     </TabErrorBoundary>
                 );

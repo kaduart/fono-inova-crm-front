@@ -12,6 +12,7 @@ import { IPatient } from '../../utils/types/types';
 import DoctorCalendarTab from '../../components/doctor/tabs/DoctorCalendarTab';
 import PatientDetail, { type PatientSection } from '../../components/doctor/patient/PatientDetail';
 import MyPatientsPanel, { type Filter as PatientsFilter } from '../../components/doctor/patient/MyPatientsPanel';
+import NeuroConfirmPanel from '../../components/neuro/NeuroConfirmPanel';
 import { fetchMyPatients, type MyPatientsSummary } from '../../services/doctorService';
 import DoctorInsightsSection from '../../components/doctor/DoctorInsightsSection';
 import useDoctorInsights from '../../hooks/useDoctorInsights';
@@ -463,6 +464,7 @@ export default function DoctorDashboard() {
                   onOpenPatient={openPatient}
                   onSchedule={handleScheduleRiskPatient}
                 />
+                {!isStaffViewer && <NeuroConfirmPanel onOpenPatient={openPatient} />}
                 <DoctorOverviewInsights
                   stats={stats}
                   loading={loading.overview && !stats}

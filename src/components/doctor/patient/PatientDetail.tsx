@@ -18,6 +18,7 @@ import MedicalReportsSection from './reports/MedicalReportsSection';
 import PatientInsights, { FoldSection } from '../../patients/PatientInsights';
 import PatientEvolution from '../../patients/PatientEvolution';
 import { waLink } from '../../commercial/commercialCopy';
+import NeuroReferralCard from '../../neuro/NeuroReferralCard';
 
 export type PatientSection = 'overview' | 'anamnesis' | 'school' | 'medical' | 'evolution' | 'pei' | 'monthly' | 'packages';
 
@@ -294,6 +295,9 @@ export default function PatientDetail({ patientId, onBack, initialSection, creat
                     </div>
                 </dl>
             </header>
+
+            {/* Indicação para consulta com neuropediatra (laudo TEA/TDAH) */}
+            <NeuroReferralCard patientId={patient._id} />
 
             {/* Seções */}
             <div className="rounded-xl border border-gray-200 bg-white">

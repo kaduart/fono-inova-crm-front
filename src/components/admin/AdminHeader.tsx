@@ -2,6 +2,7 @@ import ThemeToggle from '../common/ThemeToggle';
 import NovidadesCenter from '../novidades/NovidadesCenter';
 import {
     Activity,
+    Brain,
     ChevronDown,
     ClipboardList,
     CalendarDays,
@@ -79,6 +80,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
         { id: 'conversas', group: 'Principal', label: 'Conversas', hint: 'WhatsApp com as famílias', icon: <MessageCircle size={16} />, keywords: 'mensagens whatsapp chat', run: () => handleTabChange('Mensagens') },
         { id: 'leads', group: 'Vendas', label: 'Leads & Follow-up', hint: 'Fila operacional da secretária', icon: <Users size={16} />, keywords: 'retorno followup comercial', badge: opCounts.total, hot: opCounts.overdue > 0, run: () => handleTabChange('Leads') },
         { id: 'interesse', group: 'Vendas', label: 'Interesse em convênios', icon: <ClipboardList size={16} />, keywords: 'convenio plano lista espera', run: () => handleTabChange('InteresseConvenios') },
+        { id: 'neuro', group: 'Vendas', label: 'Candidatos a neuro', hint: 'Pacientes da casa para a consulta do laudo', icon: <Brain size={16} />, keywords: 'neuropediatra laudo tea tdah autismo', run: () => handleTabChange('CandidatosNeuro') },
         { id: 'conversao', group: 'Marketing', label: 'Inteligência de Conversão', hint: 'Do contato ao agendamento, por canal', icon: <Gauge size={16} />, keywords: 'funil canal pixel', run: () => handleTabChange('Conversao') },
         { id: 'roi', group: 'Marketing', label: 'ROI & Atribuição', hint: 'Receita por campanha e origem', icon: <DollarSign size={16} />, keywords: 'campanha anuncio retorno', run: () => handleTabChange('ROI') },
         { id: 'social', group: 'Marketing', label: 'Social Media', hint: 'GMB, Instagram, Facebook, vídeos', icon: <Activity size={16} />, keywords: 'post instagram gmb', run: () => handleTabChange('SocialMedia') },
@@ -127,7 +129,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     }, [openMenu, toggleMenu, isProfileDropdownOpen]);
 
     const isVendasMarketingActive =
-        activeTab === "Leads" || activeTab === "InteresseConvenios" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI" || activeTab === "Conversao";
+        activeTab === "Leads" || activeTab === "InteresseConvenios" || activeTab === "CandidatosNeuro" || activeTab === "Analytics" || activeTab === "SocialMedia" || activeTab === "ROI" || activeTab === "Conversao";
     
     const isSistemaActive =
         activeTab === "Sistema" || activeTab === "AmandaMetrics" || activeTab === "WhatsApp";
@@ -301,6 +303,16 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Interesse em Convênios</span>
                                             <span className="text-xs text-gray-500 dark:text-gray-400">GEAP, IPASGO e Bradesco em credenciamento</span>
+                                        </div>
+                                    </NavDropdownItem>
+                                    <NavDropdownItem
+                                        active={activeTab === "CandidatosNeuro"}
+                                        onClick={() => handleTabChange("CandidatosNeuro")}
+                                        icon={<Brain className="h-4 w-4 text-violet-500" />}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Candidatos a neuro</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Pacientes da casa para a consulta do laudo</span>
                                         </div>
                                     </NavDropdownItem>
 
@@ -516,6 +528,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                                     Leads e follow-up
                                 </MobileNavItem>
                                 <MobileNavItem active={activeTab === "InteresseConvenios"} onClick={() => handleMobileTabChange("InteresseConvenios")} icon={<ClipboardList size={20} />}>Interesse em convênios</MobileNavItem>
+                                <MobileNavItem active={activeTab === "CandidatosNeuro"} onClick={() => handleMobileTabChange("CandidatosNeuro")} icon={<Brain size={20} />}>Candidatos a neuro</MobileNavItem>
                                 <MobileNavItem active={activeTab === "Conversao"} onClick={() => handleMobileTabChange("Conversao")} icon={<Gauge size={20} />}>Inteligência de conversão</MobileNavItem>
                                 <MobileNavItem active={activeTab === "ROI"} onClick={() => handleMobileTabChange("ROI")} icon={<DollarSign size={20} />}>ROI e atribuição</MobileNavItem>
                                 <MobileNavItem active={activeTab === "Analytics"} onClick={() => handleMobileTabChange("Analytics")} icon={<Activity size={20} />}>Analytics do site</MobileNavItem>
