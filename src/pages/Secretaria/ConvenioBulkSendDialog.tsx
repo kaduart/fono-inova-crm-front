@@ -24,6 +24,14 @@ import convenioWaitlistApi, {
 import { CONVENIO_OPTIONS } from '../../utils/convenioWaitlist';
 import { toast } from '../../utils/toast';
 
+const ATENDENTE_KEY = 'convenioBulkAtendente';
+const readAtendente = (): string => {
+  try { return window.localStorage.getItem(ATENDENTE_KEY) ?? ''; } catch { return ''; }
+};
+const saveAtendente = (value: string) => {
+  try { window.localStorage.setItem(ATENDENTE_KEY, value); } catch { /* sem storage: só não lembra */ }
+};
+
 const LIMIT_TEXT: Record<BulkSendPreview['limitReason'], string> = {
   limite_diario: 'limite de segurança do dia',
   fim_do_horario: 'o que cabe até 18h45',
@@ -43,6 +51,7 @@ interface Props {
 export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, onClose, onSent }: Props) {
   const [convenio, setConvenio] = useState<WaitlistConvenio | ''>(initialConvenio);
   const [especialidades, setEspecialidades] = useState('');
+  const [atendente, setAtendente] = useState(readAtendente);
   const [preview, setPreview] = useState<BulkSendPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -66,18 +75,19 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
     setLoading(true);
     setError(null);
     const timer = window.setTimeout(() => {
-      convenioWaitlistApi.bulkSend({ kind, convenio, especialidades })
+      convenioWaitlistApi.bulkSend({ kind, convenio, especialidades, atendente })
         .then(({ preview: p }) => { if (alive) setPreview(p); })
         .catch(() => { if (alive) setError('Não foi possível carregar a prévia.'); })
         .finally(() => { if (alive) setLoading(false); });
     }, 300);
     return () => { alive = false; window.clearTimeout(timer); };
-  }, [open, kind, convenio, especialidades, needsConvenio]);
+  }, [open, kind, convenio, especialidades, atendente, needsConvenio]);
 
   const send = async () => {
     setSending(true);
     try {
-      const { queued } = await convenioWaitlistApi.bulkSend({ kind, convenio, especialidades, confirm: true });
+      saveAtendente(atendente);
+      const { queued } = await convenioWaitlistApi.bulkSend({ kind, convenio, especialidades, atendente, confirm: true });
       toast.success(`${queued} ${queued === 1 ? 'mensagem entrou' : 'mensagens entraram'} na fila. Saem 1 a cada ~1,5 min; cada pessoa vira "contatado" quando a mensagem sai.`);
       onSent();
       onClose();
@@ -88,7 +98,7 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
     }
   };
 
-  const title = kind === 'credenciado' ? 'Avisar: agora atendemos o plano' : 'Oferecer o particular';
+  const title = kind === 'credenciado' ? 'Avisar: agora atendemos o plano' : 'Retomar contato';
 
   return (
     <Dialog open={open} onClose={sending ? undefined : onClose} fullWidth maxWidth="sm">
@@ -114,6 +124,16 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
               ))}
             </Select>
           </FormControl>
+          {kind === 'particular' && (
+            <TextField
+              size="small"
+              label="Seu nome (assina a mensagem)"
+              placeholder="Ex.: Bia"
+              value={atendente}
+              onChange={(event) => setAtendente(event.target.value)}
+              sx={{ flex: 1, minWidth: 200 }}
+            />
+          )}
           {kind === 'credenciado' && (
             <TextField
               size="small"
