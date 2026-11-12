@@ -152,14 +152,18 @@ export const NotificationBellFixed: React.FC = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { debounceTimer = null; fetchPreAgendamentos(); }, 800);
       if (data?.source === ONLINE) {
-        toast.info(`🌐 ${data.patientName || 'Uma família'} agendou pelo site. Confirmar no WhatsApp.`, { duration: 15000 });
+        // Fica na tela até alguém clicar: o comercial precisa ver (Kadu, 12/11).
+        toast.info(`🌐 ${data.patientName || 'Uma família'} agendou pelo site. Confirmar no WhatsApp.`, {
+          duration: Infinity,
+          action: { label: 'Ver', onClick: () => navigate('/admin?tab=Pré-Agendamentos') },
+        });
       }
     });
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribe();
     };
-  }, [fetchPreAgendamentos]);
+  }, [fetchPreAgendamentos, navigate]);
 
   const isNew = (id: string) => !seenIds.has(id);
   const novosSite = site.filter(p => isNew(p._id)).length;
@@ -212,9 +216,10 @@ export const NotificationBellFixed: React.FC = () => {
         onClick={handleClick}
         aria-label="Notificações"
         title={novosSite > 0 ? `${novosSite} agendamento(s) novo(s) pelo site` : 'Notificações'}
+        data-alerta={novosSite > 0 ? 'site' : undefined}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-[11px] border border-white/15 bg-white/[0.08] text-white transition-colors hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
-        <Bell size={18} />
+        <Bell size={18} className={novosSite > 0 ? 'sino-balanca' : undefined} />
         {displayCount > 0 && (
           <span style={{
             position: 'absolute', top: '-6px', right: '-8px', background: '#f43f5e', boxShadow: '0 0 0 2px #0d8a6c',
@@ -310,6 +315,22 @@ export const NotificationBellFixed: React.FC = () => {
       )}
 
       <style>{`
+        /* Agendamento novo pelo site: sino balança e o botão pulsa até abrir. */
+        button[data-alerta="site"] { animation: sino-anel 1.6s ease-out infinite; background: rgba(244,63,94,0.25); border-color: rgba(255,255,255,0.6); }
+        .sino-balanca { animation: sino-balanca 1.6s ease-in-out infinite; transform-origin: 50% 0; }
+        @keyframes sino-anel {
+          0% { box-shadow: 0 0 0 0 rgba(244,63,94,0.75); }
+          70% { box-shadow: 0 0 0 12px rgba(244,63,94,0); }
+          100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); }
+        }
+        @keyframes sino-balanca {
+          0%, 50%, 100% { transform: rotate(0); }
+          10%, 30% { transform: rotate(14deg); }
+          20%, 40% { transform: rotate(-14deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          button[data-alerta="site"], .sino-balanca { animation: none; }
+        }
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.1); }
