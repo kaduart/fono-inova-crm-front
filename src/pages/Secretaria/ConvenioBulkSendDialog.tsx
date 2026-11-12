@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -20,6 +19,8 @@ import {
   Select,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
 import convenioWaitlistApi, {
@@ -50,6 +51,16 @@ const POLL_MS = 6000;
 const POLL_MAX = 30; // ~3 min esperando a conferência das conversas
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+/** Grupo da lista: "Hoje", "sex 13/11" (dia em que a mensagem sai) ou "Desmarcados". */
+const dayGroup = (p: BulkSendPerson): string => {
+  if (p.excluded) return 'Desmarcados (não recebem)';
+  if (p.today) return 'Hoje';
+  if (!p.scheduledFor) return 'Depois';
+  const d = new Date(p.scheduledFor);
+  return `${WEEKDAYS[d.getDay()]} ${formatDateBR(p.scheduledFor).slice(0, 5)}`;
+};
 
 const skipReasonText = (p: BulkSendPerson) =>
   p.reason === 'sessao_futura'
@@ -117,6 +128,9 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
     return () => window.clearTimeout(t);
   }, [open, checking, pollTick]);
 
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+
   const toggle = (id: string) =>
     setExcludeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
@@ -136,7 +150,11 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
   };
 
   const title = kind === 'credenciado' ? 'Avisar: agora atendemos o plano' : 'Retomar contato';
-  const recipients = preview?.recipients ?? [];
+  // Ordem da lista: hoje, próximos dias e, no fim, os desmarcados.
+  const recipients = useMemo(
+    () => [...(preview?.recipients ?? [])].sort((a, b) => Number(Boolean(a.excluded)) - Number(Boolean(b.excluded))),
+    [preview],
+  );
   const skipped = preview?.skipped ?? [];
 
   const leftOut = useMemo(() => {
@@ -151,7 +169,7 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
   }, [preview]);
 
   return (
-    <Dialog open={open} onClose={sending ? undefined : onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={sending ? undefined : onClose} fullWidth maxWidth="sm" fullScreen={fullScreen}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         {kind === 'credenciado' && (
@@ -235,31 +253,57 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
             </Paper>
 
             {recipients.length > 0 && (
-              <Accordion disableGutters variant="outlined">
+              <Accordion disableGutters variant="outlined" defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="body2">Ver quem vai receber ({preview.eligible}) · desmarque quem não deve</Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    Quem vai receber ({preview.eligible}){preview.unchecked ? ` · ${preview.unchecked} desmarcados` : ''}
+                  </Typography>
                 </AccordionSummary>
-                <AccordionDetails sx={{ p: 0, maxHeight: 280, overflowY: 'auto' }}>
-                  {recipients.map((p) => (
-                    <Box key={p.id} display="flex" alignItems="center" gap={1} px={1} py={0.25} sx={{ borderTop: 1, borderColor: 'divider' }}>
-                      <Checkbox
-                        size="small"
-                        checked={!p.excluded}
-                        onChange={() => toggle(p.id)}
-                        inputProps={{ 'aria-label': `${p.excluded ? 'Incluir' : 'Tirar'} ${p.name}` }}
-                      />
-                      <Box flex={1} minWidth={0}>
-                        <Typography variant="body2" noWrap>{p.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {convenioLabel(p.convenio)} · final {p.phoneTail}{p.since ? ` · procurou em ${formatDateBR(p.since)}` : ''}
-                          {p.lastClinicMessageAt ? ` · última msg da clínica ${formatDateBR(p.lastClinicMessageAt)}` : ''}
-                        </Typography>
-                      </Box>
-                      {!p.excluded && (
-                        <Chip size="small" variant="outlined" color={p.today ? 'success' : 'default'} label={p.today ? 'hoje' : p.scheduledFor ? formatDateBR(p.scheduledFor).slice(0, 5) : 'depois'} />
-                      )}
-                    </Box>
-                  ))}
+                <Box display="flex" justifyContent="space-between" alignItems="center" px={1.5} pb={0.5}>
+                  <Typography variant="caption" color="text.secondary">Desmarque quem não deve receber.</Typography>
+                  <Box>
+                    <Button size="small" onClick={() => setExcludeIds([])} disabled={!excludeIds.length}>Marcar todos</Button>
+                    <Button size="small" onClick={() => setExcludeIds(recipients.map((p) => p.id))} disabled={excludeIds.length >= recipients.length}>Desmarcar todos</Button>
+                  </Box>
+                </Box>
+                <AccordionDetails sx={{ p: 0, maxHeight: fullScreen ? 'none' : 320, overflowY: 'auto' }}>
+                  {recipients.map((p, i) => {
+                    const group = dayGroup(p);
+                    const newGroup = i === 0 || dayGroup(recipients[i - 1]) !== group;
+                    const count = newGroup ? recipients.filter((r) => dayGroup(r) === group).length : 0;
+                    return (
+                      <Fragment key={p.id}>
+                        {newGroup && (
+                          <Box px={1.5} py={0.5} sx={{ bgcolor: 'action.hover', borderTop: 1, borderColor: 'divider', position: 'sticky', top: 0, zIndex: 1 }}>
+                            <Typography variant="caption" fontWeight={700}>{group} · {count}</Typography>
+                          </Box>
+                        )}
+                        <Box
+                          component="label"
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          px={1}
+                          py={0.25}
+                          sx={{ borderTop: 1, borderColor: 'divider', cursor: 'pointer', opacity: p.excluded ? 0.55 : 1 }}
+                        >
+                          <Checkbox
+                            size="small"
+                            checked={!p.excluded}
+                            onChange={() => toggle(p.id)}
+                            inputProps={{ 'aria-label': `${p.excluded ? 'Incluir' : 'Tirar'} ${p.name}` }}
+                          />
+                          <Box flex={1} minWidth={0}>
+                            <Typography variant="body2" noWrap>{p.name}</Typography>
+                            <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                              {convenioLabel(p.convenio)} · final {p.phoneTail}{p.since ? ` · procurou em ${formatDateBR(p.since)}` : ''}
+                              {p.lastClinicMessageAt ? ` · última msg da clínica ${formatDateBR(p.lastClinicMessageAt)}` : ''}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Fragment>
+                    );
+                  })}
                 </AccordionDetails>
               </Accordion>
             )}
@@ -283,9 +327,9 @@ export default function ConvenioBulkSendDialog({ open, kind, initialConvenio, on
             )}
 
             {preview.sample && (
-              <Accordion disableGutters variant="outlined" defaultExpanded>
+              <Accordion disableGutters variant="outlined">
                 <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="body2">Como a mensagem chega (exemplo)</Typography>
+                  <Typography variant="body2">Ver como a mensagem chega (exemplo)</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box sx={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{preview.sample}</Box>
