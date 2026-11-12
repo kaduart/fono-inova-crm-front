@@ -168,3 +168,17 @@ describe('origem WhatsApp', () => {
     expect(out).toContain('"Ana Paciente"');
   });
 });
+
+describe('deepScanStatusText', () => {
+  it('mostra progresso, achados por convênio e até onde o histórico chegou', async () => {
+    const { deepScanStatusText } = await import('../convenioWaitlist');
+    const running = deepScanStatusText({ status: 'running', error: null, stats: { total: 800, done: 120, contacts: 5, created: 4, byConvenio: { ipasgo: 4, geap: 1 } } });
+    expect(running).toContain('120 de 800 conversas');
+    expect(running).toContain('IPASGO 4');
+    const paused = deepScanStatusText({ status: 'queued', error: null, stats: { total: 800, done: 300 } });
+    expect(paused).toContain('pausada em 300 de 800');
+    const done = deepScanStatusText({ status: 'done', error: null, stats: { total: 800, done: 800, contacts: 0, oldest: '2024-12-01T12:00:00Z' } });
+    expect(done).toContain('Ninguém falou');
+    expect(done).toContain('01/12/2024');
+  });
+});
