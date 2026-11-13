@@ -307,8 +307,8 @@ export const FreeSlotsPanel: React.FC<{
     doctorFilter: string;
     fetchSlots: (p: { doctorId: string; date: string }) => Promise<string[]>;
     onSlot?: (slot: { doctorId: string; doctorName: string; specialty: string; time: string }) => void;
-}> = ({ dateStr, doctors, doctorFilter, fetchSlots, onSlot }) => {
-    const [open, setOpen] = useState(true);
+    onCount?: (n: number) => void;
+}> = ({ dateStr, doctors, doctorFilter, fetchSlots, onSlot, onCount }) => {
     const [loading, setLoading] = useState(true);
     const [free, setFree] = useState<Record<string, string[]>>({});
     const fetchRef = useRef(fetchSlots);
@@ -332,37 +332,33 @@ export const FreeSlotsPanel: React.FC<{
         .map(d => ({ ...d, times: (free[d.id] || []).filter(t => dateStr > todayYmd || t > nowHm) }))
         .filter(d => d.times.length > 0);
     const total = rows.reduce((n, d) => n + d.times.length, 0);
+    useEffect(() => { if (!loading) onCount?.(total); }, [loading, total]);
+    if (loading) return <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Buscando horários livres…</p>;
+    if (rows.length === 0) return <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Sem horário livre neste dia.</p>;
     return (
-        <section className="mx-2 mt-3 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
-            <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
-                className="flex w-full items-center justify-between px-3 py-2.5 text-left">
-                <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-                    Vagas livres · {loading ? 'buscando…' : total}
-                </span>
-                <span className="text-xs text-emerald-700 dark:text-emerald-300">{open ? 'Recolher' : 'Ver'}</span>
-            </button>
-            {open && !loading && (
-                <div className="space-y-2 px-3 pb-3">
-                    {rows.length === 0 && <p className="text-sm text-gray-600 dark:text-gray-400">Sem horário livre neste dia.</p>}
-                    {rows.map(d => (
-                        <div key={d.id} className="flex flex-wrap items-center gap-1.5">
-                            <span className="mr-1 min-w-[9rem] text-sm text-gray-800 dark:text-gray-200">
-                                <span className="font-medium">{shortName(d.name)}</span>
-                                {d.specialty && <span className="text-gray-500 dark:text-gray-400"> · {getSpecialtyLabel(d.specialty)}</span>}
-                            </span>
-                            {d.times.map(t => (
-                                <button key={t} type="button" disabled={!onSlot}
-                                    onClick={() => onSlot?.({ doctorId: d.id, doctorName: d.name, specialty: d.specialty, time: t })}
-                                    title={onSlot ? 'Encaixar paciente neste horário' : undefined}
-                                    className="rounded-lg border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-gray-900 px-2 py-1 text-xs font-semibold tabular-nums text-emerald-800 dark:text-emerald-200 transition-colors duration-150 hover:bg-emerald-600 hover:text-white disabled:cursor-default disabled:hover:bg-white disabled:hover:text-emerald-800">
-                                    {t}
-                                </button>
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </section>
+        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+            {rows.map(d => (
+                <li key={d.id} className="px-2.5 py-3">
+                    <div className="mb-2 flex items-baseline justify-between gap-2">
+                        <span className="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {shortName(d.name)}
+                            {d.specialty && <span className="font-normal text-gray-500 dark:text-gray-400"> · {getSpecialtyLabel(d.specialty)}</span>}
+                        </span>
+                        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{plural(d.times.length, 'vaga', 'vagas')}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {d.times.map(t => (
+                            <button key={t} type="button" disabled={!onSlot}
+                                onClick={() => onSlot?.({ doctorId: d.id, doctorName: d.name, specialty: d.specialty, time: t })}
+                                title={onSlot ? 'Encaixar paciente neste horário' : undefined}
+                                className="min-h-[36px] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 text-sm font-medium tabular-nums text-gray-800 dark:text-gray-200 transition-colors duration-150 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-default disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-800">
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+                </li>
+            ))}
+        </ul>
     );
 };
 
@@ -377,6 +373,9 @@ export const DayAgendaModal: React.FC<{
 }> = ({ dateStr, appts, onClose, actions, convenioName, showMoney, freeSlots }) => {
     const [status, setStatus] = useState<'all' | StatusGroup>('all');
     const [q, setQ] = useState('');
+    const [tab, setTab] = useState<'sessoes' | 'vagas'>('sessoes');
+    const [freeCount, setFreeCount] = useState<number | null>(null);
+    const canFree = !!freeSlots && dateStr >= new Date().toLocaleDateString('en-CA');
     const date = new Date(dateStr + 'T12:00:00');
     const title = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     const counts = useMemo(() => {
@@ -421,6 +420,15 @@ export const DayAgendaModal: React.FC<{
                             <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
                         </div>
                     </div>
+                    {canFree && (
+                        <div role="tablist" className="mt-3 inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-0.5">
+                            {([['sessoes', `Sessões · ${appts.length}`], ['vagas', `Vagas livres${freeCount === null ? '' : ` · ${freeCount}`}`]] as const).map(([k, label]) => (
+                                <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${tab === k ? 'bg-emerald-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{label}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div className={tab === 'sessoes' ? '' : 'hidden'}>
                     <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
                         <Chip active={status === 'all'} count={appts.length} onClick={() => setStatus('all')}>Todas</Chip>
                         {(['done', 'todo', 'missed', 'canceled'] as StatusGroup[]).map(s => {
@@ -433,14 +441,19 @@ export const DayAgendaModal: React.FC<{
                         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar paciente ou profissional…"
                             className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-2 pl-9 pr-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                     </label>
+                    </div>
                 </div>
                 <div className="overflow-y-auto px-2 pb-3">
-                    {freeSlots && dateStr >= new Date().toLocaleDateString('en-CA') && (
-                        <FreeSlotsPanel dateStr={dateStr} appts={appts} {...freeSlots} />
+                    {canFree && (
+                        <div className={tab === 'vagas' ? '' : 'hidden'}>
+                            <FreeSlotsPanel dateStr={dateStr} appts={appts} {...freeSlots!} onCount={setFreeCount} />
+                        </div>
                     )}
-                    {list.length === 0
-                        ? <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma sessão com esse filtro.</p>
-                        : <>{group('Manhã', morning)}{group('Tarde', afternoon)}</>}
+                    <div className={tab === 'sessoes' ? '' : 'hidden'}>
+                        {list.length === 0
+                            ? <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma sessão com esse filtro.</p>
+                            : <>{group('Manhã', morning)}{group('Tarde', afternoon)}</>}
+                    </div>
                 </div>
             </div>
         </div>
