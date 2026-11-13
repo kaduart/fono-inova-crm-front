@@ -1,0 +1,44 @@
+import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { MotionText } from './MotionText';
+
+export type SaveStatus = 'idle' | 'pending' | 'success' | 'error';
+
+interface SaveButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+  /** O chamador controla o estado: "success" só depois da confirmação do servidor. */
+  status?: SaveStatus;
+  idleLabel?: string;
+  pendingLabel?: string;
+  successLabel?: string;
+  errorLabel?: string;
+}
+
+const tone: Record<SaveStatus, string> = {
+  idle: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500',
+  pending: 'bg-emerald-600 focus:ring-emerald-500',
+  success: 'bg-emerald-700 focus:ring-emerald-500',
+  error: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+};
+
+/** Botão de salvar com texto que troca suavemente e tremida curta no erro. */
+export const SaveButton = React.forwardRef<HTMLButtonElement, SaveButtonProps>(function SaveButton(
+  { status = 'idle', idleLabel = 'Salvar', pendingLabel = 'Salvando…', successLabel = 'Salvo ✓',
+    errorLabel = 'Tentar de novo', className = '', disabled, type = 'button', ...props }, ref) {
+  const reduce = useReducedMotion();
+  const label = { idle: idleLabel, pending: pendingLabel, success: successLabel, error: errorLabel }[status];
+  return (
+    <motion.button
+      ref={ref as React.Ref<HTMLButtonElement>}
+      type={type}
+      disabled={disabled || status === 'pending'}
+      aria-busy={status === 'pending'}
+      animate={status === 'error' && !reduce ? { x: [0, -4, 4, -3, 3, 0] } : { x: 0 }}
+      transition={{ duration: 0.35 }}
+      className={`inline-flex min-h-10 items-center justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-quick ease-smooth-out motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${tone[status]} ${className}`}
+      {...(props as object)}
+    >
+      <MotionText>{label}</MotionText>
+    </motion.button>
+  );
+});
+export default SaveButton;
