@@ -92,6 +92,21 @@ code {
   }
 }
 
+/* Movimento reduzido (transitions-polish): quem pediu menos movimento vê só trocas
+   instantâneas. Spinner e pulse de carregamento continuam, senão parece travado. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  *:not(.animate-spin):not(.animate-pulse), *:not(.animate-spin):not(.animate-pulse)::before, *:not(.animate-spin):not(.animate-pulse)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+  }
+}
+
 /* FullCalendar — ajustes mobile */
 @media (max-width: 767px) {
   .fc .fc-toolbar {
