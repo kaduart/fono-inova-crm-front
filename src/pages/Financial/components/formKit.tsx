@@ -57,6 +57,8 @@ export const ModalHeader = ({
   subtitle,
   onClose,
   titleId,
+  closeLabel = 'Fechar',
+  closeDisabled = false,
 }: {
   icon: ReactNode;
   color: string;
@@ -64,6 +66,8 @@ export const ModalHeader = ({
   subtitle?: string;
   onClose: () => void;
   titleId?: string;
+  closeLabel?: string;
+  closeDisabled?: boolean;
 }) => (
   <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-gray-100">
     <div className="flex items-center gap-3 min-w-0">
@@ -75,7 +79,7 @@ export const ModalHeader = ({
         {subtitle && <p className="text-sm text-gray-500 truncate">{subtitle}</p>}
       </div>
     </div>
-    <IconButton onClick={onClose} aria-label="Fechar" className="shrink-0" sx={{ width: 44, height: 44 }}>
+    <IconButton onClick={onClose} disabled={closeDisabled} aria-label={closeLabel} className="shrink-0" sx={{ width: 44, height: 44 }}>
       <X size={18} />
     </IconButton>
   </div>
@@ -114,6 +118,7 @@ export const ModalFooter = ({
   status = 'idle',
   successLabel = 'Salvo',
   cancelLabel = 'Cancelar',
+  submitTitle,
   onCancel,
   onSubmit,
   submitting,
@@ -127,6 +132,8 @@ export const ModalFooter = ({
   status?: SubmitStatus;
   successLabel?: string;
   cancelLabel?: string;
+  /** Dica ao passar o mouse no botão (ex.: o que falta preencher). */
+  submitTitle?: string;
   /** Resumo vivo do que será salvo (aparece à esquerda no desktop). */
   summary?: ReactNode;
   onCancel: () => void;
@@ -148,6 +155,7 @@ export const ModalFooter = ({
     >
       {cancelLabel}
     </button>
+    <span title={submitTitle || undefined} className="inline-flex">
     <motion.button
       type="button"
       onClick={onSubmit}
@@ -160,6 +168,7 @@ export const ModalFooter = ({
       {status === 'success' && <DrawCheck />}
       <MotionText>{status === 'success' ? successLabel : status === 'error' ? 'Tentar de novo' : submitting ? submittingLabel : submitLabel}</MotionText>
     </motion.button>
+    </span>
   </div>
   );
 };

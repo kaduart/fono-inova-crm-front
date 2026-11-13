@@ -50,6 +50,8 @@ export default function CancelAppointmentDialog({
                 title={title}
                 onClose={() => { if (!isCancelling) onClose(); }}
                 titleId="cancel-dialog-title"
+                closeLabel="Fechar janela"
+                closeDisabled={isCancelling}
             />
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
@@ -104,6 +106,7 @@ export default function CancelAppointmentDialog({
                 onSubmit={onConfirm}
                 submitting={isCancelling}
                 submitDisabled={!!hint}
+                submitTitle={hint}
                 submitLabel="Confirmar cancelamento"
                 submittingLabel="Cancelando..."
                 summary={hint || null}
