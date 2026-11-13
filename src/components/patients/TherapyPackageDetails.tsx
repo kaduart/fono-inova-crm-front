@@ -10,12 +10,10 @@ import {
     Edit2,
     Edit3,
     Leaf,
-    MoreVertical,
     Plus,
     TrendingUp,
     User,
     Users,
-    X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
@@ -23,6 +21,8 @@ import { IDoctors, IPatient, ISession } from '../../utils/types/types';
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
 import { SessionModal } from './SessionModal';
+import { Modal } from '../ui/Modal';
+import { ModalHeader } from '../../pages/Financial/components/formKit';
 import packageService from '../../services/packageService';
 
 type Props = {
@@ -92,7 +92,6 @@ export default function TherapyPackageDetails({
     patient,
     doctors,
 }: Props) {
-    const [menuOpen, setMenuOpen] = useState(false);
 
     // Bulk change
     const [bulkOpen, setBulkOpen] = useState(false);
@@ -482,61 +481,31 @@ export default function TherapyPackageDetails({
 
     return (
       <>
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 sm:p-4 backdrop-blur-sm">
-            <div className="bg-white sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto max-w-full sm:max-w-[min(1000px,94vw)] max-h-[100dvh] sm:max-h-[min(90vh,920px)] overflow-hidden flex flex-col border border-gray-200">
-                {/* Header — identidade do contexto como accent, não como faixa pesada */}
-                <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 flex items-start justify-between gap-3 shrink-0 bg-white sticky top-0 z-10">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                            <Leaf className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        <div className="min-w-0">
-                            <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">Detalhes do Pacote</h2>
-                            <p className="text-gray-500 text-xs sm:text-sm mt-0.5 truncate">
-                                {(pack.sessionType || 'Terapia').replace(/_/g, ' ')} • {counts.total} sessões
-                            </p>
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${financialState.bg} ${financialState.border} border ${financialState.color}`}>
-                                    <FinancialIcon className="w-3 h-3" />
-                                    {financialState.label}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                        <div className="relative">
-                            <button
-                                onClick={() => setMenuOpen(v => !v)}
-                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-                            >
-                                <MoreVertical className="w-5 h-5" />
-                            </button>
-                            {menuOpen && (
-                                <div
-                                    className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl py-1 min-w-[140px] z-10 border border-gray-100"
-                                    onClick={() => setMenuOpen(false)}
-                                >
-                                    <button
-                                        onClick={onEdit}
-                                        className="flex items-center gap-2 w-full text-left text-xs font-medium px-4 py-2 hover:bg-slate-50 text-gray-700"
-                                    >
-                                        <Edit2 className="w-3.5 h-3.5" /> Editar pacote
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
+        <Modal
+            open
+            onClose={onClose}
+            labelledBy="package-details-title"
+            zIndexClass="z-50"
+            panelClassName="flex h-full max-h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,920px)] sm:max-w-[min(1000px,94vw)] sm:rounded-[20px]"
+        >
+            <>
+                <ModalHeader
+                    icon={<Leaf className="h-6 w-6" />}
+                    color="#059669"
+                    title="Detalhes do pacote"
+                    subtitle={`${(pack.sessionType || 'Terapia').replace(/_/g, ' ')} · ${counts.total} sessões`}
+                    onClose={onClose}
+                    titleId="package-details-title"
+                />
 
                 {/* Content — único scroll principal do modal */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5
                     [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${financialState.bg} ${financialState.border} border ${financialState.color}`}>
+                        <FinancialIcon className="w-3 h-3" />
+                        {financialState.label}
+                    </span>
+
                     {/* Resumo em cards estilo Convênio */}
                     <div className="grid grid-cols-3 gap-2.5">
                         {[
@@ -769,38 +738,27 @@ export default function TherapyPackageDetails({
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </>
+        </Modal>
 
         {/* Dialog: Alterar sessões pendentes */}
-        {bulkOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-5 text-white flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2.5 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
-                                <Edit3 className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="font-bold text-base truncate">
-                                    {bulkPreviewOpen ? 'Revisar alterações' : 'Alterar sessões pendentes'}
-                                </h3>
-                                <p className="text-xs text-emerald-100 opacity-90 mt-0.5 truncate">
-                                    {bulkPreviewOpen
-                                        ? 'Confira o impacto antes de confirmar'
-                                        : 'Apenas sessões futuras serão alteradas'}
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={closeBulkDialog}
-                            disabled={bulkSaving}
-                            className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors shrink-0"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
+        <Modal
+            open={bulkOpen}
+            onClose={() => !bulkSaving && closeBulkDialog()}
+            labelledBy="bulk-edit-title"
+            zIndexClass="z-[60]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+        >
+            <>
+                <ModalHeader
+                    icon={<Edit3 className="h-6 w-6" />}
+                    color="#059669"
+                    title={bulkPreviewOpen ? 'Revisar alterações' : 'Alterar sessões pendentes'}
+                    subtitle={bulkPreviewOpen ? 'Confira o impacto antes de confirmar' : 'Apenas sessões futuras serão alteradas'}
+                    onClose={closeBulkDialog}
+                    closeDisabled={bulkSaving}
+                    titleId="bulk-edit-title"
+                />
 
                     {/* Step indicator */}
                     <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-center gap-2 text-xs">
@@ -1000,14 +958,14 @@ export default function TherapyPackageDetails({
                                 <button
                                     onClick={closeBulkDialog}
                                     disabled={bulkSaving}
-                                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors font-medium text-sm"
+                                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={() => setBulkPreviewOpen(true)}
                                     disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedSessions.length === 0}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full hover:from-emerald-600 hover:to-green-700 transition-all font-medium text-sm shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     Revisar alterações
                                     <span className="bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full text-xs">
@@ -1020,14 +978,14 @@ export default function TherapyPackageDetails({
                                 <button
                                     onClick={() => setBulkPreviewOpen(false)}
                                     disabled={bulkSaving}
-                                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors font-medium text-sm"
+                                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
                                 >
                                     Voltar
                                 </button>
                                 <button
                                     onClick={saveBulk}
                                     disabled={bulkSaving}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full hover:from-emerald-600 hover:to-green-700 transition-all font-medium text-sm shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     {bulkSaving ? 'Salvando...' : 'Confirmar alteração'}
                                     {!bulkSaving && <CheckCircle className="w-4 h-4" />}
@@ -1035,30 +993,26 @@ export default function TherapyPackageDetails({
                             </>
                         )}
                     </div>
-                </div>
-            </div>
-        )}
+            </>
+        </Modal>
 
         {/* Dialog: Transferir sessões para outro pacote */}
-        {transferOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh]">
-                    <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-7 py-5 text-white flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-3.5 min-w-0">
-                            <div className="p-3 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm shrink-0">
-                                <ArrowRight className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="font-bold text-lg truncate">Transferir sessões</h3>
-                                <p className="text-xs text-violet-100 opacity-90 mt-0.5">
-                                    Sessões já pagas e não realizadas mudam de especialidade
-                                </p>
-                            </div>
-                        </div>
-                        <button onClick={closeTransferDialog} className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors shrink-0">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
+        <Modal
+            open={transferOpen}
+            onClose={() => closeTransferDialog()}
+            labelledBy="transfer-title"
+            zIndexClass="z-[60]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+        >
+            <>
+                <ModalHeader
+                    icon={<ArrowRight className="h-6 w-6" />}
+                    color="#059669"
+                    title="Transferir sessões"
+                    subtitle="Sessões já pagas e não realizadas mudam de especialidade"
+                    onClose={closeTransferDialog}
+                    titleId="transfer-title"
+                />
 
                     <div className="px-7 py-6 overflow-y-auto">
                         <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-900 mb-6">
@@ -1324,7 +1278,7 @@ export default function TherapyPackageDetails({
                                 onClick={handleTransferPreview}
                                 title={!scheduleComplete ? 'Preencha data e horário de todas as sessões' : ''}
                                 disabled={transferLoading || transferIds.length === 0 || !transferSpecialty || !transferDoctorId || !scheduleComplete}
-                                className="px-5 py-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-700 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {transferLoading ? 'Simulando...' : 'Revisar transferência'}
                                 {!transferLoading && <ArrowRight className="w-4 h-4" />}
@@ -1334,7 +1288,7 @@ export default function TherapyPackageDetails({
                                 onClick={handleTransferConfirm}
                                 disabled={transferLoading || !transferReason.trim()}
                                 title={!transferReason.trim() ? 'Informe o motivo' : ''}
-                                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-full hover:from-violet-700 hover:to-purple-700 text-sm font-medium disabled:bg-gray-300 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-semibold disabled:bg-gray-300 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {transferLoading ? 'Transferindo...' : 'Confirmar transferência'}
                                 {!transferLoading && <CheckCircle className="w-4 h-4" />}
@@ -1342,9 +1296,8 @@ export default function TherapyPackageDetails({
                         )}
                         </div>
                     </div>
-                </div>
-            </div>
-        )}
+            </>
+        </Modal>
 
         {/* Modal de edição de sessão */}
         {isSessionModalOpen && modalAction && (
