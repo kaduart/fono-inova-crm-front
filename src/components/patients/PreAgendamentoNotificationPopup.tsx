@@ -1,3 +1,4 @@
+import { useNotificationMotion } from '../../hooks/useNotificationMotion';
 import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, User, X, ClipboardList } from "lucide-react";
 import { useEffect } from "react";
@@ -25,19 +26,20 @@ interface NotificationContextValue {
 // ----------------------------------------------------------------------
 
 export const PreAgendamentoNotificationPopup = () => {
-  const { preAgendamentoNotification, closePreAgendamentoNotification } =
+  const { preAgendamentoNotification: incomingNotification, closePreAgendamentoNotification } =
     useNotification() as NotificationContextValue;
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (preAgendamentoNotification) {
+    if (incomingNotification) {
       const audio = new Audio(notifySound);
       audio.play().catch(() => {
         // Silencia erro de reprodução automática (política de navegador)
       });
     }
-  }, [preAgendamentoNotification]);
+  }, [incomingNotification]);
 
+  const { notification: preAgendamentoNotification, visible, motionProps } = useNotificationMotion(incomingNotification);
   if (!preAgendamentoNotification) return null;
 
   const handleView = () => {
@@ -47,12 +49,10 @@ export const PreAgendamentoNotificationPopup = () => {
 
   return (
     <AnimatePresence>
+      {visible && (
       <motion.div
         className="fixed bottom-4 right-4 z-50"
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.95 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        {...motionProps}
       >
         {/* Card minimalista - sem bordas chamativas, sem blur, sem sombra pesada */}
         <div className="bg-white border border-gray-100 rounded-lg shadow-sm w-72 p-4">
@@ -114,6 +114,7 @@ export const PreAgendamentoNotificationPopup = () => {
           </div>
         </div>
       </motion.div>
+    )}
     </AnimatePresence>
   );
 };

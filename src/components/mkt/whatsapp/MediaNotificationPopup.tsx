@@ -1,3 +1,4 @@
+import { useNotificationMotion } from '../../../hooks/useNotificationMotion';
 import { AnimatePresence, motion } from "framer-motion";
 import { FileAudio, FileText, Image, Paperclip, Video, X } from "lucide-react";
 import { useEffect } from "react";
@@ -12,18 +13,19 @@ const iconMap = {
 };
 
 export const MediaNotificationPopup = () => {
-    const { mediaNotification, closeMediaNotification } = useNotification();
+    const { mediaNotification: incomingNotification, closeMediaNotification } = useNotification();
 
     // ✅ Hook sempre executado (evita erro de hooks)
     useEffect(() => {
-        if (mediaNotification) {
+        if (incomingNotification) {
             const audio = new Audio(notifySound);
             audio.play().catch(() => { });
         }
-    }, [mediaNotification]);
+    }, [incomingNotification]);
 
     // 🔹 Retorna só o layout (sem quebrar ordem de hooks)
-    if (!mediaNotification) return null;
+    const { notification: mediaNotification, visible, motionProps } = useNotificationMotion(incomingNotification);
+  if (!mediaNotification) return null;
 
     const Icon = iconMap[mediaNotification.type as keyof typeof iconMap] || Paperclip;
 
@@ -68,12 +70,10 @@ export const MediaNotificationPopup = () => {
 
     return (
         <AnimatePresence>
+      {visible && (
             <motion.div
                 className="fixed bottom-6 right-6 z-50"
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 40 }}
-                transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                {...motionProps}
             >
                 <div className="bg-white/90 backdrop-blur-md border border-emerald-400/60 rounded-2xl shadow-xl p-5 w-80 relative overflow-hidden">
                     {/* Borda animada sutil */}
@@ -128,6 +128,7 @@ export const MediaNotificationPopup = () => {
                     </div>
                 </div>
             </motion.div>
-        </AnimatePresence>
+        )}
+    </AnimatePresence>
     );
 };

@@ -2288,7 +2288,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     return (
         <FocusTrap open={present && !isBalanceModalOpen && !professionalPaymentDialogOpen && !showDebtConfirm}
             isEnabled={() => appointmentFocusOwners[appointmentFocusOwners.length - 1] === focusOwner.current}>
-        <motion.div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4" style={{ zIndex }}
+        <motion.div className="fixed inset-0 flex items-start justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 sm:pt-[6vh]" style={{ zIndex }}
             ref={surfaceRoot} tabIndex={-1} aria-hidden={!present ? true : undefined}
             initial={{ opacity: reduceMotion ? 1 : 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : motionDuration.quick, ease: motionEase.smoothOut }}
@@ -2298,7 +2298,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 }
             }}>
             <motion.div role="dialog" aria-modal="true" aria-labelledby={`${dialogId}-title`}
-                className="bg-white rounded-xl shadow-2xl w-full max-w-[720px] text-left flex flex-col max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden relative text-sm"
+                className="bg-white rounded-xl shadow-2xl w-full max-w-[720px] text-left flex flex-col max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-6vh-32px)] overflow-hidden relative text-sm"
                 initial={reduceMotion ? false : { scale: motionScale.modal, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: reduceMotion ? 1 : motionScale.modal, opacity: 0, transition: { duration: reduceMotion ? 0 : motionDuration.quick } }}

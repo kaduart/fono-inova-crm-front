@@ -1,3 +1,4 @@
+import { useNotificationMotion } from '../../hooks/useNotificationMotion';
 import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, CheckCircle, User, X, Zap } from "lucide-react";
 import React from "react";
@@ -6,9 +7,10 @@ import { useNotification } from "../../contexts/NotificationContext";
 import { formatCurrency } from "../../utils/format";
 
 const PixNotificationPopup: React.FC = () => {
-  const { paymentNotification, closePaymentNotification } = useNotification();
+  const { paymentNotification: incomingNotification, closePaymentNotification } = useNotification();
   const navigate = useNavigate();
 
+  const { notification: paymentNotification, visible, motionProps } = useNotificationMotion(incomingNotification);
   if (!paymentNotification) return null;
 
   const formatDate = (date: Date) =>
@@ -37,18 +39,10 @@ const PixNotificationPopup: React.FC = () => {
 
   return (
     <AnimatePresence>
-      {paymentNotification && (
+      {visible && (
         <motion.div
           className="fixed bottom-6 right-6 z-50"
-          initial={{ opacity: 0, y: 40, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 40, scale: 0.95 }}
-          transition={{
-            type: "spring",
-            damping: 25,
-            stiffness: 400,
-            duration: 0.35,
-          }}
+          {...motionProps}
         >
           <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-green-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/30 border border-emerald-400/50 w-80 backdrop-blur-md cursor-pointer hover:shadow-emerald-400/50 transition-shadow">
             {/* Efeitos de brilho */}
@@ -108,7 +102,7 @@ const PixNotificationPopup: React.FC = () => {
               >
                 <div className="text-lime-100/80 text-sm mb-1">Valor recebido</div>
                 <div className="text-2xl font-bold text-white drop-shadow-sm">
-                  {formatCurrency(paymentNotification.amount)}
+                  {formatCurrency(paymentNotification.amount ?? 0)}
                 </div>
               </motion.div>
 
@@ -129,8 +123,8 @@ const PixNotificationPopup: React.FC = () => {
                   <div>
                     <div className="text-lime-100/80 text-xs">Data e horário</div>
                     <div className="font-medium text-white">
-                      {formatDate(paymentNotification.date)} às{" "}
-                      {formatTime(paymentNotification.date)}
+                      {formatDate(paymentNotification.date ?? new Date())} às{" "}
+                      {formatTime(paymentNotification.date ?? new Date())}
                     </div>
                   </div>
                 </div>
