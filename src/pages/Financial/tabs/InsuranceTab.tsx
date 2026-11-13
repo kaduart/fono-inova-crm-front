@@ -17,12 +17,8 @@ import {
     TextField,
     Typography,
     Avatar,
-    Card,
-    CardContent,
-    Grid,
     Collapse,
     CircularProgress,
-    Skeleton,
     IconButton,
     InputAdornment,
 } from '@mui/material';
@@ -1139,56 +1135,39 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
     };
 
     if (loading && receivables.length === 0) {
+        const bar = 'rounded bg-gray-200/80 dark:bg-gray-700/60';
         return (
-            <Box>
-                <Grid container spacing={2} sx={{ width: '100%', mb: { xs: 3, sm: 4 } }}>
-                    {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
-                        <Grid size={{ xs: 12, md: 4 }} key={i}>
-                            <Card elevation={0} sx={{ border: `1px solid color-mix(in srgb, ${c.color} 13%, transparent)`, borderRadius: 2 }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
-                                        <Box sx={{ flex: 1 }}>
-                                            <Skeleton variant="text" width="55%" height={20} />
-                                            <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
-                                            <Skeleton variant="text" width="45%" height={16} />
-                                        </Box>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
+            <div className="animate-pulse" aria-busy="true" aria-label="Carregando convênios">
+                <div className="mb-3 flex items-center gap-3 rounded-xl border border-slate-200 px-5 py-3 dark:border-slate-700">
+                    <div className={`h-10 w-10 rounded-xl ${bar}`} />
+                    <div className="space-y-2"><div className={`h-5 w-48 ${bar}`} /><div className={`h-3 w-40 ${bar}`} /></div>
+                    <div className={`ml-auto hidden h-9 w-40 sm:block ${bar}`} />
+                </div>
+                <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    {[0, 1, 2, 3, 4].map(i => (
+                        <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                            <div className={`h-3 w-24 ${bar}`} />
+                            <div className={`mt-3 h-7 w-28 ${bar}`} />
+                            <div className={`mt-3 h-3 w-full ${bar}`} />
+                        </div>
                     ))}
-                </Grid>
-                <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'grey.200', borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 1, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                        {[{ color: '#F59E0B' }, { color: '#3B82F6' }, { color: '#10B981' }].map((c, i) => (
-                            <Skeleton key={i} variant="rounded" width={145} height={36} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
-                        ))}
-                    </Box>
-                    <Box sx={{ p: 3 }}>
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <Box key={i} sx={{ mb: 2, border: '1px solid var(--fx-gray-200)', borderRadius: 2, overflow: 'hidden' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'var(--fx-gray-50)' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Skeleton variant="circular" width={32} height={32} sx={{ bgcolor: '#3B82F615' }} />
-                                        <Box>
-                                            <Skeleton variant="text" width={150} height={20} />
-                                            <Skeleton variant="text" width={100} height={16} />
-                                        </Box>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#F59E0B15' }} />
-                                        <Skeleton variant="rounded" width={90} height={30} sx={{ bgcolor: '#3B82F615' }} />
-                                    </Box>
-                                </Box>
-                            </Box>
-                        ))}
-                    </Box>
-                </Paper>
-            </Box>
+                </div>
+                <div className="mb-3 flex gap-2">
+                    {[90, 100, 90, 90].map((w, i) => <div key={i} className={`h-8 rounded-full ${bar}`} style={{ width: w }} />)}
+                </div>
+                <div className="space-y-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                            <div className={`h-8 w-8 rounded-full ${bar}`} />
+                            <div className="space-y-2"><div className={`h-4 w-40 ${bar}`} /><div className={`h-3 w-24 ${bar}`} /></div>
+                            <div className={`ml-auto h-6 w-20 rounded-full ${bar}`} />
+                            <div className={`h-6 w-20 rounded-full ${bar}`} />
+                        </div>
+                    ))}
+                </div>
+            </div>
         );
     }
-
     return (
         <Box sx={{ '& *': { boxSizing: 'border-box' } }}>
             {/* Header */}

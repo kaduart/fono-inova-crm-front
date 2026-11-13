@@ -2460,18 +2460,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                                 p: 0.75,
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                alignItems: 'center',
+                                                alignItems: 'stretch',
                                                 gap: 0.5,
                                             }}
                                         >
-                                            {/* Número do dia */}
-                                            <Skeleton variant="circular" width={28} height={28} />
-                                            {/* Cartão de progresso: x/y + barra + % */}
+                                            <Skeleton variant="text" width={18} height={16} sx={{ alignSelf: 'flex-start' }} />
                                             {hasBadge && (
-                                                <Box sx={{ width: '88%', maxWidth: 150, my: 'auto', borderRadius: 3, border: '1px solid var(--fx-gray-200)', bgcolor: 'var(--fx-white)', px: 1.25, py: 0.75, boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>
-                                                    <Skeleton variant="text" width="45%" height={20} sx={{ mx: 'auto' }} />
-                                                    <Skeleton variant="rounded" height={8} sx={{ borderRadius: 9, mt: 0.5 }} />
-                                                    <Skeleton variant="text" width="60%" height={12} sx={{ mx: 'auto', mt: 0.5 }} />
+                                                <Box sx={{ width: '100%', mt: 0.5 }}>
+                                                    <Skeleton variant="text" width="55%" height={26} />
+                                                    <Skeleton variant="rounded" height={5} sx={{ borderRadius: 9, mt: 0.5 }} />
+                                                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.75 }}>
+                                                        <Skeleton variant="rounded" width={52} height={16} sx={{ borderRadius: 9 }} />
+                                                        <Skeleton variant="rounded" width={40} height={16} sx={{ borderRadius: 9 }} />
+                                                    </Box>
                                                 </Box>
                                             )}
                                         </Box>
