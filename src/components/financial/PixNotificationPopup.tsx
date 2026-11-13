@@ -41,13 +41,10 @@ const PixNotificationPopup: React.FC = () => {
     <AnimatePresence>
       {visible && (
         <motion.div
-          className="fixed bottom-6 right-6 z-50"
+          className="fixed bottom-6 right-6"
           {...motionProps}
         >
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-green-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/30 border border-emerald-400/50 w-80 backdrop-blur-md cursor-pointer hover:shadow-emerald-400/50 transition-shadow">
-            {/* Efeitos de brilho */}
-            <div className="absolute -top-20 -right-20 w-40 h-40 bg-green-300/20 rounded-full blur-2xl"></div>
-            <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-lime-300/30 rounded-full blur-xl"></div>
+          <div className="relative overflow-hidden bg-emerald-700 text-white rounded-2xl shadow-lg border border-emerald-500/60 w-80 cursor-pointer">
 
             {/* Indicador de status */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-lime-400 to-emerald-400"></div>

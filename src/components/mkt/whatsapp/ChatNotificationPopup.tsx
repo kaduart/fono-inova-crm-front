@@ -37,10 +37,10 @@ export const ChatNotificationPopup = () => {
         <AnimatePresence>
       {visible && (
             <motion.div
-                className="fixed bottom-6 right-6 z-50"
+                className="fixed bottom-6 right-6"
                 {...motionProps}
             >
-                <div className="bg-white border border-emerald-400/60 rounded-2xl shadow-xl p-5 w-80 backdrop-blur-md">
+                <div className="bg-white border border-emerald-400/60 rounded-2xl shadow-xl p-5 w-80">
                     <div className="flex justify-between items-start">
                         <div className="flex items-center gap-3">
                             <div className="bg-emerald-100 p-2 rounded-xl">

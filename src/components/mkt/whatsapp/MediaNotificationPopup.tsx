@@ -72,10 +72,10 @@ export const MediaNotificationPopup = () => {
         <AnimatePresence>
       {visible && (
             <motion.div
-                className="fixed bottom-6 right-6 z-50"
+                className="fixed bottom-6 right-6"
                 {...motionProps}
             >
-                <div className="bg-white/90 backdrop-blur-md border border-emerald-400/60 rounded-2xl shadow-xl p-5 w-80 relative overflow-hidden">
+                <div className="bg-white border border-emerald-400/60 rounded-2xl shadow-xl p-5 w-80 relative overflow-hidden">
                     {/* Borda animada sutil */}
                     <div className="absolute inset-0 rounded-2xl border border-emerald-400/30 animate-pulse pointer-events-none" />
 

@@ -51,7 +51,7 @@ export const PreAgendamentoNotificationPopup = () => {
     <AnimatePresence>
       {visible && (
       <motion.div
-        className="fixed bottom-4 right-4 z-50"
+        className="fixed bottom-6 right-6"
         {...motionProps}
       >
         {/* Card minimalista - sem bordas chamativas, sem blur, sem sombra pesada */}
