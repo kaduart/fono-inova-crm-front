@@ -1,10 +1,11 @@
+import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 // frontend/src/pages/Financial/components/DashboardEspecialidades.tsx
 import React, { useState, useMemo } from 'react';
 import {
     Card, CardContent, Typography, Box, Chip, Grid,
     Dialog, DialogTitle, DialogContent, IconButton,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tabs, Tab
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
 } from '@mui/material';
 import { X } from 'lucide-react';
 import { useSpecialtiesAnalytics, useSpecialtyDetails } from '../../../hooks/useSpecialtiesAnalytics';
@@ -166,12 +167,8 @@ function SpecialtyDetailModal({ open, onClose, specialty, dateRange }: Specialty
                             </Typography>
                         </Box>
 
-                        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
-                            <Tab label="Itens" />
-                            <Tab label="Por Método" />
-                            <Tab label="Por Profissional" />
-                            <Tab label="Por Tipo" />
-                        </Tabs>
+                        <div className="mb-4"><SegmentedTabs label="Detalhamento" value={String(activeTab)} onValueChange={(v) => setActiveTab(Number(v))}
+                            options={['Itens', 'Por Método', 'Por Profissional', 'Por Tipo'].map((label, i) => ({ id: String(i), label }))} /></div>
 
                         {activeTab === 0 && (
                             <TableContainer component={Paper} variant="outlined">
