@@ -26,8 +26,6 @@ import {
     YAxis,
     Bar,
     BarChart,
-    Area,
-    AreaChart,
     ComposedChart
 } from 'recharts';
 import { 
@@ -51,6 +49,59 @@ import {
 // Cores para os gráficos
 // Paleta com 8 tons distintos (sem pares quase iguais), partindo do verde da marca.
 const COLORS = ['#059669', '#2563eb', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#64748b'];
+
+const EVOLUCAO_SERIES = [
+    { key: 'views', label: 'Visualizações', color: '#2563eb' },
+    { key: 'events', label: 'Eventos', color: '#7c3aed' },
+    { key: 'leads', label: 'Leads', color: '#059669' },
+    { key: 'conversions', label: 'Conversões', color: '#d97706' },
+] as const;
+
+type EvolucaoPonto = { date: string; views: number; events: number; leads: number; conversions: number };
+
+/** Evolução diária: o usuário liga/desliga as séries; começa pelas que têm dado e explica quando não há nada. */
+function EvolucaoEventos({ data }: { data: EvolucaoPonto[] }) {
+    const totals = EVOLUCAO_SERIES.map(sr => ({ ...sr, total: data.reduce((a, d) => a + (Number(d[sr.key]) || 0), 0) }));
+    const [off, setOff] = useState<string[]>([]);
+    const comDado = totals.filter(t => t.total > 0);
+    if (!comDado.length) {
+        return (
+            <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 text-center">
+                <p className="text-sm font-medium text-gray-700">Sem eventos registrados no período</p>
+                <p className="mt-1 max-w-md text-xs text-gray-500">O gráfico aparece assim que o site registrar visualizações, leads ou conversões nestes dias. Tente ampliar o período acima.</p>
+            </div>
+        );
+    }
+    return (
+        <div>
+            <div className="mb-3 flex flex-wrap gap-2">
+                {totals.map(t => {
+                    const ativo = !off.includes(t.key) && t.total > 0;
+                    return (
+                        <button key={t.key} type="button" disabled={t.total === 0}
+                            onClick={() => setOff(o => (o.includes(t.key) ? o.filter(k => k !== t.key) : [...o, t.key]))}
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors duration-quick ${ativo ? 'border-gray-300 bg-white text-gray-800' : 'border-gray-200 bg-gray-50 text-gray-400'} disabled:cursor-not-allowed`}>
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ativo ? t.color : '#cbd5e1' }} />
+                            {t.label}
+                            <span className="tabular-nums font-semibold">{t.total.toLocaleString('pt-BR')}</span>
+                        </button>
+                    );
+                })}
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+                <ComposedChart data={data}>
+                    <CartesianGrid stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                    <Tooltip />
+                    {comDado.filter(t => !off.includes(t.key)).map(t => (
+                        <Line key={t.key} type="monotone" dataKey={t.key} name={t.label} stroke={t.color} strokeWidth={2} dot={data.length < 15} />
+                    ))}
+                </ComposedChart>
+            </ResponsiveContainer>
+        </div>
+    );
+}
 
 // ============================================
 // TIPOS
@@ -695,21 +746,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
                         </div>
                     </div>
                 )}
-                <ResponsiveContainer width="100%" height={250}>
-                    <AreaChart data={lineChartData}>
-                        <defs>
-                            <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid stroke="#f0f0f0" />
-                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip />
-                        <Area type="monotone" dataKey="views" stroke="#3b82f6" fillOpacity={1} fill="url(#colorViews)" name="Page Views" />
-                    </AreaChart>
-                </ResponsiveContainer>
+                <EvolucaoEventos data={lineChartData} />
             </div>
 
             {/* Fontes + Top Páginas */}
