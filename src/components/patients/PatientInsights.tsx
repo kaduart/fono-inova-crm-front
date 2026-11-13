@@ -74,7 +74,7 @@ function Tile({ icon, label, value, hint, tone = 'slate', children }: { icon: Re
   );
 }
 
-export default function PatientInsights({ appointments }: { appointments: ApptLike[] }) {
+export default function PatientInsights({ appointments, totals }: { appointments: ApptLike[]; totals?: { total: number; done: number } }) {
   const ins = useMemo(() => computePatientInsights(appointments || []), [appointments]);
   const specItems = Object.entries(ins.bySpec)
     .sort((a, b) => b[1] - a[1])
@@ -110,7 +110,7 @@ export default function PatientInsights({ appointments }: { appointments: ApptLi
           hint={ins.trend === null ? `sessões nas últimas 4 semanas (${ins.prev4} nas 4 anteriores, pouco para comparar)` : `${ins.last4} sessões nas últimas 4 semanas contra ${ins.prev4} nas 4 anteriores`} />
         <Tile icon={<CalendarCheck2 size={14} />} label="Presença (90 dias)" tone={presenceTone}
           value={ins.presence === null ? '—' : <AnimatedValue value={`${ins.presence}%`} />}
-          hint={`${ins.done90} realizadas · ${ins.missed90} falta${ins.missed90 === 1 ? '' : 's'} · ${ins.canceled90} cancelada${ins.canceled90 === 1 ? '' : 's'}`} />
+          hint={<>{`${ins.done90} realizadas · ${ins.missed90} falta${ins.missed90 === 1 ? '' : 's'} · ${ins.canceled90} cancelada${ins.canceled90 === 1 ? '' : 's'}`}{totals && totals.total > 0 && <span className="mt-0.5 block">{totals.total} atendimentos no total · {totals.done} concluídos</span>}</>} />
         <Tile icon={<Stethoscope size={14} />} label="Especialidades (90 dias)" value={<AnimatedValue value={specItems.length} />}>
           {specItems.length > 0 ? <BarList items={specItems} /> : <p className="text-xs text-slate-500">Sem sessões no período</p>}
         </Tile>

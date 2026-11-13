@@ -478,18 +478,24 @@ export function buildNextActions(p: ActionsProps): NextAction[] {
     });
   }
 
-  p.situation.contracts.filter((c) => c.status === 'active').forEach((c) => {
-    const ratio = c.totalCredit > 0 ? c.creditBalance / c.totalCredit : 1;
+  const activeContracts = p.situation.contracts.filter((c) => c.status === 'active');
+  // Vários contratos com saldo baixo viram UM aviso (somado), não uma linha por contrato.
+  const lowContracts = activeContracts.filter((c) => (c.totalCredit > 0 ? c.creditBalance / c.totalCredit : 1) < 0.25);
+  if (lowContracts.length > 0) {
+    const bal = lowContracts.reduce((n, c) => n + c.creditBalance, 0);
+    const tot = lowContracts.reduce((n, c) => n + c.totalCredit, 0);
+    out.push({
+      id: 'lim-saldo', severity: 'medium', icon: <Gavel size={16} />,
+      title: lowContracts.length === 1
+        ? `Saldo da liminar baixo: ${brl(bal)} de ${brl(tot)}`
+        : `Saldo baixo em ${lowContracts.length} liminares: ${brl(bal)} de ${brl(tot)}`,
+      detail: 'Avisar a família e o advogado para pedir recarga.',
+      cta: 'Ver liminar', onClick: () => p.onGoTab('Liminar'),
+      wa: { message: liminarMessage(pi.fullName), why: 'A família aciona o advogado.' },
+    });
+  }
+  activeContracts.forEach((c) => {
     const days = daysUntil(c.expirationDate);
-    if (ratio < 0.25) {
-      out.push({
-        id: `lim-saldo-${c._id}`, severity: 'medium', icon: <Gavel size={16} />,
-        title: `Saldo da liminar baixo: ${brl(c.creditBalance)} de ${brl(c.totalCredit)}`,
-        detail: 'Avisar a família e o advogado para pedir recarga.',
-        cta: 'Ver liminar', onClick: () => p.onGoTab('Liminar'),
-        wa: { message: liminarMessage(pi.fullName), why: 'A família aciona o advogado.' },
-      });
-    }
     if (days !== null && days <= 30) {
       out.push({
         id: `lim-venc-${c._id}`, severity: days < 0 ? 'high' : 'medium', icon: <Gavel size={16} />,
