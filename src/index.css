@@ -155,6 +155,6 @@ code {
 .fixed.inset-0[class*="bg-black"], .fixed.inset-0[class*="bg-slate-9"], .fixed.inset-0[class*="bg-gray-9"] {
   animation: modal-overlay-in var(--motion-duration-fast, 250ms) var(--motion-ease-smooth-out, cubic-bezier(.22,1,.36,1));
 }
-.fixed.inset-0[class*="bg-black"] > [class*="max-w-"], .fixed.inset-0[class*="bg-slate-9"] > [class*="max-w-"], .fixed.inset-0[class*="bg-gray-9"] > [class*="max-w-"] {
+.fixed.inset-0.flex > [class*="max-w-"], .fixed.inset-0[class*="bg-black"] > [class*="max-w-"] {
   animation: modal-panel-in var(--motion-duration-fast, 250ms) var(--motion-ease-smooth-out, cubic-bezier(.22,1,.36,1));
 }
