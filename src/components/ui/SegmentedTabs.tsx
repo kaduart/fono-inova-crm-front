@@ -19,7 +19,7 @@ export function SegmentedTabs<T extends string>({ label, value, options, onValue
           (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
         }
       }}
-      className={`relative flex min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 ${value === option.id ? 'font-semibold text-emerald-900 dark:text-emerald-200' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}>
+      className={`relative flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 ${value === option.id ? 'font-semibold text-emerald-900 dark:text-emerald-200' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}>
       {value === option.id && <motion.span aria-hidden="true" layoutId={`${id}-indicator`} className="absolute inset-0 -z-10 rounded-lg bg-white shadow-sm dark:bg-slate-700"
         transition={{ duration: reduce ? 0 : motionDuration.fast, ease: motionEase.smoothOut }} />}
       {option.icon && <span aria-hidden="true">{option.icon}</span>}{option.label}

@@ -44,7 +44,7 @@ export const SaveButton = React.forwardRef<HTMLButtonElement, SaveButtonProps>(f
       aria-busy={status === 'pending'}
       animate={status === 'error' && !reduce ? { x: [0, -6, 6, -6, 6, -3, 0] } : { x: 0 }}
       transition={{ duration: 0.28, ease: 'easeOut' }}
-      className={`inline-flex min-h-10 items-center justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-quick ease-smooth-out motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${tone[status]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-quick ease-smooth-out motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${tone[status]} ${className}`}
       {...(props as object)}
     >
       {status === 'success' && <DrawCheck />}<MotionText>{label}</MotionText>
