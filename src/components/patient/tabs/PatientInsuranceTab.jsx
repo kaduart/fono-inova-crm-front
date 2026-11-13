@@ -790,22 +790,16 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 {presentation.insuranceLabel}
               </span>
             )}
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-semibold"
+              style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
+              {statusLabel}
+            </span>
             {guide.expiresAt && (
               <span className="text-gray-500 text-xs">
                 Vence <strong className="text-gray-700 font-semibold">{formatGuideExpiryBR(guide.expiresAt)}</strong>
-              </span>
-            )}
-          </div>
-
-          {/* Badge de status sólido — ponto colorido reforça a severidade */}
-          <div className="mt-2">
-            {(
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wide"
-                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
-                {statusLabel}
               </span>
             )}
           </div>
@@ -840,13 +834,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             }
             return (
               <div className="space-y-2">
-                <div>
-                  <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Sessões restantes na guia</p>
-                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-                    <span className={`text-2xl font-bold tabular-nums ${low ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300'}`}><AnimatedValue value={left} /></span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">de {total} autorizadas</span>
-                  </p>
-                </div>
+                <p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                  <span className={`text-2xl font-bold tabular-nums leading-none ${low ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300'}`}><AnimatedValue value={left} /></span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{left === 1 ? 'sessão restante' : 'sessões restantes'} de {total}</span>
+                  {forecast?.warn && (
+                    <span className="ml-auto rounded-full bg-amber-50 px-2 py-0.5 text-2xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">Vence sem uso</span>
+                  )}
+                </p>
                 <div
                   className="flex h-3 w-full overflow-hidden rounded-full bg-blue-100 dark:bg-blue-500/15"
                   role="img"
@@ -856,23 +850,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <div style={{ width: `${pct(scheduled)}%`, background: 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)', transition: 'width 0.5s' }} />
                   <div style={{ width: `${pct(free)}%`, transition: 'width 0.5s' }} className="bg-blue-500/35" />
                 </div>
-                <dl className="space-y-1.5 text-xs">
+                <dl className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                   {[
-                    { k: 'Usadas em sessões realizadas', v: used, sw: 'bg-blue-700', style: undefined },
+                    { k: 'Realizadas', v: used, sw: 'bg-blue-700', style: undefined },
                     { k: 'Agendadas', v: scheduled, sw: '', style: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
-                    { k: 'Livres para agendar', v: free, sw: 'bg-blue-500/35', style: undefined },
-                    ...(guide.canceledCount > 0 ? [{ k: 'Canceladas (não contam)', v: guide.canceledCount, sw: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
+                    { k: 'Livres', v: free, sw: 'bg-blue-500/35', style: undefined },
+                    ...(guide.canceledCount > 0 ? [{ k: 'Canceladas', v: guide.canceledCount, sw: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
                   ].map(row => (
-                    <div key={row.k} className="flex items-center gap-2">
+                    <div key={row.k} className="flex items-center gap-1.5">
                       <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${row.sw}`} style={row.style} aria-hidden />
-                      <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
-                      <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">{Number(row.v) || 0}</dd>
+                      <dt>{row.k}</dt>
+                      <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{Number(row.v) || 0}</dd>
                     </div>
                   ))}
                 </dl>
-                {forecast ? (
+                {forecast && detailsExpanded ? (
                   <p className={`text-xs ${forecast.warn ? 'rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>{forecast.text}</p>
-                ) : low && left > 0 ? (
+                ) : low && left > 0 && !forecast?.warn ? (
                   <p className="text-xs text-amber-800 dark:text-amber-300">Restam {left}. Hora de pedir renovação.</p>
                 ) : null}
               </div>
@@ -887,6 +881,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
               { k: 'Faturamento', state: usedSessions > 0 && presentation.canBill ? 'current' : 'todo', sub: usedSessions > 0 ? 'pelo Financeiro' : '—' },
             ];
             const dot = { done: 'bg-blue-600 text-white', current: 'bg-white text-blue-700 ring-2 ring-blue-600 dark:bg-slate-900 dark:text-blue-300', warn: 'bg-amber-500 text-white', todo: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
+            if (!detailsExpanded) return null;
             return (
               <ol className="grid grid-cols-4 gap-1" aria-label="Etapas da guia">
                 {steps.map((st, i) => (
