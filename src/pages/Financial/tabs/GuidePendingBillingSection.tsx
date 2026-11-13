@@ -622,9 +622,6 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 boxShadow: isSelected ? '0 0 0 3px rgba(59,130,246,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
                 '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
             }}>
-                {/* Linha de cor lateral — reflete o estado de faturamento da guia */}
-                <Box sx={{ height: 2, bgcolor: billingState.color, opacity: 0.8 }} />
-
                 <Box sx={{ p: 1.75 }}>
                     {/* Row 1: checkbox + número + badge + valor */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.25 }}>
@@ -706,18 +703,19 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         </Box>
                     </Box>
 
+                    {typeof guide.totalSessions === 'number' && guide.totalSessions > 0 && (
+                        <Box aria-hidden sx={{ height: 5, borderRadius: 9, bgcolor: 'var(--fx-slate-100)', overflow: 'hidden', mb: 1.25 }}>
+                            <Box sx={{ height: '100%', width: `${Math.min(100, ((guide.usedSessions ?? 0) / guide.totalSessions) * 100)}%`, bgcolor: 'var(--fx-emerald-600, #059669)', borderRadius: 9, transition: 'width 250ms cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                        </Box>
+                    )}
+
                     {/* Row 2: estado único de faturamento (substitui a barra de progresso de sessões,
                         que confundia "sessão realizada" com "sessão faturada") + motivo do ciclo do
                         convênio (guia sem lote pode ser normal dependendo da regra — ver guidePolicy) */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mb: 1.25 }}>
-                        <Box sx={{
-                            display: 'inline-flex', alignItems: 'center', gap: 0.6,
-                            px: 1.25, py: 0.5,
-                            bgcolor: billingState.bg,
-                            border: `1px solid ${billingState.border}`,
-                            borderRadius: 20 }}>
-                            <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>{billingState.emoji}</span>
-                            <Typography fontSize="0.72rem" fontWeight={600} color={billingState.color}>
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.9 }}>
+                            <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: billingState.color, flexShrink: 0 }} />
+                            <Typography fontSize="0.8rem" fontWeight={700} color="var(--fx-slate-800)">
                                 {billingState.label}
                             </Typography>
                         </Box>
@@ -729,12 +727,11 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                 title="Guia cancelada no convênio — sessões já realizadas continuam faturáveis normalmente"
                                 sx={{
                                     display: 'inline-flex', alignItems: 'center', gap: 0.6,
-                                    px: 1.25, py: 0.5,
+                                    px: 1, py: 0.2,
                                     bgcolor: 'var(--fx-gray-100)',
                                     border: '1px solid var(--fx-gray-300)',
                                     borderRadius: 20 }}
                             >
-                                <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>⚪</span>
                                 <Typography fontSize="0.72rem" fontWeight={600} color="var(--fx-gray-600)">
                                     Guia cancelada
                                 </Typography>
@@ -826,8 +823,11 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                         if (remaining === 0 && guide.guideStatus !== 'cancelled') notes.push({ text: 'Guia esgotada · pode fechar depois de faturar', tone: 'green' });
                         if (!notes.length) return null;
                         const c = { red: ['var(--fx-red-50)', 'var(--fx-red-800)'], blue: ['var(--fx-blue-50)', 'var(--fx-blue-800)'], green: ['var(--fx-emerald-50)', 'var(--fx-emerald-800)'] };
-                        return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
-                            {notes.map(n => <Box key={n.text} sx={{ fontSize: '0.72rem', fontWeight: 600, px: 1, py: 0.4, borderRadius: 999, bgcolor: c[n.tone][0], color: c[n.tone][1] }}>{n.text}</Box>)}
+                        const dotC = { red: 'var(--fx-red-800)', blue: 'var(--fx-blue-700)', green: 'var(--fx-emerald-700)' };
+                        return <Box sx={{ display: 'grid', gap: 0.5, mb: 1 }}>
+                            {notes.map(n => <Box key={n.text} sx={{ display: 'flex', alignItems: 'center', gap: 0.9, fontSize: '0.78rem', fontWeight: 600, color: c[n.tone][1] }}>
+                                <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dotC[n.tone], flexShrink: 0 }} />{n.text}
+                            </Box>)}
                         </Box>;
                     })()}
 
