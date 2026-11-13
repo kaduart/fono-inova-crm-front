@@ -522,6 +522,8 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
 const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
+  // Detalhes abre/fecha para todos os cards da seção juntos (alturas iguais, sem clicar um a um).
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   if (count === 0) return null;
 
   return (
@@ -531,7 +533,7 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">{title} ({count})</h3>
       </div>
       <AnimatePresence>
-        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 md:grid-cols-3">
+        <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 md:grid-cols-3">
           {presentations.map(presentation => (
             <GuideCard
               key={presentation.id}
@@ -541,6 +543,8 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
               onOpenDetails={onOpenDetails}
               onInactivate={onInactivate}
               onGuidesChanged={onGuidesChanged}
+              detailsExpanded={detailsExpanded}
+              onToggleDetails={() => setDetailsExpanded(v => !v)}
             />
           ))}
         </div>
@@ -565,7 +569,7 @@ const STATUS_SEVERITY_STYLE = {
   neutral:  { bg: 'var(--fx-slate-100)', color: 'var(--fx-gray-600)', dot: 'var(--fx-gray-400)' },
 };
 
-const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
+const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged, detailsExpanded = false, onToggleDetails }) => {
   const guide = presentation.rawGuide;
   const {
     remaining,
@@ -583,7 +587,6 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
   const severityStyle = STATUS_SEVERITY_STYLE[statusSeverity] || STATUS_SEVERITY_STYLE.neutral;
 
   const [generating, setGenerating] = useState(false);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
   const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates: [{ id, label }], selected: string[] } | null
   const queryClient = useQueryClient();
@@ -1119,7 +1122,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <Calendar size={15} /> Sessões
                 </button>
               )}
-              <button type="button" onClick={() => setDetailsExpanded(v => !v)} aria-expanded={detailsExpanded}
+              <button type="button" onClick={() => onToggleDetails?.()} aria-expanded={detailsExpanded}
                 className={`flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1 justify-center'}`}>
                 Detalhes
                 <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: detailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
