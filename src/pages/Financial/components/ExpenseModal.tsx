@@ -4,7 +4,7 @@ import { TrendingDown } from 'lucide-react';
 import { Expense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
 import { useExpenses } from '../../../hooks/useExpenses';
 import { toast } from '../../../utils/toast';
-import { Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from './formKit';
+import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from './formKit';
 
 type ExpenseModalProps = {
     open: boolean;
@@ -35,12 +35,15 @@ const defaultForm: FormState = {
     notes: '',
 };
 
+const PAY_LABEL: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cartao_credito: 'Crédito', cartao_debito: 'Débito', transferencia_bancaria: 'Transferência', boleto: 'Boleto', outro: 'Outro' };
+const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', paid: 'Pago', scheduled: 'Agendado', canceled: 'Cancelado' };
+
 const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) => {
     const { createExpense, updateExpense } = useExpenses();
     const [form, setForm] = useState<FormState>(defaultForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isEditing = !!expense;
-    const accent = 'red' as const;
+    const accent = 'emerald' as const;
 
     useEffect(() => {
         if (expense) {
@@ -99,13 +102,18 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
         }
     };
 
+    const money = parseFloat(form.amount);
+    const summary = Number.isFinite(money) && money > 0
+        ? `${money.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} · ${PAY_LABEL[form.paymentMethod] || form.paymentMethod} · ${STATUS_LABEL[form.status] || form.status}`
+        : null;
+
     return (
         <Modal
             open={open}
             onClose={() => !isSubmitting && onClose()}
             labelledBy="expense-modal-title"
             zIndexClass="z-[1300]"
-            panelClassName="w-full max-w-xl overflow-hidden rounded-[20px] bg-white shadow-2xl dark:bg-[#161d1b]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px] dark:bg-[#161d1b]"
         >
             <ModalHeader
                 icon={<TrendingDown className="w-6 h-6" />}
@@ -116,7 +124,16 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                 titleId="expense-modal-title"
             />
 
-            <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+            <div className="max-h-[68dvh] flex-1 space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+                <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[1fr_11rem]">
+                    <Field label="Valor" required>
+                        <MoneyInput large value={form.amount} onChange={(v) => handleChange('amount', v)} accent={accent} />
+                    </Field>
+                    <Field label="Data">
+                        <input type="date" value={form.date} onChange={(e) => handleChange('date', e.target.value)} className={inputClass(accent)} />
+                    </Field>
+                </div>
+
                 <Field label="Descrição">
                     <input
                         type="text"
@@ -128,58 +145,66 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                     />
                 </Field>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Categoria">
-                        <select value={form.category} onChange={(e) => handleChange('category', e.target.value)} className={inputClass(accent)}>
-                            <option value="payroll">Folha</option>
-                            {/* Comissão nasce do fechamento; lançar à mão escondia o "Gerar comissões" do mês. */}
-                            {isEditing && form.category === 'commission' && <option value="commission">Comissão</option>}
-                            <option value="benefit">Benefício</option>
-                            <option value="operational">Operacional</option>
-                            <option value="equipment">Equipamento</option>
-                            <option value="marketing">Marketing</option>
-                            <option value="other">Outro</option>
-                        </select>
-                    </Field>
-                    <Field label="Subcategoria">
-                        <select value={form.subcategory} onChange={(e) => handleChange('subcategory', e.target.value)} className={inputClass(accent)}>
-                            <option value="">Nenhuma</option>
-                            {EXPENSE_SUBCATEGORIES.map((s) => (
-                                <option key={s.value} value={s.value}>{s.label}</option>
-                            ))}
-                        </select>
-                    </Field>
+                <div>
+                    <span className="mb-2 block text-xs font-semibold text-gray-600">Categoria</span>
+                    <ChoiceChips
+                        label="Categoria"
+                        value={form.category}
+                        onChange={(v) => handleChange('category', v)}
+                        options={[
+                            { value: 'operational', label: 'Operacional' },
+                            { value: 'payroll', label: 'Folha' },
+                            { value: 'benefit', label: 'Benefício' },
+                            { value: 'equipment', label: 'Equipamento' },
+                            { value: 'marketing', label: 'Marketing' },
+                            { value: 'other', label: 'Outro' },
+                            // Comissão nasce do fechamento; lançar à mão escondia o "Gerar comissões" do mês.
+                            ...(isEditing && form.category === 'commission' ? [{ value: 'commission', label: 'Comissão' }] : []),
+                        ]}
+                    />
+                    <div className="mt-3 max-w-xs">
+                        <Field label="Subcategoria">
+                            <select value={form.subcategory} onChange={(e) => handleChange('subcategory', e.target.value)} className={inputClass(accent)}>
+                                <option value="">Nenhuma</option>
+                                {EXPENSE_SUBCATEGORIES.map((s) => (
+                                    <option key={s.value} value={s.value}>{s.label}</option>
+                                ))}
+                            </select>
+                        </Field>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Valor" required>
-                        <MoneyInput value={form.amount} onChange={(v) => handleChange('amount', v)} accent={accent} />
-                    </Field>
-                    <Field label="Data">
-                        <input type="date" value={form.date} onChange={(e) => handleChange('date', e.target.value)} className={inputClass(accent)} />
-                    </Field>
+                <div>
+                    <span className="mb-2 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
+                    <ChoiceChips
+                        label="Forma de pagamento"
+                        value={form.paymentMethod}
+                        onChange={(v) => handleChange('paymentMethod', v)}
+                        options={[
+                            { value: 'pix', label: 'Pix' },
+                            { value: 'dinheiro', label: 'Dinheiro' },
+                            { value: 'cartao_credito', label: 'Crédito' },
+                            { value: 'cartao_debito', label: 'Débito' },
+                            { value: 'transferencia_bancaria', label: 'Transferência' },
+                            { value: 'boleto', label: 'Boleto' },
+                            { value: 'outro', label: 'Outro' },
+                        ]}
+                    />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Forma de pagamento">
-                        <select value={form.paymentMethod} onChange={(e) => handleChange('paymentMethod', e.target.value)} className={inputClass(accent)}>
-                            <option value="pix">Pix</option>
-                            <option value="dinheiro">Dinheiro</option>
-                            <option value="cartao_credito">Cartão crédito</option>
-                            <option value="cartao_debito">Cartão débito</option>
-                            <option value="transferencia_bancaria">Transferência</option>
-                            <option value="boleto">Boleto</option>
-                            <option value="outro">Outro</option>
-                        </select>
-                    </Field>
-                    <Field label="Status">
-                        <select value={form.status} onChange={(e) => handleChange('status', e.target.value)} className={inputClass(accent)}>
-                            <option value="pending">Pendente</option>
-                            <option value="paid">Pago</option>
-                            <option value="scheduled">Agendado</option>
-                            <option value="canceled">Cancelado</option>
-                        </select>
-                    </Field>
+                <div>
+                    <span className="mb-2 block text-xs font-semibold text-gray-600">Situação</span>
+                    <ChoiceChips
+                        label="Situação"
+                        value={form.status}
+                        onChange={(v) => handleChange('status', v)}
+                        options={[
+                            { value: 'pending', label: 'Pendente' },
+                            { value: 'paid', label: 'Pago' },
+                            { value: 'scheduled', label: 'Agendado' },
+                            { value: 'canceled', label: 'Cancelado' },
+                        ]}
+                    />
                 </div>
 
                 <Field label="Observações">
@@ -199,6 +224,7 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                 submitting={isSubmitting}
                 submitLabel={isEditing ? 'Salvar alterações' : 'Salvar despesa'}
                 submittingLabel="Salvando..."
+                summary={summary}
             />
         </Modal>
     );

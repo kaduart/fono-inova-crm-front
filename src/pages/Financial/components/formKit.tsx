@@ -16,13 +16,13 @@ const INPUT_BY_ACCENT: Record<Accent, string> = {
 };
 
 export const inputClass = (accent: Accent = 'indigo') =>
-  `w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 bg-white placeholder:text-gray-400 ` +
-  `focus:outline-none focus:ring-2 transition-shadow disabled:bg-gray-50 ${INPUT_BY_ACCENT[accent]}`;
+  `w-full min-h-11 px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 bg-white placeholder:text-gray-400 hover:border-gray-300 ` +
+  `focus:outline-none focus:ring-2 transition-[box-shadow,border-color] duration-quick disabled:bg-gray-50 ${INPUT_BY_ACCENT[accent]}`;
 
 export const PRIMARY_BTN: Record<Accent, string> = {
-  indigo: 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
-  red: 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
-  emerald: 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700',
+  indigo: 'bg-indigo-600 hover:bg-indigo-700',
+  red: 'bg-red-600 hover:bg-red-700',
+  emerald: 'bg-emerald-600 hover:bg-emerald-700',
 };
 
 export const Field = ({
@@ -63,9 +63,9 @@ export const ModalHeader = ({
   onClose: () => void;
   titleId?: string;
 }) => (
-  <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
+  <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-gray-100">
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-white" style={{ backgroundColor: color }}>
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}1A`, color }}>
         {icon}
       </div>
       <div className="min-w-0">
@@ -73,7 +73,7 @@ export const ModalHeader = ({
         {subtitle && <p className="text-sm text-gray-500 truncate">{subtitle}</p>}
       </div>
     </div>
-    <IconButton size="small" onClick={onClose} aria-label="Fechar" className="shrink-0">
+    <IconButton onClick={onClose} aria-label="Fechar" className="shrink-0" sx={{ width: 44, height: 44 }}>
       <X size={18} />
     </IconButton>
   </div>
@@ -87,8 +87,11 @@ export const ModalFooter = ({
   submitDisabled = false,
   submitLabel,
   submittingLabel,
+  summary,
 }: {
   accent: Accent;
+  /** Resumo vivo do que será salvo (aparece à esquerda no desktop). */
+  summary?: ReactNode;
   onCancel: () => void;
   onSubmit: () => void;
   submitting: boolean;
@@ -96,7 +99,8 @@ export const ModalFooter = ({
   submitLabel: string;
   submittingLabel: string;
 }) => (
-  <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/70">
+  <div className="flex items-center justify-end gap-3 px-5 sm:px-6 py-4 border-t border-gray-100 bg-white">
+    {summary && <p className="mr-auto hidden min-w-0 truncate text-sm text-gray-600 sm:block" aria-live="polite">{summary}</p>}
     <button
       type="button"
       onClick={onCancel}
@@ -179,14 +183,17 @@ export const MoneyInput = ({
   onChange,
   accent = 'indigo',
   placeholder = '0,00',
+  large = false,
 }: {
   value: string;
   onChange: (decimal: string) => void;
   accent?: Accent;
   placeholder?: string;
+  /** Valor em destaque (lançamentos): número grande, só com linha embaixo. */
+  large?: boolean;
 }) => (
   <div className="relative">
-    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">R$</span>
+    <span className={`absolute top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 ${large ? 'left-0 text-lg' : 'left-3 text-sm'}`}>R$</span>
     <input
       type="text"
       inputMode="numeric"
@@ -201,7 +208,46 @@ export const MoneyInput = ({
         e.preventDefault();
         onChange(parseMoneyText(e.clipboardData.getData('text')));
       }}
-      className={`${inputClass(accent)} pl-9`}
+      className={large
+        ? `w-full min-h-14 border-0 border-b-2 border-gray-200 bg-transparent pl-9 pr-1 text-3xl font-bold tabular-nums text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-emerald-600 transition-colors duration-quick`
+        : `${inputClass(accent)} pl-9`}
     />
   </div>
 );
+
+/** Escolha rápida (um toque): no lugar de listas com poucas opções. Teclado: setas movem a seleção. */
+export function ChoiceChips<T extends string>({ label, value, options, onChange }: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+      {options.map((o, i) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on || (!options.some((x) => x.value === value) && i === 0) ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={(e) => {
+              const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+              if (!step) return;
+              e.preventDefault();
+              const next = options[(i + step + options.length) % options.length];
+              onChange(next.value);
+              (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[(i + step + options.length) % options.length])?.focus();
+            }}
+            className={`min-h-11 rounded-xl border px-3.5 text-sm transition-colors duration-quick ease-smooth-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'}`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
