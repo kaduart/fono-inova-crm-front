@@ -11,20 +11,19 @@ import {
   ChevronDown,
   Clock,
   DollarSign,
-  FileText,
   Info,
   MoreVertical,
   Pencil,
   Plus,
   RefreshCw,
-  Save,
   Scale,
-  User,
   X,
   Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from '../../utils/toast';
+import { Modal } from '../ui/Modal';
+import { Field, ModalHeader, ModalFooter, ChoiceChips, MoneyInput, inputClass } from '../../pages/Financial/components/formKit';
 import { ContractWithPlan } from '../../hooks/useLiminarContracts';
 import { appointmentService } from '../../services/appointmentService';
 import doctorService from '../../services/doctorService';
@@ -63,6 +62,9 @@ interface Props {
   data: ContractWithPlan;
   colorIndex?: number;
   onRefresh: () => void;
+  /** Detalhes controlado pelo painel: abre/fecha todos os cards da linha juntos. */
+  detailsExpanded?: boolean;
+  onToggleDetails?: () => void;
 }
 
 function lastDigits(processNumber: string, n = 6) {
@@ -112,7 +114,7 @@ export async function completeLiminarAppointment(
   onSuccess();
 }
 
-export default function ContractCard({ data, onRefresh }: Props) {
+export default function ContractCard({ data, onRefresh, detailsExpanded, onToggleDetails }: Props) {
   const { contract, plan, planError, committed } = data;
   // Liminar é sempre roxo (identidade do tipo de cobertura em todo o painel do paciente).
   const palette = PALETTES[2];
@@ -122,8 +124,9 @@ export default function ContractCard({ data, onRefresh }: Props) {
   const [generateWeeks, setGenerateWeeks] = useState<number>(4);
   const [generating, setGenerating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [planExpanded, setPlanExpanded] = useState(false);
-  const [projectionDetailsExpanded, setProjectionDetailsExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const planExpanded = detailsExpanded ?? localExpanded;
+  const togglePlanExpanded = () => (onToggleDetails ? onToggleDetails() : setLocalExpanded(v => !v));
   const [expandedTherapyCard, setExpandedTherapyCard] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -282,8 +285,8 @@ export default function ContractCard({ data, onRefresh }: Props) {
     }
   }
 
-  async function handleRecharge(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleRecharge(e?: React.FormEvent) {
+    e?.preventDefault();
     const amount = parseFloat(rechargeAmount.replace(',', '.'));
     if (!amount || amount <= 0) return;
     setRechargingLoading(true);
@@ -401,33 +404,35 @@ export default function ContractCard({ data, onRefresh }: Props) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-l-4 border-slate-200 border-l-violet-600 bg-white text-left shadow-sm transition-shadow duration-quick hover:shadow-md dark:border-slate-700 dark:border-l-violet-500 dark:bg-slate-900"
+      className="relative flex h-full flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 border-l-violet-600 bg-white text-left shadow-sm transition-shadow duration-quick hover:shadow-md dark:border-slate-700 dark:border-l-violet-500 dark:bg-slate-900"
     >
       {/* ══ Camada 1: Header — identidade do contrato ══ */}
       <div
         className="relative px-4 pb-2.5 pt-3 sm:px-5"
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: palette.badge }}>
-              <Scale className="w-4 h-4 flex-shrink-0" style={{ color: palette.to }} />
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: palette.badge }}>
+              <Scale className="h-4 w-4 flex-shrink-0" style={{ color: palette.to }} />
             </div>
-            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Contrato liminar</span>
-            {contract.processNumber && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: palette.badgeText, background: palette.badge, border: `1px solid ${palette.badgeBorder}` }}>
-                Proc.: {lastDigits(contract.processNumber)}
-              </span>
-            )}
-            {contract.court && (
-              <span className="text-xs px-2 py-0.5 rounded-full text-slate-500 bg-slate-50 border border-slate-200">
-                {contract.court}
-              </span>
-            )}
+            <div className="min-w-0">
+              <span className="block text-sm font-bold text-slate-900 dark:text-slate-100">Contrato liminar</span>
+              {(contract.processNumber || contract.court) && (
+                <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                  {[contract.processNumber ? `Proc. ${lastDigits(contract.processNumber)}` : null, contract.court].filter(Boolean).join(' · ')}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${contract.status === 'active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' : 'bg-slate-100 text-slate-600 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'}`}>
               {statusLabel}
             </span>
+            {contract.status === 'active' && (available < 0 || balanceHealth === 'low') && (
+              <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30">
+                {available < 0 ? 'Saldo excedido' : 'Saldo baixo'}
+              </span>
+            )}
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
@@ -478,32 +483,18 @@ export default function ContractCard({ data, onRefresh }: Props) {
       <div className="space-y-3 px-4 pb-4 pt-1 sm:px-5">
         {/* Onde está o dinheiro da liminar: usado + reservado na agenda + livre = total liberado. */}
         <div>
-          <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Livre para novas sessões</p>
-          <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-            <span className={`text-2xl font-bold tabular-nums ${available < 0 || balanceHealth === 'low' ? 'text-red-600 dark:text-red-400' : 'text-violet-700 dark:text-violet-300'}`}>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Livre para novas sessões</p>
+          <p className="mt-0.5 flex items-baseline gap-2 whitespace-nowrap">
+            <span className={`text-2xl font-bold leading-none tabular-nums ${available < 0 || balanceHealth === 'low' ? 'text-red-600 dark:text-red-400' : 'text-violet-700 dark:text-violet-300'}`}>
               <AnimatedValue value={`R$ ${fmt(available)}`} />
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400">de R$ {fmt(contract.totalCredit)} liberados</span>
           </p>
-          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-            Saldo do contrato <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">R$ {fmt(contract.creditBalance)}</span>
-            {reserved > 0 && <>, dos quais <span className="tabular-nums">R$ {fmt(reserved)}</span> já estão na agenda</>}
-          </p>
-          {committed?.projection && contract.creditBalance > 0 && (() => {
-            const proj = committed.projection;
-            const end = new Date(proj.estimatedExhaustionDate);
-            if (Number.isNaN(end.getTime())) return null;
-            const day = end.getDate();
-            const part = day <= 10 ? 'início' : day <= 20 ? 'meados' : 'fim';
-            const month = end.toLocaleDateString('pt-BR', { month: 'long' });
-            const perWeek = Math.round(proj.averageSessionsPerWeek);
-            return (
-              <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                No ritmo atual, de umas {perWeek} {perWeek === 1 ? 'sessão' : 'sessões'} por semana, o saldo dura até{' '}
-                <span className="font-semibold text-slate-900 dark:text-slate-100">{part} de {month} de {end.getFullYear()}</span>.
-              </p>
-            );
-          })()}
+          {reserved > 0 && (
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+              Saldo do contrato <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">R$ {fmt(contract.creditBalance)}</span>, dos quais <span className="tabular-nums">R$ {fmt(reserved)}</span> já estão na agenda
+            </p>
+          )}
         </div>
         <div
           className="flex h-3 w-full overflow-hidden rounded-full bg-violet-100 dark:bg-violet-500/15"
@@ -514,20 +505,65 @@ export default function ContractCard({ data, onRefresh }: Props) {
           <div style={{ width: `${reservedPct}%`, background: 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)', transition: 'width 0.5s' }} />
           <div style={{ width: `${balancePct}%`, background: barColor, opacity: 0.35, transition: 'width 0.5s' }} />
         </div>
-        <dl className="space-y-1.5 text-xs">
+        <dl className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
           {[
-            { k: 'Já usado em sessões realizadas', v: contract.usedCredit, pct: usedPct, swatch: { background: '#6D28D9' } },
-            { k: 'Reservado para sessões agendadas', v: reserved, pct: reservedPct, swatch: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
-            { k: 'Livre', v: available, pct: balancePct, swatch: { background: barColor, opacity: 0.35 } },
+            { k: 'Usado', v: contract.usedCredit, swatch: { background: '#6D28D9' } },
+            { k: 'Reservado', v: reserved, swatch: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
+            { k: 'Livre', v: available, swatch: { background: barColor, opacity: 0.35 } },
           ].map(row => (
-            <div key={row.k} className="flex items-center gap-2">
+            <div key={row.k} className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={row.swatch} aria-hidden />
-              <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
-              <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">R$ {fmt(row.v)}</dd>
-              <dd className="w-9 shrink-0 text-right tabular-nums text-slate-500 dark:text-slate-400">{row.pct.toFixed(0)}%</dd>
+              <dt>{row.k}</dt>
+              <dd className={`font-semibold tabular-nums ${row.v < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>R$ {fmt(row.v)}</dd>
             </div>
           ))}
         </dl>
+      </div>
+
+      {/* ── Ações: a principal é o próximo passo do contrato ── */}
+      {(() => {
+        const isActive = contract.status === 'active';
+        const primary = !isActive ? null
+          : !plan ? { label: 'Criar plano terapêutico', onClick: () => setShowCreatePlan(true) }
+          : balanceHealth === 'low' ? { label: 'Adicionar crédito', onClick: () => setShowRecharge(true) }
+          : (committed?.committed ?? 0) <= 0 ? { label: generating ? 'Gerando…' : 'Gerar sessões', onClick: () => openConfirm(generateWeeks) }
+          : null;
+        return (
+          <div className="mt-auto flex items-center gap-2 border-b border-slate-100 px-4 pb-3.5 pt-1 sm:px-5 dark:border-slate-800">
+            {primary && (
+              <button type="button" onClick={primary.onClick} disabled={generating}
+                className="flex-1 truncate rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">
+                {primary.label}
+              </button>
+            )}
+            <button type="button" onClick={togglePlanExpanded} aria-expanded={planExpanded}
+              className={`flex shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1'}`}>
+              Detalhes
+              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-quick" style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* ══ Detalhes: avisos, ritmo, passos e previsão (saem do cartão, nada some) ══ */}
+      {planExpanded && (
+        <div className="space-y-3 px-4 pt-4 sm:px-5">
+          {committed?.projection && contract.creditBalance > 0 && (() => {
+            const proj = committed.projection;
+            const end = new Date(proj.estimatedExhaustionDate);
+            if (Number.isNaN(end.getTime())) return null;
+            const day = end.getDate();
+            const part = day <= 10 ? 'início' : day <= 20 ? 'meados' : 'fim';
+            const month = end.toLocaleDateString('pt-BR', { month: 'long' });
+            const perWeek = Math.round(proj.averageSessionsPerWeek);
+            return (
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                No ritmo atual, de umas {perWeek} {perWeek === 1 ? 'sessão' : 'sessões'} por semana, o saldo dura até{' '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{part} de {month} de {end.getFullYear()}</span>.
+              </p>
+            );
+          })()}
+
         {sessionsLeft.length > 0 && available > 0 && (
           <p className="text-xs text-slate-600 dark:text-slate-300">
             O valor livre paga cerca de{' '}
@@ -565,9 +601,10 @@ export default function ContractCard({ data, onRefresh }: Props) {
             </ol>
           );
         })()}
-      </div>
-
-      {/* ══ Camada 2b: Previsão — painel de decisão, separado do saldo atual ══ */}
+        </div>
+      )}
+      {planExpanded && (
+        <div className="mt-4">
       {committed?.projection && (() => {
         const proj = committed.projection;
         const confidenceLabel = proj.confidence === 'high' ? 'alta' : proj.confidence === 'medium' ? 'média' : 'baixa';
@@ -603,65 +640,28 @@ export default function ContractCard({ data, onRefresh }: Props) {
 
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div>
-                <span className="block text-3xs font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Ritmo atual</span>
+                <span className="block text-3xs font-medium " style={{ color: '#A0AABF' }}>Ritmo atual</span>
                 <span className="text-sm font-semibold" style={{ color: '#1A2C3E' }}>{proj.averageSessionsPerWeek} sess./sem</span>
               </div>
               <div>
-                <span className="block text-3xs font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Consumo/sem</span>
+                <span className="block text-3xs font-medium " style={{ color: '#A0AABF' }}>Consumo/sem</span>
                 <span className="text-sm font-semibold whitespace-nowrap" style={{ color: '#1A2C3E' }}>R$ {fmt(proj.weeklyConsumption)}</span>
               </div>
               <div>
-                <span className="block text-3xs font-medium uppercase tracking-wide" style={{ color: '#A0AABF' }}>Restantes</span>
+                <span className="block text-3xs font-medium " style={{ color: '#A0AABF' }}>Restantes</span>
                 <span className="text-sm font-semibold" style={{ color: '#1A2C3E' }}>≈{roundedRemaining} sessões</span>
               </div>
             </div>
 
-            <div className="text-xs mb-1" style={{ color: '#A0AABF' }}>Base: {methodologyLabel}</div>
+            <div className="text-xs mb-1 text-slate-500 dark:text-slate-400">Base: {methodologyLabel}</div>
 
-            <button
-              onClick={() => setProjectionDetailsExpanded(v => !v)}
-              className="w-full flex items-center justify-center gap-1 mt-1 py-1 text-xs font-medium transition-colors hover:opacity-70"
-              style={{ color: '#8A99B0' }}
-            >
-              Detalhes da projeção
-              <ChevronDown
-                className="w-3 h-3 transition-transform duration-quick"
-                style={{ transform: projectionDetailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-              />
-            </button>
-            {projectionDetailsExpanded && (
-              <div className="text-xs text-center mt-1" style={{ color: '#8A99B0' }}>
-                Período analisado: {startLabel} até {endLabel}
-              </div>
-            )}
+            <div className="text-xs text-slate-500 dark:text-slate-400">Período analisado: {startLabel} até {endLabel}</div>
           </div>
         );
       })()}
 
-      {/* ── Ações: a principal é o próximo passo do contrato ── */}
-      {(() => {
-        const isActive = contract.status === 'active';
-        const primary = !isActive ? null
-          : !plan ? { label: 'Criar plano terapêutico', onClick: () => setShowCreatePlan(true) }
-          : balanceHealth === 'low' ? { label: 'Adicionar crédito', onClick: () => setShowRecharge(true) }
-          : (committed?.committed ?? 0) <= 0 ? { label: generating ? 'Gerando…' : 'Gerar sessões', onClick: () => openConfirm(generateWeeks) }
-          : null;
-        return (
-          <div className="flex items-center gap-2 border-b border-slate-100 px-4 pb-3.5 pt-1 sm:px-5 dark:border-slate-800">
-            {primary && (
-              <button type="button" onClick={primary.onClick} disabled={generating}
-                className="flex-1 truncate rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50">
-                {primary.label}
-              </button>
-            )}
-            <button type="button" onClick={() => setPlanExpanded(v => !v)} aria-expanded={planExpanded}
-              className={`flex shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1'}`}>
-              {planExpanded ? 'Ocultar plano' : 'Plano terapêutico'}
-              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-quick" style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-            </button>
-          </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* ══ Camada 3: Breakdown — plano terapêutico por especialidade (accordion, controlado pelo header) ══ */}
       {planExpanded && (
@@ -876,42 +876,50 @@ export default function ContractCard({ data, onRefresh }: Props) {
       )}
 
       {/* ── Modal: Adicionar Crédito ── */}
-      {showRecharge && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div role="dialog" aria-modal="true" aria-label="Adicionar crédito" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800">Adicionar crédito</h3>
-              <button onClick={() => setShowRecharge(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleRecharge} className="space-y-3">
+      <Modal
+        open={showRecharge}
+        onClose={() => !rechargingLoading && setShowRecharge(false)}
+        labelledBy="recharge-title"
+        zIndexClass="z-[1300]"
+        panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white text-left shadow-2xl sm:rounded-[20px]"
+      >
+        <>
+          <ModalHeader
+            icon={<DollarSign className="h-6 w-6" />}
+            color="#D97706"
+            title="Adicionar crédito"
+            subtitle={`Contrato liminar · saldo atual R$ ${fmt(contract.creditBalance)}`}
+            onClose={() => setShowRecharge(false)}
+            titleId="recharge-title"
+          />
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+            <Field label="Valor a adicionar" required>
+              <MoneyInput large accent="emerald" value={rechargeAmount.replace(',', '.')} onChange={setRechargeAmount} />
+            </Field>
+            <Field label="Motivo (opcional)">
               <input
-                type="text" inputMode="decimal" placeholder="Valor (R$)"
-                value={rechargeAmount} onChange={(e) => setRechargeAmount(e.target.value)}
-                className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-slate-50"
-                required
+                type="text"
+                value={rechargeReason}
+                onChange={(e) => setRechargeReason(e.target.value)}
+                placeholder="Ex.: nova decisão judicial"
+                className={inputClass('emerald')}
               />
-              <input
-                type="text" placeholder="Motivo (opcional)"
-                value={rechargeReason} onChange={(e) => setRechargeReason(e.target.value)}
-                className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 bg-slate-50"
-              />
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowRecharge(false)}
-                  className="flex-1 py-2.5 text-sm border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={rechargingLoading}
-                  className="flex-1 py-2.5 text-sm text-white rounded-xl font-medium disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, var(--fx-amber-700) 0%, #D97706 100%)' }}>
-                  {rechargingLoading ? 'Salvando...' : 'Confirmar'}
-                </button>
-              </div>
-            </form>
+            </Field>
           </div>
-        </div>
-      )}
+          <ModalFooter
+            accent="emerald"
+            onCancel={() => setShowRecharge(false)}
+            onSubmit={() => handleRecharge()}
+            submitting={rechargingLoading}
+            submitDisabled={!(parseFloat(rechargeAmount.replace(',', '.')) > 0)}
+            submitLabel="Confirmar"
+            submittingLabel="Salvando..."
+            summary={parseFloat(rechargeAmount.replace(',', '.')) > 0
+              ? `Saldo: R$ ${fmt(contract.creditBalance)} → R$ ${fmt(contract.creditBalance + parseFloat(rechargeAmount.replace(',', '.')))}`
+              : null}
+          />
+        </>
+      </Modal>
 
       {/* ── Modal: Confirmar Geração ── */}
       {confirm.open && (() => {
@@ -925,40 +933,38 @@ export default function ContractCard({ data, onRefresh }: Props) {
         const totalPending = Object.values(confirm.pendingBySpecialty).reduce((a, b) => a + b, 0);
 
         return (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div role="dialog" aria-modal="true" aria-label="Gerar sessões do contrato" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 text-left">
-              <div className="flex items-center gap-3 mb-4 text-left">
-                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-left">Sessões do plano</h3>
-                  <p className="text-xs text-slate-500">Organize a agenda e registre cancelamentos</p>
-                </div>
-                <button onClick={() => setConfirm({ open: false })} className="ml-auto text-slate-400 hover:text-slate-600">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+          <Modal
+            open
+            onClose={() => setConfirm({ open: false })}
+            labelledBy="gen-title"
+            zIndexClass="z-[1300]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[20px] bg-white text-left shadow-2xl sm:rounded-[20px]"
+          >
+            <>
+            <ModalHeader
+              icon={<Calendar className="h-6 w-6" />}
+              color="#059669"
+              title="Sessões do plano"
+              subtitle="Organize a agenda e registre cancelamentos"
+              onClose={() => setConfirm({ open: false })}
+              titleId="gen-title"
+            />
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
 
               {/* Quantidade de semanas + data de início */}
-              <div className="mb-4 grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_11rem]">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-2">Quantas semanas?</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={52}
-                    value={confirm.weeks}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value, 10);
-                      setConfirm(prev => (prev.open ? { ...prev, weeks: Number.isNaN(value) ? 1 : Math.max(1, Math.min(52, value)) } : prev));
-                    }}
-                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                  <span className="mb-1.5 block text-xs font-semibold text-gray-600">Quantas semanas?</span>
+                  <ChoiceChips
+                    label="Quantas semanas"
+                    fill
+                    value={String(confirm.weeks)}
+                    onChange={(v) => setConfirm(prev => (prev.open ? { ...prev, weeks: Number(v) } : prev))}
+                    options={[2, 4, 8, 12, 24].map(n => ({ value: String(n), label: String(n) }))}
                   />
-                  <p className="text-xs text-slate-400 mt-1">Máximo de 52 semanas por vez</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-2">Gerar sessões desde:</label>
+                <label>
+                  <span className="mb-1.5 block text-xs font-semibold text-gray-600">Gerar desde</span>
                   <input
                     type="date"
                     min={todayIsoDate()}
@@ -967,10 +973,10 @@ export default function ContractCard({ data, onRefresh }: Props) {
                       const value = e.target.value;
                       setConfirm(prev => (prev.open ? { ...prev, startDate: value || todayIsoDate() } : prev));
                     }}
-                    className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
+                    className={inputClass('emerald')}
                   />
-                  <p className="text-xs text-slate-500 mt-1">Cancelamentos existentes serão preservados</p>
-                </div>
+                  <span className="mt-1 block text-xs text-slate-500">Cancelamentos existentes serão preservados</span>
+                </label>
               </div>
 
               {/* Aviso sessões pendentes */}
@@ -1017,7 +1023,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                 </div>
               </div>
               {/* Resumo */}
-              <div className="bg-slate-50 rounded-xl p-4 space-y-2 mb-4 border border-slate-100">
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Sessões estimadas:</span>
                   <span className="font-semibold text-slate-800">{estSessions}</span>
@@ -1049,7 +1055,8 @@ export default function ContractCard({ data, onRefresh }: Props) {
                 })}
                 onApplied={() => { setConfirm({ open: false }); onRefresh(); toast.success('Sessões geradas e cancelamentos registrados.'); }} />}
             </div>
-          </div>
+            </>
+          </Modal>
         );
       })()}
 
@@ -1083,170 +1090,129 @@ export default function ContractCard({ data, onRefresh }: Props) {
       )}
 
       {/* ── Modal: Editar Terapia ── */}
-      {editTherapyModal.open && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div role="dialog" aria-modal="true" aria-label="Editar terapia" className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh] animate-fade-in text-left">
-            {/* Cabeçalho com gradiente, igual SessionModal */}
-            <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative flex-shrink-0">
-              <button
-                onClick={() => setEditTherapyModal(p => ({ ...p, open: false }))}
-                className="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-1"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white bg-opacity-20 rounded-xl">
-                  <Pencil className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Editar terapia</h3>
-                  <p className="text-emerald-100 mt-1 capitalize">{editTherapyModal.specialty.replace(/_/g, ' ')}</p>
-                </div>
-              </div>
+      <Modal
+        open={editTherapyModal.open}
+        onClose={() => !savingTherapy && setEditTherapyModal(p => ({ ...p, open: false }))}
+        labelledBy="edit-therapy-title"
+        zIndexClass="z-[1300]"
+        panelClassName="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[20px] bg-white text-left shadow-2xl sm:rounded-[20px]"
+      >
+        <>
+          <ModalHeader
+            icon={<Pencil className="h-6 w-6" />}
+            color="#059669"
+            title="Editar terapia"
+            subtitle={`${editTherapyModal.specialty.replace(/_/g, ' ')} · Contrato liminar`}
+            onClose={() => setEditTherapyModal(p => ({ ...p, open: false }))}
+            titleId="edit-therapy-title"
+          />
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[1fr_11rem]">
+              <Field label="Valor por sessão">
+                <MoneyInput
+                  large
+                  accent="emerald"
+                  value={editTherapyModal.sessionValue ? String(editTherapyModal.sessionValue) : ''}
+                  onChange={(v) => setEditTherapyModal(p => ({ ...p, sessionValue: v === '' ? 0 : Number(v) }))}
+                />
+              </Field>
+              <Field label="Duração">
+                <select
+                  value={editTherapyModal.sessionDurationMinutes}
+                  onChange={(e) => setEditTherapyModal(p => ({ ...p, sessionDurationMinutes: Number(e.target.value) }))}
+                  className={inputClass('emerald')}
+                >
+                  {[30, 40, 45, 50, 60, 90].concat([editTherapyModal.sessionDurationMinutes]).filter((v, i, a) => v && a.indexOf(v) === i).sort((x, y) => x - y).map(m => (
+                    <option key={m} value={m}>{m} min</option>
+                  ))}
+                </select>
+              </Field>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-              {/* Profissional */}
-              <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
-                <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <User className="w-4 h-4 text-emerald-600" />
-                  <span>Profissional</span>
-                </label>
-                {modalDoctorsLoading ? (
-                  <div className="flex justify-center py-3">
-                    <div className="w-5 h-5 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <select
-                    value={editTherapyModal.doctorId}
-                    onChange={(e) => setEditTherapyModal(p => ({ ...p, doctorId: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                  >
-                    <option value="">Sem profissional</option>
-                    {modalDoctors.map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
-                  </select>
-                )}
-              </div>
-
-              {/* Valor por sessão + Duração */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-amber-600" />
-                  Valor e duração
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block mb-1.5 text-xs font-medium text-gray-600">Por sessão (R$)</label>
-                    <input
-                      type="number" min="0" step="0.01"
-                      value={editTherapyModal.sessionValue}
-                      onChange={(e) => setEditTherapyModal(p => ({ ...p, sessionValue: Number(e.target.value) }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-1.5 text-xs font-medium text-gray-600">Duração (min)</label>
-                    <input
-                      type="number" min="15" max="180"
-                      value={editTherapyModal.sessionDurationMinutes}
-                      onChange={(e) => setEditTherapyModal(p => ({ ...p, sessionDurationMinutes: Number(e.target.value) }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                    />
-                  </div>
+            <Field label="Profissional">
+              {modalDoctorsLoading ? (
+                <div className="flex justify-center py-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
                 </div>
-              </div>
+              ) : (
+                <select
+                  value={editTherapyModal.doctorId}
+                  onChange={(e) => setEditTherapyModal(p => ({ ...p, doctorId: e.target.value }))}
+                  className={inputClass('emerald')}
+                >
+                  <option value="">Sem profissional</option>
+                  {modalDoctors.map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+                </select>
+              )}
+            </Field>
 
-              {/* Horários */}
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
-                <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                  <span>Horários semanais</span>
-                </label>
-                <div className="space-y-2">
-                  {editTherapyModal.slots.map((slot, i) => (
-                    <div key={i} className="flex gap-2 items-center">
-                      <select
-                        value={slot.dayOfWeek}
-                        onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((s, si) => si === i ? { ...s, dayOfWeek: e.target.value as any } : s) }))}
-                        className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      >
-                        <option value="">Dia</option>
-                        {[{v:1,l:'Segunda'},{v:2,l:'Terça'},{v:3,l:'Quarta'},{v:4,l:'Quinta'},{v:5,l:'Sexta'}].map(d => (
-                          <option key={d.v} value={d.v}>{d.l}</option>
-                        ))}
-                      </select>
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-600">Dias e horários da semana</span>
+              <div className="space-y-3">
+                {editTherapyModal.slots.map((slot, i) => (
+                  <div key={i} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <ChoiceChips
+                      label={`Dia do horário ${i + 1}`}
+                      fill
+                      value={String(slot.dayOfWeek)}
+                      onChange={(v) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((sl, si) => si === i ? { ...sl, dayOfWeek: v as any } : sl) }))}
+                      options={[{ v: 1, l: 'Seg' }, { v: 2, l: 'Ter' }, { v: 3, l: 'Qua' }, { v: 4, l: 'Qui' }, { v: 5, l: 'Sex' }].map(d => ({ value: String(d.v), label: d.l }))}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
                       <input
                         type="time" value={slot.time}
-                        onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((s, si) => si === i ? { ...s, time: e.target.value } : s) }))}
-                        className="w-28 p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        aria-label={`Hora do horário ${i + 1}`}
+                        onChange={(e) => setEditTherapyModal(p => ({ ...p, slots: p.slots.map((sl, si) => si === i ? { ...sl, time: e.target.value } : sl) }))}
+                        className={`${inputClass('emerald')} flex-1`}
                       />
                       {editTherapyModal.slots.length > 1 && (
-                        <button type="button" onClick={() => setEditTherapyModal(p => ({ ...p, slots: p.slots.filter((_, si) => si !== i) }))} className="text-rose-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors">
-                          <X className="w-4 h-4" />
+                        <button type="button" aria-label={`Remover horário ${i + 1}`} onClick={() => setEditTherapyModal(p => ({ ...p, slots: p.slots.filter((_, si) => si !== i) }))} className="rounded-lg p-2.5 text-rose-500 transition-colors hover:bg-rose-50">
+                          <X className="h-4 w-4" />
                         </button>
                       )}
                     </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditTherapyModal(p => ({ ...p, slots: [...p.slots, { dayOfWeek: '', time: '' }] }))}
-                  className="mt-3 text-xs text-blue-700 font-semibold flex items-center gap-1 hover:text-blue-900"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar horário
-                </button>
+                  </div>
+                ))}
               </div>
-
-              {/* Observações */}
-              <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-xl border border-gray-200">
-                <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  Observações desta especialidade
-                </label>
-                <textarea
-                  value={editTherapyModal.notes}
-                  onChange={(e) => setEditTherapyModal(p => ({ ...p, notes: e.target.value }))}
-                  rows={2}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                  placeholder="Ex: orientação parental, atendida pela responsável..."
-                />
-              </div>
-
-              <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 flex-shrink-0" />
-                Sessões já confirmadas/completadas não serão alteradas.
-              </p>
-            </div>
-
-            <div className="bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200 flex-shrink-0">
               <button
                 type="button"
-                onClick={() => setEditTherapyModal(p => ({ ...p, open: false }))}
-                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
+                onClick={() => setEditTherapyModal(p => ({ ...p, slots: [...p.slots, { dayOfWeek: '', time: '' }] }))}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
               >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveTherapy}
-                disabled={savingTherapy}
-                className={`flex-1 py-2.5 rounded-xl font-medium transition-all duration-quick flex items-center justify-center gap-2 ${
-                  savingTherapy
-                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                    : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
-                }`}
-              >
-                {savingTherapy ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {savingTherapy ? 'Salvando...' : 'Salvar alterações'}
+                <Plus className="h-3.5 w-3.5" /> Adicionar horário
               </button>
             </div>
+
+            <Field label="Observações desta especialidade">
+              <textarea
+                value={editTherapyModal.notes}
+                onChange={(e) => setEditTherapyModal(p => ({ ...p, notes: e.target.value }))}
+                rows={2}
+                className={`${inputClass('emerald')} min-h-[72px] resize-none`}
+                placeholder="Ex.: orientação parental, atendida pela responsável"
+              />
+            </Field>
+
+            <p className="flex items-center gap-1.5 text-xs text-slate-500">
+              <Info className="h-3.5 w-3.5 shrink-0" />
+              Sessões já confirmadas ou concluídas não serão alteradas.
+            </p>
           </div>
-        </div>
-      )}
+          <ModalFooter
+            accent="emerald"
+            onCancel={() => setEditTherapyModal(p => ({ ...p, open: false }))}
+            onSubmit={handleSaveTherapy}
+            submitting={savingTherapy}
+            submitLabel="Salvar alterações"
+            submittingLabel="Salvando..."
+            summary={[
+              Number(editTherapyModal.sessionValue) > 0 ? `R$ ${fmt(Number(editTherapyModal.sessionValue))}` : null,
+              `${editTherapyModal.slots.filter(sl => sl.dayOfWeek !== '' && sl.time).length}× por semana`,
+            ].filter(Boolean).join(' · ')}
+          />
+        </>
+      </Modal>
 
       {/* ── Modal: Criar Plano ── */}
       {showCreatePlan && (
