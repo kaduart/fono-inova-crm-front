@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { IDoctor, ISession, THERAPY_TYPES } from '../../utils/types/types';
 import { Modal } from '../ui/Modal';
-import { ModalHeader, ModalFooter, Field, ChoiceChips, inputClass } from '../../pages/Financial/components/formKit';
-import InputCurrency from '../ui/InputCurrency';
+import { ModalHeader, ModalFooter, Field, ChoiceChips, MoneyInput, inputClass } from '../../pages/Financial/components/formKit';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
 import CancelRequesterPicker from '../calendar/CancelRequesterPicker';
@@ -89,13 +88,23 @@ export const SessionModal = ({
         onSubmit();
     };
 
+    const PAY: Record<string, string> = { pix: 'Pix', dinheiro: 'Dinheiro', 'cartão': 'Cartão' };
+    const STATUS: Record<string, string> = { pending: 'Pendente', completed: 'Concluída', canceled: 'Cancelada', scheduled: 'Agendada' };
+    const amount = Number(sessionData.paymentAmount || 0);
+    const summaryText = [
+        amount > 0 ? amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+        sessionData.paymentMethod ? PAY[sessionData.paymentMethod] : null,
+        STATUS[sessionData.status || 'pending'],
+        sessionData.date ? `${String(sessionData.date).substring(8, 10)}/${String(sessionData.date).substring(5, 7)}${sessionData.time ? ` às ${sessionData.time}` : ''}` : null,
+    ].filter(Boolean).join(' · ');
+
     return (
         <Modal
             open
             onClose={() => !loading && onClose()}
             labelledBy="session-modal-title"
             zIndexClass="z-[100]"
-            panelClassName="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
         >
             <>
                 <ModalHeader
@@ -108,21 +117,15 @@ export const SessionModal = ({
                 />
 
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
-                    <Field label="Profissional" required>
-                        <Select
-                            value={sessionData.doctorId || ''}
-                            onChange={(e) => onSessionDataChange({ ...sessionData, doctorId: e.target.value })}
-                            disabled={isCompletedLocked}
-                            className={inputClass('emerald')}
-                        >
-                            <option value="">Selecione um profissional</option>
-                            {doctors.map((doctor) => (
-                                <option key={doctor._id} value={doctor._id}>{doctor.fullName}</option>
-                            ))}
-                        </Select>
-                    </Field>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[1fr_11rem]">
+                        <Field label="Valor pago">
+                            <MoneyInput
+                                large
+                                accent="emerald"
+                                value={sessionData.paymentAmount ? String(Number(sessionData.paymentAmount).toFixed(2)) : ''}
+                                onChange={(v) => onSessionDataChange({ ...sessionData, paymentAmount: v === '' ? 0 : Number(v) })}
+                            />
+                        </Field>
                         <Field label="Data" required>
                             <input
                                 type="date"
@@ -131,6 +134,22 @@ export const SessionModal = ({
                                 disabled={isCompletedLocked}
                                 className={inputClass('emerald')}
                             />
+                        </Field>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_11rem]">
+                        <Field label="Profissional" required>
+                            <Select
+                                value={sessionData.doctorId || ''}
+                                onChange={(e) => onSessionDataChange({ ...sessionData, doctorId: e.target.value })}
+                                disabled={isCompletedLocked}
+                                className={inputClass('emerald')}
+                            >
+                                <option value="">Selecione um profissional</option>
+                                {doctors.map((doctor) => (
+                                    <option key={doctor._id} value={doctor._id}>{doctor.fullName}</option>
+                                ))}
+                            </Select>
                         </Field>
                         <Field label="Horário" required>
                             <input
@@ -185,27 +204,19 @@ export const SessionModal = ({
                         </>
                     )}
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <Field label="Valor pago">
-                            <InputCurrency
-                                name="paymentAmount"
-                                value={sessionData.paymentAmount || 0}
-                                onChange={(e) => onSessionDataChange({ ...sessionData, paymentAmount: Number(e.target.value) })}
-                                className={inputClass('emerald')}
-                            />
-                        </Field>
-                        <Field label="Forma de pagamento">
-                            <Select
-                                value={sessionData.paymentMethod || ''}
-                                onChange={(e) => onSessionDataChange({ ...sessionData, paymentMethod: e.target.value as typeof sessionData.paymentMethod })}
-                                className={inputClass('emerald')}
-                            >
-                                <option value="">Não registrado</option>
-                                <option value="dinheiro">Dinheiro</option>
-                                <option value="pix">PIX</option>
-                                <option value="cartão">Cartão</option>
-                            </Select>
-                        </Field>
+                    <div>
+                        <span className="mb-1.5 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
+                        <ChoiceChips
+                            label="Forma de pagamento"
+                            fill
+                            value={(sessionData.paymentMethod || '') as string}
+                            onChange={(v) => onSessionDataChange({ ...sessionData, paymentMethod: (v === 'none' ? '' : v) as typeof sessionData.paymentMethod })}
+                            options={[
+                                { value: 'pix', label: 'Pix' },
+                                { value: 'dinheiro', label: 'Dinheiro' },
+                                { value: 'cartão', label: 'Cartão' },
+                            ]}
+                        />
                     </div>
 
                     {sessionData.status === 'completed' && (
@@ -275,7 +286,7 @@ export const SessionModal = ({
                     submitDisabled={!isFormValid}
                     submitLabel={submitText}
                     submittingLabel="Processando..."
-                    summary={!isFormValid ? 'Preencha todos os campos obrigatórios (*)' : null}
+                    summary={!isFormValid ? 'Preencha todos os campos obrigatórios (*)' : summaryText}
                 />
             </>
         </Modal>
