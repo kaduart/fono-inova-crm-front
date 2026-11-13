@@ -77,7 +77,7 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
             <h3 id="cashflow-ruler" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Régua do dia</h3>
             <span className="text-xs text-gray-500 dark:text-gray-400">Cada bloco é uma sessão. Clique para ver a lista.</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden py-1">
             <div className="grid min-w-[640px] grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
                 <span />
                 <div className="relative h-5 pt-0.5 text-[11px] font-medium text-gray-400 dark:text-gray-500" aria-hidden>
@@ -93,7 +93,7 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
                                 className={`absolute inset-y-1.5 rounded-md p-0 shadow-sm ring-1 ring-inset ring-black/5 transition-all hover:-translate-y-px duration-quick motion-reduce:transition-none hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
                                 style={{ left: pct(min), width: `calc(${(dur / span) * 100}% - 3px)` }} />;
                         })}
-                        {showNow && <span aria-hidden className="pointer-events-none absolute -inset-y-1 w-px bg-gray-900/70 dark:bg-gray-100/70" style={{ left: pct(nowMin) }} />}
+                        {showNow && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-gray-900/70 dark:bg-gray-100/70" style={{ left: pct(nowMin) }} />}
                     </div>
                 </div>)}
             </div>
