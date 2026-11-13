@@ -13,7 +13,6 @@ import {
   Avatar,
   Tooltip,
   Alert,
-  Skeleton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -150,6 +149,8 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
   const [rowAction, setRowAction] = useState<{ expense: any; kind: 'delete' | 'cancel' } | null>(null);
   const [rowActionBusy, setRowActionBusy] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [payAllConfirm, setPayAllConfirm] = useState(false);
+  const [payingAll, setPayingAll] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -319,6 +320,18 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
     }
   };
 
+  const handlePayAllCommissions = async (ids: string[]) => {
+    setPayingAll(true);
+    let ok = 0;
+    for (const id of ids) {
+      try { await markAsPaid(id); ok += 1; } catch { /* toast já exibido no hook */ }
+    }
+    setPayingAll(false);
+    setPayAllConfirm(false);
+    await fetchExpenses(listParams);
+    if (ok > 0) toast.success(`${ok} comiss${ok === 1 ? 'ão paga' : 'ões pagas'}`);
+  };
+
   const confirmRowAction = async () => {
     if (!rowAction) return;
     setRowActionBusy(true);
@@ -454,58 +467,33 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
   }
 
   if (loading && expenses.length === 0) {
+    const bar = 'rounded bg-gray-200/80 dark:bg-gray-700/60';
     return (
-      <div className="p-4">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: '#EF444420' }} />
-            <div>
-              <Skeleton variant="text" width={160} height={30} />
-              <Skeleton variant="text" width={220} height={20} />
-            </div>
-          </div>
-          <Skeleton variant="rounded" width={145} height={36} />
+      <div className="p-4 animate-pulse" aria-busy="true" aria-label="Carregando despesas">
+        <div className="mb-4 flex justify-end gap-2">
+          <div className={`h-9 w-36 ${bar}`} />
+          <div className={`h-9 w-32 ${bar}`} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          {[{ color: '#10B981' }, { color: '#F59E0B' }, { color: '#6366F1' }].map((c, i) => (
-            <div key={i} className="border rounded-xl p-4" style={{ borderColor: `color-mix(in srgb, ${c.color} 13%, transparent)`, backgroundColor: `color-mix(in srgb, ${c.color} 3%, transparent)` }}>
-              <div className="flex items-center gap-4">
-                <Skeleton variant="circular" width={40} height={40} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 13%, transparent)` }} />
-                <div className="flex-1">
-                  <Skeleton variant="text" width="55%" height={20} />
-                  <Skeleton variant="text" width="70%" height={32} sx={{ bgcolor: `color-mix(in srgb, ${c.color} 8%, transparent)` }} />
-                  <Skeleton variant="text" width="40%" height={16} />
-                </div>
-              </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+              <div className={`h-3 w-20 ${bar}`} />
+              <div className={`mt-3 h-7 w-28 ${bar}`} />
+              <div className={`mt-3 h-3 w-32 ${bar}`} />
             </div>
           ))}
         </div>
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
-          <div className="flex flex-wrap gap-2">
-            {[150, 120, 130, 120].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={40} />)}
-            <Skeleton variant="rounded" width={110} height={40} className="ml-auto" />
-          </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[70, 80, 80, 70, 90].map((w, i) => <div key={i} className={`h-8 rounded-full ${bar}`} style={{ width: w }} />)}
         </div>
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 dark:bg-gray-800/60 p-2">
-            <div className="flex gap-2">
-              {[24, 70, 140, 80, 90, 70, 75, 80, 56].map((w, i) => <Skeleton key={i} variant="text" width={w} />)}
-            </div>
-          </div>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center p-2 border-t">
-              <Skeleton variant="circular" width={24} height={24} />
-              <Skeleton variant="rounded" width={70} height={22} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
-              <Skeleton variant="text" width={140} className="ml-2" />
-              <Skeleton variant="rounded" width={80} height={24} className="ml-2" sx={{ bgcolor: '#6366F115' }} />
-              <Skeleton variant="text" width={90} className="ml-2" />
-              <Skeleton variant="text" width={70} className="ml-auto" />
-              <Skeleton variant="rounded" width={75} height={24} className="ml-2" />
-              <Skeleton variant="rounded" width={80} height={24} className="ml-2" sx={{ bgcolor: '#10B98115' }} />
-              <div className="flex gap-1 ml-2">
-                <Skeleton variant="circular" width={28} height={28} />
-                <Skeleton variant="circular" width={28} height={28} />
-              </div>
+        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 border-t border-gray-100 p-3 first:border-t-0 dark:border-gray-800">
+              <div className={`h-4 w-16 ${bar}`} />
+              <div className={`h-4 flex-1 ${bar}`} />
+              <div className={`hidden h-5 w-24 rounded-full sm:block ${bar}`} />
+              <div className={`h-4 w-20 ${bar}`} />
+              <div className={`h-6 w-20 rounded-full ${bar}`} />
             </div>
           ))}
         </div>
@@ -705,6 +693,35 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
         </p>
       </div>
 
+      {/* Comissões em aberto: pagar todas de uma vez */}
+      {(() => {
+        const open = visibleExpenses.filter((e: any) => e.category === 'commission' && (e.status === 'pending' || e.status === 'scheduled'));
+        if (open.length < 2) return null;
+        const total = open.reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+        return (
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{open.length} comissões em aberto</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">Total {brl(total)}</p>
+            </div>
+            {payAllConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-300">Marcar as {open.length} como pagas?</span>
+                <button type="button" disabled={payingAll} onClick={() => setPayAllConfirm(false)}
+                  className="h-9 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300">Voltar</button>
+                <button type="button" disabled={payingAll} onClick={() => handlePayAllCommissions(open.map((e: any) => e._id))}
+                  className="h-9 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                  {payingAll ? 'Pagando…' : 'Confirmar'}
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setPayAllConfirm(true)}
+                className="h-9 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700">Pagar todas</button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Tabela de Despesas */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -782,7 +799,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                             const o = EXPENSE_ORIGIN_CONFIG[origin];
                             return (
                               <span
-                                className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+                                className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold"
                                 style={{ backgroundColor: o.bgColor, color: o.color }}
                               >
                                 {o.label}
@@ -810,7 +827,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                           )}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <div className="font-semibold text-red-600">
+                          <div className="whitespace-nowrap font-semibold text-red-600">
                             R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </div>
                           {expense.category === 'commission' && expense.workPeriod?.sessionsCount > 0 && (
@@ -841,19 +858,13 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                               </Tooltip>
                             )}
                             {(expense.status === 'pending' || expense.status === 'scheduled') && (
-                              <Tooltip title="Marcar como pago">
-                                <span>
-                                  <button
-                                    onClick={() => handleMarkAsPaid(expense._id)}
-                                    disabled={payingId === expense._id}
-                                    className="p-2 rounded hover:bg-emerald-50 text-emerald-600 disabled:opacity-50"
-                                  >
-                                    {payingId === expense._id
-                                      ? <div className="w-4 h-4 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
-                                      : <Check size={16} />}
-                                  </button>
-                                </span>
-                              </Tooltip>
+                              <button
+                                onClick={() => handleMarkAsPaid(expense._id)}
+                                disabled={payingId === expense._id}
+                                className="h-8 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                              >
+                                {payingId === expense._id ? 'Pagando…' : 'Marcar paga'}
+                              </button>
                             )}
                             <Tooltip title="Editar">
                               <button
