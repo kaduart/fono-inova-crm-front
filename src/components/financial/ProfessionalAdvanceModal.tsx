@@ -3,7 +3,7 @@ import { Wallet } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import api from '../../services/api';
 import { Modal } from '../ui/Modal';
-import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from '../../pages/Financial/components/formKit';
+import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass, useSubmitStatus } from '../../pages/Financial/components/formKit';
 
 interface ProfessionalAdvanceModalProps {
   open: boolean;
@@ -33,6 +33,7 @@ export const ProfessionalAdvanceModal = ({
   onSuccess,
 }: ProfessionalAdvanceModalProps) => {
   const [loading, setLoading] = useState(false);
+  const { status, succeed, fail } = useSubmitStatus();
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [type, setType] = useState<AdvanceType>('advance');
@@ -77,10 +78,9 @@ export const ProfessionalAdvanceModal = ({
         notes: notes.trim() || null,
       });
       toast.success('Adiantamento registrado com sucesso!');
-      reset();
-      onClose();
-      onSuccess?.();
+      succeed(() => { reset(); onClose(); onSuccess?.(); });
     } catch (err: any) {
+      fail();
       toast.error(err?.response?.data?.message || 'Erro ao registrar adiantamento');
     } finally {
       isSubmittingRef.current = false;
@@ -137,6 +137,8 @@ export const ProfessionalAdvanceModal = ({
       </div>
       <ModalFooter
         accent="emerald"
+        status={status}
+        successLabel="Adiantamento registrado"
         onCancel={handleClose}
         onSubmit={handleSubmit}
         submitting={loading}

@@ -2,8 +2,10 @@
 // (rótulo acima, campos arredondados, cabeçalho com ícone). Substitui o `Grid item xs` do MUI,
 // que no MUI v7 não aplica mais (o layout colapsava).
 import { MotionText } from '../../../components/ui/MotionText';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { IconButton } from '@mui/material';
+import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 
 export type Accent = 'indigo' | 'red' | 'emerald';
@@ -79,8 +81,38 @@ export const ModalHeader = ({
   </div>
 );
 
+/** Check que se desenha em 500ms (receita Success check). */
+const DrawCheck = () => {
+  const reduce = useReducedMotion();
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <motion.path d="M3 8.5l3.2 3.2L13 4.8" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : 0.5, ease: 'easeOut' }} />
+    </svg>
+  );
+};
+
+export type SubmitStatus = 'idle' | 'success' | 'error';
+
+/** Mostra o check por 650ms depois de o servidor confirmar (antes de fechar) e a tremida no erro. */
+export const useSubmitStatus = () => {
+  const [status, setStatus] = useState<SubmitStatus>('idle');
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const succeed = useCallback((then: () => void) => {
+    setStatus('success');
+    timer.current = setTimeout(() => { setStatus('idle'); then(); }, 650);
+  }, []);
+  const fail = useCallback(() => {
+    setStatus('error');
+    timer.current = setTimeout(() => setStatus('idle'), 1200);
+  }, []);
+  return { status, succeed, fail };
+};
+
 export const ModalFooter = ({
   accent,
+  status = 'idle',
+  successLabel = 'Salvo',
   onCancel,
   onSubmit,
   submitting,
@@ -90,6 +122,9 @@ export const ModalFooter = ({
   summary,
 }: {
   accent: Accent;
+  /** 'success' (só depois de o servidor confirmar) mostra o check; 'error' faz a tremida curta. */
+  status?: SubmitStatus;
+  successLabel?: string;
   /** Resumo vivo do que será salvo (aparece à esquerda no desktop). */
   summary?: ReactNode;
   onCancel: () => void;
@@ -98,7 +133,9 @@ export const ModalFooter = ({
   submitDisabled?: boolean;
   submitLabel: string;
   submittingLabel: string;
-}) => (
+}) => {
+  const reduce = useReducedMotion();
+  return (
   <div className="flex items-center justify-end gap-3 px-5 sm:px-6 py-4 border-t border-gray-100 bg-white">
     {summary && <p className="mr-auto hidden min-w-0 truncate text-sm text-gray-600 sm:block" aria-live="polite">{summary}</p>}
     <button
@@ -109,17 +146,21 @@ export const ModalFooter = ({
     >
       Cancelar
     </button>
-    <button
+    <motion.button
       type="button"
       onClick={onSubmit}
-      disabled={submitting || submitDisabled}
-      className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-quick flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${PRIMARY_BTN[accent]}`}
+      disabled={submitting || submitDisabled || status === 'success'}
+      animate={status === 'error' && !reduce ? { x: [0, -6, 6, -6, 6, -3, 0] } : { x: 0 }}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
+      className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-quick flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${status === 'error' ? 'bg-red-600 hover:bg-red-700' : PRIMARY_BTN[accent]}`}
     >
       {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-      <MotionText>{submitting ? submittingLabel : submitLabel}</MotionText>
-    </button>
+      {status === 'success' && <DrawCheck />}
+      <MotionText>{status === 'success' ? successLabel : status === 'error' ? 'Tentar de novo' : submitting ? submittingLabel : submitLabel}</MotionText>
+    </motion.button>
   </div>
-);
+  );
+};
 
 /** Interruptor acessível (role="switch"). */
 export const Switch = ({

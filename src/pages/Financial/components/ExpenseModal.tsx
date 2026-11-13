@@ -4,7 +4,7 @@ import { TrendingDown } from 'lucide-react';
 import { Expense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
 import { useExpenses } from '../../../hooks/useExpenses';
 import { toast } from '../../../utils/toast';
-import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from './formKit';
+import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass, useSubmitStatus } from './formKit';
 
 type ExpenseModalProps = {
     open: boolean;
@@ -42,6 +42,7 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
     const { createExpense, updateExpense } = useExpenses();
     const [form, setForm] = useState<FormState>(defaultForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { status, succeed, fail } = useSubmitStatus();
     const isEditing = !!expense;
     const accent = 'emerald' as const;
 
@@ -96,7 +97,9 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                 savedExpense = await createExpense(payload);
             }
 
-            onSaved(savedExpense);
+            succeed(() => onSaved(savedExpense));
+        } catch {
+            fail();
         } finally {
             setIsSubmitting(false);
         }
@@ -219,6 +222,8 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
 
             <ModalFooter
                 accent={accent}
+                status={status}
+                successLabel={isEditing ? 'Alterações salvas' : 'Despesa salva'}
                 onCancel={onClose}
                 onSubmit={handleSubmit}
                 submitting={isSubmitting}
