@@ -1,5 +1,5 @@
 import CancelAppointmentDialog from '../calendar/CancelAppointmentDialog';
-import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, DollarSign, MoreHorizontal, Sprout, Trash2, TrendingUp, X } from 'lucide-react';
+import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, MoreHorizontal, Sprout, Trash2, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
 import appointmentService from '../../services/appointmentService';
 import { getPatientFinancialSummary, FinancialSummary } from '../../services/financialSummaryService';
@@ -633,18 +633,22 @@ export default function TherapyPackageCard({
 
         {/* Números do pacote */}
         {!isLegacyConvenio ? (
-          <dl className="grid grid-cols-3 gap-2">
-            {[
-              { k: 'Total', v: brl(totalValue), c: 'text-slate-900 dark:text-slate-100' },
-              { k: 'Pago', v: financial === null ? '—' : brl(paidShown), c: 'text-emerald-700 dark:text-emerald-300' },
-              { k: 'Falta', v: financial === null ? '—' : brl(missing), c: missing > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500' },
-            ].map(f => (
-              <div key={f.k} className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
-                <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{f.k}</dt>
-                <dd className={`mt-0.5 text-sm font-semibold tabular-nums ${f.c}`}>{financialLoading ? <span className="inline-block h-4 w-14 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <AnimatedValue value={f.v} />}</dd>
+          <div>
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{missing > 0 ? 'Falta pagar' : 'Pacote quitado'}</p>
+                <p className={`mt-0.5 text-2xl font-bold tabular-nums leading-none ${missing > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                  {financialLoading || financial === null ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <AnimatedValue value={brl(missing > 0 ? missing : paidShown)} />}
+                </p>
               </div>
-            ))}
-          </dl>
+              <p className="shrink-0 pb-0.5 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                {financial === null ? '—' : brl(paidShown)} pago de {brl(totalValue)}
+              </p>
+            </div>
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="img" aria-label={`Pago ${brl(paidShown)} de ${brl(totalValue)}`}>
+              <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-slow ease-smooth-out" style={{ width: `${totalValue > 0 ? Math.max(0, Math.min(100, (paidShown / totalValue) * 100)) : 0}%` }} />
+            </div>
+          </div>
         ) : (
           <dl className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/60">
@@ -674,7 +678,7 @@ export default function TherapyPackageCard({
           const striped = 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)';
           let insight: string | null = null;
           if (isActive && sessionsLeft === 0) insight = 'Pacote no fim. Hora de renovar.';
-          else if (isActive && free === 0 && lastDate) insight = `Todas as sessões já estão na agenda. A última é em ${fmtD(lastDate)}, então fale em renovação antes disso.`;
+          else if (isActive && free === 0 && lastDate && nearEnd) insight = `Todas as sessões já estão na agenda. A última é em ${fmtD(lastDate)}, então fale em renovação antes disso.`;
           else if (isActive && lastDate && free > 0) insight = `A agenda vai até ${fmtD(lastDate)} e ainda ${free === 1 ? 'falta agendar 1 sessão' : `faltam agendar ${free} sessões`}.`;
           else if (isActive && free > 0) insight = `Nenhuma sessão na agenda. ${free === 1 ? 'Falta agendar 1' : `Faltam agendar ${free}`}.`;
           else if (nearEnd) insight = `Faltam ${sessionsLeft}. Hora de falar em renovação.`;
@@ -717,10 +721,15 @@ export default function TherapyPackageCard({
           );
         })()}
 
-        {canReceive && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-            <strong className="tabular-nums">{brl(sessionDebt)}</strong> em sessões feitas e ainda não pagas.
-          </p>
+        {canReceive && (pack.type === 'therapy' || pack.type === 'terapia_ocupacional' || !pack.type) && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowBalanceModal(true); }}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 transition-colors duration-quick hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+          >
+            <span><strong className="tabular-nums">{brl(sessionDebt)}</strong> em sessões feitas e ainda não pagas</span>
+            <span className="shrink-0 font-semibold">Quitar pendências</span>
+          </button>
         )}
       </div>
 
@@ -757,194 +766,30 @@ export default function TherapyPackageCard({
           </div>
         )}
 
-        {/* Métricas Financeiras */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Valor Total - Condicional para convênio */}
+        {/* Detalhes financeiros: o que não cabe no resumo do card */}
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
           {pack.type === 'convenio' ? (
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-gray-700">Valor Convênio</span>
-              </div>
-              <div className="text-lg font-bold text-gray-900">
-                {new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                }).format((pack.insuranceGrossAmount || 0) * pack.totalSessions)}
-              </div>
-              <div className="text-xs text-blue-600 mt-1">
-                {new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                }).format(pack.insuranceGrossAmount || 0)}/sessão
-              </div>
-            </div>
+            <>
+              <div><dt className="text-xs text-slate-500">Valor convênio</dt><dd className="font-semibold tabular-nums text-slate-900">{brl((pack.insuranceGrossAmount || 0) * pack.totalSessions)}</dd></div>
+              <div><dt className="text-xs text-slate-500">Por sessão</dt><dd className="font-semibold tabular-nums text-slate-900">{brl(pack.insuranceGrossAmount || 0)}</dd></div>
+              <div><dt className="text-xs text-slate-500">Sessões pendentes</dt><dd className="font-semibold tabular-nums text-blue-700">{pack.totalSessions - completedSessions} de {pack.totalSessions}</dd></div>
+            </>
           ) : (
-            <div className="bg-gray-50/70 p-3 rounded-xl border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-medium text-gray-700">Pacote Contratado</span>
-              </div>
-              <div className="text-base font-bold text-gray-900 tabular-nums">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
-              </div>
-              {financial !== null && paymentState === 'reserved' && (
-                <div className="mt-1.5 space-y-0.5">
-                  <p className="text-xs text-gray-500">Pago: <span className="text-red-600 font-semibold">R$ 0,00</span></p>
-                  <p className="text-xs text-gray-500">Pendente: <span className="text-amber-700 font-semibold">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
-                  </span></p>
-                </div>
+            <>
+              <div><dt className="text-xs text-slate-500">Pacote contratado</dt><dd className="font-semibold tabular-nums text-slate-900">{brl(pack.totalValue || 0)}</dd></div>
+              <div><dt className="text-xs text-slate-500">Valor por sessão</dt><dd className="font-semibold tabular-nums text-slate-900">{brl(pack.sessionValue || 0)}</dd></div>
+              <div><dt className="text-xs text-slate-500">Pago até agora</dt><dd className="font-semibold tabular-nums text-emerald-700">{brl(particularPaid > 0 ? particularPaid : (pack.totalPaid ?? 0))}</dd></div>
+              {pack.financialStatus === 'paid_with_credit' && (
+                <div><dt className="text-xs text-slate-500">Crédito restante</dt><dd className="font-semibold tabular-nums text-blue-700">{brl(pack.balance ?? 0)}</dd></div>
               )}
-              {financial !== null && paymentState === 'partial' && particularPaid > 0 && (
-                <div className="mt-1.5 space-y-0.5">
-                  <p className="text-xs text-gray-500">Pago: <span className="text-blue-600 font-semibold">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(particularPaid)}
-                  </span></p>
-                  <p className="text-xs text-gray-500">Restante: <span className="text-gray-700 font-semibold">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((pack.totalValue || 0) - particularPaid)}
-                  </span></p>
-                </div>
-              )}
-              {isFullyPaid && (
-                <p className="text-xs text-emerald-600 font-medium mt-1">
-                  {pack.financialStatus === 'paid_with_credit' ? 'Pago antecipado' : 'Pago integralmente'}
-                </p>
-              )}
-              {/* @deprecated LEGADO — fallback pack.totalPaid. Não usar. Fonte de verdade: financial.particularPaid */}
-              {financial === null && (pack.totalPaid || 0) > 0 && (
-                <div className="text-xs text-emerald-600 mt-1">
-                  Pago: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalPaid)}
-                </div>
-              )}
-            </div>
+            </>
           )}
-
-          {/* 💰 DÍVIDA REAL — Esconder para convênio */}
-          {pack.type !== 'convenio' ? (
-            pack.financialStatus === 'paid_with_credit' ? (
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-700">💳 Crédito restante</span>
-                </div>
-                {/* @deprecated LEGADO — pack.balance é legado e pode estar inflado. Fonte de verdade: financial.sessionDebt */}
-                <div className="text-lg font-bold text-blue-600">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  }).format(pack.balance ?? 0)}
-                </div>
-                <p className="text-3xs text-gray-500 mt-1">
-                  {pack.sessionsRemaining ?? 0} sessão(ões) restante(s) no pacote
-                </p>
-              </div>
-            ) : (
-              <div className={`p-3 rounded-xl border ${
-                paymentState === 'paid'
-                  ? 'bg-green-50/60 border-green-100'
-                  : paymentState === 'reserved'
-                    ? 'bg-amber-50/60 border-amber-100'
-                    : paymentState === 'overdue'
-                      ? 'bg-red-50/60 border-red-100'
-                      : paymentState === 'partial'
-                        ? 'bg-blue-50/60 border-blue-100'
-                        : 'bg-gray-50/70 border-gray-100'
-              }`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className={`h-4 w-4 ${
-                    paymentState === 'paid' ? 'text-green-600'
-                    : paymentState === 'reserved' ? 'text-amber-600'
-                    : paymentState === 'overdue' ? 'text-red-600'
-                    : paymentState === 'partial' ? 'text-blue-600'
-                    : 'text-gray-400'
-                  }`} />
-                  <span className="text-sm font-medium text-gray-700">
-                    {paymentState === 'paid' ? '✅ Quitado'
-                    : paymentState === 'reserved' ? '⏳ Aguardando pag.'
-                    : paymentState === 'overdue' ? '💰 Em aberto'
-                    : paymentState === 'partial' ? '🔶 Pago parcial'
-                    : '—'}
-                  </span>
-                </div>
-                {paymentState === 'paid' && (
-                  <>
-                    <div className="text-lg font-bold text-green-600">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                        particularPaid > 0 ? particularPaid : (pack.totalPaid || pack.totalValue || 0)
-                      )}
-                    </div>
-                    <p className="text-3xs text-gray-500 mt-0.5">pago integralmente</p>
-                  </>
-                )}
-                {paymentState === 'reserved' && (
-                  <p className="text-xs text-amber-800 font-medium mt-1">Nenhum pagamento registrado</p>
-                )}
-                {paymentState === 'overdue' && (
-                  <>
-                    <div className={`text-lg font-bold ${sessionDebt > 100 ? 'text-red-600' : 'text-amber-600'}`}>
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sessionDebt)}
-                    </div>
-                    <p className="text-3xs text-gray-500 mt-0.5">sessões realizadas não pagas</p>
-                  </>
-                )}
-                {paymentState === 'partial' && (
-                  <>
-                    <div className="text-lg font-bold text-blue-600">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(particularPaid)}
-                    </div>
-                    <p className="text-3xs text-gray-500 mt-0.5">
-                      de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pack.totalValue || 0)}
-                    </p>
-                  </>
-                )}
-                {paymentState === 'unknown' && (
-                  <p className="text-3xs text-gray-400 mt-1">Carregando...</p>
-                )}
-              </div>
-            )
-          ) : (
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-gray-700">Sessões Pendentes</span>
-              </div>
-              <div className="text-lg font-bold text-blue-600">
-                {pack.totalSessions - completedSessions}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                de {pack.totalSessions} total
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Detalhes Financeiros */}
-        <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t border-gray-100">
-          <div className="space-y-1">
-            <span className="text-gray-500">Valor/Sessão</span>
-            <div className="font-medium text-gray-900">
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              }).format(pack.sessionValue)}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <span className="text-gray-500">Pago até agora</span>
-            <div className="font-medium text-emerald-600">
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              }).format(particularPaid > 0 ? particularPaid : (pack.totalPaid ?? 0))}
-            </div>
-          </div>
-        </div>
+        </dl>
 
         {/* Alertas Elegantes */}
         <div className="space-y-2">
           {sessionDebt < 0 && (
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-3 rounded-lg flex items-center gap-3">
+            <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex items-center gap-3">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <div className="flex-1">
                 <div className="text-sm font-medium text-green-800">Crédito Disponível</div>
@@ -976,7 +821,7 @@ export default function TherapyPackageCard({
 
             {/* Crédito (saldo negativo) */}
             {Number(pack?.balance) < 0 && (
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-3 rounded-lg flex items-center gap-3">
+              <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex items-center gap-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-green-800">Crédito Disponível</div>
@@ -1004,7 +849,7 @@ export default function TherapyPackageCard({
               if (extra <= 0) return null;
 
               return (
-                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-3 rounded-lg flex items-center gap-3">
+                <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-center gap-3">
                   <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                   <div className="flex-1">
                     <div className="text-sm font-medium text-amber-800">Sessões Extras</div>
@@ -1015,7 +860,7 @@ export default function TherapyPackageCard({
             })()}
 
             {paymentState === 'reserved' && (
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 p-3 rounded-lg flex items-start gap-3">
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-start gap-3">
                 <span className="text-base leading-none mt-0.5">⚠️</span>
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-amber-900">Pacote reservado — aguardando pagamento</div>
@@ -1031,7 +876,7 @@ export default function TherapyPackageCard({
              Number(pack.totalPaid || 0) === 0 &&
              pack.financialStatus !== 'paid_with_credit' &&
              pack.financialStatus !== 'paid' && (
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-3 rounded-lg flex items-center gap-3">
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-center gap-3">
                 <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-orange-800">Pagamento Pendente</div>
@@ -1042,26 +887,6 @@ export default function TherapyPackageCard({
           </div>
         </div>
 
-        {/* 🆕 Ação v2: quitar débitos do pacote (só aparece se houver dívida real) */}
-        {financialLoading ? (
-          <div className="w-full py-3 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 flex items-center justify-center gap-2 font-medium text-sm">
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
-            Carregando financeiro...
-          </div>
-        ) : (
-          (pack.type === 'therapy' || pack.type === 'terapia_ocupacional' || !pack.type) && Number(sessionDebt) > 0 ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowBalanceModal(true);
-              }}
-              className="w-full py-3 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-dashed border-emerald-300 rounded-xl text-emerald-700 hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 transition-all duration-quick flex items-center justify-center gap-2 font-medium text-sm"
-            >
-              <span>💚</span>
-              Quitar pendências
-            </button>
-          ) : null
-        )}
       </div>}
 
       {/* Ações: a principal muda conforme a situação do pacote */}
