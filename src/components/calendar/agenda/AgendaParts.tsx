@@ -78,13 +78,6 @@ export const AgendaHeader: React.FC<{
 
 export interface DoctorOption { id: string; label: string; fullName: string; count: number }
 
-const FilterRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-    <div className="flex min-w-0 items-center gap-2">
-        <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
-        <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1 [scrollbar-width:thin]">{children}</div>
-    </div>
-);
-
 export const AgendaFilterBar: React.FC<{
     filter: AgendaFilter;
     onChange: (f: AgendaFilter) => void;
@@ -99,42 +92,44 @@ export const AgendaFilterBar: React.FC<{
     const [legendOpen, setLegendOpen] = useState(false);
     const hasFilter = filter.doctor !== 'all' || filter.status !== 'all' || filter.type !== 'all';
     return (
-        <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
-            <div className="flex flex-col gap-2">
+        <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5">
+            <div className="flex flex-wrap items-center gap-2">
                 {doctorOptions && (
-                    <FilterRow label="Profissional">
-                        <Chip active={filter.doctor === 'all'} count={doctorTotal} onClick={() => onChange({ ...filter, doctor: 'all' })}>Todos</Chip>
-                        {doctorOptions.map(d => (
-                            <Chip key={d.id} active={filter.doctor === d.id} count={d.count} title={d.fullName}
-                                onClick={() => onChange({ ...filter, doctor: filter.doctor === d.id ? 'all' : d.id })}>{d.label}</Chip>
-                        ))}
-                    </FilterRow>
+                    <select
+                        aria-label="Profissional"
+                        value={filter.doctor}
+                        onChange={e => onChange({ ...filter, doctor: e.target.value })}
+                        className="min-h-10 max-w-[15rem] rounded-lg border border-gray-300 bg-white px-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                    >
+                        <option value="all">Todos os profissionais ({doctorTotal})</option>
+                        {doctorOptions.map(d => <option key={d.id} value={d.id}>{d.fullName} · {d.count}</option>)}
+                    </select>
                 )}
-                <FilterRow label="Status">
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Status">
                     <Chip active={filter.status === 'all'} count={statusTotal} onClick={() => onChange({ ...filter, status: 'all' })}>Todos</Chip>
                     {(['todo', 'done', 'missed', 'canceled', 'pre'] as StatusGroup[]).map(s => (
                         <Chip key={s} active={filter.status === s} count={statusCounts[s]} dot={STATUS_COLOR[s]}
                             onClick={() => onChange({ ...filter, status: filter.status === s ? 'all' : s })}>{STATUS_LABEL[s]}</Chip>
                     ))}
-                </FilterRow>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <FilterRow label="Tipo">
-                        <Chip active={filter.type === 'all'} count={typeTotal} onClick={() => onChange({ ...filter, type: 'all' })}>Todos</Chip>
-                        {(['particular', 'convenio', 'pacote', 'liminar'] as TypeGroup[]).map(t => (
-                            <Chip key={t} active={filter.type === t} count={typeCounts[t]} dot={TYPE_COLOR[t]}
-                                onClick={() => onChange({ ...filter, type: filter.type === t ? 'all' : t })}>{TYPE_LABEL[t]}</Chip>
-                        ))}
-                    </FilterRow>
-                    <div className="ml-auto flex items-center gap-2">
-                        {hasFilter && (
-                            <button type="button" onClick={() => onChange({ doctor: 'all', status: 'all', type: 'all' })}
-                                className="rounded-lg px-2 py-1 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100">Limpar filtros</button>
-                        )}
-                        <button type="button" onClick={() => setLegendOpen(o => !o)} aria-expanded={legendOpen}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
-                            <Info size={14} aria-hidden /> Legenda
-                        </button>
-                    </div>
+                </div>
+                <select
+                    aria-label="Tipo"
+                    value={filter.type}
+                    onChange={e => onChange({ ...filter, type: e.target.value as AgendaFilter['type'] })}
+                    className="min-h-10 rounded-lg border border-gray-300 bg-white px-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                >
+                    <option value="all">Todos os tipos ({typeTotal})</option>
+                    {(['particular', 'convenio', 'pacote', 'liminar'] as TypeGroup[]).map(t => <option key={t} value={t}>{TYPE_LABEL[t]} · {typeCounts[t]}</option>)}
+                </select>
+                <div className="ml-auto flex items-center gap-2">
+                    {hasFilter && (
+                        <button type="button" onClick={() => onChange({ doctor: 'all', status: 'all', type: 'all' })}
+                            className="rounded-lg px-2 py-1 text-[13px] font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100">Limpar filtros</button>
+                    )}
+                    <button type="button" onClick={() => setLegendOpen(o => !o)} aria-expanded={legendOpen}
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 text-[13px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
+                        <Info size={14} aria-hidden /> Legenda
+                    </button>
                 </div>
             </div>
             {legendOpen && <div className="mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">{legend}</div>}
@@ -155,7 +150,9 @@ export const MonthCell: React.FC<{
     appts.forEach(a => { c[statusGroupOf(a)]++; });
     const total = appts.length;
     const todo = c.todo + c.pre;
+    const unconfirmed = isPast && !isToday ? 0 : appts.filter(x => statusGroupOf(x) === 'todo' && String(x?.operationalStatus || x?.status || 'scheduled').toLowerCase() !== 'confirmed').length;
     const notes = [
+        unconfirmed > 0 && { text: `${unconfirmed} sem confirmar`, color: 'text-amber-700' },
         c.missed > 0 && { text: plural(c.missed, 'falta', 'faltas'), color: 'text-amber-700' },
         c.canceled > 0 && { text: plural(c.canceled, 'cancelada', 'canceladas'), color: 'text-red-600' },
     ].filter(Boolean) as { text: string; color: string }[];
