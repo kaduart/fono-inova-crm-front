@@ -1,13 +1,10 @@
-import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, Wallet, Ban } from 'lucide-react';
+import { PlusCircle, Save, Ban } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
 // (máscara agora em components/ui/MaskedInput)
 import { toast } from '../../utils/toast';
-import { buildLocalDateOnly } from '../../utils/dateFormat';
-import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';
+import { IDoctor, ISession, THERAPY_TYPES } from '../../utils/types/types';
 import { Modal } from '../ui/Modal';
-import { ModalHeader, ModalFooter, inputClass } from '../../pages/Financial/components/formKit';
+import { ModalHeader, ModalFooter, Field, ChoiceChips, inputClass } from '../../pages/Financial/components/formKit';
 import InputCurrency from '../ui/InputCurrency';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
@@ -63,14 +60,6 @@ export const SessionModal = ({
 
 
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        onSessionDataChange(prev => ({
-            ...prev,
-            [name]: type === 'number' ? Number(value) : value
-        }));
-    };
-
     const validateForm = () => {
         if (!sessionData.date) {
             toast.error("Data é obrigatória!");
@@ -100,22 +89,6 @@ export const SessionModal = ({
         onSubmit();
     };
 
-    // Calcula datas para os DatePickers
-    const selectedDate = (() => {
-        if (!sessionData.date) return null;
-        const d = buildLocalDateOnly(sessionData.date);
-        return isNaN(d.getTime()) ? null : d;
-    })();
-
-    const selectedTime = (() => {
-        if (!sessionData.time || !sessionData.time.includes(':')) return null;
-        const [hours, minutes] = sessionData.time.split(':').map(Number);
-        if (isNaN(hours) || isNaN(minutes)) return null;
-        const date = new Date();
-        date.setHours(hours, minutes, 0, 0);
-        return isNaN(date.getTime()) ? null : date;
-    })();
-
     return (
         <Modal
             open
@@ -134,286 +107,164 @@ export const SessionModal = ({
                     titleId="session-modal-title"
                 />
 
-                {/* Corpo do formulário */}
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                        {/* Coluna Esquerda - Informações Principais */}
-                        <div className="space-y-6">
-                            {/* Profissional */}
-                            <div className="rounded-2xl border border-gray-200 p-4">
-                                <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <User className="w-4 h-4 text-emerald-600" />
-                                    <span>Profissional *</span>
-                                </label>
-                                <Select
-                                    value={sessionData.doctorId || ''}
-                                    onChange={(e) => onSessionDataChange({ ...sessionData, doctorId: e.target.value })}
-                                    disabled={isCompletedLocked}
-                                    className={inputClass('emerald')}
-                                >
-                                    <option value="">Selecione um profissional</option>
-                                    {doctors.map((doctor) => (
-                                        <option key={doctor._id} value={doctor._id}>
-                                            {doctor.fullName}
-                                        </option>
-                                    ))}
-                                </Select>
-                            </div>
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+                    <Field label="Profissional" required>
+                        <Select
+                            value={sessionData.doctorId || ''}
+                            onChange={(e) => onSessionDataChange({ ...sessionData, doctorId: e.target.value })}
+                            disabled={isCompletedLocked}
+                            className={inputClass('emerald')}
+                        >
+                            <option value="">Selecione um profissional</option>
+                            {doctors.map((doctor) => (
+                                <option key={doctor._id} value={doctor._id}>{doctor.fullName}</option>
+                            ))}
+                        </Select>
+                    </Field>
 
-                            {/* Data e Hora */}
-                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
-                                    <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                        <Calendar className="w-4 h-4 text-blue-600" />
-                                        <span>Data *</span>
-                                    </label>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Data" required>
+                            <input
+                                type="date"
+                                value={sessionData.date ? String(sessionData.date).substring(0, 10) : ''}
+                                onChange={(e) => onSessionDataChange({ ...sessionData, date: e.target.value })}
+                                disabled={isCompletedLocked}
+                                className={inputClass('emerald')}
+                            />
+                        </Field>
+                        <Field label="Horário" required>
+                            <input
+                                type="time"
+                                step={900}
+                                value={sessionData.time || ''}
+                                onChange={(e) => onSessionDataChange({ ...sessionData, time: e.target.value })}
+                                disabled={isCompletedLocked}
+                                className={inputClass('emerald')}
+                            />
+                        </Field>
+                    </div>
+
+                    {isCompletedLocked && (
+                        <p className="-mt-2 flex items-center gap-1.5 text-xs text-gray-500">
+                            <Ban className="h-3.5 w-3.5 shrink-0" />
+                            Sessão concluída: data, horário e profissional não podem mais ser alterados.
+                        </p>
+                    )}
+
+                    <div>
+                        <span className="mb-1.5 block text-xs font-semibold text-gray-600">Situação</span>
+                        <ChoiceChips
+                            label="Situação"
+                            fill
+                            value={(sessionData.status || 'pending') as string}
+                            onChange={(v) => onSessionDataChange({ ...sessionData, status: v as ISession['status'] })}
+                            options={STATUS_OPTIONS}
+                        />
+                        {sessionData.sessionType && (
+                            <p className="mt-2 text-xs text-gray-500">
+                                Tipo de sessão: <span className="font-medium text-gray-700">{THERAPY_TYPES.find((t) => t.value === sessionData.sessionType)?.label || sessionData.sessionType}</span>
+                            </p>
+                        )}
+                    </div>
+
+                    {sessionData.status === 'canceled' && (
+                        <>
+                            <CancelRequesterPicker
+                                value={sessionData.cancelRequester ?? null}
+                                onChange={(v) => onSessionDataChange({ ...sessionData, cancelRequester: v })}
+                            />
+                            <div>
+                                <span className="mb-1.5 block text-xs font-semibold text-gray-600">Falta confirmada (o paciente avisou que não vem)</span>
+                                <ChoiceChips
+                                    label="Falta confirmada"
+                                    value={sessionData.confirmedAbsence === true ? 'sim' : sessionData.confirmedAbsence === false ? 'nao' : ''}
+                                    onChange={(v) => onSessionDataChange({ ...sessionData, confirmedAbsence: v === 'sim' })}
+                                    options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Valor pago">
+                            <InputCurrency
+                                name="paymentAmount"
+                                value={sessionData.paymentAmount || 0}
+                                onChange={(e) => onSessionDataChange({ ...sessionData, paymentAmount: Number(e.target.value) })}
+                                className={inputClass('emerald')}
+                            />
+                        </Field>
+                        <Field label="Forma de pagamento">
+                            <Select
+                                value={sessionData.paymentMethod || ''}
+                                onChange={(e) => onSessionDataChange({ ...sessionData, paymentMethod: e.target.value as typeof sessionData.paymentMethod })}
+                                className={inputClass('emerald')}
+                            >
+                                <option value="">Não registrado</option>
+                                <option value="dinheiro">Dinheiro</option>
+                                <option value="pix">PIX</option>
+                                <option value="cartão">Cartão</option>
+                            </Select>
+                        </Field>
+                    </div>
+
+                    {sessionData.status === 'completed' && (
+                        <div className="space-y-3 rounded-xl border border-gray-200 p-4">
+                            <label className="flex cursor-pointer items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={sessionData.professionalPaymentStatus === 'non_payable'}
+                                    onChange={(e) => {
+                                        const isNonPayable = e.target.checked;
+                                        onSessionDataChange({
+                                            ...sessionData,
+                                            professionalPaymentStatus: isNonPayable ? 'non_payable' : 'payable',
+                                            professionalPaymentOverride: isNonPayable
+                                                ? { excluded: true, reason: sessionData.professionalPaymentOverride?.reason || '' }
+                                                : { excluded: false, reason: '' }
+                                        });
+                                    }}
+                                    className="mt-1 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <div>
+                                    <span className="text-sm font-semibold text-gray-800">Não remunerar o profissional por esta sessão</span>
+                                    <p className="text-xs text-gray-500">A sessão continua faturada e recebida pela clínica, mas não gera comissão ao profissional.</p>
+                                </div>
+                            </label>
+                            {sessionData.professionalPaymentStatus === 'non_payable' && (
+                                <Field label="Motivo" required>
                                     <input
-                                        type="date"
-                                        value={sessionData.date || ''}
-                                        onChange={(e) => onSessionDataChange({ ...sessionData, date: e.target.value })}
-                                        disabled={isCompletedLocked}
-                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                        type="text"
+                                        value={sessionData.professionalPaymentOverride?.reason || ''}
+                                        onChange={(e) => onSessionDataChange({
+                                            ...sessionData,
+                                            professionalPaymentOverride: {
+                                                ...(sessionData.professionalPaymentOverride || { excluded: true }),
+                                                reason: e.target.value
+                                            }
+                                        })}
+                                        placeholder="Ex.: Paciente avisou com antecedência"
+                                        className={inputClass('emerald')}
                                     />
-                                </div>
-
-                                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-100">
-                                    <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-purple-600" />
-                                        <span>Hora *</span>
-                                    </label>
-                                    <DatePicker
-                                        selected={selectedTime}
-                                        onChange={(date: Date | null) => {
-                                            if (!date) return;
-                                            const formattedTime = date
-                                                .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
-                                            onSessionDataChange({ ...sessionData, time: formattedTime });
-                                        }}
-                                        showTimeSelect
-                                        showTimeSelectOnly
-                                        timeIntervals={15}
-                                        timeFormat="HH:mm"
-                                        dateFormat="HH:mm"
-                                        placeholderText="HH:MM"
-                                        disabled={isCompletedLocked}
-                                        className="w-full py-3 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                                    />
-                                </div>
-                            </div>
-
-                            {isCompletedLocked && (
-                                <p className="text-xs text-gray-500 -mt-2 flex items-center gap-1.5">
-                                    <Ban className="w-3.5 h-3.5 shrink-0" />
-                                    Sessão concluída: data, horário e profissional não podem mais ser alterados.
+                                </Field>
+                            )}
+                            {sessionData.professionalPaymentOverride?.excludedAt && (
+                                <p className="text-xs text-gray-500">
+                                    Última alteração: {new Date(sessionData.professionalPaymentOverride.excludedAt).toLocaleString('pt-BR')}
+                                    {sessionData.professionalPaymentOverride.reason ? ` — ${sessionData.professionalPaymentOverride.reason}` : ''}
                                 </p>
                             )}
-
-                            {/* Status e Tipo */}
-                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                    <label className="block mb-2 text-sm font-medium text-gray-700">Tipo de Sessão</label>
-                                    <Select
-                                        disabled={true}
-                                        value={sessionData.sessionType || ''}
-                                        onChange={(e) => onSessionDataChange({ ...sessionData, sessionType: e.target.value as TherapyType })}
-                                        className={inputClass('emerald')}
-                                    >
-                                        <option value="">Selecione</option>
-                                        {THERAPY_TYPES.map((type) => (
-                                            <option key={type.value} value={type.value}>
-                                                {type.label}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-
-                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                    <label className="block mb-2 text-sm font-medium text-gray-700">Status</label>
-                                    <Select
-                                        value={sessionData.status || 'pending'}
-                                        onChange={(e) => onSessionDataChange({ ...sessionData, status: e.target.value })}
-                                        className={inputClass('emerald')}
-                                    >
-                                        {STATUS_OPTIONS.map((status) => (
-                                            <option key={status.value} value={status.value}>
-                                                {status.label}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-                            </div>
                         </div>
+                    )}
 
-                        {/* Coluna Direita - Informações Financeiras e Observações */}
-                        <div className="space-y-6">
-                            {/* Informações Financeiras */}
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <DollarSign className="w-5 h-5 text-amber-600" />
-                                    Informações Financeiras
-                                </h3>
-                                
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block mb-2 text-sm font-medium text-gray-700">Valor Pago</label>
-                                        <InputCurrency
-                                            name='paymentAmount'
-                                            value={sessionData.paymentAmount || 0}
-                                            onChange={(e) => onSessionDataChange({ ...sessionData, paymentAmount: Number(e.target.value) })}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block mb-2 text-sm font-medium text-gray-700">
-                                            Método de Pagamento
-                                        </label>
-                                        <Select
-                                            value={sessionData.paymentMethod || ''}
-                                            onChange={(e) => onSessionDataChange({ ...sessionData, paymentMethod: e.target.value as typeof sessionData.paymentMethod })}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                                        >
-                                            <option value="">Não registrado</option>
-                                            <option value="dinheiro">Dinheiro</option>
-                                            <option value="pix">PIX</option>
-                                            <option value="cartão">Cartão</option>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Remuneração do Profissional */}
-                            {sessionData.status === 'completed' && (
-                                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-100">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                        <Wallet className="w-5 h-5 text-indigo-600" />
-                                        Remuneração do Profissional
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <label className="flex items-start cursor-pointer gap-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={sessionData.professionalPaymentStatus === 'non_payable'}
-                                                onChange={(e) => {
-                                                    const isNonPayable = e.target.checked;
-                                                    onSessionDataChange({
-                                                        ...sessionData,
-                                                        professionalPaymentStatus: isNonPayable ? 'non_payable' : 'payable',
-                                                        professionalPaymentOverride: isNonPayable
-                                                            ? { excluded: true, reason: sessionData.professionalPaymentOverride?.reason || '' }
-                                                            : { excluded: false, reason: '' }
-                                                    });
-                                                }}
-                                                className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded"
-                                            />
-                                            <div>
-                                                <span className="text-gray-700 font-medium">
-                                                    Não remunerar o profissional por esta sessão
-                                                </span>
-                                                <p className="text-sm text-gray-600">
-                                                    A sessão continua faturada e recebida pela clínica, mas não gera comissão ao profissional.
-                                                </p>
-                                            </div>
-                                        </label>
-
-                                        {sessionData.professionalPaymentStatus === 'non_payable' && (
-                                            <div>
-                                                <label className="block mb-2 text-sm font-medium text-gray-700">
-                                                    Motivo *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={sessionData.professionalPaymentOverride?.reason || ''}
-                                                    onChange={(e) => onSessionDataChange({
-                                                        ...sessionData,
-                                                        professionalPaymentOverride: {
-                                                            ...(sessionData.professionalPaymentOverride || { excluded: true }),
-                                                            reason: e.target.value
-                                                        }
-                                                    })}
-                                                    placeholder="Ex: Paciente avisou com antecedência"
-                                                    className="w-full py-3 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {sessionData.professionalPaymentOverride?.excludedAt && (
-                                            <p className="text-xs text-gray-500">
-                                                Última alteração: {new Date(sessionData.professionalPaymentOverride.excludedAt).toLocaleString('pt-BR')}
-                                                {sessionData.professionalPaymentOverride.reason ? ` — ${sessionData.professionalPaymentOverride.reason}` : ''}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Quem solicitou o cancelamento — obrigatório (relatório de compromisso) */}
-                            {sessionData.status === 'canceled' && (
-                                <CancelRequesterPicker
-                                    value={sessionData.cancelRequester ?? null}
-                                    onChange={(v) => onSessionDataChange({ ...sessionData, cancelRequester: v })}
-                                />
-                            )}
-
-                            {/* Falta Confirmada */}
-                            {sessionData.status === 'canceled' && (
-                                <div className="bg-gradient-to-br from-red-50 to-pink-50 p-4 rounded-xl border border-red-100">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                        <UserX className="w-5 h-5 text-red-600" />
-                                        Falta Confirmada
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center space-x-4">
-                                            <label className="flex items-center cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="confirmedAbsence"
-                                                    checked={sessionData.confirmedAbsence === true}
-                                                    onChange={() => onSessionDataChange({
-                                                        ...sessionData,
-                                                        confirmedAbsence: true
-                                                    })}
-                                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
-                                                />
-                                                <span className="ml-2 text-gray-700 font-medium">Sim</span>
-                                            </label>
-
-                                            <label className="flex items-center cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="confirmedAbsence"
-                                                    checked={sessionData.confirmedAbsence === false}
-                                                    onChange={() => onSessionDataChange({
-                                                        ...sessionData,
-                                                        confirmedAbsence: false
-                                                    })}
-                                                    className="h-4 w-4 text-red-600 focus:ring-red-500"
-                                                />
-                                                <span className="ml-2 text-gray-700 font-medium">Não</span>
-                                            </label>
-                                        </div>
-                                        <p className="text-sm text-gray-600">
-                                            Marque como "Sim" quando o paciente confirmou que não comparecerá à sessão.
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Observações */}
-                            <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-xl border border-gray-200">
-                                <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-blue-600" />
-                                    Observações
-                                </label>
-                                <Textarea
-                                    value={sessionData.notes || ''}
-                                    onChange={(e) => onSessionDataChange({ ...sessionData, notes: e.target.value })}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[120px] bg-white"
-                                    placeholder="Detalhes relevantes sobre a sessão, observações do profissional, ou qualquer informação adicional..."
-                                />
-                            </div>
-                        </div>
-                    </div>
+                    <Field label="Observações">
+                        <Textarea
+                            value={sessionData.notes || ''}
+                            onChange={(e) => onSessionDataChange({ ...sessionData, notes: e.target.value })}
+                            className={`${inputClass('emerald')} min-h-[88px] resize-none`}
+                            placeholder="Detalhes da sessão ou do atendimento"
+                        />
+                    </Field>
                 </div>
 
                 <ModalFooter
