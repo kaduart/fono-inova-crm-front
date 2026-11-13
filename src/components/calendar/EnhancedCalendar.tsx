@@ -448,35 +448,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [dayLayout, setDayLayoutState] = useState<'pro' | 'single'>(() => (loadPref('agenda.dayLayout', 'pro') === 'single' ? 'single' : 'pro'));
     const setDayLayout = (v: 'pro' | 'single') => { setDayLayoutState(v); savePref('agenda.dayLayout', v); };
 
-    // Vagas livres por dia (admin): horário disponível do profissional naquele dia da semana, menos o que já
-    // está marcado (cancelado libera). Só conta quem tem disponibilidade cadastrada; dias passados ficam de fora.
-    const freeByDay = useMemo(() => {
-        const out: Record<string, number> = {};
-        if (!isAdminMode || !currentViewDate || !/^\d{4}-\d{2}$/.test(currentViewDate)) return out;
-        const WEEKDAY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const [y, m] = currentViewDate.split('-').map(Number);
-        const last = new Date(y, m, 0).getDate();
-        const todayKey = ymdSP(new Date());
-        const booked = new Set<string>();
-        (appointments || []).forEach((a: any) => {
-            if (statusGroupOf(a) === 'canceled') return;
-            booked.add(`${doctorIdOf(a)}|${ymdOf(a)}|${String(a?.time || '').slice(0, 5)}`);
-        });
-        const docs = (doctors as any[] || []).filter(d => d?.active !== false && (agendaFilter.doctor === 'all' || String(d._id || d.id) === agendaFilter.doctor));
-        for (let day = 1; day <= last; day++) {
-            const ymd = `${currentViewDate}-${String(day).padStart(2, '0')}`;
-            if (ymd < todayKey || isHolidayUtil(ymd, holidays)) continue;
-            const wd = WEEKDAY[new Date(y, m - 1, day).getDay()];
-            let free = 0;
-            docs.forEach(d => {
-                const id = String(d._id || d.id);
-                const times: string[] = (d.weeklyAvailability || []).find((w: any) => w.day === wd)?.times || [];
-                times.forEach(t => { if (!booked.has(`${id}|${ymd}|${String(t).slice(0, 5)}`)) free++; });
-            });
-            if (free > 0) out[ymd] = free;
-        }
-        return out;
-    }, [isAdminMode, currentViewDate, appointments, doctors, agendaFilter.doctor, holidays]);
 
     // Contagens do mês em tela para os chips (cada grupo conta com os outros dois filtros aplicados)
     const agendaCounts = useMemo(() => {
@@ -523,6 +494,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
+
+    // Vagas livres por dia (admin): horário disponível do profissional naquele dia da semana, menos o que já
+    // está marcado (cancelado libera). Só conta quem tem disponibilidade cadastrada; dias passados ficam de fora.
+    const freeByDay = useMemo(() => {
+        const out: Record<string, number> = {};
+        if (!isAdminMode || !currentViewDate || !/^\d{4}-\d{2}$/.test(currentViewDate)) return out;
+        const WEEKDAY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const [y, m] = currentViewDate.split('-').map(Number);
+        const last = new Date(y, m, 0).getDate();
+        const todayKey = ymdSP(new Date());
+        const booked = new Set<string>();
+        (appointments || []).forEach((a: any) => {
+            if (statusGroupOf(a) === 'canceled') return;
+            booked.add(`${doctorIdOf(a)}|${ymdOf(a)}|${String(a?.time || '').slice(0, 5)}`);
+        });
+        const docs = (doctors as any[] || []).filter(d => d?.active !== false && (agendaFilter.doctor === 'all' || String(d._id || d.id) === agendaFilter.doctor));
+        for (let day = 1; day <= last; day++) {
+            const ymd = `${currentViewDate}-${String(day).padStart(2, '0')}`;
+            if (ymd < todayKey || isHolidayUtil(ymd, holidays)) continue;
+            const wd = WEEKDAY[new Date(y, m - 1, day).getDay()];
+            let free = 0;
+            docs.forEach(d => {
+                const id = String(d._id || d.id);
+                const times: string[] = (d.weeklyAvailability || []).find((w: any) => w.day === wd)?.times || [];
+                times.forEach(t => { if (!booked.has(`${id}|${ymd}|${String(t).slice(0, 5)}`)) free++; });
+            });
+            if (free > 0) out[ymd] = free;
+        }
+        return out;
+    }, [isAdminMode, currentViewDate, appointments, doctors, agendaFilter.doctor, holidays]);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     // 🆕 Popup do dia com delay (dá tempo de arrastar mouse para dentro)
