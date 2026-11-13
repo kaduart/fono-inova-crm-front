@@ -49,7 +49,7 @@ export default function CashflowDrawer({ content, onClose }: { content: DrawerCo
         <aside role="dialog" aria-modal="true" aria-label={content.title} className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white shadow-2xl dark:bg-gray-900">
             <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                 <div className="min-w-0">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">{content.title}</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{content.title}</h3>
                     {content.total !== undefined && <p className={`text-2xl font-bold tabular-nums ${tone}`}>{money(content.total)}</p>}
                     {content.subtitle && <p className="text-xs text-gray-600 dark:text-gray-300">{content.subtitle}</p>}
                 </div>

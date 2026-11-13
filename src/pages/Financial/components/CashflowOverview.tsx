@@ -74,7 +74,7 @@ export default function CashflowOverview(p: Props) {
         onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onMetric!(key); } },
     } : {};
     const cellCls = `min-w-0 border-gray-200 px-4 py-4 dark:border-gray-700 ${p.onMetric ? 'group cursor-pointer hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 dark:hover:bg-gray-800' : ''}`;
-    const label = 'text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300';
+    const label = 'text-xs font-medium text-gray-600 dark:text-gray-300';
     const more = (text: string) => p.onMetric ? <dd className="mt-1.5 text-xs font-semibold text-emerald-700 group-hover:underline dark:text-emerald-300">{text} ›</dd> : null;
     // Do previsto ao caixa: só soma números que o banco já devolve; o resto é "sem explicação".
     const entrou = Math.min(caixa, previsto);
