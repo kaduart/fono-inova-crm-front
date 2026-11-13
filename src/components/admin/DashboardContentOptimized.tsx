@@ -1,3 +1,4 @@
+import { FadeIn } from '../ui/FadeIn';
 import {
     CalendarCheck, CalendarPlus, CalendarX, Cake, CalendarClock, ChevronDown, ChevronRight, ClipboardCheck,
     Clock, FileClock, MessageCircle, TrendingDown, AlertTriangle, Package, UserMinus, Wallet, LineChart, PieChart, RefreshCw, Stethoscope, UserPlus, Users, X
@@ -989,7 +990,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                         </p>
                     </div>
                 </div>
-                {aniversariantesLoading && !aniversariantes.length ? <BirthdayCardSkeleton /> : <BirthdayList key={aniversariantes.length} patients={aniversariantes} onSent={handleBirthdayMessageSent} />}
+                {aniversariantesLoading && !aniversariantes.length ? <BirthdayCardSkeleton /> : <FadeIn key={aniversariantes.length}><BirthdayList patients={aniversariantes} onSent={handleBirthdayMessageSent} /></FadeIn>}
             </section>
 
             {/* 4. Panorama: agenda de hoje, próximas, gráficos, origem/especialidade e evasão em abas.

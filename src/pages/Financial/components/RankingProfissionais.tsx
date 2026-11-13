@@ -1,4 +1,5 @@
 // frontend/src/pages/Financial/components/RankingProfissionais.tsx
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useMemo, useState } from 'react';
 import { Box, Typography, Avatar, LinearProgress, Chip } from '@mui/material';
 import { useDoctorsAnalytics } from '../../../hooks/useSpecialtiesAnalytics';
@@ -183,7 +184,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
   ];
 
   return (
-    <Box>
+    <FadeIn><Box>
       <DashboardSection
         title={title}
         subtitle={subtitle}
@@ -353,6 +354,6 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({
           onSuccess={onAdvanceRegistered}
         />
       )}
-    </Box>
+    </Box></FadeIn>
   );
 };
