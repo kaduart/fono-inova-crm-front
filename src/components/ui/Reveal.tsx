@@ -19,10 +19,10 @@ export function Reveal({ loading, skeleton, children, className }: RevealProps) 
     <div className={className}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={loading ? 'sk' : 'ct'}
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={reduce ? false : { opacity: 0, filter: 'blur(2px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)' }}
           exit={{ opacity: 0 }}
-          transition={{ duration: reduce ? 0 : loading ? motionDuration.quick : motionDuration.slow, ease: motionEase.smoothOut }}>
+          transition={{ duration: reduce ? 0 : loading ? motionDuration.quick : motionDuration.slow, ease: motionEase.inOut }}>
           {loading ? skeleton : children}
         </motion.div>
       </AnimatePresence>

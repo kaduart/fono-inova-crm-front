@@ -6,8 +6,8 @@ import { motionDuration, motionEase } from '../../design/motion';
 export function FadeIn({ children, className }: { children: ReactNode; className?: string }) {
   const reduce = useReducedMotion();
   return (
-    <motion.div className={className} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }}
-      transition={{ duration: reduce ? 0 : motionDuration.slow, ease: motionEase.smoothOut }}>
+    <motion.div className={className} initial={reduce ? false : { opacity: 0, filter: 'blur(2px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }}
+      transition={{ duration: reduce ? 0 : motionDuration.slow, ease: motionEase.inOut }}>
       {children}
     </motion.div>
   );
