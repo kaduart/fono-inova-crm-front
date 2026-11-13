@@ -305,7 +305,7 @@ const TONE: Record<NeedItem['tone'], { tile: string; icon: string; num: string; 
     info: { tile: 'bg-blue-50/70 ring-blue-100 dark:bg-blue-500/[0.07] dark:ring-blue-500/20', icon: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300', num: 'text-blue-700 dark:text-blue-300', btn: 'bg-white text-blue-700 ring-blue-200 hover:bg-blue-600 hover:text-white dark:bg-gray-900 dark:text-blue-300 dark:ring-blue-500/30 dark:hover:bg-blue-500 dark:hover:text-gray-950' },
     pink: { tile: 'bg-pink-50/70 ring-pink-100 dark:bg-pink-500/[0.07] dark:ring-pink-500/20', icon: 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-300', num: 'text-pink-700 dark:text-pink-300', btn: 'bg-white text-pink-700 ring-pink-200 hover:bg-pink-600 hover:text-white dark:bg-gray-900 dark:text-pink-300 dark:ring-pink-500/30 dark:hover:bg-pink-500 dark:hover:text-gray-950' },
 };
-const NEED_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
+const NEED_ICON: Record<string, React.ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>> = {
     evaluation: ClipboardCheck, nextDay: CalendarCheck, pre: CalendarPlus, lateEvo: FileClock, pay: Wallet,
     leads: MessageCircle, renewal: Package, churn: UserMinus, reactivation: CalendarX, bday: Cake,
 };
