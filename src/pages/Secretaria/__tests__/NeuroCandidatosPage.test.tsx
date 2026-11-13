@@ -49,13 +49,14 @@ beforeEach(() => {
 });
 
 describe('buildNeuroOfferMessage', () => {
-  it('explica o valor, diz que é particular, não fala preço, convênio nem diagnóstico', () => {
+  it('explica o benefício antes do preço, diz que é particular, sem convênio nem diagnóstico', () => {
     const msg = buildNeuroOfferMessage({ fullName: 'Ana Souza', legalGuardian: 'Carla Souza' });
     expect(msg).toContain('Oi, Carla!');
     expect(msg).toContain('Ana');
     expect(msg).toMatch(/laudo/);
     expect(msg).toMatch(/particular/);
-    expect(msg).not.toMatch(/R\$|\d{3}/);
+    expect(msg).toContain('R$ 500');
+    expect(msg.indexOf('laudo')).toBeLessThan(msg.indexOf('R$ 500'));
     expect(msg).not.toMatch(/convênio|GEAP|Base Aérea|autis|TEA|TDAH/i);
     expect(msg.match(/💚/g)).toHaveLength(1);
   });

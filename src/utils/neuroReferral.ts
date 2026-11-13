@@ -3,6 +3,9 @@
 // profissionais; não afirmar diagnóstico ("seu filho tem autismo") — quem avalia é o neuropediatra.
 import type { NeuroReferral, NeuroReferralPatient, NeuroReferralReason, NeuroReferralStatus } from '../services/neuroReferralService';
 
+// Preço da consulta confirmado pelo Kadu em 13/11/2026 (bate com o produto do Perfil Google).
+export const NEURO_CONSULT_PRICE = 'R$ 500';
+
 export const NEURO_STATUS_META: Record<NeuroReferralStatus, { label: string; color: 'default' | 'warning' | 'info' | 'primary' | 'success' | 'error' }> = {
   a_confirmar: { label: 'A confirmar (terapeuta)', color: 'warning' },
   indicado: { label: 'Oferecer', color: 'primary' },
@@ -37,14 +40,14 @@ export const patientOf = (r: NeuroReferral): NeuroReferralPatient | null =>
 
 const firstName = (name?: string | null) => (name || '').trim().split(/\s+/)[0] || '';
 
-/** Mensagem para a família (WhatsApp). Sem preço: a recepção informa o valor depois de explicar o benefício. */
+/** Mensagem para a família (WhatsApp): primeiro o benefício, depois o preço (consulta só particular). */
 export const buildNeuroOfferMessage = (patient: Pick<NeuroReferralPatient, 'fullName' | 'legalGuardian'>): string => {
   const guardian = firstName(patient.legalGuardian);
   const child = firstName(patient.fullName);
   return [
     `Oi${guardian ? `, ${guardian}` : ''}! Aqui é da Clínica Fono Inova.`,
     `A equipe que acompanha ${child || 'seu filho(a)'} sugeriu uma consulta com o neuropediatra: ele avalia o desenvolvimento como um todo e, quando indicado, emite o laudo, que ajuda nos direitos na escola e a direcionar a terapia.`,
-    'A consulta é particular. Posso te mandar o valor e os horários disponíveis? 💚',
+    `A consulta é particular, no valor de ${NEURO_CONSULT_PRICE}. Posso te mandar os horários disponíveis? 💚`,
   ].join(' ');
 };
 
