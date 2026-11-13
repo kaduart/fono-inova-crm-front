@@ -101,7 +101,7 @@ export const ModalFooter = ({
       type="button"
       onClick={onCancel}
       disabled={submitting}
-      className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-60 transition-colors"
+      className="min-h-11 px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-60 transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
     >
       Cancelar
     </button>
@@ -109,7 +109,7 @@ export const ModalFooter = ({
       type="button"
       onClick={onSubmit}
       disabled={submitting || submitDisabled}
-      className={`px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ${PRIMARY_BTN[accent]}`}
+      className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-quick flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${PRIMARY_BTN[accent]}`}
     >
       {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
       <MotionText>{submitting ? submittingLabel : submitLabel}</MotionText>
