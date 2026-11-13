@@ -1486,18 +1486,18 @@ const GuidePendingBillingSection = ({
                     const grandPats  = new Set(guides.map(g => g.patient?.fullName)).size;
                     return (
                         <Card elevation={0} sx={{ border: '1px solid var(--fx-slate-200)', borderRadius: 2.5, overflowX: 'auto', mb: 0.5, boxShadow: '0 1px 2px rgba(15,23,42,0.03)' }}>
-                            <Box sx={{ px: 2.5, py: 1.1, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'var(--fx-white)', borderBottom: '1px solid var(--fx-slate-100)' }}>
+                            <Box sx={{ px: 2.5, py: 1.1, minWidth: { xs: 0, lg: 700, xl: 1080 }, bgcolor: 'var(--fx-white)', borderBottom: '1px solid var(--fx-slate-100)' }}>
                                 <Typography fontSize="0.8rem" fontWeight={700} color="var(--fx-slate-700)">
                                     Convênios <Box component="span" sx={{ color: 'var(--fx-slate-400)', fontWeight: 500 }}>· clique em uma linha para ver pacientes e guias</Box>
                                 </Typography>
                             </Box>
                             {/* Header */}
-                            <Box sx={{ px: 2.5, py: 1.15, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ px: 2.5, py: 1.15, minWidth: { xs: 0, lg: 700, xl: 1080 }, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
                                 {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, minWidth: 200, pr: 2 }}>Convênio</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', lg: 'block' }, width: 180 }}>Regra da guia</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', xl: 'block' }, width: 180 }}>Regra da guia</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', md: 'block' }, width: 130 }}>Mais antiga</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', lg: 'block' }, width: 220 }}>Prazo de envio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', xl: 'block' }, width: 220 }}>Prazo de envio</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>Pacientes</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>Guias</Typography>
                                 <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center' }}>Sessões</Typography>
@@ -1545,7 +1545,7 @@ const GuidePendingBillingSection = ({
                                                 }
                                             }}
                                             sx={{
-                                                px: 2.5, py: 1.35, minWidth: { xs: 0, lg: 1080 },
+                                                px: 2.5, py: 1.35, minWidth: { xs: 0, lg: 700, xl: 1080 },
                                                 display: 'flex', alignItems: 'center',
                                                 borderBottom: '1px solid var(--fx-slate-100)',
                                                 borderLeft: `3px solid ${isExpanded ? rowAccent : 'transparent'}`,
@@ -1573,7 +1573,7 @@ const GuidePendingBillingSection = ({
                                                 <Typography fontWeight="700" fontSize="0.87rem" color="var(--fx-slate-900)">{formatProviderName(provider)}</Typography>
                                                 <BillingModeBadge mode={providerMode} />
                                             </Box>
-                                            <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 180, pr: 2 }}>
+                                            <Box sx={{ display: { xs: 'none', xl: 'block' }, width: 180, pr: 2 }}>
                                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1, py: 0.45, borderRadius: 999, bgcolor: providerConvenio ? 'var(--fx-blue-50)' : 'var(--fx-slate-50)' }}>
                                                     <Typography fontSize="0.7rem" fontWeight={700} color={providerConvenio ? 'var(--fx-blue-700)' : 'var(--fx-slate-500)'} noWrap>
                                                         {guideRule}
@@ -1587,7 +1587,7 @@ const GuidePendingBillingSection = ({
                                                     </Typography>
                                                 ) : <Typography fontSize="0.78rem" color="var(--fx-slate-500)">—</Typography>}
                                             </Box>
-                                            <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 220, pr: 2 }}>
+                                            <Box sx={{ display: { xs: 'none', xl: 'block' }, width: 220, pr: 2 }}>
                                                 {hasDeadline ? (
                                                     <Box sx={{ display: 'inline-flex', alignItems: 'center', px: 1.1, py: 0.55, borderRadius: 1.5, bgcolor: 'var(--fx-orange-50)', border: '1px solid var(--fx-orange-200)' }}>
                                                         <Typography fontSize="0.72rem" fontWeight={700} color="var(--fx-orange-800)" noWrap>{submissionHint}</Typography>
@@ -1634,7 +1634,7 @@ const GuidePendingBillingSection = ({
                                         <Collapse in={isExpanded}>
                                             {/* Faixa de pacientes: fundo próprio + cartão recuado com barra na cor do convênio,
                                                 para não parecer uma continuação da linha do convênio. */}
-                                            <Box sx={{ bgcolor: 'var(--fx-slate-100)', px: 2.5, pt: 1, pb: 1.5, minWidth: { xs: 0, lg: 1080 }, borderBottom: idx < sortedProviders.length - 1 ? '1px solid var(--fx-slate-200)' : 'none' }}>
+                                            <Box sx={{ bgcolor: 'var(--fx-slate-100)', px: 2.5, pt: 1, pb: 1.5, minWidth: { xs: 0, lg: 700, xl: 1080 }, borderBottom: idx < sortedProviders.length - 1 ? '1px solid var(--fx-slate-200)' : 'none' }}>
                                             <Box sx={{ ml: { xs: 0, sm: 4.5 }, bgcolor: 'var(--fx-white)', border: '1px solid var(--fx-slate-200)', borderLeft: `3px solid ${rowAccent}`, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                                                 <Box sx={{ px: 2, py: 0.8, display: 'flex', alignItems: 'center', bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)' }}>
                                                     {!readOnly && <Box sx={{ width: 38, flexShrink: 0 }} />}
@@ -1690,12 +1690,12 @@ const GuidePendingBillingSection = ({
 
                             {/* Rodapé total */}
                             {sortedProviders.length > 1 && (
-                                <Box sx={{ px: 2.5, py: 1.45, minWidth: { xs: 0, lg: 1080 }, display: 'flex', alignItems: 'center', bgcolor: 'var(--fx-slate-50)', borderTop: '1px solid var(--fx-slate-300)' }}>
+                                <Box sx={{ px: 2.5, py: 1.45, minWidth: { xs: 0, lg: 700, xl: 1080 }, display: 'flex', alignItems: 'center', bgcolor: 'var(--fx-slate-50)', borderTop: '1px solid var(--fx-slate-300)' }}>
                                     {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
                                     <Typography fontSize="0.8rem" fontWeight={700} color="var(--fx-slate-600)" sx={{ flex: 1 }}>Total</Typography>
-                                    <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 180 }} />
+                                    <Box sx={{ display: { xs: 'none', xl: 'block' }, width: 180 }} />
                                     <Box sx={{ display: { xs: 'none', md: 'block' }, width: 130 }} />
-                                    <Box sx={{ display: { xs: 'none', lg: 'block' }, width: 220 }} />
+                                    <Box sx={{ display: { xs: 'none', xl: 'block' }, width: 220 }} />
                                     <Typography fontSize="0.83rem" fontWeight={600} color="var(--fx-slate-600)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>{grandPats}</Typography>
                                     <Typography fontSize="0.83rem" fontWeight={600} color="var(--fx-slate-600)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>{allFlat.length}</Typography>
                                     <Box sx={{ width: 72, display: 'flex', justifyContent: 'center' }}>
