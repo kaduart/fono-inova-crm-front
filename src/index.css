@@ -147,3 +147,14 @@ code {
   }
 }
 @keyframes tooltip-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Modais antigos (fundo escuro fixo): entrada padrão sem mexer em cada arquivo.
+   Fundo faz fade (250ms) e o painel sobe de escala 0,96 → 1. A saída tem animação só nos modais que usam <Modal>. */
+@keyframes modal-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-panel-in { from { opacity: 0; transform: scale(var(--motion-scale-modal, 0.96)); } to { opacity: 1; transform: none; } }
+.fixed.inset-0[class*="bg-black"], .fixed.inset-0[class*="bg-slate-9"], .fixed.inset-0[class*="bg-gray-9"] {
+  animation: modal-overlay-in var(--motion-duration-fast, 250ms) var(--motion-ease-smooth-out, cubic-bezier(.22,1,.36,1));
+}
+.fixed.inset-0[class*="bg-black"] > [class*="max-w-"], .fixed.inset-0[class*="bg-slate-9"] > [class*="max-w-"], .fixed.inset-0[class*="bg-gray-9"] > [class*="max-w-"] {
+  animation: modal-panel-in var(--motion-duration-fast, 250ms) var(--motion-ease-smooth-out, cubic-bezier(.22,1,.36,1));
+}
