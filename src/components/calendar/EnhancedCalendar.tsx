@@ -19,7 +19,7 @@ import RescheduleDialog, { RescheduleTarget } from './RescheduleDialog';
 import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
 import { weeklyAvailabilityService } from '../../services/weeklyAvailabilityService';
-import { AgendaFilterBar, AgendaHeader, DayAgendaModal, DayByProfessional, DayPreviewList, DoctorOption, MonthCell } from './agenda/AgendaParts';
+import { AgendaFilterBar, AgendaHeader, DayAgendaModal, DayByProfessional, DayPreviewList, DaySlots, DoctorOption, MonthCell } from './agenda/AgendaParts';
 import {
     AgendaFilter, StatusGroup, TypeGroup, doctorIdOf, doctorNameOf, loadFilter, loadPref, matchesFilter, monthTitle,
     prettifyCode, saveFilter, savePref, statusGroupOf, typeGroupOf, ymdOf,
@@ -498,7 +498,6 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // Vagas livres do mês (admin): vêm do mesmo serviço da disponibilidade semanal (uma chamada por área),
     // então já descontam o que está agendado. Guardamos por dia → profissionais com horários livres.
-    type DaySlots = { professionalId: string; name: string; specialty: string; times: string[] };
     const [slotsByDay, setSlotsByDay] = useState<Record<string, DaySlots[]>>({});
     const specialtiesKey = useMemo(() => [...new Set((doctors as any[] || []).filter(d => d?.active !== false && d?.specialty).map(d => String(d.specialty)))].sort().join('|'), [doctors]);
     useEffect(() => {
@@ -2933,7 +2932,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {!isAdminMode && '📅 '}{new Date(activePopup.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </div>
                     {isAdminMode ? (
-                        <DayPreviewList appts={activePopup.dayAppts} convenioName={convenioName} showMoney={permissions.canSeeFinancial}
+                        <DayPreviewList appts={activePopup.dayAppts} freeCount={freeByDay[activePopup.dateStr] || 0} convenioName={convenioName} showMoney={permissions.canSeeFinancial}
                             onOpen={(appt) => { clearHoverTimeout(); setHoveredDay(null); setActivePopup(null); openAppointmentDetail(appt); }} />
                     ) : [...activePopup.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
                         <AppointmentEventCard
@@ -2977,9 +2976,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     convenioName={convenioName}
                     showMoney={permissions.canSeeFinancial}
                     freeSlots={{
-                        doctors: doctors as any,
-                        doctorFilter: agendaFilter.doctor,
-                        fetchSlots: onFetchAvailableSlots,
+                        slots: (slotsByDay[dayModalData.dateStr] || []).filter(pr => agendaFilter.doctor === 'all' || pr.professionalId === agendaFilter.doctor),
                         onSlot: permissions.canCreate ? (sl) => {
                             const d = dayModalData.dateStr;
                             setDayModalOpen(false);
