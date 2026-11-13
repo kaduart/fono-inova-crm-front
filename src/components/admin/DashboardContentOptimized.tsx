@@ -285,7 +285,7 @@ const Section = memo<SectionProps>(({ id, title, isOpen, onToggle, children, ico
             {!isOpen && note}
             <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400">
                 {isOpen ? 'Recolher' : 'Mostrar'}
-                <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
+                <ChevronDown size={16} className={`transition-transform duration-quick ${isOpen ? 'rotate-180' : ''}`} aria-hidden />
             </span>
         </button>
         {isOpen && <div className="border-t border-gray-100 px-4 pb-4 pt-3 sm:px-5 dark:border-gray-800">{children}</div>}

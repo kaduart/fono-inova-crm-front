@@ -54,7 +54,7 @@ export const SessionListItem = ({
 
     return (
         <li 
-            className={`relative p-4 mb-3 rounded-xl border-2 transition-all duration-300 group cursor-pointer
+            className={`relative p-4 mb-3 rounded-xl border-2 transition-all duration-fast group cursor-pointer
                 ${getCardStyle(session.status, isOverdue, isToday)}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -129,7 +129,7 @@ export const SessionListItem = ({
                 </div>
 
                 {/* Menu de ações */}
-                <div className={`flex items-center gap-1 transition-all duration-300 ${
+                <div className={`flex items-center gap-1 transition-all duration-fast ${
                     isHovered ? 'opacity-100' : 'opacity-0'
                 }`}>
                     <button
@@ -137,7 +137,7 @@ export const SessionListItem = ({
                             e.stopPropagation();
                             onEdit(session);
                         }}
-                        className="p-2 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all duration-200 shadow-sm"
+                        className="p-2 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all duration-quick shadow-sm"
                         title="Editar sessão"
                     >
                         <Edit className="w-4 h-4" />
@@ -149,7 +149,7 @@ export const SessionListItem = ({
                                 e.stopPropagation();
                                 onUse(session);
                             }}
-                            className="p-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all duration-200 shadow-sm"
+                            className="p-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg hover:from-emerald-600 hover:to-green-600 transition-all duration-quick shadow-sm"
                             title="Usar sessão"
                         >
                             <Sparkles className="w-4 h-4" />

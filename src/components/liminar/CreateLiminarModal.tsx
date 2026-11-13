@@ -50,7 +50,7 @@ export default function CreateLiminarModal({ patientId, doctors, onClose, onCrea
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-quick">
         {/* Header gradiente refinado */}
         <div className="bg-gradient-to-r from-amber-600 to-orange-500 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -151,7 +151,7 @@ export default function CreateLiminarModal({ patientId, doctors, onClose, onCrea
             <button
               type="submit"
               disabled={!isValid || loading}
-              className={`flex-1 py-2.5 rounded-xl font-semibold text-white transition-all duration-200 ${
+              className={`flex-1 py-2.5 rounded-xl font-semibold text-white transition-all duration-quick ${
                 isValid && !loading
                   ? 'bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
                   : 'bg-gray-300 cursor-not-allowed'

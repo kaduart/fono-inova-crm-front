@@ -1118,7 +1118,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="therapy-package-modal-title"
-                className={`bg-white rounded-2xl shadow-2xl w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-[max-width] duration-200 motion-reduce:transition-none flex flex-col`}
+                className={`bg-white rounded-2xl shadow-2xl w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-[max-width] duration-quick motion-reduce:transition-none flex flex-col`}
             >
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-4 py-3.5 sm:px-5 sm:py-4 text-white relative flex-shrink-0">
@@ -2164,7 +2164,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         <Button
                             onClick={onClose}
                             variant="outline"
-                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
+                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
                         >
                             Cancelar
                         </Button>
@@ -2179,7 +2179,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         <Button
                             onClick={handleSave}
                             disabled={!canSubmitForm || isLoading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!canSubmitForm || isLoading
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-quick ${!canSubmitForm || isLoading
                                 ? 'bg-gray-400 cursor-not-allowed text-white'
                                 : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
                                 }`}

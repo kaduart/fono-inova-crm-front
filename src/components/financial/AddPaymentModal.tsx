@@ -65,7 +65,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transition-all duration-300">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transition-all duration-fast">
                 {/* Header com Gradiente */}
                 <div className="bg-gradient-to-r from-green-600 to-emerald-700 p-6 text-white relative">
                     <button
@@ -99,7 +99,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">R$</span>
                             <InputCurrency
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick"
                                 value={amount}
                                 onChange={(e) => setAmount(Number(e.target.value))}
                                 placeholder="0,00"
@@ -167,7 +167,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                             Observações (Opcional)
                         </label>
                         <textarea
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white resize-none transition-all duration-200"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white resize-none transition-all duration-quick"
                             rows={3}
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
@@ -181,14 +181,14 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                     <Button
                         onClick={onClose}
                         variant="outline"
-                        className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
+                        className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
                     >
                         Cancelar
                     </Button>
                     <Button
                         onClick={handleSubmit}
                         disabled={loading || !amount || amount <= 0 || isProcessing}
-                        className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${loading || !amount || amount <= 0
+                        className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-quick ${loading || !amount || amount <= 0
                             ? 'bg-gray-400 cursor-not-allowed text-white'
                             : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl'
                             }`}

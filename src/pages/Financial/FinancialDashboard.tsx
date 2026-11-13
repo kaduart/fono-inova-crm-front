@@ -811,7 +811,7 @@ const FinancialDashboard = ({
                         options={tabs.map(tab => ({ id: tab.id, label: tab.label, icon: tab.icon }))}
                         onValueChange={id => handleTabChange({} as React.SyntheticEvent, tabs.findIndex(tab => tab.id === id))} />
                 </div>
-                <div className="p-1 sm:p-2 md:p-4 min-h-[400px] transition-opacity duration-200 ease-in-out">
+                <div className="p-1 sm:p-2 md:p-4 min-h-[400px] transition-opacity duration-quick ease-in-out">
                     {renderActiveTab()}
                 </div>
             </div>

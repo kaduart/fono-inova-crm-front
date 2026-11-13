@@ -198,7 +198,7 @@ export default function ContactsList({
     const ContactItem = ({ contact }: { contact: Contact }) => (
         <div
             onClick={() => handleContactClick(contact)}
-            className={`group p-4 rounded-2xl cursor-pointer transition-all duration-200 border relative ${selectedContactId === contact._id
+            className={`group p-4 rounded-2xl cursor-pointer transition-all duration-quick border relative ${selectedContactId === contact._id
                 ? "bg-white shadow-lg border-green-200 transform scale-[1.02]"
                 : "bg-white/80 border-white/20 hover:bg-white hover:shadow-md"
                 } ${contact.hasNewMessage ? "ring-2 ring-red-100 bg-red-50/80" : ""}`}

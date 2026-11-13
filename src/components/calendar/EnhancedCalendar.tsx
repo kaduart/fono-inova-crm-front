@@ -1130,8 +1130,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         eventMaxStack: false,
         stickyHeaderDates: true,
         eventBorderColor: "transparent",
-        eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-200",
-        dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-200",
+        eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-quick",
+        dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-quick",
         windowResizeDelay: 100,
         eventShortHeight: false,
         // Configurações específicas por view para evitar overflow no modo mensal
@@ -1400,7 +1400,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             <Paper
                 elevation={2}
                 onClick={onClick}
-                className={`flex flex-col ${isExpanded ? 'p-5' : 'p-3'} rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg cursor-pointer ${isPackageSessionPending ? 'animate-pulse' : ''}`}
+                className={`flex flex-col ${isExpanded ? 'p-5' : 'p-3'} rounded-xl w-full h-full relative transition-all duration-quick hover:shadow-lg cursor-pointer ${isPackageSessionPending ? 'animate-pulse' : ''}`}
                 style={{
                     background: getCardBackground(),
                     borderLeft: `8px solid ${operationalConfig.color}`,

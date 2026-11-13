@@ -29,7 +29,7 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
                         const lastSession = pkg.sessions.length ? pkg.sessions[pkg.sessions.length - 1] : null;
 
                         return (
-                            <tr key={pkg.id} className="border-t border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                            <tr key={pkg.id} className="border-t border-gray-200 hover:bg-gray-50 transition-colors duration-quick">
                                 <td className="p-4">{pkg.patientId.fullName}</td>
                                 <td className="p-4">{pkg.sessionType}</td>
                                 <td className="p-4">{pkg.sessionsDone} / {pkg.totalSessions}</td>
@@ -43,14 +43,14 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
                                 <td className="p-4 flex items-center gap-3">
                                     <button
                                         onClick={() => onEdit(pkg)}
-                                        className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                        className="text-blue-600 hover:text-blue-800 transition-colors duration-quick"
                                         title="Editar"
                                     >
                                         <Pencil size={18} />
                                     </button>
                                     <button
                                         onClick={() => onDelete(pkg.id)}
-                                        className="text-red-600 hover:text-red-800 transition-colors duration-200"
+                                        className="text-red-600 hover:text-red-800 transition-colors duration-quick"
                                         title="Excluir"
                                     >
                                         <Trash2 size={18} />
@@ -69,14 +69,14 @@ export default function TherapyPackageTable({ packages, currentPage, totalPages,
                     <button
                         onClick={() => onPageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-4 py-2 text-sm bg-gray-300 text-gray-700 border rounded-lg disabled:opacity-50 hover:bg-gray-400 transition-colors duration-200"
+                        className="px-4 py-2 text-sm bg-gray-300 text-gray-700 border rounded-lg disabled:opacity-50 hover:bg-gray-400 transition-colors duration-quick"
                     >
                         Anterior
                     </button>
                     <button
                         onClick={() => onPageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="px-4 py-2 text-sm bg-gray-300 text-gray-700 border rounded-lg disabled:opacity-50 hover:bg-gray-400 transition-colors duration-200"
+                        className="px-4 py-2 text-sm bg-gray-300 text-gray-700 border rounded-lg disabled:opacity-50 hover:bg-gray-400 transition-colors duration-quick"
                     >
                         Próxima
                     </button>

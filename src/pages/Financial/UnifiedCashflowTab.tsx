@@ -617,7 +617,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                 // abas + tabela) esmaece suavemente durante o refresh, mesmo padrão de
                 // dashboards modernos (Linear/Stripe/Notion) pra refetch em segundo plano.
                 <div
-                    className={`transition-opacity duration-300 ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`transition-opacity duration-fast ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}
                     aria-busy={refreshing}
                 >
                 <div>

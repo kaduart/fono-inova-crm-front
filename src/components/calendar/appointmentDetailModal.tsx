@@ -1811,7 +1811,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <Select
                                     value={editedAppointment.doctorId || ''}
                                     onChange={(e) => handleFieldChange('doctorId', e.target.value)}
-                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick"
                                     disabled={loadingDoctors}
                                 >
                                     <option value="">
@@ -1850,7 +1850,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     customInput={
                                         <ReactInputMask
                                             mask="99/99/9999"
-                                            className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                            className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick"
                                         />
                                     }
                                     placeholderText='dd/MM/yyyy'
@@ -1878,7 +1878,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                     customInput={
                                         <ReactInputMask
                                             mask="99:99"
-                                            className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                            className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick"
                                         />
                                     }
                                 />
@@ -1934,7 +1934,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 value={editedAppointment.reason}
                                 onChange={(e) => handleFieldChange('reason', e.target.value)}
                                 rows={2}
-                                className="w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200 resize-y"
+                                className="w-full border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick resize-y"
                                 placeholder="Descreva o motivo da consulta..."
                             />
                         </div>
@@ -1946,7 +1946,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <select
                                     value={editedAppointment.operationalStatus}
                                     onChange={(e) => handleFieldChange('operationalStatus', e.target.value)}
-                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick"
                                 >
                                     {Object.entries(getStatusVisualMap().operational).map(([key, config]) => (
                                         <option key={key} value={key}>
@@ -1963,7 +1963,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 <select
                                     value={editedAppointment.clinicalStatus}
                                     onChange={(e) => handleFieldChange('clinicalStatus', e.target.value)}
-                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
+                                    className="w-full min-h-[42px] border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-quick"
                                 >
                                     {Object.entries(getStatusVisualMap().clinical).map(([key, config]) => (
                                         <option key={key} value={key}>
@@ -2207,7 +2207,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         <button
                             onClick={handleComplete}
                             disabled={isCompleting || isAddingDebit}
-                            className={`px-5 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500  ${
+                            className={`px-5 py-2.5 rounded-xl transition-all duration-quick flex items-center gap-2 disabled:from-gray-400 disabled:to-gray-500  ${
                                 addToBalance
                                     ? 'bg-amber-600 hover:bg-amber-700 text-white'
                                     : 'bg-green-600 hover:bg-green-700 text-white'

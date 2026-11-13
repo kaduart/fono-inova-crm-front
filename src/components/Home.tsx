@@ -16,7 +16,7 @@ const Button = ({ children, primary, onClick, ...props }) => (
 );
 
 const Card = ({ icon: Icon, title, description, primary }) => (
-  <div className={`rounded-lg shadow-sm p-2.5 transition-all duration-300 hover:shadow-md ${primary ? 'bg-white' : 'bg-gray-50'}`}>
+  <div className={`rounded-lg shadow-sm p-2.5 transition-all duration-fast hover:shadow-md ${primary ? 'bg-white' : 'bg-gray-50'}`}>
     <Icon className="w-5 h-5 text-green-600 mb-1" />
     <h3 className="text-sm font-semibold mb-0.5 text-gray-800">{title}</h3>
     <p className="text-xs text-gray-600 leading-tight">{description}</p>
@@ -116,13 +116,13 @@ const Home = () => {
           <p className="text-green-100 text-sm">&copy; 2025 Clínica Fono Inova. Todos os direitos reservados.</p>
 
           <div className="flex space-x-4">
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-green-300 hover:text-white transition-colors duration-quick">
               <i className="fab fa-facebook-f"></i>
             </a>
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-green-300 hover:text-white transition-colors duration-quick">
               <i className="fab fa-instagram"></i>
             </a>
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-green-300 hover:text-white transition-colors duration-quick">
               <i className="fab fa-linkedin-in"></i>
             </a>
           </div>

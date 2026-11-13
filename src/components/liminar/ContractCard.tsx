@@ -401,7 +401,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-l-4 border-slate-200 border-l-violet-600 bg-white text-left shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-slate-700 dark:border-l-violet-500 dark:bg-slate-900"
+      className="relative overflow-hidden rounded-xl border border-l-4 border-slate-200 border-l-violet-600 bg-white text-left shadow-sm transition-shadow duration-quick hover:shadow-md dark:border-slate-700 dark:border-l-violet-500 dark:bg-slate-900"
     >
       {/* ══ Camada 1: Header — identidade do contrato ══ */}
       <div
@@ -625,7 +625,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
             >
               Detalhes da projeção
               <ChevronDown
-                className="w-3 h-3 transition-transform duration-200"
+                className="w-3 h-3 transition-transform duration-quick"
                 style={{ transform: projectionDetailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
               />
             </button>
@@ -657,7 +657,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
             <button type="button" onClick={() => setPlanExpanded(v => !v)} aria-expanded={planExpanded}
               className={`flex shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1'}`}>
               {planExpanded ? 'Ocultar plano' : 'Plano terapêutico'}
-              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200" style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-quick" style={{ transform: planExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
             </button>
           </div>
         );
@@ -830,7 +830,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                         >
                           Horários
                           <ChevronDown
-                            className="w-3 h-3 transition-transform duration-200"
+                            className="w-3 h-3 transition-transform duration-quick"
                             style={{ transform: expandedTherapyCard === specialty ? 'rotate(180deg)' : 'rotate(0deg)' }}
                           />
                         </button>
@@ -1222,7 +1222,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
               <button
                 type="button"
                 onClick={() => setEditTherapyModal(p => ({ ...p, open: false }))}
-                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
               >
                 Cancelar
               </button>
@@ -1230,7 +1230,7 @@ export default function ContractCard({ data, onRefresh }: Props) {
                 type="button"
                 onClick={handleSaveTherapy}
                 disabled={savingTherapy}
-                className={`flex-1 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-2.5 rounded-xl font-medium transition-all duration-quick flex items-center justify-center gap-2 ${
                   savingTherapy
                     ? 'bg-gray-400 cursor-not-allowed text-white'
                     : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'

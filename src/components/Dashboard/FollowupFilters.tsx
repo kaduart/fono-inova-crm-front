@@ -62,7 +62,7 @@ export const FollowupFilters = ({ onFilter }: { onFilter: (f: any) => void }) =>
 
             <button
                 onClick={apply}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-quick shadow-sm hover:shadow-md"
             >
                 <Filter size={16} /> Aplicar
             </button>

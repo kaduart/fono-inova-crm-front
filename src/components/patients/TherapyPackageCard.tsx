@@ -1054,7 +1054,7 @@ export default function TherapyPackageCard({
                 e.stopPropagation();
                 setShowBalanceModal(true);
               }}
-              className="w-full py-3 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-dashed border-emerald-300 rounded-xl text-emerald-700 hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
+              className="w-full py-3 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-dashed border-emerald-300 rounded-xl text-emerald-700 hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 transition-all duration-quick flex items-center justify-center gap-2 font-medium text-sm"
             >
               <span>💚</span>
               Quitar pendências
@@ -1202,7 +1202,7 @@ export default function TherapyPackageCard({
                         <button
                           onClick={handleBatchCancelSessions}
                           disabled={isBatchCanceling}
-                          className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-quick flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isBatchCanceling ? (
                             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>

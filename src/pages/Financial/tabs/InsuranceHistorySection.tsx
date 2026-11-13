@@ -1138,7 +1138,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                             </div>
                                         )}
                                     </div>
-                                    <ChevronDown size={18} className={`text-indigo-600 transition-transform duration-200 ${metricsOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDown size={18} className={`text-indigo-600 transition-transform duration-quick ${metricsOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 <Collapse in={metricsOpen}>
                                     <MetricStats production={production} billed={billed} received={received} pending={pending} onStatClick={openDetailsModal} />
@@ -1196,7 +1196,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                     {[filterMonth !== 'all', filterStatus !== 'all', filterSpecialty !== 'all'].filter(Boolean).length}
                                 </span>
                             )}
-                            <ChevronDown size={12} className="transition-transform duration-200" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
+                            <ChevronDown size={12} className="transition-transform duration-quick" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
                         </button>
 
                         {(searchText || hasAdvancedFilters || selectedProvider || drawerPatient) && (

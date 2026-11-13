@@ -80,7 +80,7 @@ export const PollingIndicator: React.FC<PollingIndicatorProps> = ({
         {progress && (
           <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div 
-              className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+              className="bg-blue-600 h-1.5 rounded-full transition-all duration-fast"
               style={{ width: `${percent}%` }}
             />
           </div>

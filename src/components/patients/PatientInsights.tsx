@@ -132,7 +132,7 @@ export function FoldSection({ title, meta, icon, defaultOpen = false, children }
           <span className="block font-semibold text-slate-900 dark:text-slate-50">{title}</span>
           {meta && <span className="block text-xs text-slate-600 dark:text-slate-400">{meta}</span>}
         </span>
-        <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden />
+        <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform duration-quick ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
       {open && <div className="border-t border-slate-100 p-4 dark:border-slate-800">{children}</div>}
     </section>

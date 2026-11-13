@@ -125,7 +125,7 @@ export const SessionModal = ({
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 animate-fade-in">
+            <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-fast animate-fade-in">
                 {/* Cabeçalho com gradiente verde */}
                 <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative">
                     <button
@@ -444,14 +444,14 @@ export const SessionModal = ({
                         <Button
                             onClick={onClose}
                             variant="outline"
-                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
+                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
                         >
                             Cancelar
                         </Button>
                         <Button
                             onClick={handleSubmit}
                             disabled={!isFormValid || loading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-quick ${
                                 !isFormValid || loading
                                     ? 'bg-gray-400 cursor-not-allowed text-white'
                                     : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'

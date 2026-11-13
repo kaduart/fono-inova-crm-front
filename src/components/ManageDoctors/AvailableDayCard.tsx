@@ -32,7 +32,7 @@ export const AvailableDayCard = ({
     const formattedDate = dayjs(date).format('dddd - DD/MM/YYYY');
 
     return (
-        <div className="border rounded-xl shadow-sm bg-white mb-4 transition-all duration-300">
+        <div className="border rounded-xl shadow-sm bg-white mb-4 transition-all duration-fast">
             <div
                 className={`flex justify-between items-center px-4 py-3 cursor-pointer rounded-t-xl ${expanded ? 'bg-blue-100' : 'bg-gray-100'
                     }`}

@@ -84,7 +84,7 @@ const PixNotificationPopup: React.FC = () => {
 
                 <button
                   onClick={closePaymentNotification}
-                  className="text-lime-100/80 hover:text-white transition-all duration-200 hover:bg-white/10 rounded-lg p-1"
+                  className="text-lime-100/80 hover:text-white transition-all duration-quick hover:bg-white/10 rounded-lg p-1"
                 >
                   <X size={18} />
                 </button>
@@ -146,13 +146,13 @@ const PixNotificationPopup: React.FC = () => {
                       navigate("/financeiro");
                     }
                   }}
-                  className="text-emerald-800 font-semibold text-sm py-2 px-4 rounded-lg bg-lime-300 hover:bg-lime-200 transition-all duration-200 shadow-lg hover:shadow-lime-300/25 hover:scale-105 active:scale-95"
+                  className="text-emerald-800 font-semibold text-sm py-2 px-4 rounded-lg bg-lime-300 hover:bg-lime-200 transition-all duration-quick shadow-lg hover:shadow-lime-300/25 hover:scale-105 active:scale-95"
                 >
                   Ver detalhes
                 </button>
                 <button
                   onClick={closePaymentNotification}
-                  className="text-lime-100/90 hover:text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors duration-200 hover:bg-white/10"
+                  className="text-lime-100/90 hover:text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors duration-quick hover:bg-white/10"
                 >
                   Fechar
                 </button>
