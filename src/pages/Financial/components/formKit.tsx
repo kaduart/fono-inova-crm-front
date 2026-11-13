@@ -162,7 +162,7 @@ export const ModalFooter = ({
       disabled={submitting || submitDisabled || status === 'success'}
       animate={status === 'error' && !reduce ? { x: [0, -6, 6, -6, 6, -3, 0] } : { x: 0 }}
       transition={{ duration: 0.28, ease: 'easeOut' }}
-      className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-quick flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${status === 'error' ? 'bg-red-600 hover:bg-red-700' : PRIMARY_BTN[accent]}`}
+      className={`min-h-11 shrink-0 whitespace-nowrap px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-quick flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${status === 'error' ? 'bg-red-600 hover:bg-red-700' : PRIMARY_BTN[accent]}`}
     >
       {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
       {status === 'success' && <DrawCheck />}
