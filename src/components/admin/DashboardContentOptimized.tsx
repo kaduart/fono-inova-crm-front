@@ -132,7 +132,7 @@ const StatTile = memo<{
         </>
     );
     return (
-        <div className="relative flex min-w-0 items-start justify-between gap-2 px-4 py-3">
+        <div className="relative flex min-w-0 items-start justify-between gap-2 px-4 py-2.5">
             {onClick ? (
                 <button type="button" onClick={onClick} className="group flex min-w-0 flex-col items-start rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                     {body}
@@ -154,14 +154,14 @@ const HeroFigure = ({ label, value, detail, tone = 'ink', onClick, children }: {
                 {label}
                 {onClick && <ChevronRight size={15} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" aria-hidden />}
             </span>
-            <span className={`mt-1.5 text-2xl sm:text-[2rem] font-extrabold leading-none tracking-tight tabular-nums ${tone === 'money' ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{value}</span>
+            <span className={`mt-1 text-2xl font-extrabold leading-none tracking-tight tabular-nums ${tone === 'money' ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{value}</span>
             {children}
             {detail && <span className="mt-1.5 text-xs text-gray-600 dark:text-gray-400">{detail}</span>}
         </>
     );
     return onClick ? (
-        <button type="button" onClick={onClick} className="group flex w-full min-w-0 flex-col items-start rounded-lg p-4 text-left transition-colors hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:bg-gray-900/50">{inner}</button>
-    ) : <div className="flex min-w-0 flex-col items-start p-4">{inner}</div>;
+        <button type="button" onClick={onClick} className="group flex w-full min-w-0 flex-col items-start rounded-lg px-4 py-3 text-left transition-colors hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:bg-gray-900/50">{inner}</button>
+    ) : <div className="flex min-w-0 flex-col items-start px-4 py-3">{inner}</div>;
 };
 
 /** Barra do dia: realizadas, faltas, canceladas, pré e a fazer (mesma quebra do modal). */
@@ -176,7 +176,7 @@ const TodayBar = ({ s }: { s: Record<TodayBucket, number> }) => {
         [s.todo, 'bg-gray-300 dark:bg-gray-600'],
     ];
     return (
-        <span className="mt-3 flex h-2 w-full max-w-md gap-0.5 overflow-hidden rounded-full" aria-hidden>
+        <span className="mt-2 flex h-1.5 w-full max-w-md gap-0.5 overflow-hidden rounded-full" aria-hidden>
             {seg.filter(([n]) => n > 0).map(([n, c]) => <span key={c} className={c} style={{ flex: n }} />)}
         </span>
     );
@@ -309,6 +309,9 @@ const NEED_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
     evaluation: ClipboardCheck, nextDay: CalendarCheck, pre: CalendarPlus, lateEvo: FileClock, pay: Wallet,
     leads: MessageCircle, renewal: Package, churn: UserMinus, reactivation: CalendarX, bday: Cake,
 };
+const GROUP: Record<'bad' | 'warn' | 'info', { label: string; dot: string }> = {
+    bad: { label: 'Urgente', dot: 'bg-red-500' }, warn: { label: 'Atenção', dot: 'bg-amber-500' }, info: { label: 'Acompanhar', dot: 'bg-blue-500' },
+};
 const TONE_ORDER: Record<NeedItem['tone'], number> = { bad: 0, warn: 1, info: 2, pink: 3 };
 
 // Grade de 4 por linha (pedido do Kadu 04/11): ícone + número grande, o que é, detalhe e um botão de ação.
@@ -342,38 +345,46 @@ const NeedsYou = memo<{ items: NeedItem[]; loading: boolean }>(({ items, loading
             ) : visible.length === 0 && !bday ? (
                 <p className="text-sm text-gray-600 dark:text-gray-400">Nada pendente agora. Pré-agendamentos, pagamentos, leads, avaliações, confirmações, pacotes, retornos e aniversários estão em dia.</p>
             ) : (
-                <ul ref={animRef} className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-                    {visible.map((item, idx) => {
-                        const Icon = NEED_ICON[item.key] || ClipboardCheck;
-                        // Última linha incompleta no desktop: 1 sobrando ocupa a linha toda (deitado), 2 sobrando dividem a linha.
-                        const rest = visible.length % 4, inLast = idx >= visible.length - rest;
-                        const wide = inLast && rest === 1, half = inLast && rest === 2;
-                        const failed = item.error && !item.count;
-                        const t = TONE[item.tone];
+                <div ref={animRef as unknown as React.RefObject<HTMLDivElement>} className="space-y-3">
+                    {(['bad', 'warn', 'info'] as const).map(tone => {
+                        const group = visible.filter(v => v.tone === tone || (tone === 'info' && v.tone === 'pink'));
+                        if (!group.length) return null;
+                        const g = GROUP[tone];
                         return (
-                            <li key={item.key} className={`flex min-w-0 flex-col rounded-xl p-3 ring-1 sm:p-4 ring-inset ${wide ? 'col-span-2 xl:col-span-4 xl:flex-row xl:items-center xl:gap-4' : half ? 'xl:col-span-2' : ''} ${failed ? 'bg-white ring-gray-200 dark:bg-gray-900 dark:ring-gray-700' : t.tile}`}>
-                                <div className="flex items-center gap-3">
-                                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${failed ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : t.icon}`} aria-hidden><Icon size={19} /></span>
-                                    <span className={`text-2xl font-extrabold leading-none tabular-nums sm:text-3xl ${failed ? 'text-gray-400' : t.num}`}>{failed ? '—' : item.count}</span>
-                                </div>
-                                <div className={wide ? 'min-w-0 xl:flex-1' : 'contents'}>
-                                <h3 className={`font-semibold leading-snug text-gray-900 dark:text-gray-50 ${wide ? 'mt-3 xl:mt-0' : 'mt-3'}`}>{item.title}</h3>
-                                <p className={`mt-0.5 line-clamp-2 text-xs text-gray-600 sm:text-sm dark:text-gray-400 ${wide ? 'xl:min-h-0' : 'mb-3 min-h-[2rem] sm:min-h-[2.5rem]'}`} title={item.detail}>
-                                    {failed ? 'Não foi possível carregar.' : item.detail}
-                                </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={failed ? item.onRetry : item.onClick}
-                                    className={`mt-auto inline-flex min-h-10 w-full items-center text-center leading-tight ${wide ? 'xl:mt-0 xl:w-56 xl:shrink-0' : ''} justify-center gap-1 rounded-lg px-3 text-sm font-semibold ring-1 ring-inset transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${failed ? 'ring-gray-300 text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800' : t.btn}`}
-                                >
-                                    {failed ? 'Tentar de novo' : item.cta}
-                                    {!failed && <ChevronRight size={16} aria-hidden />}
-                                </button>
-                            </li>
+                            <div key={tone}>
+                                <p className="mb-1.5 flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-400"><span className={`h-2 w-2 rounded-full ${g.dot}`} aria-hidden />{g.label}</p>
+                                <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                    {group.map(item => {
+                                        const Icon = NEED_ICON[item.key] || ClipboardCheck;
+                                        const failed = item.error && !item.count;
+                                        const t = TONE[item.tone];
+                                        return (
+                                            <li key={item.key}>
+                                                <button
+                                                    type="button"
+                                                    onClick={failed ? item.onRetry : item.onClick}
+                                                    className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left transition-colors duration-quick hover:border-emerald-500 hover:bg-emerald-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-emerald-500/10"
+                                                >
+                                                    <span className={`grid h-10 min-w-[48px] shrink-0 place-items-center rounded-[10px] px-1 text-lg font-extrabold tabular-nums ${failed ? 'bg-gray-100 text-gray-400 dark:bg-gray-800' : `${t.icon}`}`}>
+                                                        {failed ? '—' : item.count}
+                                                    </span>
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-50"><Icon size={14} className="shrink-0 opacity-60" aria-hidden /><span className="truncate">{item.title}</span></span>
+                                                        <span className="block truncate text-xs text-gray-600 dark:text-gray-400" title={item.detail}>{failed ? 'Não foi possível carregar.' : item.detail}</span>
+                                                    </span>
+                                                    <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                                        <span className="hidden 2xl:inline">{failed ? 'Tentar de novo' : item.cta}</span>
+                                                        <ChevronRight size={16} aria-hidden />
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
                         );
                     })}
-                </ul>
+                </div>
             )}
         </section>
     );
@@ -996,7 +1007,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             {/* 4. Panorama: agenda de hoje, próximas, gráficos, origem/especialidade e evasão em abas.
                 Abas em grade (cabem sempre, sem barra de rolagem), cada uma com um resumo do que tem dentro. */}
             <section id="dash-panorama" aria-label="Panorama" className="scroll-mt-4 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-                <div role="tablist" aria-label="Panorama" className="grid grid-cols-2 gap-1 rounded-t-2xl border-b border-gray-200 bg-gray-50 p-1.5 sm:grid-cols-3 xl:grid-cols-5 dark:border-gray-800 dark:bg-gray-800/40">
+                <div role="tablist" aria-label="Panorama" className="grid grid-cols-2 gap-1 rounded-t-2xl border-b border-gray-200 bg-gray-50 p-1.5 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-800 dark:bg-gray-800/40">
                     {([
                         ['today', 'Agenda de hoje', <CalendarClock key="i" size={16} />, todayByDoctor.length ? plural(todayByDoctor.length, 'profissional', 'profissionais') : 'sem sessões', null],
                         ['upcoming', 'Próximas sessões', <Clock key="i" size={16} />, `${upcomingCount('all')} em 7 dias`, upcomingCount('unconfirmed') ? `${upcomingCount('unconfirmed')} sem confirmar` : null],
@@ -1010,7 +1021,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
                             role="tab"
                             aria-selected={panTab === key}
                             onClick={() => setPanTab(key)}
-                            className={`flex min-h-[60px] min-w-0 items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${i === 4 ? 'col-span-2 sm:col-span-1' : ''} ${panTab === key
+                            className={`flex min-h-[52px] min-w-0 items-start gap-2 rounded-xl px-2.5 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${i === 4 ? 'col-span-2 sm:col-span-1' : ''} ${panTab === key
                                 ? 'bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700'
                                 : 'hover:bg-white/70 dark:hover:bg-gray-900/60'}`}
                         >
