@@ -3,6 +3,8 @@
 // nenhum valor financeiro é calculado aqui (DOMAIN_INVARIANTS: KPIs financeiros só no back).
 import { Activity, CalendarCheck2, ChevronDown, Stethoscope, TrendingDown, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { MotionDisclosurePanel } from '../ui/MotionDisclosurePanel';
 import AnimatedValue from '../ui/insight/AnimatedValue';
 import BarList from '../ui/insight/BarList';
 import Sparkline from '../ui/insight/Sparkline';
@@ -134,7 +136,13 @@ export function FoldSection({ title, meta, icon, defaultOpen = false, children }
         </span>
         <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform duration-quick ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
-      {open && <div className="border-t border-slate-100 p-4 dark:border-slate-800">{children}</div>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <MotionDisclosurePanel className="overflow-hidden">
+            <div className="border-t border-slate-100 p-4 dark:border-slate-800">{children}</div>
+          </MotionDisclosurePanel>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
