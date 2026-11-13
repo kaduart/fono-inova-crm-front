@@ -2929,10 +2929,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     onClose={() => setDayModalOpen(false)}
                     convenioName={convenioName}
                     showMoney={permissions.canSeeFinancial}
-                    onSeeSlots={dayModalData.dateStr >= ymdSP(new Date()) ? () => {
-                        setDayModalOpen(false);
-                        calendarRef.current?.getApi().changeView('timeGridDay', dayModalData.dateStr);
-                    } : undefined}
+                    freeSlots={{
+                        doctors: doctors as any,
+                        doctorFilter: agendaFilter.doctor,
+                        fetchSlots: onFetchAvailableSlots,
+                        onSlot: permissions.canCreate ? (sl) => {
+                            const d = dayModalData.dateStr;
+                            setDayModalOpen(false);
+                            if (sl.specialty) setFitSlot({ date: d, time: sl.time, doctorId: sl.doctorId, doctorName: sl.doctorName, specialty: sl.specialty });
+                            else openScheduleAt({ doctorId: sl.doctorId, date: d, time: sl.time });
+                        } : undefined,
+                    }}
                     actions={{
                         onOpen: (a) => { setDayModalOpen(false); openAppointmentDetail(a); },
                         onReschedule: canReschedule ? (a) => { setDayModalOpen(false); openReschedule(a); } : undefined,

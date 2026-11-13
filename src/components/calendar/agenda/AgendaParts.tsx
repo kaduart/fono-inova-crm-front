@@ -297,6 +297,75 @@ export const DayPreviewList: React.FC<{ appts: any[]; convenioName: (c?: string)
     </ul>
 );
 
+
+// ── Vagas livres do dia (dentro do modal do dia) ─────────────────────────────
+
+export const FreeSlotsPanel: React.FC<{
+    dateStr: string;
+    appts: any[];
+    doctors: DoctorLite[];
+    doctorFilter: string;
+    fetchSlots: (p: { doctorId: string; date: string }) => Promise<string[]>;
+    onSlot?: (slot: { doctorId: string; doctorName: string; specialty: string; time: string }) => void;
+}> = ({ dateStr, doctors, doctorFilter, fetchSlots, onSlot }) => {
+    const [open, setOpen] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [free, setFree] = useState<Record<string, string[]>>({});
+    const fetchRef = useRef(fetchSlots);
+    fetchRef.current = fetchSlots;
+    const list = useMemo(() => doctors
+        .map(d => ({ id: String(d._id || d.id || ''), name: d.fullName || d.name || 'Profissional', specialty: d.specialty || '' }))
+        .filter(d => d.id && (doctorFilter === 'all' || d.id === doctorFilter)), [doctors, doctorFilter]);
+    const key = list.map(d => d.id).join(',');
+    useEffect(() => {
+        let alive = true;
+        setLoading(true);
+        const out: Record<string, string[]> = {};
+        Promise.allSettled(list.map(d => fetchRef.current({ doctorId: d.id, date: dateStr })
+            .then(r => { out[d.id] = normalizeSlots(r).filter(x => x.available).map(x => x.time.slice(0, 5)); })))
+            .finally(() => { if (alive) { setFree(out); setLoading(false); } });
+        return () => { alive = false; };
+    }, [key, dateStr]);
+    const todayYmd = new Date().toLocaleDateString('en-CA');
+    const nowHm = new Date().toTimeString().slice(0, 5);
+    const rows = list
+        .map(d => ({ ...d, times: (free[d.id] || []).filter(t => dateStr > todayYmd || t > nowHm) }))
+        .filter(d => d.times.length > 0);
+    const total = rows.reduce((n, d) => n + d.times.length, 0);
+    return (
+        <section className="mx-2 mt-3 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
+            <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+                className="flex w-full items-center justify-between px-3 py-2.5 text-left">
+                <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                    Vagas livres · {loading ? 'buscando…' : total}
+                </span>
+                <span className="text-xs text-emerald-700 dark:text-emerald-300">{open ? 'Recolher' : 'Ver'}</span>
+            </button>
+            {open && !loading && (
+                <div className="space-y-2 px-3 pb-3">
+                    {rows.length === 0 && <p className="text-sm text-gray-600 dark:text-gray-400">Sem horário livre neste dia.</p>}
+                    {rows.map(d => (
+                        <div key={d.id} className="flex flex-wrap items-center gap-1.5">
+                            <span className="mr-1 min-w-[9rem] text-sm text-gray-800 dark:text-gray-200">
+                                <span className="font-medium">{shortName(d.name)}</span>
+                                {d.specialty && <span className="text-gray-500 dark:text-gray-400"> · {getSpecialtyLabel(d.specialty)}</span>}
+                            </span>
+                            {d.times.map(t => (
+                                <button key={t} type="button" disabled={!onSlot}
+                                    onClick={() => onSlot?.({ doctorId: d.id, doctorName: d.name, specialty: d.specialty, time: t })}
+                                    title={onSlot ? 'Encaixar paciente neste horário' : undefined}
+                                    className="rounded-lg border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-gray-900 px-2 py-1 text-xs font-semibold tabular-nums text-emerald-800 dark:text-emerald-200 transition-colors duration-150 hover:bg-emerald-600 hover:text-white disabled:cursor-default disabled:hover:bg-white disabled:hover:text-emerald-800">
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+};
+
 export const DayAgendaModal: React.FC<{
     dateStr: string;
     appts: any[];
@@ -304,8 +373,8 @@ export const DayAgendaModal: React.FC<{
     actions: RowActions;
     convenioName: (code?: string) => string;
     showMoney: boolean;
-    onSeeSlots?: () => void;
-}> = ({ dateStr, appts, onClose, actions, convenioName, showMoney, onSeeSlots }) => {
+    freeSlots?: { doctors: DoctorLite[]; doctorFilter: string; fetchSlots: (p: { doctorId: string; date: string }) => Promise<string[]>; onSlot?: (s: { doctorId: string; doctorName: string; specialty: string; time: string }) => void };
+}> = ({ dateStr, appts, onClose, actions, convenioName, showMoney, freeSlots }) => {
     const [status, setStatus] = useState<'all' | StatusGroup>('all');
     const [q, setQ] = useState('');
     const date = new Date(dateStr + 'T12:00:00');
@@ -349,12 +418,6 @@ export const DayAgendaModal: React.FC<{
                             <p className="text-sm text-gray-500 dark:text-gray-400">{plural(appts.length, 'sessão', 'sessões')}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                            {onSeeSlots && (
-                                <button type="button" onClick={onSeeSlots}
-                                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                    Ver vagas e encaixar
-                                </button>
-                            )}
                             <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
                         </div>
                     </div>
@@ -372,6 +435,9 @@ export const DayAgendaModal: React.FC<{
                     </label>
                 </div>
                 <div className="overflow-y-auto px-2 pb-3">
+                    {freeSlots && dateStr >= new Date().toLocaleDateString('en-CA') && (
+                        <FreeSlotsPanel dateStr={dateStr} appts={appts} {...freeSlots} />
+                    )}
                     {list.length === 0
                         ? <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma sessão com esse filtro.</p>
                         : <>{group('Manhã', morning)}{group('Tarde', afternoon)}</>}
