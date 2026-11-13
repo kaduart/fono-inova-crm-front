@@ -98,7 +98,7 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
                 </div>
                 <div>
                     <span className="mb-2 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
-                    <ChoiceChips label="Forma de pagamento" value={paymentMethod} onChange={setPaymentMethod} options={paymentMethods} />
+                    <ChoiceChips fill label="Forma de pagamento" value={paymentMethod} onChange={setPaymentMethod} options={paymentMethods} />
                 </div>
                 <Field label="Observações">
                     <textarea

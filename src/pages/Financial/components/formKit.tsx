@@ -216,14 +216,21 @@ export const MoneyInput = ({
 );
 
 /** Escolha rápida (um toque): no lugar de listas com poucas opções. Teclado: setas movem a seleção. */
-export function ChoiceChips<T extends string>({ label, value, options, onChange }: {
+export function ChoiceChips<T extends string>({ label, value, options, onChange, fill = false }: {
   label: string;
+  /** Uma linha só: colunas iguais no desktop (3 por linha no celular). Use com até 6 opções curtas. */
+  fill?: boolean;
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={fill ? 'grid grid-cols-3 gap-2 sm:[grid-template-columns:repeat(var(--n),minmax(0,1fr))]' : 'flex flex-wrap gap-2'}
+      style={fill ? ({ '--n': options.length } as React.CSSProperties) : undefined}
+    >
       {options.map((o, i) => {
         const on = o.value === value;
         return (
@@ -242,7 +249,7 @@ export function ChoiceChips<T extends string>({ label, value, options, onChange 
               onChange(next.value);
               (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[(i + step + options.length) % options.length])?.focus();
             }}
-            className={`min-h-11 rounded-xl border px-3.5 text-sm transition-colors duration-quick ease-smooth-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'}`}
+            className={`min-h-11 rounded-xl border ${fill ? 'px-1.5 text-[13px]' : 'px-3.5 text-sm'} transition-colors duration-quick ease-smooth-out focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'}`}
           >
             {o.label}
           </button>

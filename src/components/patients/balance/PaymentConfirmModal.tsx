@@ -133,7 +133,8 @@ export const PaymentConfirmModal: React.FC<Props> = ({
     onSplitMethodsChange(next.length === 0 ? [{ method: paymentMethod, amount: totalAmount }] : next);
   };
 
-  const methodOptions = METHODS.map((m) => ({ value: m, label: translatePaymentMethod(m) }));
+  const SHORT: Record<string, string> = { dinheiro: 'Dinheiro', pix: 'Pix', cartao_credito: 'Crédito', cartao_debito: 'Débito', transferencia_bancaria: 'Transf.' };
+  const methodOptions = METHODS.map((m) => ({ value: m, label: SHORT[m] }));
   const headerColor = accentColor === 'amber' ? '#D97706' : '#2563EB';
 
   return (
@@ -194,7 +195,7 @@ export const PaymentConfirmModal: React.FC<Props> = ({
         {!useSplit && (
           <div>
             <span className="mb-2 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
-            <ChoiceChips label="Forma de pagamento" value={paymentMethod} onChange={onMethodChange} options={methodOptions} />
+            <ChoiceChips fill label="Forma de pagamento" value={paymentMethod} onChange={onMethodChange} options={methodOptions} />
           </div>
         )}
 
@@ -263,7 +264,7 @@ export const PaymentConfirmModal: React.FC<Props> = ({
         submitDisabled={useSplit && !splitValid}
         submitLabel="Confirmar pagamento"
         submittingLabel="Processando..."
-        summary={`${formatCurrency(totalAmount)} · ${useSplit ? `${effectiveSplit.length} formas` : translatePaymentMethod(paymentMethod).replace(/^\S+\s/, '')}`}
+        summary={`${formatCurrency(totalAmount)} · ${useSplit ? `${effectiveSplit.length} formas` : (SHORT[paymentMethod] ?? paymentMethod)}`}
       />
     </Modal>
   );

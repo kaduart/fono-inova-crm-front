@@ -179,7 +179,7 @@ export const AdminEditPaymentModal = ({
         {!isSplit && (
           <div>
             <span className="mb-2 block text-xs font-semibold text-gray-600">Método</span>
-            <ChoiceChips label="Método" value={method} onChange={setMethod} options={METHOD_OPTIONS} />
+            <ChoiceChips fill label="Método" value={method} onChange={setMethod} options={METHOD_OPTIONS.map((o) => ({ ...o, label: o.label.replace("Cartão ", "").replace("Transferência", "Transf.") }))} />
           </div>
         )}
 
