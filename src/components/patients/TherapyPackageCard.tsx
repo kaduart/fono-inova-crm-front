@@ -1,3 +1,4 @@
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import CancelAppointmentDialog from '../calendar/CancelAppointmentDialog';
 import { Building2, Calendar, CheckCircle2, ChevronDown, Clock, MoreHorizontal, Sprout, Trash2, X } from 'lucide-react';
 import { packageService } from '../../services/packageService';
@@ -116,6 +117,7 @@ export default function TherapyPackageCard({
   const [showSessionsCalendarModal, setShowSessionsCalendarModal] = useState(false);
   const [sessionsModalView, setSessionsModalView] = useState<'mes' | 'lista'>('mes');
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [detailsRef] = useAutoAnimate<HTMLDivElement>({ duration: 200 });
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
@@ -642,7 +644,7 @@ export default function TherapyPackageCard({
                 </p>
               </div>
               <p className="shrink-0 pb-0.5 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                {financial === null ? '—' : brl(paidShown)} pago de {brl(totalValue)}
+                {financial === null ? '—' : brl(paidShown)} de {brl(totalValue)} pagos
               </p>
             </div>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="img" aria-label={`Pago ${brl(paidShown)} de ${brl(totalValue)}`}>
@@ -684,15 +686,15 @@ export default function TherapyPackageCard({
           else if (nearEnd) insight = `Faltam ${sessionsLeft}. Hora de falar em renovação.`;
           return (
             <div className="space-y-2">
-              <div>
-                <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Sessões restantes no pacote</p>
-                <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-                  <span className={`text-2xl font-bold tabular-nums ${nearEnd ? 'text-amber-700 dark:text-amber-300' : isLegacyConvenio ? 'text-blue-700 dark:text-blue-300' : 'text-emerald-700 dark:text-emerald-300'}`}><AnimatedValue value={sessionsLeft} /></span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">de {totalSessions} do pacote</span>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="flex items-baseline gap-1.5">
+                  <span className={`text-xl font-bold tabular-nums ${nearEnd ? 'text-amber-700 dark:text-amber-300' : isLegacyConvenio ? 'text-blue-700 dark:text-blue-300' : 'text-emerald-700 dark:text-emerald-300'}`}><AnimatedValue value={sessionsLeft} /></span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">sessões restantes de {totalSessions}</span>
                 </p>
+                {(pack.sessionsCanceled ?? 0) > 0 && <span className="text-2xs text-slate-400">{Number(pack.sessionsCanceled)} canceladas (não contam)</span>}
               </div>
               <div
-                className={`flex h-3 w-full overflow-hidden rounded-full ${isLegacyConvenio ? 'bg-blue-100 dark:bg-blue-500/15' : 'bg-emerald-100 dark:bg-emerald-500/15'}`}
+                className={`flex h-2.5 w-full overflow-hidden rounded-full ${isLegacyConvenio ? 'bg-blue-100 dark:bg-blue-500/15' : 'bg-emerald-100 dark:bg-emerald-500/15'}`}
                 role="img"
                 aria-label={`Feitas ${done}, agendadas ${sched}, a agendar ${free}, de ${totalSessions}`}
               >
@@ -700,17 +702,16 @@ export default function TherapyPackageCard({
                 <div style={{ width: `${pct(sched)}%`, background: striped, transition: 'width 0.5s' }} />
                 <div className={freeBar} style={{ width: `${pct(free)}%`, transition: 'width 0.5s' }} />
               </div>
-              <dl className="space-y-1.5 text-xs">
+              <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                 {[
                   { k: 'Feitas', v: done, cls: doneBar, style: undefined as CSSProperties | undefined },
                   { k: 'Agendadas', v: sched, cls: '', style: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
                   { k: 'A agendar', v: free, cls: freeBar, style: undefined },
-                  ...((pack.sessionsCanceled ?? 0) > 0 ? [{ k: 'Canceladas (não contam)', v: Number(pack.sessionsCanceled), cls: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
                 ].map(row => (
-                  <div key={row.k} className="flex items-center gap-2">
+                  <div key={row.k} className="flex items-center gap-1.5">
                     <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${row.cls}`} style={row.style} aria-hidden />
-                    <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
-                    <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">{row.v}</dd>
+                    <dt>{row.k}</dt>
+                    <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{row.v}</dd>
                   </div>
                 ))}
               </dl>
@@ -727,13 +728,14 @@ export default function TherapyPackageCard({
             onClick={(e) => { e.stopPropagation(); setShowBalanceModal(true); }}
             className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 transition-colors duration-quick hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
           >
-            <span><strong className="tabular-nums">{brl(sessionDebt)}</strong> já devidos, de sessões feitas e não pagas</span>
-            <span className="shrink-0 font-semibold">Quitar pendências</span>
+            <span className="min-w-0 truncate"><strong className="tabular-nums">{brl(sessionDebt)}</strong> já devidos (sessões feitas)</span>
+            <span className="shrink-0 font-semibold underline-offset-2 hover:underline">Quitar pendências</span>
           </button>
         )}
       </div>
 
       {/* Conteúdo principal */}
+      <div ref={detailsRef}>
       {detailsExpanded && <div className="space-y-3 border-t border-slate-100 px-4 pb-3 pt-3 dark:border-slate-800">
         {/* Badge de Status de Faturamento (só para convênio) */}
         {pack.type === 'convenio' && pack.insuranceBillingStatus && (
@@ -888,6 +890,7 @@ export default function TherapyPackageCard({
         </div>
 
       </div>}
+      </div>
 
       {/* Ações: a principal muda conforme a situação do pacote */}
       <div className="flex items-center gap-2 px-4 pb-3.5">

@@ -244,7 +244,7 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
               {planName && <Chip tone="blue" onClick={() => onGoTab('Insurance Guides')}>Convênio · {planName}</Chip>}
               {activeContracts.length > 0 && <Chip tone="purple" onClick={() => onGoTab('Liminar')}>Liminar</Chip>}
               {activePackages.length > 0 && <Chip tone="emerald" onClick={() => onGoTab('Management Packages')}>{activePackages.length === 1 ? 'Pacote ativo' : `${activePackages.length} pacotes ativos`}</Chip>}
-              {tags.map((t) => <Chip key={t} tone={t === 'debito' ? 'red' : t === 'vip' ? 'purple' : 'slate'}>{t}</Chip>)}
+              {tags.filter((t) => !(planName && /conv[eê]nio/i.test(t))).map((t) => <Chip key={t} tone={t === 'debito' ? 'red' : t === 'vip' ? 'purple' : 'slate'}>{t === 'debito' ? 'Em débito' : t === 'vip' ? 'VIP' : t.charAt(0).toUpperCase() + t.slice(1)}</Chip>)}
               {isInactive && (
                 <span title={[pi.inactivation?.note, pi.inactivation?.byName ? `por ${pi.inactivation.byName}` : ''].filter(Boolean).join(' · ') || undefined}>
                   <Chip tone="red">
@@ -257,8 +257,8 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
         </div>
 
         {/* Números + ações */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch lg:shrink-0">
-          <dl className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:shrink-0">
+          <dl className="grid grid-cols-2 items-start gap-2 sm:flex sm:gap-2">
             <Figure label="Família deve" value={brl(particular)} tone={particular > 0 ? 'amber' : 'muted'} />
             <Figure
               label="Convênio a receber"
@@ -337,10 +337,10 @@ const FIG: Record<string, string> = {
 
 function Figure({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone: string }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-2 sm:min-w-[7.5rem]">
-      <dt className="text-3xs font-bold uppercase tracking-widest text-slate-400">{label}</dt>
-      <dd className={`mt-0.5 truncate text-sm font-extrabold tabular-nums ${FIG[tone]}`}><AnimatedValue value={value} /></dd>
-      {hint && <dd className="truncate text-3xs text-slate-500" title={hint}>{hint}</dd>}
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 sm:min-w-[8rem]">
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
+      <dd className={`mt-0.5 truncate text-base font-bold tabular-nums ${FIG[tone]}`}><AnimatedValue value={value} /></dd>
+      {hint && <dd className="truncate text-xs text-slate-500" title={hint}>{hint}</dd>}
     </div>
   );
 }
