@@ -27,7 +27,8 @@ import {
   Info,
   AlertTriangle,
   ArrowRightLeft,
-  Undo2
+  Undo2,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,7 +47,9 @@ import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
-import { AnchorMenu, MenuAction, ModalShell, ProgressBar, Spinner } from '../../ui/TailwindParts';
+import { AnchorMenu, MenuAction, ProgressBar, Spinner } from '../../ui/TailwindParts';
+import { Modal } from '../../ui/Modal';
+import { ModalHeader, ModalFooter } from '../../../pages/Financial/components/formKit';
 import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
 import AnimatedValue from '../../ui/insight/AnimatedValue';
 import InactivateEntityModal from '../../common/InactivateEntityModal';
@@ -1766,23 +1769,22 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
   return (
     <>
-    <ModalShell open={Boolean(guide)} onClose={onClose} labelledBy="guide-details-title"
-      className="h-[100dvh] w-full sm:h-auto sm:max-h-[min(90vh,920px)] sm:w-[min(1000px,94vw)] sm:rounded-2xl">
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="h-9 w-1 shrink-0 rounded bg-blue-700" aria-hidden />
-          <div className="min-w-0">
-            <h2 id="guide-details-title" className="truncate text-[1.05rem] font-bold leading-tight text-slate-900 dark:text-slate-50">
-              Detalhes da Guia #{guide.number}
-            </h2>
-            <p className="truncate text-[0.78rem] text-slate-500 dark:text-slate-400">{specialtyFormatted} • {insuranceFormatted}</p>
-          </div>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Fechar" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-          <X size={20} aria-hidden />
-        </button>
-      </div>
+    <Modal
+      open={Boolean(guide)}
+      onClose={onClose}
+      labelledBy="guide-details-title"
+      zIndexClass="z-[1300]"
+      panelClassName="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[min(90vh,920px)] sm:w-[min(1000px,94vw)] sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#2563eb"
+        title={`Detalhes da Guia #${guide.number}`}
+        subtitle={`${specialtyFormatted} • ${insuranceFormatted}`}
+        onClose={onClose}
+        titleId="guide-details-title"
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {loading ? (
@@ -1993,25 +1995,26 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         </button>
         <button type="button" onClick={onClose} className={`${btnOutline} w-full sm:w-auto`}>Fechar</button>
       </div>
-    </ModalShell>
+      </>
+    </Modal>
 
     {/* ── Trocar terapeuta (todas pendentes) — form ou preview de impacto ── */}
-    <ModalShell open={bulkDoctorOpen} onClose={() => !bulkSaving && closeBulkDialog()} labelledBy="bulk-title" className="w-full max-w-md rounded-2xl">
-      <div className="flex items-center justify-between bg-blue-700 px-6 py-4">
-        <div>
-          <h2 id="bulk-title" className="text-[0.9rem] font-bold text-white">
-            {bulkPreviewOpen ? 'Revisar alteração em massa' : 'Alterar sessões pendentes'}
-          </h2>
-          <p className="mt-0.5 text-[0.7rem] text-white/75">
-            {bulkPreviewOpen
-              ? 'Confira o impacto antes de aplicar'
-              : 'Aplica para todos os pré-agendados e agendados desta guia'}
-          </p>
-        </div>
-        <button type="button" onClick={closeBulkDialog} disabled={bulkSaving} aria-label="Fechar" className="rounded-md p-1 text-white/80 hover:bg-white/10 disabled:opacity-50">
-          <X size={16} aria-hidden />
-        </button>
-      </div>
+    <Modal
+      open={bulkDoctorOpen}
+      onClose={() => !bulkSaving && closeBulkDialog()}
+      labelledBy="bulk-title"
+      zIndexClass="z-[1350]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#059669"
+        title={bulkPreviewOpen ? 'Revisar alteração em massa' : 'Alterar sessões pendentes'}
+        subtitle={bulkPreviewOpen ? 'Confira o impacto antes de aplicar' : 'Vale para todos os pré-agendados e agendados desta guia'}
+        onClose={() => !bulkSaving && closeBulkDialog()}
+        titleId="bulk-title"
+      />
 
       {!bulkPreviewOpen ? (
         <>
@@ -2051,15 +2054,16 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
               Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
             </p>
           </div>
-          <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-            <button type="button" onClick={closeBulkDialog} disabled={bulkSaving} className={btnOutline}>Cancelar</button>
-            <button type="button"
-              onClick={() => setBulkPreviewOpen(true)}
-              disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedAppointments.length === 0}
-              className={`${btnPrimary} bg-emerald-700 hover:bg-emerald-800`}>
-              Revisar alterações ({bulkAffectedAppointments.length})
-            </button>
-          </div>
+          <ModalFooter
+            accent="emerald"
+            cancelLabel="Cancelar"
+            onCancel={closeBulkDialog}
+            onSubmit={() => setBulkPreviewOpen(true)}
+            submitting={false}
+            submitDisabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedAppointments.length === 0}
+            submitLabel={`Revisar alterações (${bulkAffectedAppointments.length})`}
+            submittingLabel="Revisando..."
+          />
         </>
       ) : (
         <>
@@ -2110,15 +2114,19 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
             <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">Sessões confirmadas/realizadas não serão alteradas.</p>
           </div>
-          <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-            <button type="button" onClick={() => setBulkPreviewOpen(false)} disabled={bulkSaving} className={btnOutline}>Voltar</button>
-            <button type="button" onClick={saveBulkDoctor} disabled={bulkSaving} className={`${btnPrimary} min-w-[150px] bg-emerald-700 hover:bg-emerald-800`}>
-              {bulkSaving ? <Spinner size={16} light /> : 'Confirmar alteração'}
-            </button>
-          </div>
+          <ModalFooter
+            accent="emerald"
+            cancelLabel="Voltar"
+            onCancel={() => setBulkPreviewOpen(false)}
+            onSubmit={saveBulkDoctor}
+            submitting={bulkSaving}
+            submitLabel="Confirmar alteração"
+            submittingLabel="Salvando..."
+          />
         </>
       )}
-    </ModalShell>
+      </>
+    </Modal>
 
     {/* ── Modal de edição de agendamento (mesmo AppointmentDetailModal do calendário/Liminar) ── */}
     {/* Portal no body: sem isso o modal fica preso no stacking context do painel
@@ -2138,13 +2146,23 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       document.body
     )}
 
-    <ModalShell open={!!movingAppt} onClose={() => setMovingAppt(null)} labelledBy="move-title" className="w-full max-w-md rounded-2xl">
-      <h2 id="move-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Mover atendimento entre guias</h2>
-      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
-        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
-          {movingAppt?.date ? format(parseISO(movingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
-          {movingAppt?.time ? ` às ${movingAppt.time}` : ''} · Guia atual: #{guide?.number}
-        </p>
+    <Modal
+      open={!!movingAppt}
+      onClose={() => !moveSubmitting && setMovingAppt(null)}
+      labelledBy="move-title"
+      zIndexClass="z-[1350]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#059669"
+        title="Mover atendimento entre guias"
+        subtitle={`${movingAppt?.date ? format(parseISO(movingAppt.date.substring(0, 10)), 'dd/MM/yyyy', { locale: ptBR }) : ''}${movingAppt?.time ? ` às ${movingAppt.time}` : ''} · Guia atual #${guide?.number}`}
+        onClose={() => !moveSubmitting && setMovingAppt(null)}
+        titleId="move-title"
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 sm:px-6">
         <label className={labelCls}>
           Guia de destino
           <select value={moveTargetGuideId} onChange={e => setMoveTargetGuideId(e.target.value)} disabled={moveGuidesLoading} className={fieldCls}>
@@ -2164,21 +2182,35 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           <input type="text" value={moveReason} onChange={e => setMoveReason(e.target.value)} placeholder="Ex: correção administrativa" className={fieldCls} />
         </label>
       </div>
-      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-        <button type="button" onClick={() => setMovingAppt(null)} disabled={moveSubmitting} className={btnOutline}>Cancelar</button>
-        <button type="button" onClick={confirmMove} disabled={moveSubmitting || !moveTargetGuideId} className={`${btnPrimary} min-w-[110px] bg-blue-700 hover:bg-blue-800`}>
-          {moveSubmitting ? <Spinner size={16} light /> : 'Confirmar'}
-        </button>
-      </div>
-    </ModalShell>
+      <ModalFooter
+        accent="emerald"
+        onCancel={() => setMovingAppt(null)}
+        onSubmit={confirmMove}
+        submitting={moveSubmitting}
+        submitDisabled={!moveTargetGuideId}
+        submitLabel="Confirmar"
+        submittingLabel="Movendo..."
+      />
+      </>
+    </Modal>
 
-    <ModalShell open={!!revertingAppt} onClose={() => !revertSubmitting && setRevertingAppt(null)} labelledBy="revert-title" className="w-full max-w-md rounded-2xl">
-      <h2 id="revert-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Desfazer: foi falta</h2>
-      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
-        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
-          {revertingAppt?.date ? format(parseISO(revertingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
-          {revertingAppt?.time ? ` às ${revertingAppt.time}` : ''} · Guia #{guide?.number}
-        </p>
+    <Modal
+      open={!!revertingAppt}
+      onClose={() => !revertSubmitting && setRevertingAppt(null)}
+      labelledBy="revert-title"
+      zIndexClass="z-[1350]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#d97706"
+        title="Desfazer: foi falta"
+        subtitle={`${revertingAppt?.date ? format(parseISO(revertingAppt.date.substring(0, 10)), 'dd/MM/yyyy', { locale: ptBR }) : ''}${revertingAppt?.time ? ` às ${revertingAppt.time}` : ''} · Guia #${guide?.number}`}
+        onClose={() => !revertSubmitting && setRevertingAppt(null)}
+        titleId="revert-title"
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 sm:px-6">
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           A sessão sai de "realizada", vira cancelada e <strong>volta para a guia</strong>. Depois use "Gerar sessões" para marcar uma data nova.
           Não funciona se a sessão já está em lote de faturamento ou se o convênio já pagou.
@@ -2196,13 +2228,18 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           <input type="text" value={revertReason} onChange={e => setRevertReason(e.target.value)} className={fieldCls} />
         </label>
       </div>
-      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-        <button type="button" onClick={() => setRevertingAppt(null)} disabled={revertSubmitting} className={btnOutline}>Voltar</button>
-        <button type="button" onClick={confirmRevert} disabled={revertSubmitting || !revertReason.trim()} className={`${btnPrimary} min-w-[110px] bg-amber-600 hover:bg-amber-700`}>
-          {revertSubmitting ? <Spinner size={16} light /> : 'Desfazer sessão'}
-        </button>
-      </div>
-    </ModalShell>
+      <ModalFooter
+        accent="emerald"
+        cancelLabel="Voltar"
+        onCancel={() => setRevertingAppt(null)}
+        onSubmit={confirmRevert}
+        submitting={revertSubmitting}
+        submitDisabled={!revertReason.trim()}
+        submitLabel="Desfazer sessão"
+        submittingLabel="Desfazendo..."
+      />
+      </>
+    </Modal>
     </>
   );
 };
