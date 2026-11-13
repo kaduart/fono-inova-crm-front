@@ -410,7 +410,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
                     {/* 🔔 Notificações + Perfil + Hamburguer */}
                     <div className="flex shrink-0 items-center gap-1.5">
-                        <button type="button" onClick={openCmdk} aria-label="Ir para uma tela (Ctrl + K)" title="Ir para… (Ctrl + K)"
+                        <button type="button" onClick={openCmdk} aria-label="Ir para uma tela (Ctrl + K)" data-tooltip="Ir para… (Ctrl + K)"
                             className={`${HEADER_ICON_BUTTON_CLASS} xl:w-auto xl:gap-2 xl:px-3`}>
                             <Search size={18} />
                             <span className="sr-only">Ir para…</span>

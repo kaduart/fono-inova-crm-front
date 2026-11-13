@@ -131,3 +131,19 @@ code {
   }
 }
 
+
+/* Conteúdo das abas (Radix) entra com fade curto, como nas abas deslizantes. */
+@keyframes tab-content-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+[role="tabpanel"][data-state="active"] { animation: tab-content-in var(--motion-duration-fast, 250ms) var(--motion-ease-smooth-out, cubic-bezier(.22,1,.36,1)); }
+
+/* Tooltip padrão: <button data-tooltip="Texto">. Aparece em 150ms, sem blur; só com ponteiro fino (não no toque). */
+[data-tooltip] { position: relative; }
+@media (hover: hover) {
+  [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+    content: attr(data-tooltip); position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    white-space: nowrap; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.3;
+    background: #111827; color: #fff; pointer-events: none; z-index: 100000;
+    animation: tooltip-in var(--motion-duration-quick, 150ms) ease-out both; animation-delay: 300ms;
+  }
+}
+@keyframes tooltip-in { from { opacity: 0; } to { opacity: 1; } }
