@@ -145,7 +145,8 @@ export const MonthCell: React.FC<{
     isPast: boolean;
     appts: any[];
     holidayName?: string;
-}> = ({ dayNumber, isToday, isPast, appts, holidayName }) => {
+    freeSlots?: number;
+}> = ({ dayNumber, isToday, isPast, appts, holidayName, freeSlots = 0 }) => {
     const c = { done: 0, todo: 0, missed: 0, canceled: 0, pre: 0 } as Record<StatusGroup, number>;
     appts.forEach(a => { c[statusGroupOf(a)]++; });
     const total = appts.length;
@@ -168,6 +169,11 @@ export const MonthCell: React.FC<{
             <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[13px] tabular-nums ${isToday ? 'bg-emerald-600 font-bold text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
                 {dayNumber}
             </span>
+            {freeSlots > 0 && !holidayName && (
+                <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" title="Horários livres dos profissionais neste dia. Clique para ver o dia por profissional.">
+                    {plural(freeSlots, 'vaga', 'vagas')}
+                </span>
+            )}
             {holidayName ? (
                 <div className="mt-auto">
                     <p className="text-xs font-semibold leading-tight text-amber-800">{holidayName}</p>

@@ -421,6 +421,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const appointmentDTOs = useMemo(() => mapAppointmentListResponseDTO(visibleAppointments), [visibleAppointments]);
 
     // 🆕 Helper: filtra appointments por data (YYYY-MM-DD)
+
     const getAppointmentsByDay = useCallback((dateStr: string) => {
         return visibleAppointments.filter(appt => {
             if (!appt.date) return false;
@@ -446,6 +447,36 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [fcDate, setFcDate] = useState<string>(() => toYmd(new Date()));
     const [dayLayout, setDayLayoutState] = useState<'pro' | 'single'>(() => (loadPref('agenda.dayLayout', 'pro') === 'single' ? 'single' : 'pro'));
     const setDayLayout = (v: 'pro' | 'single') => { setDayLayoutState(v); savePref('agenda.dayLayout', v); };
+
+    // Vagas livres por dia (admin): horário disponível do profissional naquele dia da semana, menos o que já
+    // está marcado (cancelado libera). Só conta quem tem disponibilidade cadastrada; dias passados ficam de fora.
+    const freeByDay = useMemo(() => {
+        const out: Record<string, number> = {};
+        if (!isAdminMode || !currentViewDate || !/^\d{4}-\d{2}$/.test(currentViewDate)) return out;
+        const WEEKDAY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const [y, m] = currentViewDate.split('-').map(Number);
+        const last = new Date(y, m, 0).getDate();
+        const todayKey = ymdSP(new Date());
+        const booked = new Set<string>();
+        (appointments || []).forEach((a: any) => {
+            if (statusGroupOf(a) === 'canceled') return;
+            booked.add(`${doctorIdOf(a)}|${ymdOf(a)}|${String(a?.time || '').slice(0, 5)}`);
+        });
+        const docs = (doctors as any[] || []).filter(d => d?.active !== false && (agendaFilter.doctor === 'all' || String(d._id || d.id) === agendaFilter.doctor));
+        for (let day = 1; day <= last; day++) {
+            const ymd = `${currentViewDate}-${String(day).padStart(2, '0')}`;
+            if (ymd < todayKey || isHoliday(ymd)) continue;
+            const wd = WEEKDAY[new Date(y, m - 1, day).getDay()];
+            let free = 0;
+            docs.forEach(d => {
+                const id = String(d._id || d.id);
+                const times: string[] = (d.weeklyAvailability || []).find((w: any) => w.day === wd)?.times || [];
+                times.forEach(t => { if (!booked.has(`${id}|${ymd}|${String(t).slice(0, 5)}`)) free++; });
+            });
+            if (free > 0) out[ymd] = free;
+        }
+        return out;
+    }, [isAdminMode, currentViewDate, appointments, doctors, agendaFilter.doctor]);
 
     // Contagens do mês em tela para os chips (cada grupo conta com os outros dois filtros aplicados)
     const agendaCounts = useMemo(() => {
@@ -2459,7 +2490,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             const holidayName = isHoliday(ymd) ? getHolidayName(ymd) : undefined;
                             const dayAppts = holidayName ? [] : getAppointmentsByDay(ymd);
                             return (
-                                <div className={`h-full w-full ${dayAppts.length ? 'cursor-pointer' : ''}`}
+                                <div className={`h-full w-full ${dayAppts.length || freeByDay[ymd] ? 'cursor-pointer' : ''}`}
                                     onMouseEnter={(e) => {
                                         clearHoverTimeout();
                                         setHoveredDay(ymd);
@@ -2467,13 +2498,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     }}
                                     onMouseLeave={scheduleHide}
                                     onClick={() => {
-                                        if (dayAppts.length === 0) return;
+                                        if (dayAppts.length === 0) {
+                                            // dia vazio com vagas: abre o dia por profissional (onde o encaixe já existe)
+                                            if (freeByDay[ymd]) calendarRef.current?.getApi().changeView('timeGridDay', ymd);
+                                            return;
+                                        }
                                         clearHoverTimeout();
                                         setActivePopup(null);
                                         setDayModalData({ dateStr: ymd, dayAppts });
                                         setDayModalOpen(true);
                                     }}>
-                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} />
+                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} freeSlots={freeByDay[ymd] || 0} />
                                 </div>
                             );
                         }
