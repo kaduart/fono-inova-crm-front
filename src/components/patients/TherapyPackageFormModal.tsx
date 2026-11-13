@@ -9,8 +9,7 @@ import {
     Save,
     Trash2,
     TrendingUp,
-    User,
-    X
+    User
 } from 'lucide-react';
 import { addWeeks, format as fmtDate, getISODay, isBefore, parse as parseDate, setISODay, startOfISOWeek } from 'date-fns';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +34,8 @@ import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { validateObject, required, betweenNumber, minNumber } from "../../utils/validators";
 import { notifyApiError } from '../../utils/notifyApiError';
+import { Modal } from '../ui/Modal';
+import { ModalHeader } from '../../pages/Financial/components/formKit';
 
 const WEEKS_PER_MONTH = 4;
 
@@ -1113,36 +1114,22 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     }, [formData.paymentType, payments, selectedDebtIds.size, suggestedPaymentAmount]);
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 overflow-hidden">
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="therapy-package-modal-title"
-                className={`bg-white rounded-2xl shadow-2xl w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-[max-width] duration-quick motion-reduce:transition-none flex flex-col`}
-            >
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-4 py-3.5 sm:px-5 sm:py-4 text-white relative flex-shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white hover:text-gray-200 transition-colors p-1"
-                    >
-                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
-
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="p-2 bg-white bg-opacity-20 rounded-xl flex-shrink-0">
-                            {initialData ? <Save className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
-                        </div>
-                        <div className="min-w-0 text-left">
-                            <h2 id="therapy-package-modal-title" className="text-lg sm:text-xl font-bold text-left">
-                                {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
-                            </h2>
-                            <p className="text-emerald-100 mt-0.5 text-sm truncate">
-                                {initialData ? 'Atualize as informações do pacote' : <>Criar pacote para <span className="font-bold uppercase">{patient.fullName}</span></>}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+        <Modal
+            open
+            onClose={() => !isLoading && onClose()}
+            labelledBy="therapy-package-modal-title"
+            zIndexClass="z-50"
+            panelClassName={`flex max-h-[92dvh] w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl transition-[max-width] duration-quick motion-reduce:transition-none sm:rounded-[20px]`}
+        >
+            <>
+                <ModalHeader
+                    icon={initialData ? <Save className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
+                    color="#059669"
+                    title={initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
+                    subtitle={initialData ? 'Atualize as informações do pacote' : `Criar pacote para ${patient.fullName}`}
+                    onClose={onClose}
+                    titleId="therapy-package-modal-title"
+                />
 
                 <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
                     <WorkflowSteps labels={['Profissional', 'Pacote', 'Agenda', 'Financeiro']}
@@ -2200,7 +2187,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+            </>
+        </Modal>
     );
 }
