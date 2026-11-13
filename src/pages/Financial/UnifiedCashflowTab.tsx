@@ -1,6 +1,6 @@
 // UnifiedCashflowTab.tsx - Caixa e Fluxo de Caixa unificados (refatorado com Tailwind)
 import { 
-    Alert, Chip, MenuItem, Skeleton, Tab, Tabs, Badge, Tooltip, IconButton,
+    Alert, Skeleton, Tabs, Badge, Tooltip, IconButton,
     FormControl, InputLabel, Select, LinearProgress
 } from '@mui/material';
 import { format, parseISO } from 'date-fns';
@@ -54,44 +54,40 @@ interface DayData {
 }
 
 const CashflowCardsSkeleton = () => {
-    const s = { bgcolor: 'rgba(255,255,255,0.10)' };
-    const cardColors = ['#10B981', '#3B82F6', '#F59E0B', '#10B981'];
+    const bar = 'rounded bg-gray-200/80 dark:bg-gray-700/60';
     return (
-        <div className="p-2">
-            {/* 4 cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-                {cardColors.map((color, i) => (
-                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `color-mix(in srgb, ${color} 25%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 7%, transparent)` }}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, ...s }} />
-                            <div className="flex-1">
-                                <Skeleton variant="text" width="55%" height={13} sx={s} />
-                                <Skeleton variant="text" width="70%" height={11} sx={s} />
-                            </div>
-                        </div>
-                        <Skeleton variant="text" width="80%" height={40} sx={s} />
-                        <div className="mt-3 pt-3 border-t border-white/10 space-y-2.5">
-                            {[0, 1, 2].map(j => (
-                                <div key={j} className="flex items-center justify-between">
-                                    <Skeleton variant="text" width="48%" height={13} sx={s} />
-                                    <Skeleton variant="text" width="30%" height={13} sx={s} />
-                                </div>
-                            ))}
-                        </div>
+        <div className="animate-pulse space-y-3 p-2" aria-busy="true" aria-label="Carregando caixa">
+            <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+                {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="border-gray-200 p-4 dark:border-gray-700 lg:border-l lg:first:border-l-0">
+                        <div className={`h-3 w-24 ${bar}`} />
+                        <div className={`mt-3 ${i === 0 ? 'h-9 w-36' : 'h-6 w-28'} ${bar}`} />
+                        <div className={`mt-3 h-3 w-4/5 ${bar}`} />
                     </div>
                 ))}
             </div>
-            {/* Tabs */}
-            <div className="flex gap-1 border-b border-white/10 pb-1 mb-3">
-                {[90, 90, 80, 90, 110, 110].map((w, i) => (
-                    <Skeleton key={i} variant="rounded" width={w} height={36} sx={{ borderRadius: 6, ...s }} />
+            <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <div className={`h-3 w-56 ${bar}`} />
+                <div className={`my-3 h-2.5 w-full rounded-full ${bar}`} />
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {[0, 1, 2, 3].map(i => <div key={i} className="space-y-2"><div className={`h-5 w-24 ${bar}`} /><div className={`h-3 w-32 ${bar}`} /></div>)}
+                </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <div className={`h-3 w-28 ${bar}`} />
+                <div className="mt-4 space-y-3">
+                    {[0, 1, 2, 3].map(i => <div key={i} className="flex items-center gap-3"><div className={`h-3 w-28 ${bar}`} /><div className={`h-8 flex-1 rounded-lg ${bar}`} /></div>)}
+                </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700">
+                {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center gap-3 border-t border-gray-100 p-4 first:border-t-0 dark:border-gray-800">
+                        <div className={`h-8 w-8 rounded-full ${bar}`} />
+                        <div className="flex-1 space-y-2"><div className={`h-4 w-1/3 ${bar}`} /><div className={`h-3 w-2/3 ${bar}`} /></div>
+                        <div className={`h-6 w-20 ${bar}`} />
+                    </div>
                 ))}
             </div>
-            {/* Tabela */}
-            <Skeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 6, mb: 0.5, ...s }} />
-            {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} variant="rounded" width="100%" height={52} sx={{ borderRadius: 6, mb: 0.5, ...s }} />
-            ))}
         </div>
     );
 };

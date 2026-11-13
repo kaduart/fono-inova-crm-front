@@ -1,6 +1,5 @@
 // Componente de loading padronizado para as tabs do FinancialDashboard
 
-import { Box, Grid, LinearProgress, Skeleton } from '@mui/material';
 
 interface FinancialLoadingProps {
     /** Número de skeleton cards a exibir (padrão: 4) */
@@ -42,30 +41,22 @@ interface FinancialLoadingProps {
 export const FinancialLoading = ({
     cardCount = 4,
     cardHeight = 140,
-    showProgress = true,
     gridSize = { xs: 12, sm: 6, md: 3 },
     marginTop = 2
 }: FinancialLoadingProps) => {
+    const cols = gridSize.md && gridSize.md <= 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2';
     return (
-        <Box sx={{ mt: marginTop }}>
-            {showProgress && (
-                <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
-            )}
-            <Grid container spacing={2}>
+        <div className="animate-pulse" style={{ marginTop: marginTop * 8 }} aria-busy="true" aria-label="Carregando">
+            <div className={`grid grid-cols-1 gap-3 ${cols}`}>
                 {Array.from({ length: cardCount }, (_, i) => (
-                    <Grid 
-                        size={{ xs: gridSize.xs || 12, sm: gridSize.sm || 6, md: gridSize.md || 3, lg: gridSize.lg }}
-                        key={i}
-                    >
-                        <Skeleton 
-                            variant="rectangular" 
-                            height={cardHeight} 
-                            sx={{ borderRadius: 2 }} 
-                        />
-                    </Grid>
+                    <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700" style={{ minHeight: Math.min(cardHeight, 120) }}>
+                        <div className="h-3 w-24 rounded bg-gray-200/80 dark:bg-gray-700/60" />
+                        <div className="mt-3 h-7 w-32 rounded bg-gray-200/80 dark:bg-gray-700/60" />
+                        <div className="mt-3 h-3 w-4/5 rounded bg-gray-200/80 dark:bg-gray-700/60" />
+                    </div>
                 ))}
-            </Grid>
-        </Box>
+            </div>
+        </div>
     );
 };
 
@@ -73,9 +64,10 @@ export const FinancialLoading = ({
  * Variante compacta para tabelas ou espaços menores
  */
 export const FinancialLoadingCompact = () => (
-    <Box sx={{ p: 4, textAlign: 'center' }}>
-        <LinearProgress sx={{ maxWidth: 400, mx: 'auto', borderRadius: 1 }} />
-    </Box>
+    <div className="animate-pulse space-y-2 p-6" aria-busy="true" aria-label="Carregando">
+        <div className="mx-auto h-3 w-1/2 max-w-sm rounded bg-gray-200/80 dark:bg-gray-700/60" />
+        <div className="mx-auto h-3 w-1/3 max-w-xs rounded bg-gray-200/80 dark:bg-gray-700/60" />
+    </div>
 );
 
 /**
@@ -96,22 +88,16 @@ interface TableLoadingProps {
     colSpan?: number;
 }
 
-export const FinancialTableLoading = ({ rowCount = 5, colSpan = 6 }: TableLoadingProps) => (
-    <Box sx={{ py: 4 }}>
-        <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
+export const FinancialTableLoading = ({ rowCount = 5 }: TableLoadingProps) => (
+    <div className="animate-pulse space-y-2 px-2 py-4" aria-busy="true" aria-label="Carregando">
         {Array.from({ length: rowCount }, (_, i) => (
-            <Skeleton 
-                key={i}
-                variant="rectangular" 
-                height={50} 
-                sx={{ 
-                    borderRadius: 1, 
-                    mb: 1,
-                    mx: 2
-                }} 
-            />
+            <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+                <div className="h-4 w-16 rounded bg-gray-200/80 dark:bg-gray-700/60" />
+                <div className="h-4 flex-1 rounded bg-gray-200/80 dark:bg-gray-700/60" />
+                <div className="h-5 w-20 rounded-full bg-gray-200/80 dark:bg-gray-700/60" />
+            </div>
         ))}
-    </Box>
+    </div>
 );
 
 export default FinancialLoading;
