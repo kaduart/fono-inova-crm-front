@@ -113,6 +113,7 @@ export const ModalFooter = ({
   accent,
   status = 'idle',
   successLabel = 'Salvo',
+  cancelLabel = 'Cancelar',
   onCancel,
   onSubmit,
   submitting,
@@ -125,6 +126,7 @@ export const ModalFooter = ({
   /** 'success' (só depois de o servidor confirmar) mostra o check; 'error' faz a tremida curta. */
   status?: SubmitStatus;
   successLabel?: string;
+  cancelLabel?: string;
   /** Resumo vivo do que será salvo (aparece à esquerda no desktop). */
   summary?: ReactNode;
   onCancel: () => void;
@@ -144,7 +146,7 @@ export const ModalFooter = ({
       disabled={submitting}
       className="min-h-11 px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-60 transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
     >
-      Cancelar
+      {cancelLabel}
     </button>
     <motion.button
       type="button"
