@@ -170,7 +170,7 @@ export default function ContractCard({ data, onRefresh, detailsExpanded, onToggl
     : 0;
   // Cor da barra pela saúde do saldo, não pela ordem do card.
   const balanceHealth: 'ok' | 'mid' | 'low' = balancePct >= 50 ? 'ok' : balancePct >= 25 ? 'mid' : 'low';
-  const barColor = balanceHealth === 'ok' ? '#7C3AED' : balanceHealth === 'mid' ? '#D97706' : '#DC2626';
+  const barColor = balanceHealth === 'ok' ? '#7C3AED' : balanceHealth === 'mid' ? '#D97706' : available < 0 ? '#DC2626' : '#EA580C';
   // Composição do total liberado (valores do back): usado + reservado na agenda + livre.
   const reserved = Math.max(0, committed?.committed ?? 0);
   const pctOf = (v: number) => (contract.totalCredit > 0 ? Math.max(0, Math.min(100, (v / contract.totalCredit) * 100)) : 0);
@@ -429,7 +429,7 @@ export default function ContractCard({ data, onRefresh, detailsExpanded, onToggl
               {statusLabel}
             </span>
             {contract.status === 'active' && (available < 0 || balanceHealth === 'low') && (
-              <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30">
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${available < 0 ? 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30' : 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30'}`}>
                 {available < 0 ? 'Saldo excedido' : 'Saldo baixo'}
               </span>
             )}
@@ -485,7 +485,7 @@ export default function ContractCard({ data, onRefresh, detailsExpanded, onToggl
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">Livre para novas sessões</p>
           <p className="mt-0.5 flex items-baseline gap-2 whitespace-nowrap">
-            <span className={`text-2xl font-bold leading-none tabular-nums ${available < 0 || balanceHealth === 'low' ? 'text-red-600 dark:text-red-400' : 'text-violet-700 dark:text-violet-300'}`}>
+            <span className={`text-2xl font-bold leading-none tabular-nums ${available < 0 ? 'text-red-600 dark:text-red-400' : balanceHealth === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-violet-700 dark:text-violet-300'}`}>
               <AnimatedValue value={`R$ ${fmt(available)}`} />
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400">de R$ {fmt(contract.totalCredit)} liberados</span>
@@ -577,7 +577,7 @@ export default function ContractCard({ data, onRefresh, detailsExpanded, onToggl
           </p>
         )}
         {contract.status === 'active' && balanceHealth === 'low' && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-500/10 dark:text-red-200">
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
             Saldo baixo: avise a família e o jurídico para pedir novo crédito antes de acabar.
           </p>
         )}
