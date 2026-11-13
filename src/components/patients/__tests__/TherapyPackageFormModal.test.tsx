@@ -47,9 +47,10 @@ describe('TherapyPackageFormModal', () => {
         return select as HTMLSelectElement;
     };
     const getDebtCheckboxes = () => Array.from(
-        document.querySelectorAll('input[type="checkbox"].accent-rose-500')
+        document.querySelectorAll('input[type="checkbox"].accent-amber-600')
     ) as HTMLInputElement[];
-    const selectSpecialty = () => fireEvent.change(getSelect('sessionType'), { target: { value: 'fonoaudiologia' } });
+    const chooseTherapy = (label: string) => fireEvent.click(screen.getByRole('radio', { name: label }));
+    const selectSpecialty = () => chooseTherapy('Fonoaudiologia');
     const importDebts = async () => {
         await waitFor(() => expect(API.get).toHaveBeenCalledWith(`/v2/balance/${mockPatient.patientId}`));
     };
@@ -76,7 +77,7 @@ describe('TherapyPackageFormModal', () => {
         ]);
         renderModal(); selectSpecialty(); await importDebts();
         await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(1));
-        fireEvent.change(getSelect('sessionType'), { target: { value: 'psicologia' } });
+        chooseTherapy('Psicologia');
         await waitFor(() => expect(getDebtCheckboxes()).toHaveLength(1));
     });
 
