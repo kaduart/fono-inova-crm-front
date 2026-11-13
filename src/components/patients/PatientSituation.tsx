@@ -279,13 +279,13 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
             <button
               onClick={onReceive}
               title="Sessões em aberto e baixa de pagamento"
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors duration-quick hover:bg-emerald-700"
             >
               <CreditCard size={16} /> Receber
             </button>
             <button
               onClick={onSchedule}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors duration-quick hover:bg-slate-50"
             >
               <CalendarPlus size={16} /> Agendar
             </button>
@@ -293,7 +293,7 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
               <button
                 type="button"
                 onClick={onReactivate}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 transition-colors hover:bg-emerald-100"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800 transition-colors duration-quick hover:bg-emerald-100"
               >
                 <UserCheck size={16} /> Reativar
               </button>
@@ -303,7 +303,7 @@ export function PatientSituationStrip({ patient, situation, nextSession, onRecei
                 type="button"
                 onClick={onInactivate}
                 title="Paciente parou: registrar o motivo para campanhas de retorno"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 transition-colors duration-quick hover:border-red-200 hover:bg-red-50 hover:text-red-700"
               >
                 <UserX size={16} /> Inativar
               </button>

@@ -588,15 +588,14 @@ export default function PatientDashboard() {
       {/* ── KPI strip ── */}
       <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3 sm:auto-rows-fr mb-5">
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Atendimentos</p>
+              <p className="text-xs font-medium text-slate-500">Atendimentos</p>
               <p className="mt-1 text-2xl font-extrabold text-slate-900"><AnimatedValue value={totalApts} /></p>
               <p className="mt-0.5 text-2xs text-slate-500">{totalDone} concluídos</p>
               {totalApts > 0 && (
                 <div className="mt-2 h-1.5 w-40 max-w-full overflow-hidden rounded-full bg-slate-100" title={`${Math.round((totalDone / totalApts) * 100)}% concluídos`}>
-                  <div className="h-full rounded-full bg-blue-500 transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, Math.round((totalDone / totalApts) * 100))}%` }} />
+                  <div className="h-full rounded-full bg-blue-500 transition-[width] duration-slow ease-smooth-out" style={{ width: `${Math.min(100, Math.round((totalDone / totalApts) * 100))}%` }} />
                 </div>
               )}
             </div>
@@ -604,10 +603,9 @@ export default function PatientDashboard() {
           </div>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className={`absolute inset-x-0 top-0 h-0.5 ${totalPending > 0 ? 'bg-amber-500' : 'bg-slate-300'}`} />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Saldo pendente</p>
+              <p className="text-xs font-medium text-slate-500">Saldo pendente</p>
               <p className={`mt-1 text-xl font-extrabold ${totalPending > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
                 <AnimatedValue value={formatBalance(totalPending)} />
               </p>
@@ -656,10 +654,9 @@ export default function PatientDashboard() {
           </div>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-500" />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-3xs font-bold uppercase tracking-widest text-slate-400">Próxima sessão</p>
+              <p className="text-xs font-medium text-slate-500">Próxima sessão</p>
               <p className="mt-1 text-xl font-extrabold text-slate-900">
                 {nextAptDate ? nextAptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Sem agenda'}
               </p>
@@ -699,7 +696,7 @@ export default function PatientDashboard() {
           <div className="divide-y divide-gray-100">
             {todaysAppointments.length > 0 ? (
               todaysAppointments.map((appointment) => (
-                <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors duration-quick">
                   <div className="flex items-start gap-3">
                     {/* Avatar com inicial do profissional */}
                     <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
@@ -744,7 +741,7 @@ export default function PatientDashboard() {
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Nenhum agendamento hoje</h4>
                 {nextApt && nextAptDate ? (
                   <div className="mt-3 mx-auto max-w-xs bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-left">
-                    <p className="text-3xs font-bold uppercase tracking-widest text-blue-400 mb-1">Próxima sessão</p>
+                    <p className="text-xs font-medium text-blue-500 mb-1">Próxima sessão</p>
                     <p className="text-sm font-bold text-blue-800">
                       {nextAptDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
                       {nextApt?.time && ` às ${nextApt?.time}`}
@@ -766,7 +763,7 @@ export default function PatientDashboard() {
           <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
             <button
               onClick={handleOpenHistory}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors duration-quick"
             >
               Ver histórico completo →
             </button>
@@ -789,7 +786,7 @@ export default function PatientDashboard() {
 
           <div className="divide-y divide-gray-100">
             {recentActivities.slice(0, 3).map((appointment) => (
-              <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div key={appointment._id} className="p-4 hover:bg-gray-50 transition-colors duration-quick">
                 <div className="flex items-start gap-3">
                   <div className="relative flex-shrink-0 mt-1">
                     <div className="w-2 h-2 rounded-full bg-teal-500"></div>
@@ -850,7 +847,7 @@ export default function PatientDashboard() {
           </div>
 
           <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 flex justify-end">
-            <button onClick={handleOpenHistory} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors">
+            <button onClick={handleOpenHistory} className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors duration-quick">
               Ver todas as atividades →
             </button>
           </div>
@@ -895,11 +892,11 @@ export default function PatientDashboard() {
         <CardFooter className="p-2">
           <Button
             variant="ghost"
-            className="w-full text-sm text-gray-500 hover:text-gray-900 transition-colors"
+            className="w-full text-sm text-gray-500 hover:text-gray-900 transition-colors duration-quick"
             onClick={() => setShowPrescriptions(!showPrescriptions)}
           >
             {showPrescriptions ? "Hide" : "Ver Todas"} Prescrições
-            <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showPrescriptions ? "rotate-180" : ""}`} />
+            <ChevronDown className={`h-4 w-4 ml-2 transition-transform duration-fast ease-smooth-out ${showPrescriptions ? "rotate-180" : ""}`} />
           </Button>
         </CardFooter>
 
@@ -973,7 +970,7 @@ export default function PatientDashboard() {
               <UserRound size={26} />
             </div>
             <div className="min-w-0">
-              <p className="text-2xs font-bold uppercase tracking-widest text-emerald-700">Perfil do paciente</p>
+              <p className="text-xs font-semibold text-emerald-700">Perfil do paciente</p>
               <h2 className="truncate text-xl font-extrabold text-slate-900">{patientInfo.fullName}</h2>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                 <span>{birthDate}</span>

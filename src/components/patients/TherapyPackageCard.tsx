@@ -117,7 +117,7 @@ export default function TherapyPackageCard({
   const [showSessionsCalendarModal, setShowSessionsCalendarModal] = useState(false);
   const [sessionsModalView, setSessionsModalView] = useState<'mes' | 'lista'>('mes');
   const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const [detailsRef] = useAutoAnimate<HTMLDivElement>({ duration: 200 });
+  const [detailsRef] = useAutoAnimate<HTMLDivElement>({ duration: 250 });
 
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showInactivateModal, setShowInactivateModal] = useState(false);
@@ -577,7 +577,7 @@ export default function TherapyPackageCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-l-4 bg-white text-left shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900 ${isLegacyConvenio ? 'border-slate-200 border-l-blue-500 dark:border-slate-700' : 'border-slate-200 border-l-emerald-500 dark:border-slate-700'}`}
+      className={`overflow-hidden rounded-xl border border-l-4 bg-white text-left shadow-sm transition-shadow duration-quick hover:shadow-md dark:bg-slate-900 ${isLegacyConvenio ? 'border-slate-200 border-l-blue-500 dark:border-slate-700' : 'border-slate-200 border-l-emerald-500 dark:border-slate-700'}`}
     >
       <div className="space-y-3 px-4 pb-3 pt-3.5">
         {/* Identificação + estado */}
@@ -698,9 +698,9 @@ export default function TherapyPackageCard({
                 role="img"
                 aria-label={`Feitas ${done}, agendadas ${sched}, a agendar ${free}, de ${totalSessions}`}
               >
-                <div className={doneBar} style={{ width: `${pct(done)}%`, transition: 'width 0.5s' }} />
-                <div style={{ width: `${pct(sched)}%`, background: striped, transition: 'width 0.5s' }} />
-                <div className={freeBar} style={{ width: `${pct(free)}%`, transition: 'width 0.5s' }} />
+                <div className={doneBar} style={{ width: `${pct(done)}%`, transition: 'width 400ms cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                <div style={{ width: `${pct(sched)}%`, background: striped, transition: 'width 400ms cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                <div className={freeBar} style={{ width: `${pct(free)}%`, transition: 'width 400ms cubic-bezier(0.22, 1, 0.36, 1)' }} />
               </div>
               <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                 {[
@@ -897,7 +897,7 @@ export default function TherapyPackageCard({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); primary.onClick(); }}
-          className={`flex-1 truncate rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${primary.tone === 'amber' ? 'bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500' : 'bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500'}`}
+          className={`flex-1 truncate rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${primary.tone === 'amber' ? 'bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500' : 'bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500'}`}
         >
           {primary.label}
         </button>
@@ -917,7 +917,7 @@ export default function TherapyPackageCard({
           className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           Detalhes
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-fast ease-smooth-out ${detailsExpanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
@@ -949,7 +949,7 @@ export default function TherapyPackageCard({
                 <div role="tablist" aria-label="Modo de exibição" className="flex items-center rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
                   <button
                     onClick={() => setSessionsModalView('mes')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors duration-quick ${
                       sessionsModalView === 'mes' ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                     }`}
                   >
@@ -957,7 +957,7 @@ export default function TherapyPackageCard({
                   </button>
                   <button
                     onClick={() => setSessionsModalView('lista')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors duration-quick ${
                       sessionsModalView === 'lista' ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                     }`}
                   >
@@ -997,7 +997,7 @@ export default function TherapyPackageCard({
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSessionTab('active')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-quick ${
                         sessionTab === 'active'
                           ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                           : 'text-gray-500 hover:bg-gray-100'
@@ -1007,7 +1007,7 @@ export default function TherapyPackageCard({
                     </button>
                     <button
                       onClick={() => setSessionTab('history')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-quick ${
                         sessionTab === 'history'
                           ? 'bg-gray-200 text-gray-700 border border-gray-300'
                           : 'text-gray-500 hover:bg-gray-100'
@@ -1020,7 +1020,7 @@ export default function TherapyPackageCard({
                   {/* Seleção em lote — mesma função de antes, agora vive só aqui na Lista */}
                   {scheduledSessions.length > 0 && (
                     <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
+                      <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors duration-quick">
                         <input
                           type="checkbox"
                           checked={selectedSessionIds.size === scheduledSessions.length && scheduledSessions.length > 0}
