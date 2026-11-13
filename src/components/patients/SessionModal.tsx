@@ -1,4 +1,4 @@
-import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, X, Wallet, Ban } from 'lucide-react';
+import { PlusCircle, Save, UserX, Calendar, Clock, User, DollarSign, FileText, Wallet, Ban } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -6,7 +6,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from '../../utils/toast';
 import { buildLocalDateOnly } from '../../utils/dateFormat';
 import { IDoctor, ISession, THERAPY_TYPES, TherapyType } from '../../utils/types/types';
-import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
+import { ModalHeader, ModalFooter, inputClass } from '../../pages/Financial/components/formKit';
 import InputCurrency from '../ui/InputCurrency';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/TextArea';
@@ -39,14 +40,6 @@ export const SessionModal = ({
     onClose,
     onSessionDataChange
 }: SessionModalProps) => {
-    console.log('[DEBUG] SessionModal received sessionData:', sessionData);
-    console.log('[DEBUG] SessionModal doctors array length:', doctors?.length);
-    console.log('[DEBUG] SessionModal doctorId:', sessionData?.doctorId);
-    console.log('[DEBUG] SessionModal date:', sessionData?.date);
-    console.log('[DEBUG] SessionModal paymentAmount:', sessionData?.paymentAmount);
-    console.log('[DEBUG] SessionModal notes:', sessionData?.notes);
-    const doctorMatch = doctors?.find(d => d._id === sessionData?.doctorId);
-    console.log('[DEBUG] SessionModal doctorMatch:', doctorMatch);
     const title = action === 'edit' ? 'Editar Sessão' : 'Registrar Uso da Sessão';
     const submitText = action === 'edit' ? 'Salvar Alterações' : 'Registrar Sessão';
     
@@ -124,41 +117,30 @@ export const SessionModal = ({
     })();
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-fast animate-fade-in">
-                {/* Cabeçalho com gradiente verde */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-700 p-6 text-white relative">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-1"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-                    
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-white bg-opacity-20 rounded-xl">
-                            {action === 'edit' ? (
-                                <Save className="w-6 h-6" />
-                            ) : (
-                                <PlusCircle className="w-6 h-6" />
-                            )}
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold">{title}</h2>
-                            <p className="text-emerald-100 mt-1">
-                                {action === 'edit' ? 'Atualize os dados da sessão' : 'Registre uma nova sessão do pacote'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+        <Modal
+            open
+            onClose={() => !loading && onClose()}
+            labelledBy="session-modal-title"
+            zIndexClass="z-[100]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+        >
+            <>
+                <ModalHeader
+                    icon={action === 'edit' ? <Save className="w-6 h-6" /> : <PlusCircle className="w-6 h-6" />}
+                    color="#059669"
+                    title={title}
+                    subtitle={action === 'edit' ? 'Atualize os dados da sessão' : 'Registre uma nova sessão do pacote'}
+                    onClose={onClose}
+                    titleId="session-modal-title"
+                />
 
                 {/* Corpo do formulário */}
-                <div className="p-4 sm:p-6 max-h-[70vh] overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         {/* Coluna Esquerda - Informações Principais */}
                         <div className="space-y-6">
                             {/* Profissional */}
-                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
+                            <div className="rounded-2xl border border-gray-200 p-4">
                                 <label className="block mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
                                     <User className="w-4 h-4 text-emerald-600" />
                                     <span>Profissional *</span>
@@ -167,7 +149,7 @@ export const SessionModal = ({
                                     value={sessionData.doctorId || ''}
                                     onChange={(e) => onSessionDataChange({ ...sessionData, doctorId: e.target.value })}
                                     disabled={isCompletedLocked}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                    className={inputClass('emerald')}
                                 >
                                     <option value="">Selecione um profissional</option>
                                     {doctors.map((doctor) => (
@@ -234,7 +216,7 @@ export const SessionModal = ({
                                         disabled={true}
                                         value={sessionData.sessionType || ''}
                                         onChange={(e) => onSessionDataChange({ ...sessionData, sessionType: e.target.value as TherapyType })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                        className={inputClass('emerald')}
                                     >
                                         <option value="">Selecione</option>
                                         {THERAPY_TYPES.map((type) => (
@@ -250,7 +232,7 @@ export const SessionModal = ({
                                     <Select
                                         value={sessionData.status || 'pending'}
                                         onChange={(e) => onSessionDataChange({ ...sessionData, status: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                        className={inputClass('emerald')}
                                     >
                                         {STATUS_OPTIONS.map((status) => (
                                             <option key={status.value} value={status.value}>
@@ -434,44 +416,17 @@ export const SessionModal = ({
                     </div>
                 </div>
 
-                {/* Rodapé com botões */}
-                <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t border-gray-200">
-                    <div className="text-sm text-gray-500">
-                        {!isFormValid && "Preencha todos os campos obrigatórios (*)"}
-                    </div>
-                    
-                    <div className="flex gap-3">
-                        <Button
-                            onClick={onClose}
-                            variant="outline"
-                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={!isFormValid || loading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-quick ${
-                                !isFormValid || loading
-                                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                                    : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
-                            }`}
-                        >
-                            {loading ? (
-                                <div className="flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    Processando...
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    {action === 'edit' ? <Save className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
-                                    {submitText}
-                                </div>
-                            )}
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        </div>
+                <ModalFooter
+                    accent="emerald"
+                    onCancel={onClose}
+                    onSubmit={handleSubmit}
+                    submitting={loading}
+                    submitDisabled={!isFormValid}
+                    submitLabel={submitText}
+                    submittingLabel="Processando..."
+                    summary={!isFormValid ? 'Preencha todos os campos obrigatórios (*)' : null}
+                />
+            </>
+        </Modal>
     );
 };
