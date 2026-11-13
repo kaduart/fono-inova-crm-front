@@ -15,6 +15,8 @@ import Input from "../ui/Input";
 import InputCurrency from "../ui/InputCurrency";
 import { Label } from "../ui/Label";
 import { Select } from "../ui/Select";
+import { Modal } from "../ui/Modal";
+import { ModalHeader } from "../../pages/Financial/components/formKit";
 
 interface EvaluationData {
   doctorId: string;
@@ -211,13 +213,23 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
           )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Nova Avaliação Agendada</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
-            </div>
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        labelledBy="new-evaluation-title"
+        zIndexClass="z-50"
+        panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+      >
+        <>
+          <ModalHeader
+            icon={<Plus className="h-6 w-6" />}
+            color="#059669"
+            title="Nova Avaliação Agendada"
+            subtitle="Avaliação avulsa para este paciente"
+            onClose={() => setShowModal(false)}
+            titleId="new-evaluation-title"
+          />
+          <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="evaluationDoctor">Profissional</Label>
@@ -298,9 +310,8 @@ export function PatientAvailablesCard({ doctors, evaluations, onDelete, patientI
               </Button>
             </form>
           </div>
-        </div>
-      )
-      }
+        </>
+      </Modal>
     </>
   );
 }
