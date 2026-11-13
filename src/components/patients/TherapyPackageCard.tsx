@@ -577,7 +577,7 @@ export default function TherapyPackageCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-l-4 bg-white text-left shadow-sm transition-shadow duration-quick hover:shadow-md dark:bg-slate-900 ${isLegacyConvenio ? 'border-slate-200 border-l-blue-500 dark:border-slate-700' : 'border-slate-200 border-l-emerald-500 dark:border-slate-700'}`}
+      className={`flex h-full flex-col overflow-hidden rounded-xl border border-l-4 bg-white text-left shadow-sm transition-shadow duration-quick hover:shadow-md dark:bg-slate-900 ${isLegacyConvenio ? 'border-slate-200 border-l-blue-500 dark:border-slate-700' : 'border-slate-200 border-l-emerald-500 dark:border-slate-700'}`}
     >
       <div className="space-y-3 px-4 pb-3 pt-3.5">
         {/* Identificação + estado */}
@@ -595,18 +595,13 @@ export default function TherapyPackageCard({
                 <StatusIcon className="h-3 w-3" />{statusConfig.label}
               </span>
               {payPill && <span className={`rounded-full px-2 py-0.5 text-2xs font-semibold ring-1 ring-inset ${payPill.c}`}>{payPill.t}</span>}
+              {isActive && nearEnd && !isLegacyConvenio && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-2xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">Renovar em breve</span>}
               {isLegacyConvenio && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-2xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30">Convênio · modelo antigo</span>}
             </div>
             <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400">
               {isLegacyConvenio ? <Building2 className="h-3.5 w-3.5 shrink-0 text-blue-600" /> : <Sprout className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
               <span className="truncate">{pack.searchFields?.doctorName || 'Profissional não identificado'} · <span className="capitalize">{pack.sessionType?.toLowerCase().replace(/_/g, ' ')}</span></span>
             </p>
-            {(pack.createdAt || (isLegacyConvenio && pack.insuranceProvider)) && (
-              <p className="mt-0.5 text-2xs text-slate-400">
-                {pack.createdAt && `Criado em ${new Date(pack.createdAt).toLocaleDateString('pt-BR')}`}
-                {isLegacyConvenio && pack.insuranceProvider && ` · ${pack.insuranceProvider.replace(/-/g, ' ').toUpperCase()}`}
-              </p>
-            )}
           </div>
           {(
             <div className="relative shrink-0">
@@ -636,20 +631,29 @@ export default function TherapyPackageCard({
         {/* Números do pacote */}
         {!isLegacyConvenio ? (
           <div>
-            <div className="flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500 dark:text-slate-400">{missing > 0 ? 'Pacote em aberto (total)' : 'Pacote quitado'}</p>
-                <p className={`mt-0.5 text-2xl font-bold tabular-nums leading-none ${missing > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
-                  {financialLoading || financial === null ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <AnimatedValue value={brl(missing > 0 ? missing : paidShown)} />}
-                </p>
+            <p className="flex items-baseline gap-2 whitespace-nowrap">
+              <span className="text-sm text-slate-600 dark:text-slate-300">{canReceive ? 'A receber agora' : missing > 0 ? 'Falta pagar' : 'Pacote quitado'}</span>
+              <span className={`text-2xl font-bold tabular-nums leading-none ${canReceive || missing > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                {financialLoading || financial === null ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-200 align-middle dark:bg-slate-700" /> : <AnimatedValue value={brl(canReceive ? sessionDebt : missing > 0 ? missing : paidShown)} />}
+              </span>
+            </p>
+            <div className="mt-1 flex items-center justify-between gap-3 text-xs">
+              <span className="min-w-0 truncate tabular-nums text-slate-500 dark:text-slate-400">Pacote {brl(totalValue)} · pago {financial === null ? '—' : brl(paidShown)}</span>
+              {canReceive && (pack.type === 'therapy' || pack.type === 'terapia_ocupacional' || !pack.type) && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowBalanceModal(true); }}
+                  className="shrink-0 font-semibold text-amber-800 underline underline-offset-2 transition-colors duration-quick hover:text-amber-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:text-amber-300"
+                >
+                  Quitar pendências
+                </button>
+              )}
+            </div>
+            {paidShown > 0 && (
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="img" aria-label={`Pago ${brl(paidShown)} de ${brl(totalValue)}`}>
+                <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-slow ease-smooth-out" style={{ width: `${totalValue > 0 ? Math.max(0, Math.min(100, (paidShown / totalValue) * 100)) : 0}%` }} />
               </div>
-              <p className="shrink-0 pb-0.5 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                {financial === null ? '—' : brl(paidShown)} de {brl(totalValue)} pagos
-              </p>
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="img" aria-label={`Pago ${brl(paidShown)} de ${brl(totalValue)}`}>
-              <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-slow ease-smooth-out" style={{ width: `${totalValue > 0 ? Math.max(0, Math.min(100, (paidShown / totalValue) * 100)) : 0}%` }} />
-            </div>
+            )}
           </div>
         ) : (
           <dl className="grid grid-cols-2 gap-2">
@@ -680,7 +684,7 @@ export default function TherapyPackageCard({
           const striped = 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)';
           let insight: string | null = null;
           if (isActive && sessionsLeft === 0) insight = 'Pacote no fim. Hora de renovar.';
-          else if (isActive && free === 0 && lastDate && nearEnd) insight = `Todas as sessões já estão na agenda. A última é em ${fmtD(lastDate)}, então fale em renovação antes disso.`;
+          else if (isActive && free === 0 && lastDate && nearEnd) { /* aviso de renovação: selo no título + texto em Detalhes */ }
           else if (isActive && lastDate && free > 0) insight = `A agenda vai até ${fmtD(lastDate)} e ainda ${free === 1 ? 'falta agendar 1 sessão' : `faltam agendar ${free} sessões`}.`;
           else if (isActive && free > 0) insight = `Nenhuma sessão na agenda. ${free === 1 ? 'Falta agendar 1' : `Faltam agendar ${free}`}.`;
           else if (nearEnd) insight = `Faltam ${sessionsLeft}. Hora de falar em renovação.`;
@@ -722,20 +726,10 @@ export default function TherapyPackageCard({
           );
         })()}
 
-        {canReceive && (pack.type === 'therapy' || pack.type === 'terapia_ocupacional' || !pack.type) && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setShowBalanceModal(true); }}
-            className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 transition-colors duration-quick hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
-          >
-            <span className="min-w-0 truncate"><strong className="tabular-nums">{brl(sessionDebt)}</strong> já devidos (sessões feitas)</span>
-            <span className="shrink-0 font-semibold underline-offset-2 hover:underline">Quitar pendências</span>
-          </button>
-        )}
       </div>
 
       {/* Conteúdo principal */}
-      <div ref={detailsRef}>
+      <div ref={detailsRef} className="mt-auto">
       {detailsExpanded && <div className="space-y-3 border-t border-slate-100 px-4 pb-3 pt-3 dark:border-slate-800">
         {/* Badge de Status de Faturamento (só para convênio) */}
         {pack.type === 'convenio' && pack.insuranceBillingStatus && (
@@ -769,7 +763,11 @@ export default function TherapyPackageCard({
         )}
 
         {/* Detalhes financeiros: o que não cabe no resumo do card */}
+        {isActive && nearEnd && !isLegacyConvenio && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Poucas sessões restantes. Fale em renovação antes da última sessão da agenda.</p>
+        )}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+          {pack.createdAt && <div><dt className="text-xs text-slate-500">Criado em</dt><dd className="font-semibold tabular-nums text-slate-900">{new Date(pack.createdAt).toLocaleDateString('pt-BR')}</dd></div>}
           {pack.type === 'convenio' ? (
             <>
               <div><dt className="text-xs text-slate-500">Valor convênio</dt><dd className="font-semibold tabular-nums text-slate-900">{brl((pack.insuranceGrossAmount || 0) * pack.totalSessions)}</dd></div>
