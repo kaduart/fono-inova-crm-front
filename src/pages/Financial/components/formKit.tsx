@@ -1,6 +1,7 @@
 // Primitivos de formulário/modal das despesas — mesma linguagem visual das telas financeiras
 // (rótulo acima, campos arredondados, cabeçalho com ícone). Substitui o `Grid item xs` do MUI,
 // que no MUI v7 não aplica mais (o layout colapsava).
+import { MotionText } from '../../../components/ui/MotionText';
 import type { ReactNode } from 'react';
 import { IconButton } from '@mui/material';
 import { X } from 'lucide-react';
@@ -111,7 +112,7 @@ export const ModalFooter = ({
       className={`px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ${PRIMARY_BTN[accent]}`}
     >
       {submitting && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-      {submitting ? submittingLabel : submitLabel}
+      <MotionText>{submitting ? submittingLabel : submitLabel}</MotionText>
     </button>
   </div>
 );

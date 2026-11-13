@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Dialog } from '@mui/material';
+import { Modal } from '../../../components/ui/Modal';
 import { TrendingDown } from 'lucide-react';
 import { Expense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
 import { useExpenses } from '../../../hooks/useExpenses';
@@ -100,13 +100,12 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
     };
 
     return (
-        <Dialog
+        <Modal
             open={open}
             onClose={() => !isSubmitting && onClose()}
-            fullWidth
-            maxWidth="sm"
-            aria-labelledby="expense-modal-title"
-            PaperProps={{ sx: { borderRadius: '20px' } }}
+            labelledBy="expense-modal-title"
+            zIndexClass="z-[1300]"
+            panelClassName="w-full max-w-xl overflow-hidden rounded-[20px] bg-white shadow-2xl dark:bg-[#161d1b]"
         >
             <ModalHeader
                 icon={<TrendingDown className="w-6 h-6" />}
@@ -201,7 +200,7 @@ const ExpenseModal = ({ open, onClose, expense, onSaved }: ExpenseModalProps) =>
                 submitLabel={isEditing ? 'Salvar alterações' : 'Salvar despesa'}
                 submittingLabel="Salvando..."
             />
-        </Dialog>
+        </Modal>
     );
 };
 

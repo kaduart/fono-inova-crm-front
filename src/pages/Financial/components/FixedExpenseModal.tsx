@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Dialog } from '@mui/material';
+import { Modal } from '../../../components/ui/Modal';
 import { Repeat, Info } from 'lucide-react';
 import { toast } from '../../../utils/toast';
 import { fixedExpenseService, FixedExpense, EXPENSE_SUBCATEGORIES } from '../../../services/expenseService';
@@ -142,13 +142,12 @@ const FixedExpenseModal = ({ open, onClose, model, month, year, onSaved }: Props
             : `Vence todo dia ${day}`;
 
     return (
-        <Dialog
+        <Modal
             open={open}
             onClose={() => !submitting && onClose()}
-            fullWidth
-            maxWidth="sm"
-            aria-labelledby="fixed-expense-modal-title"
-            PaperProps={{ sx: { borderRadius: '20px' } }}
+            labelledBy="fixed-expense-modal-title"
+            zIndexClass="z-[1300]"
+            panelClassName="w-full max-w-xl overflow-hidden rounded-[20px] bg-white shadow-2xl dark:bg-[#161d1b]"
         >
             <ModalHeader
                 icon={<Repeat className="w-6 h-6" />}
@@ -276,7 +275,7 @@ const FixedExpenseModal = ({ open, onClose, model, month, year, onSaved }: Props
                 submitLabel={isEditing ? 'Salvar alterações' : 'Criar despesa fixa'}
                 submittingLabel="Salvando..."
             />
-        </Dialog>
+        </Modal>
     );
 };
 
