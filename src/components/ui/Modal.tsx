@@ -23,13 +23,13 @@ export function Modal({ open, onClose, children, labelledBy, role = 'dialog', pa
   return (
     <AnimatePresence>
       {open && (
-        <motion.div key="overlay" className={`fixed inset-0 ${zIndexClass} flex items-end justify-center bg-slate-900/40 p-4 sm:items-center`}
+        <motion.div key="overlay" className={`fixed inset-0 ${zIndexClass} flex items-end justify-center bg-slate-900/40 p-0 sm:p-4 sm:items-center`}
           initial={{ opacity: reduce ? 1 : 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: reduce ? 0 : motionDuration.quick } }}
           transition={{ duration: reduce ? 0 : motionDuration.fast, ease: motionEase.smoothOut }}
           onMouseDown={() => { if (closeOnBackdrop) onClose(); }}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
           <FocusTrap open isEnabled={() => true} disableAutoFocus={false}>
-            <motion.div role={role} aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className={panelClassName}
+            <motion.div role={role} aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className={`${panelClassName} outline-none`}
               initial={reduce ? false : { opacity: 0, scale: motionScale.modal ?? 0.96 }} animate={{ opacity: 1, scale: 1 }}
               exit={reduce ? undefined : { opacity: 0, scale: motionScale.modal ?? 0.96, transition: { duration: motionDuration.quick, ease: motionEase.smoothOut } }}
               transition={{ duration: reduce ? 0 : motionDuration.fast, ease: motionEase.smoothOut }}
