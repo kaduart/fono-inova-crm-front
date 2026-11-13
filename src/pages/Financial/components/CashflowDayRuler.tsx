@@ -13,6 +13,7 @@ export const RULER_STATES: { key: RulerState; label: string; swatch: string; blo
     { key: 'falta', label: 'faltas/cancel.', swatch: 'bg-red-600 dark:bg-red-500', block: 'bg-red-600 dark:bg-red-500' },
     { key: 'futuro', label: 'aguardando', swatch: 'border-[1.5px] border-dashed border-gray-400 bg-white dark:border-gray-500 dark:bg-gray-900', block: 'border-[1.5px] border-dashed border-gray-400 bg-white dark:border-gray-500 dark:bg-gray-900' },
 ];
+const BLOCK_TEXT: Record<RulerState, string> = { pago: 'Pago', pacote: 'Pacote', sem: 'Sem pgto', conv: 'Conv.', liminar: 'Liminar', falta: 'Falta', futuro: '' };
 const STATE_TEXT: Record<RulerState, string> = { pago: 'pago', pacote: 'pacote (já pago antes)', sem: 'atendido sem pagamento', conv: 'convênio', liminar: 'liminar', falta: 'falta ou cancelamento', futuro: 'aguardando' };
 
 /** Campos que a régua lê de /v2/appointments (o resto da linha é ignorado). */
@@ -75,7 +76,7 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
     return <section aria-labelledby="cashflow-ruler" className="space-y-2.5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 id="cashflow-ruler" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Régua do dia</h3>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Cada bloco é uma sessão. Clique para ver a lista.</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Cada bloco é uma sessão. Passe o mouse para ver o paciente e clique para ver a lista.</span>
         </div>
         <div className="overflow-x-auto overflow-y-hidden py-1">
             <div className="grid min-w-[640px] grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
@@ -90,8 +91,8 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
                             const meta = RULER_STATES.find(s => s.key === state)!;
                             const label = `${a.time} ${a.patientInfo?.fullName || a.patient?.fullName || a.patientName || ''}: ${STATE_TEXT[state]}`;
                             return <button key={idOf(a) || i} type="button" title={label} aria-label={label} onClick={() => onState(state)}
-                                className={`absolute inset-y-1.5 rounded-md p-0 shadow-sm ring-1 ring-inset ring-black/5 transition-all hover:-translate-y-px duration-quick motion-reduce:transition-none hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
-                                style={{ left: pct(min), width: `calc(${(dur / span) * 100}% - 3px)` }} />;
+                                className={`absolute inset-y-1.5 grid place-items-center overflow-hidden rounded-md p-0 text-[10.5px] font-bold leading-none ${state === 'pacote' ? 'text-emerald-900 dark:text-emerald-100' : state === 'futuro' ? 'text-gray-500 dark:text-gray-400' : 'text-white'} shadow-sm ring-1 ring-inset ring-black/5 transition-all hover:-translate-y-px duration-quick motion-reduce:transition-none hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
+                                style={{ left: pct(min), width: `calc(${(dur / span) * 100}% - 3px)` }}>{state === 'futuro' ? a.time : BLOCK_TEXT[state]}</button>;
                         })}
                         {showNow && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-gray-900/70 dark:bg-gray-100/70" style={{ left: pct(nowMin) }} />}
                     </div>
