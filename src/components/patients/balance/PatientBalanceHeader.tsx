@@ -58,7 +58,7 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName, on
             <AlertTriangle className="h-3.5 w-3.5" /> Saldo devedor
           </div>
           <p className="mt-1 text-3xl font-bold tabular-nums text-red-700">
-            <AnimatedValue value={sessionDebt} />
+            <AnimatedValue value={formatCurrency(sessionDebt)} />
           </p>
           {appliedCredit > 0 && (
             <div className="mt-2 space-y-0.5 text-xs text-red-700/90">
@@ -87,7 +87,7 @@ export const PatientBalanceHeader: React.FC<Props> = ({ summary, patientName, on
             <CheckCircle2 className="h-3.5 w-3.5" /> Total pago
           </div>
           <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-700">
-            <AnimatedValue value={totalPaid} />
+            <AnimatedValue value={formatCurrency(totalPaid)} />
           </p>
           {paidCount > 0 && (
             <p className="mt-1 text-xs text-emerald-700/80">
