@@ -2929,6 +2929,10 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     onClose={() => setDayModalOpen(false)}
                     convenioName={convenioName}
                     showMoney={permissions.canSeeFinancial}
+                    onSeeSlots={dayModalData.dateStr >= ymdSP(new Date()) ? () => {
+                        setDayModalOpen(false);
+                        calendarRef.current?.getApi().changeView('timeGridDay', dayModalData.dateStr);
+                    } : undefined}
                     actions={{
                         onOpen: (a) => { setDayModalOpen(false); openAppointmentDetail(a); },
                         onReschedule: canReschedule ? (a) => { setDayModalOpen(false); openReschedule(a); } : undefined,

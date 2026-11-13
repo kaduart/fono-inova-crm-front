@@ -304,7 +304,8 @@ export const DayAgendaModal: React.FC<{
     actions: RowActions;
     convenioName: (code?: string) => string;
     showMoney: boolean;
-}> = ({ dateStr, appts, onClose, actions, convenioName, showMoney }) => {
+    onSeeSlots?: () => void;
+}> = ({ dateStr, appts, onClose, actions, convenioName, showMoney, onSeeSlots }) => {
     const [status, setStatus] = useState<'all' | StatusGroup>('all');
     const [q, setQ] = useState('');
     const date = new Date(dateStr + 'T12:00:00');
@@ -347,7 +348,15 @@ export const DayAgendaModal: React.FC<{
                             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{capFirst(title)}</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{plural(appts.length, 'sessão', 'sessões')}</p>
                         </div>
-                        <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+                        <div className="flex items-center gap-2">
+                            {onSeeSlots && (
+                                <button type="button" onClick={onSeeSlots}
+                                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    Ver vagas e encaixar
+                                </button>
+                            )}
+                            <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+                        </div>
                     </div>
                     <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
                         <Chip active={status === 'all'} count={appts.length} onClick={() => setStatus('all')}>Todas</Chip>
