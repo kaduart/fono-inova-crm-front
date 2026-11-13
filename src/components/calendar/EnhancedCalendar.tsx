@@ -465,7 +465,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         const docs = (doctors as any[] || []).filter(d => d?.active !== false && (agendaFilter.doctor === 'all' || String(d._id || d.id) === agendaFilter.doctor));
         for (let day = 1; day <= last; day++) {
             const ymd = `${currentViewDate}-${String(day).padStart(2, '0')}`;
-            if (ymd < todayKey || isHoliday(ymd)) continue;
+            if (ymd < todayKey || isHolidayUtil(ymd, holidays)) continue;
             const wd = WEEKDAY[new Date(y, m - 1, day).getDay()];
             let free = 0;
             docs.forEach(d => {
@@ -476,7 +476,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             if (free > 0) out[ymd] = free;
         }
         return out;
-    }, [isAdminMode, currentViewDate, appointments, doctors, agendaFilter.doctor]);
+    }, [isAdminMode, currentViewDate, appointments, doctors, agendaFilter.doctor, holidays]);
 
     // Contagens do mês em tela para os chips (cada grupo conta com os outros dois filtros aplicados)
     const agendaCounts = useMemo(() => {
