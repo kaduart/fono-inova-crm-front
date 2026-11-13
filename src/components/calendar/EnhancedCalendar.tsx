@@ -18,6 +18,7 @@ import AppointmentDetailModal from './appointmentDetailModal';
 import RescheduleDialog, { RescheduleTarget } from './RescheduleDialog';
 import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
+import { weeklyAvailabilityService } from '../../services/weeklyAvailabilityService';
 import { AgendaFilterBar, AgendaHeader, DayAgendaModal, DayByProfessional, DayPreviewList, DoctorOption, MonthCell } from './agenda/AgendaParts';
 import {
     AgendaFilter, StatusGroup, TypeGroup, doctorIdOf, doctorNameOf, loadFilter, loadPref, matchesFilter, monthTitle,
@@ -495,35 +496,81 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
 
-    // Vagas livres por dia (admin): horário disponível do profissional naquele dia da semana, menos o que já
-    // está marcado (cancelado libera). Só conta quem tem disponibilidade cadastrada; dias passados ficam de fora.
-    const freeByDay = useMemo(() => {
-        const out: Record<string, number> = {};
-        if (!isAdminMode || !currentViewDate || !/^\d{4}-\d{2}$/.test(currentViewDate)) return out;
-        const WEEKDAY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    // Vagas livres do mês (admin): vêm do mesmo serviço da disponibilidade semanal (uma chamada por área),
+    // então já descontam o que está agendado. Guardamos por dia → profissionais com horários livres.
+    type DaySlots = { professionalId: string; name: string; specialty: string; times: string[] };
+    const [slotsByDay, setSlotsByDay] = useState<Record<string, DaySlots[]>>({});
+    const specialtiesKey = useMemo(() => [...new Set((doctors as any[] || []).filter(d => d?.active !== false && d?.specialty).map(d => String(d.specialty)))].sort().join('|'), [doctors]);
+    useEffect(() => {
+        if (!isAdminMode || !currentViewDate || !/^\d{4}-\d{2}$/.test(currentViewDate) || !specialtiesKey) { setSlotsByDay({}); return; }
+        let alive = true;
         const [y, m] = currentViewDate.split('-').map(Number);
         const last = new Date(y, m, 0).getDate();
         const todayKey = ymdSP(new Date());
-        const booked = new Set<string>();
-        (appointments || []).forEach((a: any) => {
-            if (statusGroupOf(a) === 'canceled') return;
-            booked.add(`${doctorIdOf(a)}|${ymdOf(a)}|${String(a?.time || '').slice(0, 5)}`);
-        });
-        const docs = (doctors as any[] || []).filter(d => d?.active !== false && (agendaFilter.doctor === 'all' || String(d._id || d.id) === agendaFilter.doctor));
-        for (let day = 1; day <= last; day++) {
-            const ymd = `${currentViewDate}-${String(day).padStart(2, '0')}`;
-            if (ymd < todayKey || isHolidayUtil(ymd, holidays)) continue;
-            const wd = WEEKDAY[new Date(y, m - 1, day).getDay()];
-            let free = 0;
-            docs.forEach(d => {
-                const id = String(d._id || d.id);
-                const times: string[] = (d.weeklyAvailability || []).find((w: any) => w.day === wd)?.times || [];
-                times.forEach(t => { if (!booked.has(`${id}|${ymd}|${String(t).slice(0, 5)}`)) free++; });
+        const first = `${currentViewDate}-01`;
+        const startDay = todayKey > first && todayKey.startsWith(currentViewDate) ? Number(todayKey.slice(8, 10)) : 1;
+        if (todayKey > `${currentViewDate}-${String(last).padStart(2, '0')}`) { setSlotsByDay({}); return; }
+        const startDate = `${currentViewDate}-${String(startDay).padStart(2, '0')}`;
+        const timer = setTimeout(() => {
+            Promise.allSettled(specialtiesKey.split('|').map(sp => weeklyAvailabilityService.fetch({ startDate, specialty: sp, days: last - startDay + 1 })))
+                .then(results => {
+                    if (!alive) return;
+                    const out: Record<string, DaySlots[]> = {};
+                    results.forEach(r => {
+                        if (r.status !== 'fulfilled') return;
+                        (r.value.availability || []).forEach(day => {
+                            (day.professionals || []).forEach(pr => {
+                                const times = (pr.slots || []).filter(sl => sl.available).map(sl => String(sl.time).slice(0, 5));
+                                if (!times.length) return;
+                                (out[day.date] ||= []).push({ professionalId: String(pr.professionalId), name: pr.professionalName, specialty: pr.specialty, times });
+                            });
+                        });
+                    });
+                    setSlotsByDay(out);
+                });
+        }, 350);
+        return () => { alive = false; clearTimeout(timer); };
+    }, [isAdminMode, currentViewDate, specialtiesKey, (appointments || []).length]);
+    // Contagem por dia respeitando o filtro de profissional; no dia de hoje, só horários que ainda não passaram
+    const freeByDay = useMemo(() => {
+        const out: Record<string, number> = {};
+        const todayKey = ymdSP(new Date());
+        const nowHm = new Date().toTimeString().slice(0, 5);
+        Object.entries(slotsByDay).forEach(([ymd, list]) => {
+            if (ymd < todayKey || isHolidayUtil(ymd, holidays)) return;
+            let n = 0;
+            list.forEach(pr => {
+                if (agendaFilter.doctor !== 'all' && pr.professionalId !== agendaFilter.doctor) return;
+                n += pr.times.filter(t => ymd > todayKey || t > nowHm).length;
             });
-            if (free > 0) out[ymd] = free;
-        }
+            if (n > 0) out[ymd] = n;
+        });
         return out;
-    }, [isAdminMode, currentViewDate, appointments, doctors, agendaFilter.doctor, holidays]);
+    }, [slotsByDay, holidays, agendaFilter.doctor]);
+    // Dia que mais pede ligação na semana (segunda a sexta): maior número de "sem confirmar", mínimo de 3
+    const priorityDays = useMemo(() => {
+        const set = new Set<string>();
+        if (!isAdminMode) return set;
+        const todayKey = ymdSP(new Date());
+        const perDay: Record<string, number> = {};
+        (appointments || []).forEach((a: any) => {
+            const ymd = ymdOf(a);
+            if (ymd < todayKey || statusGroupOf(a) !== 'todo') return;
+            if (String(a?.operationalStatus || a?.status || 'scheduled').toLowerCase() === 'confirmed') return;
+            perDay[ymd] = (perDay[ymd] || 0) + 1;
+        });
+        const weeks: Record<string, string[]> = {};
+        Object.keys(perDay).forEach(ymd => {
+            const d = new Date(ymd + 'T12:00:00');
+            const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+            (weeks[ymdSP(monday)] ||= []).push(ymd);
+        });
+        Object.values(weeks).forEach(days => {
+            const best = days.sort((x, y) => perDay[y] - perDay[x])[0];
+            if (best && perDay[best] >= 3) set.add(best);
+        });
+        return set;
+    }, [isAdminMode, appointments]);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     // 🆕 Popup do dia com delay (dá tempo de arrastar mouse para dentro)
@@ -2509,7 +2556,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                         setDayModalData({ dateStr: ymd, dayAppts });
                                         setDayModalOpen(true);
                                     }}>
-                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} freeSlots={freeByDay[ymd] || 0} />
+                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} freeSlots={freeByDay[ymd] || 0} priority={priorityDays.has(ymd)} />
                                 </div>
                             );
                         }

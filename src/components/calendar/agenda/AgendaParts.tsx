@@ -146,53 +146,54 @@ export const MonthCell: React.FC<{
     appts: any[];
     holidayName?: string;
     freeSlots?: number;
-}> = ({ dayNumber, isToday, isPast, appts, holidayName, freeSlots = 0 }) => {
+    priority?: boolean;
+}> = ({ dayNumber, isToday, isPast, appts, holidayName, freeSlots = 0, priority = false }) => {
     const c = { done: 0, todo: 0, missed: 0, canceled: 0, pre: 0 } as Record<StatusGroup, number>;
     appts.forEach(a => { c[statusGroupOf(a)]++; });
-    const total = appts.length;
-    const todo = c.todo + c.pre;
-    const unconfirmed = isPast && !isToday ? 0 : appts.filter(x => statusGroupOf(x) === 'todo' && String(x?.operationalStatus || x?.status || 'scheduled').toLowerCase() !== 'confirmed').length;
-    const notes = [
-        unconfirmed > 0 && { text: `${unconfirmed} sem confirmar`, color: 'text-amber-700' },
-        c.missed > 0 && { text: plural(c.missed, 'falta', 'faltas'), color: 'text-amber-700' },
-        c.canceled > 0 && { text: plural(c.canceled, 'cancelada', 'canceladas'), color: 'text-red-600' },
-    ].filter(Boolean) as { text: string; color: string }[];
+    const past = isPast && !isToday;
+    const active = appts.length - c.canceled;
+    const unconfirmed = past ? 0 : appts.filter(x => statusGroupOf(x) === 'todo' && String(x?.operationalStatus || x?.status || 'scheduled').toLowerCase() !== 'confirmed').length;
+    const occupancy = active + freeSlots > 0 ? Math.round((active / (active + freeSlots)) * 100) : 0;
+    const barColor = occupancy >= 70 ? 'var(--fx-emerald-600, #059669)' : occupancy >= 50 ? '#34d399' : '#f59e0b';
     const segs = [
         { n: c.done, color: STATUS_COLOR.done },
-        { n: todo, color: 'var(--fx-slate-300)' },
         { n: c.missed, color: STATUS_COLOR.missed },
         { n: c.canceled, color: STATUS_COLOR.canceled },
     ].filter(s => s.n > 0);
+    const main = past ? c.done : active;
+    const label = past ? (c.done === 1 ? 'realizada' : 'realizadas') : (active === 1 ? 'agendada' : 'agendadas');
     return (
-        <div className={`flex h-full min-h-[84px] w-full flex-col gap-1 p-1.5 text-left ${isPast && !isToday ? 'opacity-80' : ''}`}
-            title={total ? `${c.done} de ${total} realizadas · ${todo} a fazer · ${c.missed} faltas · ${c.canceled} canceladas` : undefined}>
+        <div className={`flex h-full min-h-[96px] w-full flex-col gap-1 p-1.5 text-left ${priority ? 'rounded-md ring-2 ring-inset ring-amber-400' : ''}`}
+            title={appts.length ? `${c.done} realizadas · ${c.todo + c.pre} a fazer · ${c.missed} faltas · ${c.canceled} canceladas` : undefined}>
             <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[13px] tabular-nums ${isToday ? 'bg-emerald-600 font-bold text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
                 {dayNumber}
             </span>
-            {freeSlots > 0 && !holidayName && (
-                <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" title="Horários livres dos profissionais neste dia. Clique para ver o dia por profissional.">
-                    {plural(freeSlots, 'vaga', 'vagas')}
-                </span>
-            )}
             {holidayName ? (
                 <div className="mt-auto">
                     <p className="text-xs font-semibold leading-tight text-amber-800">{holidayName}</p>
                     <p className="text-[11px] text-amber-700">Sem atendimento</p>
                 </div>
-            ) : total > 0 && (
+            ) : (appts.length > 0 || freeSlots > 0) && (
                 <div className="mt-auto">
-                    <p className="leading-none text-gray-900 dark:text-gray-100">
-                        <span className="text-[17px] font-bold tabular-nums">{c.done}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400"> de {total}</span>
+                    <p className="leading-none">
+                        <span className={`text-[19px] font-bold tabular-nums ${past ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-100'}`}>{main}</span>
+                        <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">{label}</span>
                     </p>
-                    <div className="mt-1.5 flex h-1.5 w-full gap-[2px] overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                        {segs.map((s, i) => <span key={i} style={{ flex: s.n, background: s.color }} />)}
-                    </div>
-                    {notes.length > 0 && (
-                        <p className="mt-1 truncate text-[11px] font-medium leading-tight">
-                            {notes.map((n, i) => <span key={n.text} className={n.color}>{i > 0 && ' · '}{n.text}</span>)}
-                        </p>
+                    {past ? (
+                        <div className="mt-1.5 flex h-1.5 w-full gap-[2px] overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                            {segs.map((sg, i) => <span key={i} style={{ flex: sg.n, background: sg.color }} />)}
+                        </div>
+                    ) : (
+                        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" title={`${occupancy}% da grade ocupada`}>
+                            <span className="block h-full rounded-full transition-[width] duration-[250ms]" style={{ width: `${occupancy}%`, background: barColor }} />
+                        </div>
                     )}
+                    <p className="mt-1 flex flex-wrap gap-x-1.5 gap-y-0.5 text-[11px] font-semibold leading-tight">
+                        {past && c.canceled > 0 && <span className="text-red-600">{plural(c.canceled, 'cancelada', 'canceladas')}</span>}
+                        {past && c.missed > 0 && <span className="text-amber-700">{plural(c.missed, 'falta', 'faltas')}</span>}
+                        {unconfirmed > 0 && <span className="text-amber-700">{unconfirmed} sem confirmar</span>}
+                        {!past && freeSlots > 0 && <span className="text-blue-700 dark:text-blue-300">{plural(freeSlots, 'vaga', 'vagas')}</span>}
+                    </p>
                 </div>
             )}
         </div>
