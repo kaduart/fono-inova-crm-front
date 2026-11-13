@@ -42,7 +42,7 @@ import {
   Package,
   RotateCcw,
   Repeat,
-  Check
+  MoreHorizontal
 } from 'lucide-react';
 import { toast } from '../../../utils/toast';
 import { useExpenses } from '../../../hooks/useExpenses';
@@ -149,6 +149,8 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
   const [rowAction, setRowAction] = useState<{ expense: any; kind: 'delete' | 'cancel' } | null>(null);
   const [rowActionBusy, setRowActionBusy] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [menuRowId, setMenuRowId] = useState<string | null>(null);
   const [payAllConfirm, setPayAllConfirm] = useState(false);
   const [payingAll, setPayingAll] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -586,16 +588,34 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             </button>
           )}
           {commissionsGenerated === true && (
-            <Tooltip title="Recalcula as comissões pendentes do período com os dados atuais de sessões (comissões já pagas nunca são alteradas)">
+            <div className="relative">
               <button
-                onClick={() => setRegenerateConfirmOpen(true)}
-                disabled={generatingCommissions}
-                className="px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+                type="button"
+                aria-label="Mais ações"
+                aria-haspopup="menu"
+                aria-expanded={headerMenuOpen}
+                onClick={() => setHeaderMenuOpen(o => !o)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 sm:h-[38px]"
               >
-                <RotateCcw size={18} className={generatingCommissions ? 'animate-spin' : ''} />
-                Regenerar Comissões
+                <MoreHorizontal size={18} />
               </button>
-            </Tooltip>
+              {headerMenuOpen && (
+                <>
+                  <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-30 cursor-default" onClick={() => setHeaderMenuOpen(false)} />
+                  <div role="menu" className="absolute right-0 top-11 z-40 w-72 origin-top-right rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                    <button role="menuitem" type="button" disabled={generatingCommissions}
+                      onClick={() => { setHeaderMenuOpen(false); setRegenerateConfirmOpen(true); }}
+                      className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-60 dark:hover:bg-gray-800">
+                      <RotateCcw size={16} className={`mt-0.5 shrink-0 ${generatingCommissions ? 'animate-spin' : ''}`} />
+                      <span>
+                        <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">Regenerar comissões</span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">Recalcula as pendentes do período com os dados atuais. As já pagas nunca mudam.</span>
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
           <button
             onClick={() => {
@@ -661,8 +681,8 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
             <FinChip key={c.key || 'todas'} on={filters.status === c.key} warn={c.warn} label={c.label} count={c.count}
               onClick={() => setFilters({ ...filters, status: c.key })} />
           ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Origem">
+          <span aria-hidden className="mx-1 hidden h-5 w-px bg-gray-200 dark:bg-gray-700 sm:block" />
+          <div className="contents" role="group" aria-label="Origem">
           <FinChip on={filters.origin === ''} label="Todas as origens" onClick={() => setFilters({ ...filters, origin: '' })} />
           {(['fixed', 'commission', 'manual'] as ExpenseOrigin[]).map((o) => (
             <FinChip key={o} on={filters.origin === o} count={byOrigin[o].count}
@@ -687,6 +707,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
           <span className="ml-auto text-xs text-gray-500 dark:text-gray-400 tabular-nums">
             {pagination?.total ?? visibleExpenses.length} despesa{(pagination?.total ?? visibleExpenses.length) !== 1 ? 's' : ''}
           </span>
+          </div>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           Por origem: Fixas {brl(byOrigin.fixed.total)} · Comissões {brl(byOrigin.commission.total)} · Avulsas {brl(byOrigin.manual.total)}
@@ -846,17 +867,7 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            {expense.category === 'commission' && expense.relatedDoctor && (
-                              <Tooltip title="Ver atendimentos da comissão">
-                                <button
-                                  onClick={() => openCommissionSessions(expense)}
-                                  className="p-2 rounded hover:bg-gray-100 text-amber-600"
-                                >
-                                  <Info size={16} />
-                                </button>
-                              </Tooltip>
-                            )}
+                          <div className="relative flex items-center justify-center gap-1">
                             {(expense.status === 'pending' || expense.status === 'scheduled') && (
                               <button
                                 onClick={() => handleMarkAsPaid(expense._id)}
@@ -866,32 +877,44 @@ const ExpensesTab = ({ month, year }: ExpensesTabProps) => {
                                 {payingId === expense._id ? 'Pagando…' : 'Marcar paga'}
                               </button>
                             )}
-                            <Tooltip title="Editar">
-                              <button
-                                onClick={() => {
-                                  setEditingExpense(expense);
-                                  setModalOpen(true);
-                                }}
-                                className="p-2 rounded hover:bg-gray-100 text-blue-600"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                            </Tooltip>
-                            {expense.status !== 'canceled' && (() => {
-                              // Exclusão real só para avulsa pendente; o resto só cancela (o doc permanece)
-                              const canDelete = getExpenseOrigin(expense) === 'manual'
-                                && (expense.status === 'pending' || expense.status === 'scheduled');
-                              return (
-                                <Tooltip title={canDelete ? 'Excluir' : 'Cancelar'}>
-                                  <button
-                                    onClick={() => setRowAction({ expense, kind: canDelete ? 'delete' : 'cancel' })}
-                                    className="p-2 rounded hover:bg-gray-100 text-red-600"
-                                  >
-                                    <Trash2 size={16} />
+                            <button
+                              type="button"
+                              aria-label="Mais ações"
+                              aria-haspopup="menu"
+                              aria-expanded={menuRowId === expense._id}
+                              onClick={() => setMenuRowId(menuRowId === expense._id ? null : expense._id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            >
+                              <MoreHorizontal size={18} />
+                            </button>
+                            {menuRowId === expense._id && (
+                              <>
+                                <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-30 cursor-default" onClick={() => setMenuRowId(null)} />
+                                <div role="menu" className={`absolute right-0 z-40 w-48 ${visibleExpenses.indexOf(expense) >= visibleExpenses.length - 3 && visibleExpenses.length > 3 ? 'bottom-9 origin-bottom-right' : 'top-9 origin-top-right'} overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-lg dark:border-gray-700 dark:bg-gray-900`}>
+                                  {expense.category === 'commission' && expense.relatedDoctor && (
+                                    <button role="menuitem" type="button" onClick={() => { setMenuRowId(null); openCommissionSessions(expense); }}
+                                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                                      <Info size={15} /> Ver atendimentos
+                                    </button>
+                                  )}
+                                  <button role="menuitem" type="button" onClick={() => { setMenuRowId(null); setEditingExpense(expense); setModalOpen(true); }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                                    <Edit2 size={15} /> Editar
                                   </button>
-                                </Tooltip>
-                              );
-                            })()}
+                                  {expense.status !== 'canceled' && (() => {
+                                    // Exclusão real só para avulsa pendente; o resto só cancela (o doc permanece)
+                                    const canDelete = getExpenseOrigin(expense) === 'manual'
+                                      && (expense.status === 'pending' || expense.status === 'scheduled');
+                                    return (
+                                      <button role="menuitem" type="button" onClick={() => { setMenuRowId(null); setRowAction({ expense, kind: canDelete ? 'delete' : 'cancel' }); }}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
+                                        <Trash2 size={15} /> {canDelete ? 'Excluir' : 'Cancelar'}
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
