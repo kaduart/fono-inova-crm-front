@@ -1,0 +1,6 @@
+{
+  "duration": { "stagger": 40, "micro": 80, "quick": 150, "fast": 250, "medium": 350, "slow": 400, "emphasis": 500 },
+  "ease": { "smoothOut": [0.22, 1, 0.36, 1], "inOut": [0.42, 0, 0.58, 1] },
+  "scale": { "modal": 0.96 },
+  "distance": { "text": 4 }
+}
