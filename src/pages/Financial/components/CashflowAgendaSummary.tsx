@@ -71,7 +71,7 @@ export default function CashflowAgendaSummary(p: Props) {
     ];
     // Duas linhas rotuladas (01/11): Agenda e Perfil. Nenhum chip saiu.
     const row = 'flex flex-wrap items-center gap-2';
-    const rowLabel = 'w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-300';
+    const rowLabel = 'w-16 shrink-0 text-xs font-medium text-gray-500 dark:text-gray-300';
     return <section aria-labelledby="cashflow-agenda-title" className="space-y-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left dark:border-gray-700 dark:bg-gray-900">
         <h3 id="cashflow-agenda-title" className="sr-only">Agenda {period}</h3>
         <div className={row}>
@@ -81,8 +81,8 @@ export default function CashflowAgendaSummary(p: Props) {
             {p.createdLoading || p.createdError || p.createdTotal == null
                 ? <Chip label={`novos agendamentos ${createdWhen}`} detail={p.createdLoading ? 'consultando…' : 'indisponível'} />
                 : <button type="button" onClick={list(`Novos agendamentos ${createdWhen}`, created)} aria-label={`Ver ${p.createdTotal} novos agendamentos ${createdWhen}`}
-                    className="inline-flex min-h-10 items-baseline gap-1.5 rounded-full border-2 border-emerald-600 bg-emerald-50 px-3.5 py-1 text-sm font-medium text-emerald-900 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-100 dark:hover:bg-emerald-500/25">
-                    <b className="text-lg font-extrabold tabular-nums">{p.createdTotal}</b> novos agendamentos {createdWhen}
+                    className="inline-flex min-h-9 items-baseline gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/70 px-3.5 py-1 text-sm text-emerald-900 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100 dark:hover:bg-emerald-500/20">
+                    <b className="text-base font-semibold tabular-nums">{p.createdTotal}</b> novos agendamentos {createdWhen}
                     {created.length > 0 && <span className="text-xs text-emerald-800 dark:text-emerald-200">({createdInRange} para {period === 'do dia' ? 'o dia' : 'o período'}, {created.length - createdInRange} para datas futuras)</span>}
                 </button>}
             <button type="button" className={`${link} ml-auto`} onClick={() => p.onAgenda()}>Ver agenda e atendimentos</button>
@@ -93,13 +93,13 @@ export default function CashflowAgendaSummary(p: Props) {
                 : p.createdError || !p.createdAnalytics ? <span role="status" className="text-sm text-gray-600 dark:text-gray-300">Novos clientes indisponíveis. Atualize para tentar novamente.</span>
                 : <>
                     <button type="button" onClick={list(`Pacientes novos ${createdWhen.replace('criados', 'que agendaram')}`, [...newLeads, ...newFirst])} aria-label={`Ver ${newClients} pacientes novos`}
-                        className="inline-flex min-h-10 items-baseline gap-1.5 rounded-full border-2 border-fuchsia-600 bg-fuchsia-50 px-3.5 py-1 text-sm font-medium text-fuchsia-900 hover:bg-fuchsia-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-600 dark:border-fuchsia-400 dark:bg-fuchsia-500/15 dark:text-fuchsia-100">
-                        <b className="text-lg font-extrabold tabular-nums">{newClients}</b> {newClients === 1 ? 'paciente novo agendou' : 'pacientes novos agendaram'}
+                        className="inline-flex min-h-9 items-baseline gap-1.5 rounded-full border border-fuchsia-200 bg-fuchsia-50/70 px-3.5 py-1 text-sm text-fuchsia-900 transition-colors hover:bg-fuchsia-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-600 dark:border-fuchsia-500/40 dark:bg-fuchsia-500/10 dark:text-fuchsia-100">
+                        <b className="text-base font-semibold tabular-nums">{newClients}</b> {newClients === 1 ? 'paciente novo agendou' : 'pacientes novos agendaram'}
                         <span className="text-xs">({newLeads.length} pré-agendado{newLeads.length !== 1 ? 's' : ''}, {newFirst.length} 1ª consulta)</span>
                     </button>
                     <button type="button" onClick={list(`Nova terapia ${createdWhen.replace('criados', 'agendada')}`, newSpecialty)} aria-label={`Ver ${newSpecialty.length} em nova terapia`}
-                        className="inline-flex min-h-10 items-baseline gap-1.5 rounded-full border-2 border-violet-600 bg-violet-50 px-3.5 py-1 text-sm font-medium text-violet-900 hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:border-violet-400 dark:bg-violet-500/15 dark:text-violet-100">
-                        <b className="text-lg font-extrabold tabular-nums">{newSpecialty.length}</b> em nova terapia <span className="text-xs">(já eram pacientes)</span>
+                        className="inline-flex min-h-9 items-baseline gap-1.5 rounded-full border border-violet-200 bg-violet-50/70 px-3.5 py-1 text-sm text-violet-900 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-100">
+                        <b className="text-base font-semibold tabular-nums">{newSpecialty.length}</b> em nova terapia <span className="text-xs">(já eram pacientes)</span>
                     </button>
                 </>}
         </div>

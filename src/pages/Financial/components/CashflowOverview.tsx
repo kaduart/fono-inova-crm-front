@@ -115,13 +115,13 @@ export default function CashflowOverview(p: Props) {
             </div>
         </dl>
         {data.agenda && previsto > 0 && <section aria-labelledby="cashflow-bridge" className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
-            <h3 id="cashflow-bridge" className="text-sm font-semibold">Do previsto ao caixa <span className="font-normal text-gray-600 dark:text-gray-300">· para onde foram os {money(previsto)}</span></h3>
-            <div className="my-2.5 flex h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" aria-hidden>
+            <h3 id="cashflow-bridge" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Do previsto ao caixa <span className="font-normal text-gray-500 dark:text-gray-400">· para onde foram os {money(previsto)}</span></h3>
+            <div className="my-3 flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden>
                 {bridge.filter(([, v]) => v > 0).map(([k, v, c]) => <span key={k} className={c} style={{ width: `${Math.min(100, (v / previsto) * 100)}%` }} />)}
             </div>
-            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                {bridge.map(([k, v]) => <li key={k}><b className="tabular-nums">{money(v)}</b> {k}</li>)}
-                {rest > 0 && <li><b className="tabular-nums">{money(rest)}</b> pacote pago antes, liminar ou sem lançamento</li>}
+            <ul className="grid gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2 lg:grid-cols-4">
+                {bridge.map(([k, v, c]) => <li key={k} className="flex items-start gap-2"><span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${c}`} /><span><b className="block text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">{money(v)}</b>{k}</span></li>)}
+                {rest > 0 && <li className="flex items-start gap-2"><span aria-hidden className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" /><span><b className="block text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">{money(rest)}</b>pacote pago antes, liminar ou sem lançamento</span></li>}
                 {caixa > previsto && <li className="text-gray-600 dark:text-gray-300">+ {money(caixa - previsto)} acima do previsto (pacotes e pagamentos antecipados)</li>}
             </ul>
         </section>}
@@ -130,7 +130,7 @@ export default function CashflowOverview(p: Props) {
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <section aria-labelledby="cashflow-actions" className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <h3 id="cashflow-actions" className="text-base font-bold">Precisa de você</h3>
+                <h3 id="cashflow-actions" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Precisa de você</h3>
                 {atStake > 0 && <span className="text-xs text-gray-600 dark:text-gray-300">{money(atStake)} em jogo, do maior para o menor{packages.length ? '. Pacotes sem valor definido ficam no fim' : ''}</span>}
             </div>
             <div className="px-4">
