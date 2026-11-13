@@ -689,7 +689,7 @@ export default function TherapyPackageCard({
               <div className="flex items-baseline justify-between gap-3">
                 <p className="flex items-baseline gap-1.5">
                   <span className={`text-xl font-bold tabular-nums ${nearEnd ? 'text-amber-700 dark:text-amber-300' : isLegacyConvenio ? 'text-blue-700 dark:text-blue-300' : 'text-emerald-700 dark:text-emerald-300'}`}><AnimatedValue value={sessionsLeft} /></span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">sessões restantes de {totalSessions}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{sessionsLeft === 1 ? 'sessão restante' : 'sessões restantes'} de {totalSessions}</span>
                 </p>
                 {(pack.sessionsCanceled ?? 0) > 0 && <span className="text-2xs text-slate-400">{Number(pack.sessionsCanceled)} canceladas (não contam)</span>}
               </div>
