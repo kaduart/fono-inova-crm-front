@@ -288,7 +288,7 @@ function UrgencyChip({ days }: { days: number }) {
     );
 }
 
-const TH = { fontWeight: 600, fontSize: '0.72rem', color: 'var(--fx-gray-400)', py: 1, textTransform: 'uppercase' as const, letterSpacing: '0.03em' };
+const TH = { fontWeight: 600, fontSize: '0.72rem', color: 'var(--fx-gray-400)', py: 1 };
 
 function BillingModeBadge({ mode }: { mode?: 'per_month' | 'per_guide' }) {
     if (mode === 'per_guide') {
@@ -479,8 +479,6 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
     // padrão, em qualquer aba, sem exceção por contagem de grupos.
 
     const accentColor = isPerGuide ? 'var(--fx-text-emerald)' : 'var(--fx-text-amber)';
-    const accentBg    = isPerGuide ? 'var(--fx-emerald-50)' : 'var(--fx-amber-50)';
-    const accentBorder = isPerGuide ? 'var(--fx-emerald-300)' : 'var(--fx-amber-200)';
 
     // A ReadView V2 soma sessões pendentes de TODAS as competências não
     // faturadas de uma guia mensal (o corte da leitura legada em 13/08 tirou o
@@ -625,7 +623,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
             }}>
                 {/* Linha de cor lateral — reflete o estado de faturamento da guia */}
-                <Box sx={{ height: 4, bgcolor: billingState.color }} />
+                <Box sx={{ height: 2, bgcolor: billingState.color, opacity: 0.8 }} />
 
                 <Box sx={{ p: 1.75 }}>
                     {/* Row 1: checkbox + número + badge + valor */}
@@ -664,8 +662,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                                 fontSize: '0.65rem', fontWeight: 700, lineHeight: 1,
                                                 padding: '3px 7px', borderRadius: 999,
                                                 bgcolor: isGuideExhausted ? 'var(--fx-emerald-100)' : 'var(--fx-slate-100)',
-                                                color: isGuideExhausted ? 'var(--fx-emerald-800)' : 'var(--fx-slate-500)',
-                                            }}
+                                                color: isGuideExhausted ? 'var(--fx-emerald-800)' : 'var(--fx-slate-500)' }}
                                         >
                                             {isGuideExhausted && <CheckCircle size={10} strokeWidth={2.5} />}
                                             {guide.usedSessions ?? 0}/{guide.totalSessions}
@@ -718,8 +715,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             px: 1.25, py: 0.5,
                             bgcolor: billingState.bg,
                             border: `1px solid ${billingState.border}`,
-                            borderRadius: 20,
-                        }}>
+                            borderRadius: 20 }}>
                             <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>{billingState.emoji}</span>
                             <Typography fontSize="0.72rem" fontWeight={600} color={billingState.color}>
                                 {billingState.label}
@@ -736,8 +732,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                     px: 1.25, py: 0.5,
                                     bgcolor: 'var(--fx-gray-100)',
                                     border: '1px solid var(--fx-gray-300)',
-                                    borderRadius: 20,
-                                }}
+                                    borderRadius: 20 }}
                             >
                                 <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>⚪</span>
                                 <Typography fontSize="0.72rem" fontWeight={600} color="var(--fx-gray-600)">
@@ -784,8 +779,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                         key={p.label}
                                         sx={{
                                             px: 0.85, py: 0.3, borderRadius: 20,
-                                            bgcolor: p.bg, border: `1px solid ${p.border}`,
-                                        }}
+                                            bgcolor: p.bg, border: `1px solid ${p.border}` }}
                                     >
                                         <Typography fontSize="0.66rem" fontWeight={700} color={p.color}>
                                             {p.n} {p.label}
@@ -913,14 +907,13 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                                                         display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
                                                         fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.2,
                                                         px: 0.75, py: '2px', borderRadius: 999,
-                                                        bgcolor: 'var(--fx-amber-100)', color: 'var(--fx-amber-800)', border: '1px solid #F59E0B',
-                                                    }}
+                                                        bgcolor: 'var(--fx-amber-100)', color: 'var(--fx-amber-800)', border: '1px solid #F59E0B' }}
                                                 >
                                                     sem evolução
                                                 </Box>
                                             )}
                                             {isMostRecent && (
-                                                <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                <Typography fontSize="0.63rem" fontWeight={700} color="#059669" sx={{ }}>
                                                     mais recente
                                                 </Typography>
                                             )}
@@ -945,8 +938,8 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
             {/* ── Header ─────────────────────────────────────────────── */}
             <Box sx={{
                 px: 3, pt: 3, pb: 2.5,
-                background: `linear-gradient(135deg, ${accentBg} 0%, var(--fx-white) 100%)`,
-                borderBottom: `2px solid ${accentBorder}`,
+                bgcolor: 'var(--fx-white)',
+                borderBottom: '1px solid var(--fx-slate-200)',
                 position: 'relative', flexShrink: 0
             }}>
                 <IconButton
@@ -974,7 +967,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                             bgcolor: phasePresentation.bg,
                             border: `1px solid ${phasePresentation.border}`
                         }}>
-                            <Typography fontSize="0.68rem" fontWeight={800} color={phasePresentation.color} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <Typography fontSize="0.68rem" fontWeight={800} color={phasePresentation.color} sx={{ }}>
                                 {phasePresentation.title}
                             </Typography>
                         </Box>
@@ -991,16 +984,15 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                     ].map(stat => (
                         <Box key={stat.label} sx={{
                             px: 1.5, py: 0.75,
-                            bgcolor: stat.green ? 'var(--fx-emerald-50)' : stat.blue ? 'var(--fx-blue-50)' : 'var(--fx-white)',
-                            border: `1px solid ${stat.green ? 'var(--fx-emerald-200)' : stat.blue ? 'var(--fx-blue-200)' : 'var(--fx-slate-200)'}`,
+                            bgcolor: 'var(--fx-white)',
+                            border: '1px solid var(--fx-slate-200)',
                             borderRadius: 2,
-                            textAlign: 'center',
-                            minWidth: 60
+                            minWidth: 72
                         }}>
-                            <Typography fontWeight="700" fontSize="0.9rem" color={stat.green ? 'var(--fx-emerald-800)' : stat.blue ? 'var(--fx-blue-700)' : 'var(--fx-slate-800)'}>
+                            <Typography fontWeight="700" fontSize="0.95rem" sx={{ fontVariantNumeric: 'tabular-nums' }} color={stat.green ? 'var(--fx-emerald-800)' : 'var(--fx-slate-900)'}>
                                 {stat.value}
                             </Typography>
-                            <Typography fontSize="0.65rem" color="var(--fx-slate-500)" fontWeight={500} sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <Typography fontSize="0.72rem" color="var(--fx-slate-500)" fontWeight={500}>
                                 {stat.label}
                             </Typography>
                         </Box>
@@ -1044,7 +1036,7 @@ export function PatientDrawer({ open, patientName, provider, guides, selectedGui
                 {isAutomaticMonthlySelection ? competenceGroups.map(group => (
                     <Box key={group.competence}>
                         <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', px: 0.5, mb: 1 }}>
-                            <Typography fontSize="0.78rem" fontWeight={800} color="var(--fx-slate-700)" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <Typography fontSize="0.78rem" fontWeight={800} color="var(--fx-slate-700)" sx={{ }}>
                                 Competência {group.competence}
                             </Typography>
                             <Typography fontSize="0.75rem" color="var(--fx-slate-500)" fontWeight={600}>
@@ -1502,14 +1494,14 @@ const GuidePendingBillingSection = ({
                             {/* Header */}
                             <Box sx={{ px: 2.5, py: 1.15, minWidth: { xs: 0, lg: 1080 }, bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)', display: 'flex', alignItems: 'center' }}>
                                 {!readOnly && !selectionInsideDrawer && <Box sx={{ width: 38, flexShrink: 0 }} />}
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, minWidth: 200, pr: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convênio</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', lg: 'block' }, width: 180, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Regra da guia</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', md: 'block' }, width: 130, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mais antiga</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', lg: 'block' }, width: 220, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prazo de envio</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pacientes</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guias</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sessões</Typography>
-                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 110, textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, minWidth: 200, pr: 2 }}>Convênio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', lg: 'block' }, width: 180 }}>Regra da guia</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', md: 'block' }, width: 130 }}>Mais antiga</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-500)" sx={{ display: { xs: 'none', lg: 'block' }, width: 220 }}>Prazo de envio</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 72, textAlign: 'center' }}>Pacientes</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ display: { xs: 'none', sm: 'block' }, width: 56, textAlign: 'center' }}>Guias</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center' }}>Sessões</Typography>
+                                <Typography fontSize="0.68rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 110, textAlign: 'right' }}>Total</Typography>
                                 {selectionInsideDrawer && !readOnly && <Box sx={{ width: 120, flexShrink: 0 }} />}
                                 <Box sx={{ width: 38, flexShrink: 0 }} />
                             </Box>
@@ -1646,11 +1638,11 @@ const GuidePendingBillingSection = ({
                                             <Box sx={{ ml: { xs: 0, sm: 4.5 }, bgcolor: 'var(--fx-white)', border: '1px solid var(--fx-slate-200)', borderLeft: `3px solid ${rowAccent}`, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                                                 <Box sx={{ px: 2, py: 0.8, display: 'flex', alignItems: 'center', bgcolor: 'var(--fx-slate-50)', borderBottom: '1px solid var(--fx-slate-100)' }}>
                                                     {!readOnly && <Box sx={{ width: 38, flexShrink: 0 }} />}
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1, textTransform: 'uppercase' }}>Paciente</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 56, textAlign: 'center', textTransform: 'uppercase' }}>Guias</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 64, textAlign: 'center', textTransform: 'uppercase' }}>Sessões</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 100, textAlign: 'right', textTransform: 'uppercase' }}>Valor</Typography>
-                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center', textTransform: 'uppercase' }}>Há</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ flex: 1 }}>Paciente</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 56, textAlign: 'center' }}>Guias</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 64, textAlign: 'center' }}>Sessões</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 100, textAlign: 'right' }}>Valor</Typography>
+                                                    <Typography fontSize="0.66rem" fontWeight={700} color="var(--fx-slate-400)" sx={{ width: 72, textAlign: 'center' }}>Há</Typography>
                                                     <Box sx={{ width: 30 }} />
                                                 </Box>
                                                 {sortedPatients.map(([patientName, patientGuides], patientIndex) => {
@@ -1727,8 +1719,7 @@ const GuidePendingBillingSection = ({
                             px: 2.5, py: 1.75,
                             background: 'linear-gradient(90deg, var(--fx-amber-100) 0%, var(--fx-amber-50) 100%)',
                             borderBottom: '1px solid var(--fx-amber-200)',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        }}>
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
                                 <Typography fontWeight="700" fontSize="0.95rem" color="var(--fx-amber-800)">
                                     ⚠️ Atendimentos sem guia vinculada
@@ -1776,8 +1767,7 @@ const GuidePendingBillingSection = ({
                                             borderTop: '1px solid var(--fx-amber-200)',
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                             cursor: 'pointer',
-                                            '&:hover': { bgcolor: 'var(--fx-amber-100)' },
-                                        }}
+                                            '&:hover': { bgcolor: 'var(--fx-amber-100)' } }}
                                     >
                                         <Typography fontWeight="700" fontSize="0.82rem" color="var(--fx-amber-700)">
                                             {formatProviderName(provider)}
