@@ -8,6 +8,7 @@ import { toast } from '../../utils/toast';
 import { IDoctors, IPatient, ISession, ITherapyPackage } from '../../utils/types/types';
 import { mapSessionResponseDTO, sessionDTOToISession } from '../../dtos/session.response.dto';
 import { SessionListItem } from './SessionListItem';
+import { Modal } from '../ui/Modal';
 import { SessionModal } from './SessionModal';
 import { toRequestedAtISO, type CancelRequester } from '../calendar/CancelRequesterPicker';
 import { PatientMiniCalendar } from './PatientMiniCalendar';
@@ -326,7 +327,7 @@ export default function TherapyPackageCard({
         _id: s._id,
         start: `${isoDate}T${s.time || '08:00'}`,
         doctor: packageDoctorName ? { fullName: packageDoctorName } : undefined,
-        operationalStatus: ns === 'pending' ? 'scheduled' : ns,
+        operationalStatus: ns === 'pending' || ns === 'unpaid' ? 'scheduled' : ns,
         // 🚨 FIX (2026-09-01): sessão individual do pacote nem sempre carrega o
         // próprio sessionType/specialty — cai pro nível do pacote (mesma fonte
         // já usada no título do modal, "Sessões — {pack.sessionType}", e no
@@ -1093,9 +1094,14 @@ export default function TherapyPackageCard({
       </div>
 
       {/* 🔥 Modal de sessões — toggle Mês (visualização) / Lista (seleção em lote + cancelamento) */}
-      {showSessionsCalendarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setShowSessionsCalendarModal(false)}>
-          <div role="dialog" aria-modal="true" aria-labelledby={`pkg-sessions-${pack._id}`} onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white text-left shadow-2xl dark:bg-slate-900">
+      <Modal
+        open={showSessionsCalendarModal}
+        onClose={() => setShowSessionsCalendarModal(false)}
+        labelledBy={`pkg-sessions-${pack._id}`}
+        zIndexClass="z-50"
+        panelClassName="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[20px] bg-white text-left shadow-2xl sm:rounded-[20px] dark:bg-slate-900"
+      >
+        <>
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800">
               <div className="min-w-0">
                 <h3 id={`pkg-sessions-${pack._id}`} className="truncate font-semibold text-slate-900 dark:text-slate-100">
@@ -1252,9 +1258,8 @@ export default function TherapyPackageCard({
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+        </>
+      </Modal>
 
       {/* Modal */}
       {isModalOpen && (

@@ -427,7 +427,7 @@ export default function TherapyPackageDetails({
                 return {
                     _id: s._id,
                     start: `${isoDate}T${s.time || '08:00'}`,
-                    operationalStatus: ns === 'pending' ? 'scheduled' : ns,
+                    operationalStatus: ns === 'pending' || ns === 'unpaid' ? 'scheduled' : ns,
                     doctor: s.doctor || { fullName: s.professionalName || '—' },
                     patient: patient,
                     specialty: s.sessionType || s.specialty,
