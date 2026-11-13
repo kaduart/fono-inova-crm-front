@@ -636,7 +636,7 @@ export default function TherapyPackageCard({
           <div>
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs text-slate-500 dark:text-slate-400">{missing > 0 ? 'Falta pagar' : 'Pacote quitado'}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{missing > 0 ? 'Pacote em aberto (total)' : 'Pacote quitado'}</p>
                 <p className={`mt-0.5 text-2xl font-bold tabular-nums leading-none ${missing > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
                   {financialLoading || financial === null ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <AnimatedValue value={brl(missing > 0 ? missing : paidShown)} />}
                 </p>
@@ -727,7 +727,7 @@ export default function TherapyPackageCard({
             onClick={(e) => { e.stopPropagation(); setShowBalanceModal(true); }}
             className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 transition-colors duration-quick hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
           >
-            <span><strong className="tabular-nums">{brl(sessionDebt)}</strong> em sessões feitas e ainda não pagas</span>
+            <span><strong className="tabular-nums">{brl(sessionDebt)}</strong> já devidos, de sessões feitas e não pagas</span>
             <span className="shrink-0 font-semibold">Quitar pendências</span>
           </button>
         )}
