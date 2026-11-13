@@ -49,7 +49,8 @@ import {
 } from 'lucide-react';
 
 // Cores para os gráficos
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658', '#ff7300'];
+// Paleta com 8 tons distintos (sem pares quase iguais), partindo do verde da marca.
+const COLORS = ['#059669', '#2563eb', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#64748b'];
 
 // ============================================
 // TIPOS
