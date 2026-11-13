@@ -1673,7 +1673,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                                             borderRadius: 2,
                                             border: '1px solid',
                                             borderColor: selectedCloseGuides.has(g.guideId) ? '#7C3AED' : 'grey.200',
-                                            bgcolor: selectedCloseGuides.has(g.guideId) ? 'var(--fx-violet-50)' : 'background.paper'
+                                            bgcolor: selectedCloseGuides.has(g.guideId) ? '#ecfdf5' : 'background.paper'
                                         }}
                                     >
                                         <input
@@ -1714,7 +1714,7 @@ const InsuranceTab = ({ month, year, onPeriodChange }: InsuranceTabProps) => {
                         onClick={handleFinalizarGuiasAposFaturamento}
                         disabled={postFaturamentoCloseLoading || selectedCloseGuides.size === 0}
                         startIcon={postFaturamentoCloseLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
-                        sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: 'var(--fx-violet-700)' } }}
+                        sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}
                     >
                         {postFaturamentoCloseLoading ? 'Finalizando...' : `Finalizar ${selectedCloseGuides.size} guia(s)`}
                     </Button>
