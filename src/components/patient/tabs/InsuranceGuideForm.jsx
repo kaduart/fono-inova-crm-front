@@ -1,7 +1,10 @@
 // src/components/patient/tabs/InsuranceGuideForm.jsx
 import React, { useEffect } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
-import { Save, X, FileText, Shield, AlertTriangle, Info } from 'lucide-react';
+import { Shield, AlertTriangle, Info } from 'lucide-react';
+
+import { Modal } from '../../ui/Modal';
+import { ModalHeader, ModalFooter } from '../../../pages/Financial/components/formKit';
 
 import { SPECIALTY_OPTIONS } from '../../../constants/specialties';
 import { useConvenios } from '../../../hooks/useConvenios';
@@ -56,6 +59,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
   const watchedSessions = useWatch({ control, name: 'totalSessions' });
   const watchedValue    = useWatch({ control, name: 'sessionValue' });
   const watchedInsurance = useWatch({ control, name: 'insurance' });
+  const watchedSpecialty = useWatch({ control, name: 'specialty' });
+  const watchedExpiresAt = useWatch({ control, name: 'expiresAt' });
   // true quando o usuário digitou o valor à mão — aí não sobrescrevemos com o cálculo automático
   const valueManualRef = React.useRef(false);
 
@@ -166,36 +171,36 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
     if (!isSubmitting) { reset(); onClose(); }
   };
 
-  if (!open) return null;
+  const title = isRenewal ? 'Renovar guia de convênio' : (isEditing ? 'Editar guia de convênio' : 'Nova guia de convênio');
+  const submitLabel = isRenewal ? 'Renovar guia' : (isEditing ? 'Atualizar' : 'Criar guia');
+  const specialtyLabel = VALID_SPECIALTIES.find(x => x.value === watchedSpecialty)?.label;
+  const insuranceName = convenios.find(c => c.code === watchedInsurance)?.name;
+  const expiresLabel = watchedExpiresAt && /^\d{4}-\d{2}-\d{2}/.test(watchedExpiresAt) ? `vence ${watchedExpiresAt.slice(8, 10)}/${watchedExpiresAt.slice(5, 7)}` : null;
+  const summaryText = [
+    Number(watchedSessions) > 0 ? `${watchedSessions} ${Number(watchedSessions) === 1 ? 'sessão' : 'sessões'}` : null,
+    specialtyLabel, insuranceName, expiresLabel,
+  ].filter(Boolean).join(' · ');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg transition-all ${isSubmitting ? 'opacity-80 pointer-events-none' : ''}`}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      labelledBy="guide-form-title"
+      zIndexClass="z-[100]"
+      panelClassName={`flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px] ${isSubmitting ? 'pointer-events-none opacity-80' : ''}`}
+    >
+      <>
+        <ModalHeader
+          icon={<Shield className="h-6 w-6" />}
+          color="#059669"
+          title={title}
+          subtitle="Autorização do convênio"
+          onClose={handleClose}
+          titleId="guide-form-title"
+        />
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-teal-50 rounded-xl">
-              <Shield className="w-5 h-5 text-teal-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">
-                {isRenewal ? 'Renovar guia de convênio' : (isEditing ? 'Editar guia de convênio' : 'Nova guia de convênio')}
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">Autorização do convênio</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
+        <form id="guide-form" onSubmit={handleSubmit(onSubmit)} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-5 px-5 py-5 sm:px-6">
 
             {isLocked && (
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
@@ -220,36 +225,8 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
               </div>
             )}
 
-            {!isEditing && (
-              <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-blue-800">Preencha os dados da guia conforme autorização do convênio.</p>
-              </div>
-            )}
-
-            {/* Número da guia + Total de sessões */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                  Número da guia <span className="text-red-400">*</span>
-                </label>
-                <Controller
-                  name="number"
-                  control={control}
-                  rules={{ required: 'Obrigatório', minLength: { value: 3, message: 'Mínimo 3 caracteres' } }}
-                  render={({ field }) => (
-                    <input
-                      {...field}
-                      type="text"
-                      placeholder="Ex: 123456789"
-                      disabled={isLocked}
-                      className={inputClass(!!errors.number) + (isLocked ? ' opacity-50 cursor-not-allowed' : '')}
-                      autoFocus={isRenewal}
-                    />
-                  )}
-                />
-                {errors.number && <p className="text-xs text-red-500 mt-1">{errors.number.message}</p>}
-              </div>
+            {/* Total de sessões (destaque) + Número da guia */}
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[11rem_1fr]">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                   Total de sessões <span className="text-red-400">*</span>
@@ -266,16 +243,37 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
                       max={999}
                       placeholder="Ex: 10"
                       disabled={isLocked}
-                      className={inputClass(!!errors.totalSessions) + (isLocked ? ' opacity-50 cursor-not-allowed' : '')}
+                      className={inputClass(!!errors.totalSessions) + ' !h-12 text-2xl font-bold tabular-nums' + (isLocked ? ' opacity-50 cursor-not-allowed' : '')}
                     />
                   )}
                 />
                 {errors.totalSessions && <p className="text-xs text-red-500 mt-1">{errors.totalSessions.message}</p>}
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Número da guia <span className="text-red-400">*</span>
+                </label>
+                <Controller
+                  name="number"
+                  control={control}
+                  rules={{ required: 'Obrigatório', minLength: { value: 3, message: 'Mínimo 3 caracteres' } }}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="text"
+                      placeholder="Ex: 123456789"
+                      disabled={isLocked}
+                      className={inputClass(!!errors.number) + ' !h-12' + (isLocked ? ' opacity-50 cursor-not-allowed' : '')}
+                      autoFocus={isRenewal}
+                    />
+                  )}
+                />
+                {errors.number && <p className="text-xs text-red-500 mt-1">{errors.number.message}</p>}
+              </div>
             </div>
 
             {/* Especialidade + Convênio */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                   Especialidade <span className="text-red-400">*</span>
@@ -328,7 +326,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
             </div>
 
             {/* Data de validade + Data de emissão */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                   Data de validade <span className="text-red-400">*</span>
@@ -400,7 +398,7 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
             />
 
             {/* Valor da sessão + Valor da avaliação */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Valor da sessão</label>
                 <div className="relative">
@@ -583,38 +581,19 @@ const InsuranceGuideForm = ({ open, onClose, onSave, guide = null, doctors = [],
               {errors.notes && <p className="text-xs text-red-500 mt-1">{errors.notes.message}</p>}
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-100 disabled:opacity-50 transition-colors"
-            >
-              <X className="w-4 h-4" /> Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
-            >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Salvando...
-                </>
-              ) : (
-                <><Save className="w-4 h-4" /> {isRenewal ? 'Renovar guia' : (isEditing ? 'Atualizar' : 'Criar guia')}</>
-              )}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+
+        <ModalFooter
+          accent="emerald"
+          onCancel={handleClose}
+          onSubmit={handleSubmit(onSubmit)}
+          submitting={isSubmitting}
+          submitLabel={submitLabel}
+          submittingLabel="Salvando..."
+          summary={summaryText}
+        />
+      </>
+    </Modal>
   );
 };
 

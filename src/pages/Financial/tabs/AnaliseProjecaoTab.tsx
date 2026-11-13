@@ -1,5 +1,6 @@
 // AnaliseProjecaoTab.tsx - Refatorado com Tailwind (mantendo lógica)
 
+import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -10,7 +11,7 @@ import api from '../../../services/api';
 import {
     Chip, IconButton, FormControl, Select, MenuItem,
     Table, TableBody, TableCell, TableHead, TableRow,
-    Tab, Tabs, LinearProgress
+    LinearProgress
 } from '@mui/material';
 import { NavigateBefore, NavigateNext } from '@mui/icons-material';
 import { TrendingUp, TrendingDown, Target, Calendar, RefreshCcw, Info, X } from 'lucide-react';
@@ -913,18 +914,8 @@ const AnaliseProjecaoTab: React.FC<AnaliseProjecaoTabProps> = ({ month, year }) 
 
     return (
         <div className="p-2">
-            <Tabs
-                value={activeTab}
-                onChange={handleTabChange}
-                variant="scrollable"
-                scrollButtons="auto"
-                className="mb-4 border-b border-gray-200"
-                sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 } }}
-            >
-                {subTabs.map((t, i) => (
-                    <Tab key={i} label={`${t.icon} ${t.label}`} />
-                ))}
-            </Tabs>
+            <div className="mb-4"><SegmentedTabs label="Análises" value={String(activeTab)} onValueChange={(v) => handleTabChange(null, Number(v))}
+                options={subTabs.map((t, i) => ({ id: String(i), label: `${t.icon} ${t.label}` }))} /></div>
 
             {activeTab === 0 && <ProjecaoCenarios month={month} year={year} />}
             {activeTab === 1 && <DashboardEspecialidades />}

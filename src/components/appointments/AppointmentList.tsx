@@ -71,7 +71,7 @@ export default function AppointmentList({
                     className={`
                         border-b border-gray-100 p-4
                         hover:bg-gradient-to-r hover:from-green-50 hover:to-cyan-50
-                        transition-all duration-200
+                        transition-all duration-quick
                         cursor-pointer group
                         ${index === 0 && liminarGroups.length === 0 ? 'rounded-t-lg' : ''}
                         ${index === regularApts.length - 1 && liminarGroups.length === 0 ? 'rounded-b-lg border-b-0' : ''}
@@ -156,7 +156,7 @@ export default function AppointmentList({
                         key={group.key}
                         className={`
                             border-b border-orange-100 p-4 bg-orange-50
-                            hover:bg-orange-100 transition-all duration-200 cursor-pointer group
+                            hover:bg-orange-100 transition-all duration-quick cursor-pointer group
                             ${index === liminarGroups.length - 1 ? 'rounded-b-lg border-b-0' : ''}
                         `}
                         onClick={() => onPatientClick?.(apt.patient)}

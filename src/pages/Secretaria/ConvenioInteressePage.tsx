@@ -23,7 +23,6 @@ import {
   Paper,
   Select,
   Stack,
-  Tab,
   Table,
   TableBody,
   TableCell,
@@ -32,7 +31,6 @@ import {
   TablePagination,
   TableRow,
   TableSortLabel,
-  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -54,6 +52,7 @@ import convenioWaitlistApi, {
   type WhatsappDeepScanRun,
   type WhatsappScanRun,
 } from '../../services/convenioWaitlistService';
+import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
 import { brl, KpiStrip } from '../Financial/components/finUi';
 import {
   buildWaitlistCsv,
@@ -734,21 +733,15 @@ const ConvenioInteressePage = () => {
       </Box>
 
       <Paper sx={{ mb: 2 }}>
-        <Tabs
-          value={statusTab}
-          onChange={(_, value: StatusTab) => {
-            setStatusTab(value);
-            resetPage();
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab value="aguardando" label={tabLabel('Aguardando', 'aguardando')} />
-          <Tab value="contatado" label={tabLabel('Contatados', 'contatado')} />
-          <Tab value="agendado" label={tabLabel('Agendados', 'agendado')} />
-          <Tab value="descartado" label={tabLabel('Descartados', 'descartado')} />
-          <Tab value="todos" label={tabLabel('Todos', 'todos')} />
-        </Tabs>
+        <SegmentedTabs label="Status do interesse" value={statusTab}
+          onValueChange={(value: StatusTab) => { setStatusTab(value); resetPage(); }}
+          options={[
+            { id: 'aguardando' as StatusTab, label: tabLabel('Aguardando', 'aguardando') },
+            { id: 'contatado' as StatusTab, label: tabLabel('Contatados', 'contatado') },
+            { id: 'agendado' as StatusTab, label: tabLabel('Agendados', 'agendado') },
+            { id: 'descartado' as StatusTab, label: tabLabel('Descartados', 'descartado') },
+            { id: 'todos' as StatusTab, label: tabLabel('Todos', 'todos') },
+          ]} />
       </Paper>
 
       {error && (

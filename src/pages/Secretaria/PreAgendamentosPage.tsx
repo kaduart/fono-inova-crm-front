@@ -1,3 +1,4 @@
+import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WA_TAB } from '../../components/commercial/commercialCopy';
@@ -5,7 +6,7 @@ import {
   Box, Paper, Typography, Grid, Card, CardContent, Chip, Button,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Select, MenuItem, FormControl, InputLabel, Tabs, Tab, Badge,
+  Select, MenuItem, FormControl, InputLabel, Badge,
   Tooltip, Divider, Stack, Alert, useTheme,
   TablePagination, InputAdornment
 } from '@mui/material';
@@ -514,18 +515,15 @@ const PreAgendamentosPage = () => {
 
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab value="todos" label={`Todos (${stats?.total || 0})`} />
-          <Tab value="sem_contato" label={`Sem Contato (${stats?.semContato || 0})`} />
-          <Tab value="urgentes" label={`Urgentes (${stats?.urgentes || 0})`} />
-          <Tab value="importados" label="Importados" />
-          <Tab value="cancelado" label="Cancelados" />
-        </Tabs>
+        <SegmentedTabs label="Filtro de pré-agendamentos" value={activeTab}
+          onValueChange={(v) => setActiveTab(v)}
+          options={[
+            { id: 'todos', label: `Todos (${stats?.total || 0})` },
+            { id: 'sem_contato', label: `Sem Contato (${stats?.semContato || 0})` },
+            { id: 'urgentes', label: `Urgentes (${stats?.urgentes || 0})` },
+            { id: 'importados', label: 'Importados' },
+            { id: 'cancelado', label: 'Cancelados' },
+          ]} />
       </Paper>
 
       {/* Tabela */}

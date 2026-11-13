@@ -1,6 +1,6 @@
 // UnifiedCashflowTab.tsx - Caixa e Fluxo de Caixa unificados (refatorado com Tailwind)
 import { 
-    Alert, Chip, MenuItem, Skeleton, Tab, Tabs, Badge, Tooltip, IconButton,
+    Alert, Skeleton, Tabs, Badge, Tooltip, IconButton,
     FormControl, InputLabel, Select, LinearProgress
 } from '@mui/material';
 import { format, parseISO } from 'date-fns';
@@ -54,44 +54,40 @@ interface DayData {
 }
 
 const CashflowCardsSkeleton = () => {
-    const s = { bgcolor: 'rgba(255,255,255,0.10)' };
-    const cardColors = ['#10B981', '#3B82F6', '#F59E0B', '#10B981'];
+    const bar = 'rounded bg-gray-200/80 dark:bg-gray-700/60';
     return (
-        <div className="p-2">
-            {/* 4 cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-                {cardColors.map((color, i) => (
-                    <div key={i} className="border rounded-2xl p-5 shadow-sm" style={{ borderColor: `color-mix(in srgb, ${color} 25%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 7%, transparent)` }}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 10, ...s }} />
-                            <div className="flex-1">
-                                <Skeleton variant="text" width="55%" height={13} sx={s} />
-                                <Skeleton variant="text" width="70%" height={11} sx={s} />
-                            </div>
-                        </div>
-                        <Skeleton variant="text" width="80%" height={40} sx={s} />
-                        <div className="mt-3 pt-3 border-t border-white/10 space-y-2.5">
-                            {[0, 1, 2].map(j => (
-                                <div key={j} className="flex items-center justify-between">
-                                    <Skeleton variant="text" width="48%" height={13} sx={s} />
-                                    <Skeleton variant="text" width="30%" height={13} sx={s} />
-                                </div>
-                            ))}
-                        </div>
+        <div className="animate-pulse space-y-3 p-2" aria-busy="true" aria-label="Carregando caixa">
+            <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+                {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="border-gray-200 p-4 dark:border-gray-700 lg:border-l lg:first:border-l-0">
+                        <div className={`h-3 w-24 ${bar}`} />
+                        <div className={`mt-3 ${i === 0 ? 'h-9 w-36' : 'h-6 w-28'} ${bar}`} />
+                        <div className={`mt-3 h-3 w-4/5 ${bar}`} />
                     </div>
                 ))}
             </div>
-            {/* Tabs */}
-            <div className="flex gap-1 border-b border-white/10 pb-1 mb-3">
-                {[90, 90, 80, 90, 110, 110].map((w, i) => (
-                    <Skeleton key={i} variant="rounded" width={w} height={36} sx={{ borderRadius: 6, ...s }} />
+            <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <div className={`h-3 w-56 ${bar}`} />
+                <div className={`my-3 h-2.5 w-full rounded-full ${bar}`} />
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {[0, 1, 2, 3].map(i => <div key={i} className="space-y-2"><div className={`h-5 w-24 ${bar}`} /><div className={`h-3 w-32 ${bar}`} /></div>)}
+                </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <div className={`h-3 w-28 ${bar}`} />
+                <div className="mt-4 space-y-3">
+                    {[0, 1, 2, 3].map(i => <div key={i} className="flex items-center gap-3"><div className={`h-3 w-28 ${bar}`} /><div className={`h-8 flex-1 rounded-lg ${bar}`} /></div>)}
+                </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700">
+                {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center gap-3 border-t border-gray-100 p-4 first:border-t-0 dark:border-gray-800">
+                        <div className={`h-8 w-8 rounded-full ${bar}`} />
+                        <div className="flex-1 space-y-2"><div className={`h-4 w-1/3 ${bar}`} /><div className={`h-3 w-2/3 ${bar}`} /></div>
+                        <div className={`h-6 w-20 ${bar}`} />
+                    </div>
                 ))}
             </div>
-            {/* Tabela */}
-            <Skeleton variant="rounded" width="100%" height={40} sx={{ borderRadius: 6, mb: 0.5, ...s }} />
-            {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} variant="rounded" width="100%" height={52} sx={{ borderRadius: 6, mb: 0.5, ...s }} />
-            ))}
         </div>
     );
 };
@@ -617,7 +613,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                 // abas + tabela) esmaece suavemente durante o refresh, mesmo padrão de
                 // dashboards modernos (Linear/Stripe/Notion) pra refetch em segundo plano.
                 <div
-                    className={`transition-opacity duration-300 ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`transition-opacity duration-fast ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}
                     aria-busy={refreshing}
                 >
                 <div>
@@ -659,22 +655,22 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                         if (!isLoadingApts && previsto === 0) return null;
                         return (
                             <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-                                <div className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Receita Prevista × Realizada</div>
+                                <div className="mb-4 text-xs font-semibold text-gray-600 dark:text-gray-300">Receita prevista × realizada</div>
                                 <div className="grid grid-cols-3 gap-4 mb-4">
                                     <div>
-                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">Previsto</div>
+                                        <div className="text-3xs text-gray-500 mb-0.5">Previsto</div>
                                         <div className="text-xl font-bold text-violet-700">
                                             {isLoadingApts ? <Skeleton width={80} height={28} sx={{ bgcolor: 'rgba(0,0,0,0.08)' }} /> : formatCurrency(previsto)}
                                         </div>
                                         <div className="text-3xs text-gray-400 mt-0.5">{sessaoApts.length} sessões agendadas</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">Realizado</div>
+                                        <div className="text-3xs text-gray-500 mb-0.5">Realizado</div>
                                         <div className="text-xl font-bold text-emerald-700">{formatCurrency(recebido)}</div>
                                         <div className="text-3xs text-gray-400 mt-0.5">{data.transacoes?.length || 0} transações</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">{gap > 0 ? 'Não realizado' : 'Saldo'}</div>
+                                        <div className="text-3xs text-gray-500 mb-0.5">{gap > 0 ? 'Não realizado' : 'Saldo'}</div>
                                         <div className={`text-xl font-bold ${gap > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                             {isLoadingApts ? <Skeleton width={80} height={28} sx={{ bgcolor: 'rgba(0,0,0,0.08)' }} /> : formatCurrency(Math.abs(gap))}
                                         </div>
@@ -697,15 +693,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     {/* ========== LINHA 1: Saúde Operacional do Dia ========== */}
                     <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 ${isMultiDayRange ? 'lg:grid-cols-3' : 'lg:grid-cols-5'}`}>
 
-                        {/* ── Caixa Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#10B981', backgroundColor: 'var(--fx-green-50)' }}>
+                        {/* ── Caixa hoje ── */}
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
                                     <AttachMoneyIcon style={{ fontSize: 20 }} className="text-emerald-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Caixa Hoje</div>
-                                    <div className="text-2xs text-gray-400 leading-tight">Dinheiro Recebido</div>
+                                    <div className="text-xs font-semibold text-emerald-700">Caixa hoje</div>
+                                    <div className="text-2xs text-gray-400 leading-tight">Dinheiro recebido</div>
                                 </div>
                             </div>
                             <div className="mb-2 text-2xl font-extrabold leading-none tracking-tight tabular-nums text-emerald-700">
@@ -732,7 +728,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 const outros = data.caixa.total - sessoesDoDia - avaliacoesDoDia - sessoesPacote - vendaPacotes;
                                 return (
                                     <div className="pt-3 border-t border-gray-100 space-y-2">
-                                        <div className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Origem do Caixa</div>
+                                        <div className="text-3xs font-semibold text-gray-500">Origem do caixa</div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="flex items-center gap-2 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />Sessões do dia</span>
                                             <span className="font-semibold text-gray-800">{formatCurrency(sessoesDoDia)}</span>
@@ -764,15 +760,15 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             })()}
                         </div>
 
-                        {/* ── Produção Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#3B82F6', backgroundColor: 'var(--fx-blue-50)' }}>
+                        {/* ── Produção hoje ── */}
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                                     <ShowChartIcon style={{ fontSize: 20 }} className="text-blue-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">Produção Hoje</div>
-                                    <div className="text-2xs text-gray-400 leading-tight">Sessões Realizadas</div>
+                                    <div className="text-xs font-semibold text-blue-700">Produção hoje</div>
+                                    <div className="text-2xs text-gray-400 leading-tight">Sessões realizadas</div>
                                 </div>
                             </div>
                             <div className="mb-2 text-2xl font-extrabold leading-none tracking-tight tabular-nums text-blue-700">
@@ -838,17 +834,17 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             })()}
                         </div>
 
-                        {/* ── Agenda Hoje (Operacional) ── */}
+                        {/* ── Agenda hoje (Operacional) ── */}
                         {!isMultiDayRange && (() => {
                             const attendance = data.atendimentos;
                             return (
-                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0EA5E9', backgroundColor: 'var(--fx-sky-50)' }}>
+                                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0">
                                             <CalendarTodayIcon style={{ fontSize: 20 }} className="text-sky-600" />
                                         </div>
                                         <div>
-                                            <div className="text-xs font-semibold uppercase tracking-wide text-sky-700">Agenda Hoje</div>
+                                            <div className="text-xs font-semibold text-sky-700">Agenda hoje</div>
                                             <div className="text-2xs text-gray-400 leading-tight">Consultas do dia</div>
                                         </div>
                                     </div>
@@ -858,11 +854,11 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     </div>
                                     <div className="pt-3 border-t border-gray-100 flex flex-col gap-y-2">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">Atendidos</span>
+                                            <span className="text-3xs text-gray-500">Atendidos</span>
                                             <span className="text-sm font-bold text-emerald-600">{attendance?.realizados ?? '—'}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">Aguardando</span>
+                                            <span className="text-3xs text-gray-500">Aguardando</span>
                                             <span className="text-sm font-bold text-amber-600">{attendance?.faltantes ?? '—'}</span>
                                         </div>
                                     </div>
@@ -881,13 +877,13 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             const acquisitionPool = totalNoDia - liminarCount;
                             const retornos = Math.max(0, acquisitionPool - preAgendados - novosPacientes - novosEspCount);
                             return (
-                                <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#EC4899', backgroundColor: '#FDF2F8' }}>
+                                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center flex-shrink-0">
                                             <AddCircleIcon style={{ fontSize: 20 }} className="text-pink-600" />
                                         </div>
                                         <div>
-                                            <div className="text-xs font-semibold uppercase tracking-wide text-pink-700">Perfil do Dia</div>
+                                            <div className="text-xs font-semibold text-pink-700">Perfil do dia</div>
                                             <div className="text-2xs text-gray-400 leading-tight">Agendados para o dia</div>
                                         </div>
                                     </div>
@@ -896,20 +892,20 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                     </div>
                                     <div className="pt-3 border-t border-pink-100 flex flex-col gap-y-2">
                                         <button onClick={() => (preAgendados + novosPacientes) > 0 && setNewPatientsModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${(preAgendados + novosPacientes) > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">🟢 Novo Paciente</span>
+                                            <span className="text-3xs text-gray-500">Novo paciente</span>
                                             <span className="text-sm font-bold text-emerald-600">{preAgendados + novosPacientes}</span>
                                         </button>
                                         <button onClick={() => novosEspCount > 0 && setNewSpecialtyModalOpen(true)} className={`flex items-center justify-between w-full text-left rounded px-1 -mx-1 transition-colors ${novosEspCount > 0 ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}>
-                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">🟣 Nova Especialidade</span>
+                                            <span className="text-3xs text-gray-500">Nova especialidade</span>
                                             <span className="text-sm font-bold text-violet-600">{novosEspCount}</span>
                                         </button>
                                         <div className="flex items-center justify-between border-t border-pink-100 pt-1">
-                                            <span className="text-3xs text-gray-500 uppercase tracking-wide">↩ Retornos / regulares</span>
+                                            <span className="text-3xs text-gray-500">↩ Retornos e regulares</span>
                                             <span className="text-sm font-bold text-gray-700">{retornos}</span>
                                         </div>
                                         {liminarCount > 0 && (
                                             <div className="flex items-center justify-between border-t border-pink-100 pt-1">
-                                                <span className="text-3xs text-orange-500 uppercase tracking-wide">⚖️ Trat. Liminares</span>
+                                                <span className="text-3xs text-orange-500">Tratamentos por liminar</span>
                                                 <span className="text-sm font-bold text-orange-600">{liminarCount}</span>
                                             </div>
                                         )}
@@ -918,14 +914,14 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             );
                         })()}
 
-                        {/* ── Pendências Hoje ── */}
-                        <div className="rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#F59E0B', backgroundColor: 'var(--fx-amber-50)' }}>
+                        {/* ── Pendências hoje ── */}
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                                     <WarningIcon style={{ fontSize: 20 }} className="text-amber-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pendências Hoje</div>
+                                    <div className="text-xs font-semibold text-amber-700">Pendências hoje</div>
                                     <div className="text-2xs text-gray-400 leading-tight">Ações Necessárias</div>
                                 </div>
                             </div>
@@ -961,7 +957,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                                 </div>
                                             )}
                                             {totalAberto === 0 && (
-                                                <div className="text-sm text-emerald-600 font-medium">🎉 Nenhuma pendência hoje!</div>
+                                                <div className="text-sm text-emerald-600 font-medium">Nenhuma pendência hoje!</div>
                                             )}
                                         </div>
                                     </>
@@ -974,26 +970,26 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                     {!isMultiDayRange && data.eficienciaFinanceira && data.eficienciaFinanceira.atendimentos > 0 && (() => {
                         const ef = data.eficienciaFinanceira;
                         return (
-                            <div className="mb-4 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: '#0891B2', backgroundColor: '#ECFEFF' }}>
+                            <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
-                                        <div className="text-3xs font-semibold uppercase tracking-wide text-cyan-700">Eficiência Financeira do Dia</div>
+                                        <div className="text-3xs font-semibold text-cyan-700">Eficiência financeira do dia</div>
                                         <div className="text-2xs text-gray-400 leading-tight">{ef.atendimentos} atendimento{ef.atendimentos !== 1 ? 's' : ''} realizado{ef.atendimentos !== 1 ? 's' : ''} hoje</div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
-                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">💵 Geraram caixa hoje</div>
+                                        <div className="text-3xs text-gray-500 mb-0.5">Geraram caixa hoje</div>
                                         <div className="text-xl font-bold text-emerald-700">{formatCurrency(ef.geraramCaixaHoje.valor)}</div>
                                         <div className="text-2xs text-gray-400 mt-0.5">{ef.geraramCaixaHoje.quantidade} atendimento{ef.geraramCaixaHoje.quantidade !== 1 ? 's' : ''}</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">📅 A receber futuramente</div>
+                                        <div className="text-3xs text-gray-500 mb-0.5">A receber futuramente</div>
                                         <div className="text-xl font-bold text-amber-700">{formatCurrency(ef.aReceberFuturamente.valor)}</div>
                                         <div className="text-2xs text-gray-400 mt-0.5">{ef.aReceberFuturamente.quantidade} atendimento{ef.aReceberFuturamente.quantidade !== 1 ? 's' : ''}</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xs text-gray-500 uppercase tracking-wide mb-0.5">📦 Consumiram créditos</div>
+                                        <div className="text-3xs text-gray-500 mb-0.5">Consumiram créditos</div>
                                         <div className="text-xl font-bold text-indigo-700">{formatCurrency(ef.consumiramCredito.valor)}</div>
                                         <div className="text-2xs text-gray-400 mt-0.5">{ef.consumiramCredito.quantidade} atendimento{ef.consumiramCredito.quantidade !== 1 ? 's' : ''}</div>
                                     </div>
@@ -1016,8 +1012,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-lg">🚨</span>
-                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Sem próxima sessão</span>
+                                        <span className="text-3xs font-semibold text-gray-500">Sem próxima sessão</span>
                                     </div>
                                     {patientsWithoutNext > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-red-400 group-hover:text-red-600 transition-colors" />
@@ -1039,8 +1034,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-lg">⚠️</span>
-                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Grade em risco</span>
+                                        <span className="text-3xs font-semibold text-gray-500">Grade em risco</span>
                                     </div>
                                     {retentionCritical > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-orange-400 group-hover:text-orange-600 transition-colors" />
@@ -1063,7 +1057,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <WarningIcon style={{ fontSize: 18 }} className={(data.pendentesCobranca?.length || 0) > 0 ? 'text-amber-600' : 'text-gray-400'} />
-                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Cobrança</span>
+                                        <span className="text-3xs font-semibold text-gray-500">Cobrança</span>
                                     </div>
                                     {(data.pendentesCobranca?.length || 0) > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-amber-400 group-hover:text-amber-600 transition-colors" />
@@ -1081,7 +1075,7 @@ const UnifiedCashflowTab = ({ month, year, dateRange, defaultViewMode, onLoading
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <ShowChartIcon style={{ fontSize: 18 }} className={(data.conveniosAtendidos?.length || 0) > 0 ? 'text-purple-600' : 'text-gray-400'} />
-                                        <span className="text-3xs font-semibold uppercase tracking-wide text-gray-500">Convênios</span>
+                                        <span className="text-3xs font-semibold text-gray-500">Convênios</span>
                                     </div>
                                     {(data.conveniosAtendidos?.length || 0) > 0 && (
                                         <ArrowForwardIcon style={{ fontSize: 16 }} className="text-purple-400 group-hover:text-purple-600 transition-colors" />

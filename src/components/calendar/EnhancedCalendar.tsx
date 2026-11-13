@@ -18,7 +18,8 @@ import AppointmentDetailModal from './appointmentDetailModal';
 import RescheduleDialog, { RescheduleTarget } from './RescheduleDialog';
 import CarteiraView from './CarteiraView';
 import CarteiraWeeklyView from './CarteiraWeeklyView';
-import { AgendaFilterBar, AgendaHeader, DayAgendaModal, DayByProfessional, DayPreviewList, DoctorOption, MonthCell } from './agenda/AgendaParts';
+import { weeklyAvailabilityService } from '../../services/weeklyAvailabilityService';
+import { AgendaFilterBar, AgendaHeader, DayAgendaModal, DayByProfessional, DayPreviewList, DaySlots, DoctorOption, MonthCell } from './agenda/AgendaParts';
 import {
     AgendaFilter, StatusGroup, TypeGroup, doctorIdOf, doctorNameOf, loadFilter, loadPref, matchesFilter, monthTitle,
     prettifyCode, saveFilter, savePref, statusGroupOf, typeGroupOf, ymdOf,
@@ -421,6 +422,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const appointmentDTOs = useMemo(() => mapAppointmentListResponseDTO(visibleAppointments), [visibleAppointments]);
 
     // 🆕 Helper: filtra appointments por data (YYYY-MM-DD)
+
     const getAppointmentsByDay = useCallback((dateStr: string) => {
         return visibleAppointments.filter(appt => {
             if (!appt.date) return false;
@@ -446,6 +448,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
     const [fcDate, setFcDate] = useState<string>(() => toYmd(new Date()));
     const [dayLayout, setDayLayoutState] = useState<'pro' | 'single'>(() => (loadPref('agenda.dayLayout', 'pro') === 'single' ? 'single' : 'pro'));
     const setDayLayout = (v: 'pro' | 'single') => { setDayLayoutState(v); savePref('agenda.dayLayout', v); };
+
 
     // Contagens do mês em tela para os chips (cada grupo conta com os outros dois filtros aplicados)
     const agendaCounts = useMemo(() => {
@@ -492,6 +495,81 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
 
     // 🆕 Estado para feriados do backend
     const [holidays, setHolidays] = useState<Record<string, Holiday>>({});
+
+    // Vagas livres do mês (admin): vêm do mesmo serviço da disponibilidade semanal (uma chamada por área),
+    // então já descontam o que está agendado. Guardamos por dia → profissionais com horários livres.
+    const [slotsByDay, setSlotsByDay] = useState<Record<string, DaySlots[]>>({});
+    const specialtiesKey = useMemo(() => [...new Set((doctors as any[] || []).filter(d => d?.active !== false && d?.specialty).map(d => String(d.specialty)))].sort().join('|'), [doctors]);
+    useEffect(() => {
+        if (!isAdminMode || !currentViewDate || !/^\d{4}-\d{2}$/.test(currentViewDate) || !specialtiesKey) { setSlotsByDay({}); return; }
+        let alive = true;
+        const [y, m] = currentViewDate.split('-').map(Number);
+        const last = new Date(y, m, 0).getDate();
+        const todayKey = ymdSP(new Date());
+        const first = `${currentViewDate}-01`;
+        const startDay = todayKey > first && todayKey.startsWith(currentViewDate) ? Number(todayKey.slice(8, 10)) : 1;
+        if (todayKey > `${currentViewDate}-${String(last).padStart(2, '0')}`) { setSlotsByDay({}); return; }
+        const startDate = `${currentViewDate}-${String(startDay).padStart(2, '0')}`;
+        const timer = setTimeout(() => {
+            Promise.allSettled(specialtiesKey.split('|').map(sp => weeklyAvailabilityService.fetch({ startDate, specialty: sp, days: last - startDay + 1 })))
+                .then(results => {
+                    if (!alive) return;
+                    const out: Record<string, DaySlots[]> = {};
+                    results.forEach(r => {
+                        if (r.status !== 'fulfilled') return;
+                        (r.value.availability || []).forEach(day => {
+                            (day.professionals || []).forEach(pr => {
+                                const times = (pr.slots || []).filter(sl => sl.available).map(sl => String(sl.time).slice(0, 5));
+                                if (!times.length) return;
+                                (out[day.date] ||= []).push({ professionalId: String(pr.professionalId), name: pr.professionalName, specialty: pr.specialty, times });
+                            });
+                        });
+                    });
+                    setSlotsByDay(out);
+                });
+        }, 350);
+        return () => { alive = false; clearTimeout(timer); };
+    }, [isAdminMode, currentViewDate, specialtiesKey, (appointments || []).length]);
+    // Contagem por dia respeitando o filtro de profissional; no dia de hoje, só horários que ainda não passaram
+    const freeByDay = useMemo(() => {
+        const out: Record<string, number> = {};
+        const todayKey = ymdSP(new Date());
+        const nowHm = new Date().toTimeString().slice(0, 5);
+        Object.entries(slotsByDay).forEach(([ymd, list]) => {
+            if (ymd < todayKey || isHolidayUtil(ymd, holidays)) return;
+            let n = 0;
+            list.forEach(pr => {
+                if (agendaFilter.doctor !== 'all' && pr.professionalId !== agendaFilter.doctor) return;
+                n += pr.times.filter(t => ymd > todayKey || t > nowHm).length;
+            });
+            if (n > 0) out[ymd] = n;
+        });
+        return out;
+    }, [slotsByDay, holidays, agendaFilter.doctor]);
+    // Dia que mais pede ligação na semana (segunda a sexta): maior número de "sem confirmar", mínimo de 3
+    const priorityDays = useMemo(() => {
+        const set = new Set<string>();
+        if (!isAdminMode) return set;
+        const todayKey = ymdSP(new Date());
+        const perDay: Record<string, number> = {};
+        (appointments || []).forEach((a: any) => {
+            const ymd = ymdOf(a);
+            if (ymd < todayKey || statusGroupOf(a) !== 'todo') return;
+            if (String(a?.operationalStatus || a?.status || 'scheduled').toLowerCase() === 'confirmed') return;
+            perDay[ymd] = (perDay[ymd] || 0) + 1;
+        });
+        const weeks: Record<string, string[]> = {};
+        Object.keys(perDay).forEach(ymd => {
+            const d = new Date(ymd + 'T12:00:00');
+            const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+            (weeks[ymdSP(monday)] ||= []).push(ymd);
+        });
+        Object.values(weeks).forEach(days => {
+            const best = days.sort((x, y) => perDay[y] - perDay[x])[0];
+            if (best && perDay[best] >= 3) set.add(best);
+        });
+        return set;
+    }, [isAdminMode, appointments]);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     // 🆕 Popup do dia com delay (dá tempo de arrastar mouse para dentro)
@@ -1130,8 +1208,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
         eventMaxStack: false,
         stickyHeaderDates: true,
         eventBorderColor: "transparent",
-        eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-200",
-        dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-200",
+        eventClassNames: "cursor-pointer hover:!opacity-90 transition-all duration-quick",
+        dayCellClassNames: "hover:bg-gray-50/50 transition-colors duration-quick",
         windowResizeDelay: 100,
         eventShortHeight: false,
         // Configurações específicas por view para evitar overflow no modo mensal
@@ -1400,7 +1478,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
             <Paper
                 elevation={2}
                 onClick={onClick}
-                className={`flex flex-col ${isExpanded ? 'p-5' : 'p-3'} rounded-xl w-full h-full relative transition-all duration-200 hover:shadow-lg cursor-pointer ${isPackageSessionPending ? 'animate-pulse' : ''}`}
+                className={`flex flex-col ${isExpanded ? 'p-5' : 'p-3'} rounded-xl w-full h-full relative transition-all duration-quick hover:shadow-lg cursor-pointer ${isPackageSessionPending ? 'animate-pulse' : ''}`}
                 style={{
                     background: getCardBackground(),
                     borderLeft: `8px solid ${operationalConfig.color}`,
@@ -2382,18 +2460,19 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                                 p: 0.75,
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                alignItems: 'center',
+                                                alignItems: 'stretch',
                                                 gap: 0.5,
                                             }}
                                         >
-                                            {/* Número do dia */}
-                                            <Skeleton variant="circular" width={28} height={28} />
-                                            {/* Cartão de progresso: x/y + barra + % */}
+                                            <Skeleton variant="text" width={18} height={16} sx={{ alignSelf: 'flex-start' }} />
                                             {hasBadge && (
-                                                <Box sx={{ width: '88%', maxWidth: 150, my: 'auto', borderRadius: 3, border: '1px solid var(--fx-gray-200)', bgcolor: 'var(--fx-white)', px: 1.25, py: 0.75, boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>
-                                                    <Skeleton variant="text" width="45%" height={20} sx={{ mx: 'auto' }} />
-                                                    <Skeleton variant="rounded" height={8} sx={{ borderRadius: 9, mt: 0.5 }} />
-                                                    <Skeleton variant="text" width="60%" height={12} sx={{ mx: 'auto', mt: 0.5 }} />
+                                                <Box sx={{ width: '100%', mt: 0.5 }}>
+                                                    <Skeleton variant="text" width="55%" height={26} />
+                                                    <Skeleton variant="rounded" height={5} sx={{ borderRadius: 9, mt: 0.5 }} />
+                                                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.75 }}>
+                                                        <Skeleton variant="rounded" width={52} height={16} sx={{ borderRadius: 9 }} />
+                                                        <Skeleton variant="rounded" width={40} height={16} sx={{ borderRadius: 9 }} />
+                                                    </Box>
                                                 </Box>
                                             )}
                                         </Box>
@@ -2459,7 +2538,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                             const holidayName = isHoliday(ymd) ? getHolidayName(ymd) : undefined;
                             const dayAppts = holidayName ? [] : getAppointmentsByDay(ymd);
                             return (
-                                <div className={`h-full w-full ${dayAppts.length ? 'cursor-pointer' : ''}`}
+                                <div className={`h-full w-full ${dayAppts.length || freeByDay[ymd] ? 'cursor-pointer' : ''}`}
                                     onMouseEnter={(e) => {
                                         clearHoverTimeout();
                                         setHoveredDay(ymd);
@@ -2467,13 +2546,17 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                                     }}
                                     onMouseLeave={scheduleHide}
                                     onClick={() => {
-                                        if (dayAppts.length === 0) return;
+                                        if (dayAppts.length === 0) {
+                                            // dia vazio com vagas: abre o dia por profissional (onde o encaixe já existe)
+                                            if (freeByDay[ymd]) calendarRef.current?.getApi().changeView('timeGridDay', ymd);
+                                            return;
+                                        }
                                         clearHoverTimeout();
                                         setActivePopup(null);
                                         setDayModalData({ dateStr: ymd, dayAppts });
                                         setDayModalOpen(true);
                                     }}>
-                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} />
+                                    <MonthCell dayNumber={arg.dayNumberText} isToday={arg.isToday} isPast={arg.isPast} appts={dayAppts} holidayName={holidayName} freeSlots={freeByDay[ymd] || 0} priority={priorityDays.has(ymd)} />
                                 </div>
                             );
                         }
@@ -2812,8 +2895,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 onCancelAppointment={onCancelAppointment}
                 onClose={() => setCancellationTarget(null)} />}
 
-            {isAppointmentDetailModalOpen && !cancellationTarget && <AppointmentDetailModal
-                isOpen={isAppointmentDetailModalOpen}
+            <AppointmentDetailModal
+                isOpen={isAppointmentDetailModalOpen && !cancellationTarget}
                 onClose={() => setIsAppointmentDetailModalOpen(false)}
                 onCancelAppointment={onCancelAppointment}
                 onCompleteAppointment={onCompleteAppointment}
@@ -2830,7 +2913,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 doctors={doctors}
                 patients={patients}
                 permissions={permissions}
-            />}
+            />
 
             {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
             {activePopup && createPortal(
@@ -2850,7 +2933,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                         {!isAdminMode && '📅 '}{new Date(activePopup.dateStr + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </div>
                     {isAdminMode ? (
-                        <DayPreviewList appts={activePopup.dayAppts} convenioName={convenioName} showMoney={permissions.canSeeFinancial}
+                        <DayPreviewList appts={activePopup.dayAppts} freeCount={freeByDay[activePopup.dateStr] || 0} convenioName={convenioName} showMoney={permissions.canSeeFinancial}
                             onOpen={(appt) => { clearHoverTimeout(); setHoveredDay(null); setActivePopup(null); openAppointmentDetail(appt); }} />
                     ) : [...activePopup.dayAppts].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((appt) => (
                         <AppointmentEventCard
@@ -2893,6 +2976,15 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                     onClose={() => setDayModalOpen(false)}
                     convenioName={convenioName}
                     showMoney={permissions.canSeeFinancial}
+                    freeSlots={{
+                        slots: (slotsByDay[dayModalData.dateStr] || []).filter(pr => agendaFilter.doctor === 'all' || pr.professionalId === agendaFilter.doctor),
+                        onSlot: permissions.canCreate ? (sl) => {
+                            const d = dayModalData.dateStr;
+                            setDayModalOpen(false);
+                            if (sl.specialty) setFitSlot({ date: d, time: sl.time, doctorId: sl.doctorId, doctorName: sl.doctorName, specialty: sl.specialty });
+                            else openScheduleAt({ doctorId: sl.doctorId, date: d, time: sl.time });
+                        } : undefined,
+                    }}
                     actions={{
                         onOpen: (a) => { setDayModalOpen(false); openAppointmentDetail(a); },
                         onReschedule: canReschedule ? (a) => { setDayModalOpen(false); openReschedule(a); } : undefined,

@@ -1,5 +1,6 @@
 // src/components/Dashboard/AnalyticsDashboard.tsx
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
+import { Box, Paper, Typography } from '@mui/material';
 import { Activity, BarChart3, Globe2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -67,40 +68,13 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             <Paper elevation={1} sx={{ borderRadius: 3 }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, value) => setTab(value)}
-                    indicatorColor="primary"
-                    textColor="primary"
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
-                >
-                    <Tab
-                        label="Visão Geral"
-                        value="overview"
-                        icon={<Activity size={16} />}
-                        iconPosition="start"
-                    />
-                    <Tab
-                        label="Receitas"
-                        value="revenue"
-                        icon={<BarChart3 size={16} />}
-                        iconPosition="start"
-                    />
-                    <Tab
-                        label="Site / GA4"
-                        value="site"
-                        icon={<Globe2 size={16} />}
-                        iconPosition="start"
-                    />
-                    <Tab
-                        label="Marketing"
-                        value="marketing"
-                        icon={<Globe2 size={16} />}
-                        iconPosition="start"
-                    />
-                </Tabs>
+                <div className="px-4 pt-3"><SegmentedTabs label="Seções do Analytics" value={tab} onValueChange={(value) => setTab(value)}
+                    options={[
+                        { id: 'overview', label: 'Visão Geral', icon: <Activity size={16} /> },
+                        { id: 'revenue', label: 'Receitas', icon: <BarChart3 size={16} /> },
+                        { id: 'site', label: 'Site / GA4', icon: <Globe2 size={16} /> },
+                        { id: 'marketing', label: 'Marketing', icon: <Globe2 size={16} /> },
+                    ]} /></div>
 
                 <Box sx={{ p: 3 }}>
                     {tab === 'overview' && (

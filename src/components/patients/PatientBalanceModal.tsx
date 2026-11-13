@@ -2,7 +2,7 @@
 // Orquestrador enxuto — delega UI para subcomponentes em balance/
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, ArrowDownCircle, CheckCircle, Plus, Banknote } from 'lucide-react';
+import { ArrowDownCircle, CheckCircle, Plus, Banknote } from 'lucide-react';
 import {
   getPatientPendingSnapshot,
   getPatientPaidPayments,
@@ -14,7 +14,9 @@ import { toast } from '../../utils/toast';
 import API from '../../services/api';
 
 import { ModalSpinner } from '../ui/LoadingSpinner';
-import { InputCurrency } from '../ui/InputCurrency';
+import { Modal } from '../ui/Modal';
+import { motion } from 'framer-motion';
+import { ChoiceChips, Field, MoneyInput } from '../../pages/Financial/components/formKit';
 import { PatientBalanceHeader } from './balance/PatientBalanceHeader';
 import { PatientBalancePendingTab } from './balance/PatientBalancePendingTab';
 import { PatientBalancePaidTab } from './balance/PatientBalancePaidTab';
@@ -397,38 +399,25 @@ export const PatientBalanceModal: React.FC<Props> = ({
     setSplitMethods([]);
   };
 
-  // Esc fecha o modal (antes não fechava)
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !confirmMode) onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, confirmMode, onClose]);
-
-  if (!isOpen) return null;
-
   return (
-    <div role="dialog" aria-modal="true" aria-label="Receber" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col relative">
-        {/* Header */}
-        <PatientBalanceHeader summary={summary} patientName={patientName} onOpenReceive={goToReceiveTab} />
-
-        <button
-          onClick={onClose}
-          aria-label="Fechar"
-          className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 z-10"
-        >
-          <X className="w-6 h-6" />
-        </button>
+    <>
+      <Modal
+        open={isOpen}
+        onClose={() => { if (!confirmMode) onClose(); }}
+        labelledBy="patient-balance-title"
+        zIndexClass="z-[1200]"
+        panelClassName="relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+      >
+        <PatientBalanceHeader summary={summary} patientName={patientName} onClose={onClose} onOpenReceive={goToReceiveTab} titleId="patient-balance-title" />
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 flex-shrink-0">
+        <div role="tablist" aria-label="Seções do saldo" className="flex border-b border-gray-100 flex-shrink-0 px-2 sm:px-4">
           <TabButton
             active={activeTab === 'pending'}
             onClick={() => setActiveTab('pending')}
             icon={<ArrowDownCircle className="w-4 h-4" />}
             label="Pendentes"
-            activeClass="text-red-600 border-red-500 bg-red-50"
+            activeClass="text-red-600"
             badge={pendingPayments.length > 0 ? pendingPayments.length : undefined}
           />
           <TabButton
@@ -436,14 +425,14 @@ export const PatientBalanceModal: React.FC<Props> = ({
             onClick={() => { setActiveTab('paid'); void loadPaidPayments(); }}
             icon={<CheckCircle className="w-4 h-4" />}
             label="Quitados"
-            activeClass="text-green-600 border-green-500 bg-green-50"
+            activeClass="text-emerald-600"
           />
           <TabButton
             active={false}
             onClick={() => {}}
             icon={<Plus className="w-4 h-4" />}
             label="Registrar"
-            activeClass="text-amber-600 border-amber-500 bg-amber-50"
+            activeClass="text-amber-600"
             disabled
             title="Registro manual de débito temporariamente indisponível"
           />
@@ -452,12 +441,12 @@ export const PatientBalanceModal: React.FC<Props> = ({
             onClick={() => setActiveTab('receive')}
             icon={<Banknote className="w-4 h-4" />}
             label="Receber"
-            activeClass="text-emerald-600 border-emerald-500 bg-emerald-50"
+            activeClass="text-emerald-600"
           />
         </div>
 
         {/* Content */}
-        <div className="p-3 sm:p-6 overflow-y-auto flex-1 min-h-0">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0">
           {loading ? (
             <ModalSpinner />
           ) : activeTab === 'pending' ? (
@@ -519,40 +508,34 @@ export const PatientBalanceModal: React.FC<Props> = ({
                 </div>
               )}
               <form onSubmit={handleReceivePayment} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valor Recebido (R$)
-                    </label>
-                    <InputCurrency
-                      name="receiveAmount"
-                      value={receiveAmount}
-                      onChange={(e) => setReceiveAmount(Number(e.target.value))}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Método
-                    </label>
-                    <select
-                      value={receiveMethod}
-                      onChange={(e) => setReceiveMethod(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      disabled={isSubmitting}
-                    >
-                      <option value="pix">PIX</option>
-                      <option value="dinheiro">Dinheiro</option>
-                      <option value="cartao_credito">Cartão Crédito</option>
-                      <option value="cartao_debito">Cartão Débito</option>
-                      <option value="transferencia">Transferência</option>
-                    </select>
-                  </div>
+                <Field label="Valor recebido" required>
+                  <MoneyInput
+                    large
+                    accent="emerald"
+                    value={receiveAmount > 0 ? Number(receiveAmount).toFixed(2) : ''}
+                    onChange={(v) => setReceiveAmount(parseFloat(v) || 0)}
+                  />
+                </Field>
+                <div>
+                  <span className="mb-2 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
+                  <ChoiceChips
+                    fill
+                    label="Forma de pagamento"
+                    value={receiveMethod}
+                    onChange={setReceiveMethod}
+                    options={[
+                      { value: 'pix', label: 'Pix' },
+                      { value: 'dinheiro', label: 'Dinheiro' },
+                      { value: 'cartao_credito', label: 'Crédito' },
+                      { value: 'cartao_debito', label: 'Débito' },
+                      { value: 'transferencia', label: 'Transf.' },
+                    ]}
+                  />
                 </div>
                 <button
                   type="submit"
                   disabled={isSubmitting || receiveAmount <= 0}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-h-11 w-full rounded-xl bg-emerald-600 px-4 py-2.5 font-semibold text-white transition-colors duration-quick hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting ? 'Processando...' : 'Confirmar Recebimento'}
                 </button>
@@ -583,7 +566,9 @@ export const PatientBalanceModal: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Confirm modal (quick / bulk) */}
+      </Modal>
+
+      {/* Confirm modal (quick / bulk): fora do painel (um ancestral com transform quebraria o fixed) */}
         <PaymentConfirmModal
           title={confirmMode === 'quick' ? 'Registrar Pagamento' : 'Pagamento em Lote'}
           accentColor={confirmMode === 'quick' ? 'blue' : 'amber'}
@@ -598,8 +583,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
           onConfirm={confirmMode === 'quick' ? handleQuickPayment : handleBulkPayment}
           onCancel={closeConfirm}
         />
-      </div>
-    </div>
+    </>
   );
 };
 
@@ -627,22 +611,27 @@ function TabButton({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       disabled={disabled}
       title={title}
       aria-disabled={disabled || undefined}
-      className={`flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+      className={`relative flex min-h-11 flex-1 items-center justify-center gap-2 px-3 py-3 text-sm font-medium transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${
         disabled
-          ? 'text-gray-300 cursor-not-allowed'
+          ? 'cursor-not-allowed text-gray-300'
           : active
-          ? `border-b-2 ${activeClass}`
-          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+          ? `${activeClass} font-semibold`
+          : 'text-gray-500 hover:text-gray-800'
       }`}
     >
       {icon}
       {label}
       {badge !== undefined && (
-        <span className="ml-1 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">{badge}</span>
+        <span className="ml-0.5 min-w-5 rounded-full bg-red-500 px-1.5 text-center text-xs font-semibold leading-5 text-white">{badge}</span>
+      )}
+      {active && !disabled && (
+        <motion.span layoutId="balance-tab-underline" className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-current" transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} />
       )}
     </button>
   );

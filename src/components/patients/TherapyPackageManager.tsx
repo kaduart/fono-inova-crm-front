@@ -87,7 +87,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                                 placeholder="Buscar pacotes..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
+                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-quick"
                             />
                         </div>
 
@@ -96,7 +96,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                             <select
                                 value={filters.status}
                                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
+                                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-quick"
                             >
                                 <option value="">Todos os status</option>
                                 <option value="active">Ativo</option>
@@ -107,7 +107,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                             <select
                                 value={filters.type}
                                 onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
+                                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-quick"
                             >
                                 <option value="">Todos os tipos</option>
                                 <option value="fonoaudiologia">Fonoaudiologia</option>
@@ -122,7 +122,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                             <button
                                 onClick={onRefresh}
                                 disabled={loading}
-                                className="px-4 py-3 bg-emerald-100 text-emerald-700 rounded-xl hover:bg-emerald-200 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                                className="px-4 py-3 bg-emerald-100 text-emerald-700 rounded-xl hover:bg-emerald-200 transition-all duration-quick flex items-center gap-2 disabled:opacity-50"
                             >
                                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                                 Atualizar
@@ -158,7 +158,7 @@ export default function TherapyPackageManager({ packages, patient, doctors, tota
                             </p>
                             <button
                                 onClick={handleNew}
-                                className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-3 rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-semibold flex items-center gap-2 mx-auto"
+                                className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-3 rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-quick font-semibold flex items-center gap-2 mx-auto"
                             >
                                 <Plus className="w-5 h-5" />
                                 Criar Primeiro Pacote

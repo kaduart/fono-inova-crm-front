@@ -27,7 +27,8 @@ import {
   Info,
   AlertTriangle,
   ArrowRightLeft,
-  Undo2
+  Undo2,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,7 +47,9 @@ import { appointmentService } from '../../../services/appointmentService';
 import { useAppointmentsContext } from '../../../contexts/AppointmentsContext';
 import InsuranceGuideForm from './InsuranceGuideForm';
 import InsurancePlanForm from './InsurancePlanForm';
-import { AnchorMenu, MenuAction, ModalShell, ProgressBar, Spinner } from '../../ui/TailwindParts';
+import { AnchorMenu, MenuAction, ProgressBar, Spinner } from '../../ui/TailwindParts';
+import { Modal } from '../../ui/Modal';
+import { ModalHeader, ModalFooter } from '../../../pages/Financial/components/formKit';
 import { PatientMiniCalendar } from '../../patients/PatientMiniCalendar';
 import AnimatedValue from '../../ui/insight/AnimatedValue';
 import InactivateEntityModal from '../../common/InactivateEntityModal';
@@ -522,6 +525,8 @@ const PatientInsuranceTab = ({ patientId, patientName }) => {
 // Componente de seção de guias (título + grid)
 // ----------------------------------------------------------------------
 const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
+  // Detalhes abre/fecha para todos os cards da seção juntos (alturas iguais, sem clicar um a um).
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   if (count === 0) return null;
 
   return (
@@ -531,7 +536,7 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">{title} ({count})</h3>
       </div>
       <AnimatePresence>
-        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 md:grid-cols-3">
+        <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 md:grid-cols-3">
           {presentations.map(presentation => (
             <GuideCard
               key={presentation.id}
@@ -541,6 +546,8 @@ const GuideSection = ({ title, count, presentations, color, onOpenMenu, onCreate
               onOpenDetails={onOpenDetails}
               onInactivate={onInactivate}
               onGuidesChanged={onGuidesChanged}
+              detailsExpanded={detailsExpanded}
+              onToggleDetails={() => setDetailsExpanded(v => !v)}
             />
           ))}
         </div>
@@ -565,7 +572,7 @@ const STATUS_SEVERITY_STYLE = {
   neutral:  { bg: 'var(--fx-slate-100)', color: 'var(--fx-gray-600)', dot: 'var(--fx-gray-400)' },
 };
 
-const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged }) => {
+const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onInactivate, onGuidesChanged, detailsExpanded = false, onToggleDetails }) => {
   const guide = presentation.rawGuide;
   const {
     remaining,
@@ -583,7 +590,6 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
   const severityStyle = STATUS_SEVERITY_STYLE[statusSeverity] || STATUS_SEVERITY_STYLE.neutral;
 
   const [generating, setGenerating] = useState(false);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [generateModal, setGenerateModal] = useState(null); // { open, planId, startDate } | null
   const [pastConfirm, setPastConfirm] = useState(null); // { planId, totalLabel, count, dates: [{ id, label }], selected: string[] } | null
   const queryClient = useQueryClient();
@@ -790,22 +796,16 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                 {presentation.insuranceLabel}
               </span>
             )}
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-semibold"
+              style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
+              {statusLabel}
+            </span>
             {guide.expiresAt && (
               <span className="text-gray-500 text-xs">
                 Vence <strong className="text-gray-700 font-semibold">{formatGuideExpiryBR(guide.expiresAt)}</strong>
-              </span>
-            )}
-          </div>
-
-          {/* Badge de status sólido — ponto colorido reforça a severidade */}
-          <div className="mt-2">
-            {(
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wide"
-                style={{ backgroundColor: severityStyle.bg, color: severityStyle.color }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: severityStyle.dot }} />
-                {statusLabel}
               </span>
             )}
           </div>
@@ -840,13 +840,13 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
             }
             return (
               <div className="space-y-2">
-                <div>
-                  <p className="text-2xs font-medium text-slate-500 dark:text-slate-400">Sessões restantes na guia</p>
-                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-                    <span className={`text-2xl font-bold tabular-nums ${low ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300'}`}><AnimatedValue value={left} /></span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">de {total} autorizadas</span>
-                  </p>
-                </div>
+                <p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                  <span className={`text-2xl font-bold tabular-nums leading-none ${low ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300'}`}><AnimatedValue value={left} /></span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{left === 1 ? 'sessão restante' : 'sessões restantes'} de {total}</span>
+                  {forecast?.warn && (
+                    <span className="ml-auto rounded-full bg-amber-50 px-2 py-0.5 text-2xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">Vence sem uso</span>
+                  )}
+                </p>
                 <div
                   className="flex h-3 w-full overflow-hidden rounded-full bg-blue-100 dark:bg-blue-500/15"
                   role="img"
@@ -856,23 +856,23 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <div style={{ width: `${pct(scheduled)}%`, background: 'repeating-linear-gradient(135deg, #F59E0B 0 4px, #FBBF24 4px 8px)', transition: 'width 0.5s' }} />
                   <div style={{ width: `${pct(free)}%`, transition: 'width 0.5s' }} className="bg-blue-500/35" />
                 </div>
-                <dl className="space-y-1.5 text-xs">
+                <dl className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                   {[
-                    { k: 'Usadas em sessões realizadas', v: used, sw: 'bg-blue-700', style: undefined },
+                    { k: 'Realizadas', v: used, sw: 'bg-blue-700', style: undefined },
                     { k: 'Agendadas', v: scheduled, sw: '', style: { background: 'repeating-linear-gradient(135deg, #F59E0B 0 3px, #FBBF24 3px 6px)' } },
-                    { k: 'Livres para agendar', v: free, sw: 'bg-blue-500/35', style: undefined },
-                    ...(guide.canceledCount > 0 ? [{ k: 'Canceladas (não contam)', v: guide.canceledCount, sw: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
+                    { k: 'Livres', v: free, sw: 'bg-blue-500/35', style: undefined },
+                    ...(guide.canceledCount > 0 ? [{ k: 'Canceladas', v: guide.canceledCount, sw: 'bg-slate-300 dark:bg-slate-600', style: undefined }] : []),
                   ].map(row => (
-                    <div key={row.k} className="flex items-center gap-2">
+                    <div key={row.k} className="flex items-center gap-1.5">
                       <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${row.sw}`} style={row.style} aria-hidden />
-                      <dt className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{row.k}</dt>
-                      <dd className="shrink-0 tabular-nums font-semibold text-slate-900 dark:text-slate-100">{Number(row.v) || 0}</dd>
+                      <dt>{row.k}</dt>
+                      <dd className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{Number(row.v) || 0}</dd>
                     </div>
                   ))}
                 </dl>
-                {forecast ? (
+                {forecast && detailsExpanded ? (
                   <p className={`text-xs ${forecast.warn ? 'rounded-lg bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>{forecast.text}</p>
-                ) : low && left > 0 ? (
+                ) : low && left > 0 && !forecast?.warn ? (
                   <p className="text-xs text-amber-800 dark:text-amber-300">Restam {left}. Hora de pedir renovação.</p>
                 ) : null}
               </div>
@@ -887,6 +887,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
               { k: 'Faturamento', state: usedSessions > 0 && presentation.canBill ? 'current' : 'todo', sub: usedSessions > 0 ? 'pelo Financeiro' : '—' },
             ];
             const dot = { done: 'bg-blue-600 text-white', current: 'bg-white text-blue-700 ring-2 ring-blue-600 dark:bg-slate-900 dark:text-blue-300', warn: 'bg-amber-500 text-white', todo: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400' };
+            if (!detailsExpanded) return null;
             return (
               <ol className="grid grid-cols-4 gap-1" aria-label="Etapas da guia">
                 {steps.map((st, i) => (
@@ -1124,7 +1125,7 @@ const GuideCard = ({ presentation, onOpenMenu, onCreatePlan, onOpenDetails, onIn
                   <Calendar size={15} /> Sessões
                 </button>
               )}
-              <button type="button" onClick={() => setDetailsExpanded(v => !v)} aria-expanded={detailsExpanded}
+              <button type="button" onClick={() => onToggleDetails?.()} aria-expanded={detailsExpanded}
                 className={`flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${primary ? '' : 'flex-1 justify-center'}`}>
                 Detalhes
                 <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: detailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
@@ -1768,23 +1769,22 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
   return (
     <>
-    <ModalShell open={Boolean(guide)} onClose={onClose} labelledBy="guide-details-title"
-      className="h-[100dvh] w-full sm:h-auto sm:max-h-[min(90vh,920px)] sm:w-[min(1000px,94vw)] sm:rounded-2xl">
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="h-9 w-1 shrink-0 rounded bg-blue-700" aria-hidden />
-          <div className="min-w-0">
-            <h2 id="guide-details-title" className="truncate text-[1.05rem] font-bold leading-tight text-slate-900 dark:text-slate-50">
-              Detalhes da Guia #{guide.number}
-            </h2>
-            <p className="truncate text-[0.78rem] text-slate-500 dark:text-slate-400">{specialtyFormatted} • {insuranceFormatted}</p>
-          </div>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Fechar" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-          <X size={20} aria-hidden />
-        </button>
-      </div>
+    <Modal
+      open={Boolean(guide)}
+      onClose={onClose}
+      labelledBy="guide-details-title"
+      zIndexClass="z-[1300]"
+      panelClassName="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[min(90vh,920px)] sm:w-[min(1000px,94vw)] sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#2563eb"
+        title={`Detalhes da Guia #${guide.number}`}
+        subtitle={`${specialtyFormatted} • ${insuranceFormatted}`}
+        onClose={onClose}
+        titleId="guide-details-title"
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {loading ? (
@@ -1995,25 +1995,26 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
         </button>
         <button type="button" onClick={onClose} className={`${btnOutline} w-full sm:w-auto`}>Fechar</button>
       </div>
-    </ModalShell>
+      </>
+    </Modal>
 
     {/* ── Trocar terapeuta (todas pendentes) — form ou preview de impacto ── */}
-    <ModalShell open={bulkDoctorOpen} onClose={() => !bulkSaving && closeBulkDialog()} labelledBy="bulk-title" className="w-full max-w-md rounded-2xl">
-      <div className="flex items-center justify-between bg-blue-700 px-6 py-4">
-        <div>
-          <h2 id="bulk-title" className="text-[0.9rem] font-bold text-white">
-            {bulkPreviewOpen ? 'Revisar alteração em massa' : 'Alterar sessões pendentes'}
-          </h2>
-          <p className="mt-0.5 text-[0.7rem] text-white/75">
-            {bulkPreviewOpen
-              ? 'Confira o impacto antes de aplicar'
-              : 'Aplica para todos os pré-agendados e agendados desta guia'}
-          </p>
-        </div>
-        <button type="button" onClick={closeBulkDialog} disabled={bulkSaving} aria-label="Fechar" className="rounded-md p-1 text-white/80 hover:bg-white/10 disabled:opacity-50">
-          <X size={16} aria-hidden />
-        </button>
-      </div>
+    <Modal
+      open={bulkDoctorOpen}
+      onClose={() => !bulkSaving && closeBulkDialog()}
+      labelledBy="bulk-title"
+      zIndexClass="z-[1350]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#059669"
+        title={bulkPreviewOpen ? 'Revisar alteração em massa' : 'Alterar sessões pendentes'}
+        subtitle={bulkPreviewOpen ? 'Confira o impacto antes de aplicar' : 'Vale para todos os pré-agendados e agendados desta guia'}
+        onClose={() => !bulkSaving && closeBulkDialog()}
+        titleId="bulk-title"
+      />
 
       {!bulkPreviewOpen ? (
         <>
@@ -2053,15 +2054,16 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
               Sessões confirmadas/realizadas não serão alteradas. Preencha pelo menos um campo.
             </p>
           </div>
-          <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-            <button type="button" onClick={closeBulkDialog} disabled={bulkSaving} className={btnOutline}>Cancelar</button>
-            <button type="button"
-              onClick={() => setBulkPreviewOpen(true)}
-              disabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedAppointments.length === 0}
-              className={`${btnPrimary} bg-emerald-700 hover:bg-emerald-800`}>
-              Revisar alterações ({bulkAffectedAppointments.length})
-            </button>
-          </div>
+          <ModalFooter
+            accent="emerald"
+            cancelLabel="Cancelar"
+            onCancel={closeBulkDialog}
+            onSubmit={() => setBulkPreviewOpen(true)}
+            submitting={false}
+            submitDisabled={(!bulkDoctorId && !bulkTime && !bulkDayOfWeek) || bulkAffectedAppointments.length === 0}
+            submitLabel={`Revisar alterações (${bulkAffectedAppointments.length})`}
+            submittingLabel="Revisando..."
+          />
         </>
       ) : (
         <>
@@ -2112,15 +2114,19 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
 
             <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">Sessões confirmadas/realizadas não serão alteradas.</p>
           </div>
-          <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-            <button type="button" onClick={() => setBulkPreviewOpen(false)} disabled={bulkSaving} className={btnOutline}>Voltar</button>
-            <button type="button" onClick={saveBulkDoctor} disabled={bulkSaving} className={`${btnPrimary} min-w-[150px] bg-emerald-700 hover:bg-emerald-800`}>
-              {bulkSaving ? <Spinner size={16} light /> : 'Confirmar alteração'}
-            </button>
-          </div>
+          <ModalFooter
+            accent="emerald"
+            cancelLabel="Voltar"
+            onCancel={() => setBulkPreviewOpen(false)}
+            onSubmit={saveBulkDoctor}
+            submitting={bulkSaving}
+            submitLabel="Confirmar alteração"
+            submittingLabel="Salvando..."
+          />
         </>
       )}
-    </ModalShell>
+      </>
+    </Modal>
 
     {/* ── Modal de edição de agendamento (mesmo AppointmentDetailModal do calendário/Liminar) ── */}
     {/* Portal no body: sem isso o modal fica preso no stacking context do painel
@@ -2140,13 +2146,23 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
       document.body
     )}
 
-    <ModalShell open={!!movingAppt} onClose={() => setMovingAppt(null)} labelledBy="move-title" className="w-full max-w-md rounded-2xl">
-      <h2 id="move-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Mover atendimento entre guias</h2>
-      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
-        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
-          {movingAppt?.date ? format(parseISO(movingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
-          {movingAppt?.time ? ` às ${movingAppt.time}` : ''} · Guia atual: #{guide?.number}
-        </p>
+    <Modal
+      open={!!movingAppt}
+      onClose={() => !moveSubmitting && setMovingAppt(null)}
+      labelledBy="move-title"
+      zIndexClass="z-[1350]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#059669"
+        title="Mover atendimento entre guias"
+        subtitle={`${movingAppt?.date ? format(parseISO(movingAppt.date.substring(0, 10)), 'dd/MM/yyyy', { locale: ptBR }) : ''}${movingAppt?.time ? ` às ${movingAppt.time}` : ''} · Guia atual #${guide?.number}`}
+        onClose={() => !moveSubmitting && setMovingAppt(null)}
+        titleId="move-title"
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 sm:px-6">
         <label className={labelCls}>
           Guia de destino
           <select value={moveTargetGuideId} onChange={e => setMoveTargetGuideId(e.target.value)} disabled={moveGuidesLoading} className={fieldCls}>
@@ -2166,21 +2182,35 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           <input type="text" value={moveReason} onChange={e => setMoveReason(e.target.value)} placeholder="Ex: correção administrativa" className={fieldCls} />
         </label>
       </div>
-      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-        <button type="button" onClick={() => setMovingAppt(null)} disabled={moveSubmitting} className={btnOutline}>Cancelar</button>
-        <button type="button" onClick={confirmMove} disabled={moveSubmitting || !moveTargetGuideId} className={`${btnPrimary} min-w-[110px] bg-blue-700 hover:bg-blue-800`}>
-          {moveSubmitting ? <Spinner size={16} light /> : 'Confirmar'}
-        </button>
-      </div>
-    </ModalShell>
+      <ModalFooter
+        accent="emerald"
+        onCancel={() => setMovingAppt(null)}
+        onSubmit={confirmMove}
+        submitting={moveSubmitting}
+        submitDisabled={!moveTargetGuideId}
+        submitLabel="Confirmar"
+        submittingLabel="Movendo..."
+      />
+      </>
+    </Modal>
 
-    <ModalShell open={!!revertingAppt} onClose={() => !revertSubmitting && setRevertingAppt(null)} labelledBy="revert-title" className="w-full max-w-md rounded-2xl">
-      <h2 id="revert-title" className="px-6 pt-5 text-base font-bold text-slate-900 dark:text-slate-50">Desfazer: foi falta</h2>
-      <div className="flex flex-col gap-4 px-6 pb-2 pt-2">
-        <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
-          {revertingAppt?.date ? format(parseISO(revertingAppt.date.substring(0, 10)), "dd/MM/yyyy", { locale: ptBR }) : ''}
-          {revertingAppt?.time ? ` às ${revertingAppt.time}` : ''} · Guia #{guide?.number}
-        </p>
+    <Modal
+      open={!!revertingAppt}
+      onClose={() => !revertSubmitting && setRevertingAppt(null)}
+      labelledBy="revert-title"
+      zIndexClass="z-[1350]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+      <ModalHeader
+        icon={<Shield className="h-6 w-6" />}
+        color="#d97706"
+        title="Desfazer: foi falta"
+        subtitle={`${revertingAppt?.date ? format(parseISO(revertingAppt.date.substring(0, 10)), 'dd/MM/yyyy', { locale: ptBR }) : ''}${revertingAppt?.time ? ` às ${revertingAppt.time}` : ''} · Guia #${guide?.number}`}
+        onClose={() => !revertSubmitting && setRevertingAppt(null)}
+        titleId="revert-title"
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 sm:px-6">
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           A sessão sai de "realizada", vira cancelada e <strong>volta para a guia</strong>. Depois use "Gerar sessões" para marcar uma data nova.
           Não funciona se a sessão já está em lote de faturamento ou se o convênio já pagou.
@@ -2198,13 +2228,18 @@ export const GuideDetailsModal = ({ guide, onClose, onUpdate }) => {
           <input type="text" value={revertReason} onChange={e => setRevertReason(e.target.value)} className={fieldCls} />
         </label>
       </div>
-      <div className="flex justify-end gap-2 px-6 pb-5 pt-2">
-        <button type="button" onClick={() => setRevertingAppt(null)} disabled={revertSubmitting} className={btnOutline}>Voltar</button>
-        <button type="button" onClick={confirmRevert} disabled={revertSubmitting || !revertReason.trim()} className={`${btnPrimary} min-w-[110px] bg-amber-600 hover:bg-amber-700`}>
-          {revertSubmitting ? <Spinner size={16} light /> : 'Desfazer sessão'}
-        </button>
-      </div>
-    </ModalShell>
+      <ModalFooter
+        accent="emerald"
+        cancelLabel="Voltar"
+        onCancel={() => setRevertingAppt(null)}
+        onSubmit={confirmRevert}
+        submitting={revertSubmitting}
+        submitDisabled={!revertReason.trim()}
+        submitLabel="Desfazer sessão"
+        submittingLabel="Desfazendo..."
+      />
+      </>
+    </Modal>
     </>
   );
 };

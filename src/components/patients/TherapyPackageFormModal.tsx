@@ -1,16 +1,12 @@
 import {
-    Calculator,
     Calendar,
     Clock,
     DollarSign,
-    Package,
     Plus,
     RefreshCw,
     Save,
     Trash2,
-    TrendingUp,
-    User,
-    X
+    TrendingUp
 } from 'lucide-react';
 import { addWeeks, format as fmtDate, getISODay, isBefore, parse as parseDate, setISODay, startOfISOWeek } from 'date-fns';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -27,13 +23,16 @@ import { confirmDialog } from '../ui/ConfirmHost';
 const todayLocalISO = () => fmtDate(new Date(), 'yyyy-MM-dd');
 
 import { doctorHandlesSpecialty } from '../../utils/doctorSpecialty';
-import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
+import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
-import InputCurrency from '../ui/InputCurrency';
+import { WorkflowSteps } from '../ui/WorkflowSteps';
+import { ChoiceChips, MoneyInput } from '../../pages/Financial/components/formKit';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
 import { validateObject, required, betweenNumber, minNumber } from "../../utils/validators";
 import { notifyApiError } from '../../utils/notifyApiError';
+import { Modal } from '../ui/Modal';
+import { ModalHeader } from '../../pages/Financial/components/formKit';
 
 const WEEKS_PER_MONTH = 4;
 
@@ -575,6 +574,9 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
         }
     };
 
+    const setField = (name: string, value: string | number) =>
+        handleChange({ target: { name, value: String(value) } } as React.ChangeEvent<HTMLInputElement>);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
 
         const { name, value } = e.target;
@@ -1112,75 +1114,33 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
     }, [formData.paymentType, payments, selectedDebtIds.size, suggestedPaymentAmount]);
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-6 overflow-hidden">
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="therapy-package-modal-title"
-                className={`bg-white rounded-2xl shadow-2xl w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} max-h-[92vh] sm:max-h-[88vh] overflow-hidden transition-[max-width] duration-200 motion-reduce:transition-none flex flex-col`}
-            >
-                {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-4 py-3.5 sm:px-5 sm:py-4 text-white relative flex-shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white hover:text-gray-200 transition-colors p-1"
-                    >
-                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
+        <Modal
+            open
+            onClose={() => !isLoading && onClose()}
+            labelledBy="therapy-package-modal-title"
+            zIndexClass="z-50"
+            panelClassName={`flex max-h-[92dvh] w-full ${activeStep === 3 ? 'max-w-4xl' : activeStep === 2 ? 'max-w-3xl' : 'max-w-2xl'} flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl transition-[max-width] duration-quick motion-reduce:transition-none sm:rounded-[20px]`}
+        >
+            <>
+                <ModalHeader
+                    icon={initialData ? <Save className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
+                    color="#059669"
+                    title={initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
+                    subtitle={initialData ? 'Atualize as informações do pacote' : `Criar pacote para ${patient.fullName}`}
+                    onClose={onClose}
+                    titleId="therapy-package-modal-title"
+                />
 
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="p-2 bg-white bg-opacity-20 rounded-xl flex-shrink-0">
-                            {initialData ? <Save className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
-                        </div>
-                        <div className="min-w-0 text-left">
-                            <h2 id="therapy-package-modal-title" className="text-lg sm:text-xl font-bold text-left">
-                                {initialData ? 'Editar Pacote' : 'Criar Novo Pacote'}
-                            </h2>
-                            <p className="text-emerald-100 mt-0.5 text-sm truncate">
-                                {initialData ? 'Atualize as informações do pacote' : <>Criar pacote para <span className="font-bold uppercase">{patient.fullName}</span></>}
-                            </p>
-                        </div>
-                    </div>
+                <div className="shrink-0 border-b border-slate-200 bg-white px-4 pb-3 pt-3 sm:px-5">
+                    <WorkflowSteps labels={['Profissional', 'Pacote', 'Agenda', 'Financeiro']}
+                        current={activeStep} disabled={isLoading} onSelect={goToStep} />
                 </div>
 
-                <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
-                    <nav aria-label="Etapas do pacote" className="relative mx-auto max-w-2xl py-1">
-                        <div aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-5 h-1 rounded-full bg-slate-200">
-                            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${activeStep / 3 * 100}%` }} />
-                        </div>
-                        <ol className="relative grid grid-cols-4">
-                            {['Profissional', 'Pacote', 'Agenda', 'Financeiro'].map((label, index) => (
-                                <li key={label} className="flex justify-center">
-                                    <button type="button" disabled={isLoading}
-                                        aria-current={activeStep === index ? 'step' : undefined}
-                                        onClick={() => goToStep(index)}
-                                        className="flex flex-col items-center gap-2 rounded-lg px-1 text-center text-xs sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 disabled:opacity-50">
-                                        <span className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold ${activeStep > index ? 'border-emerald-600 bg-emerald-600 text-white' : activeStep === index ? 'border-emerald-600 bg-white text-emerald-700' : 'border-slate-200 bg-white text-slate-500'}`}>
-                                            {activeStep > index ? <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg> : activeStep === index ? <span className="h-3 w-3 rounded-full bg-emerald-600" aria-hidden="true" /> : index + 1}
-                                        </span>
-                                        <span className={activeStep === index ? 'font-semibold text-emerald-900' : 'text-slate-600'}>{label}</span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ol>
-                    </nav>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-relaxed text-slate-600" aria-live="polite">
-                        <span className="font-medium text-slate-800">{patient.fullName}</span>
-                        <span>{totalSessions} sessões</span>
-                        <span>Total: {Number(totalValuePackage || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                    </div>
-                </div>
-
-                <div ref={stepContentRef} className="p-3 sm:p-4 shrink overflow-y-auto overscroll-contain min-h-0 text-left text-sm [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:text-sm [&_select]:text-sm">
+                <div ref={stepContentRef} className="p-4 sm:p-5 shrink overflow-y-auto overscroll-contain min-h-0 text-left text-sm [&_.form-label]:mb-1.5 [&_.form-label]:text-xs [&_.form-label]:font-semibold [&_.form-label]:text-gray-600 [&_input:not([inputmode=numeric])]:text-sm [&_select]:text-sm">
                     <div className="grid grid-cols-1 gap-4">
                         {/* Coluna 1 - Configuração do Pacote */}
                         <section style={{ display: activeStep === 0 ? undefined : 'none' }} aria-label="Profissional" className="mx-auto w-full max-w-2xl space-y-4 text-left [&_.form-label]:text-left [&_label]:text-left [&_h3]:justify-start [&_p]:text-left">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200">
-
-                                <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                    <User className="w-5 h-5 text-blue-600" />
-                                    Profissional e Sessão
-                                </h3>
+                            <div>
                                 {isEditing && (
                                     <p className="mb-3 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600">
                                         Estes campos não são editáveis aqui. Trocar o profissional exige atualizar também
@@ -1215,46 +1175,32 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         )}
                                     </div>
 
-                                    {/* Segunda linha - 2 colunas */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="form-label">
-                                                Tipo de Sessão *
-                                            </label>
-                                            <Select
-                                                name="sessionType"
-                                                value={formData.sessionType}
-                                                onChange={handleChange}
-                                                disabled={isEditing}
-                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
-                                            >
-                                                <option value="">Escolha um tipo de terapia</option>
-                                                {THERAPY_TYPES.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        </div>
+                                    {/* Terapia e pagamento em chips */}
+                                    <div className="space-y-4">
+                                    <div className={isEditing ? 'pointer-events-none opacity-60' : undefined} aria-disabled={isEditing || undefined}>
+                                        <label className="form-label">Terapia *</label>
+                                        <ChoiceChips
+                                            label="Terapia"
+                                            value={formData.sessionType}
+                                            options={THERAPY_TYPES.map(o => ({ value: o.value, label: o.label }))}
+                                            onChange={(v) => setField('sessionType', v)}
+                                        />
+                                    </div>
 
-                                        <div>
-                                            <label className="form-label">
-                                                Tipo de Pagamento *
-                                            </label>
-                                            <Select
-                                                name="paymentType"
-                                                value={formData.paymentType}
-                                                onChange={handleChange}
-                                                disabled={isEditing}
-                                                className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${isEditing ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
-                                            >
-                                                {PAYMENT_TYPES.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        </div>
+                                    <div className={isEditing ? 'pointer-events-none opacity-60' : undefined} aria-disabled={isEditing || undefined}>
+                                        <label className="form-label">Pagamento *</label>
+                                        <ChoiceChips
+                                            fill
+                                            label="Tipo de pagamento"
+                                            value={formData.paymentType}
+                                            options={[
+                                                { value: 'full', label: 'Total antecipado' },
+                                                { value: 'per-session', label: 'Por sessão' },
+                                                { value: 'partial', label: 'Parcial' },
+                                            ]}
+                                            onChange={(v) => setField('paymentType', v)}
+                                        />
+                                    </div>
                                     </div>
                                 </div>
                             </div>
@@ -1264,11 +1210,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         </section>
                         <section style={{ display: activeStep === 1 ? undefined : 'none' }} aria-label="Pacote" className="mx-auto w-full max-w-2xl space-y-4 text-left [&_.form-label]:text-left [&_label]:text-left [&_h3]:justify-start [&_p]:text-left">
                             {/* Configuração do Pacote */}
-                            <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <Calculator className="w-5 h-5 text-emerald-600" />
-                                    Configuração do Pacote
-                                </h3>
+                            <div>
 
                                 {isEditing ? (
                                     <div className="space-y-4">
@@ -1312,36 +1254,30 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     <>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                             <div>
-                                                <label className="form-label">
-                                                    Modo de Cálculo
-                                                </label>
-                                                <Select
+                                                <label className="form-label">Calcular por</label>
+                                                <ChoiceChips
+                                                    fill
+                                                    label="Modo de cálculo"
                                                     value={calculationMode}
-                                                    onChange={(e) => setCalculationMode(e.target.value)}
-                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                >
-                                                    <option value="sessions">Por número de sessões</option>
-                                                    <option value="duration">Por duração (meses/semanas)</option>
-                                                </Select>
+                                                    options={[{ value: 'sessions', label: 'Sessões' }, { value: 'duration', label: 'Duração' }]}
+                                                    onChange={(v) => setCalculationMode(v)}
+                                                />
                                             </div>
 
                                             <div>
-                                                <label className="form-label">
-                                                    Frequência
-                                                </label>
-                                                <Select
+                                                <label className="form-label">Frequência</label>
+                                                <ChoiceChips
+                                                    fill
+                                                    label="Frequência"
                                                     value={frequencyInterval}
-                                                    onChange={(e) => setFrequencyInterval(e.target.value as 'weekly' | 'biweekly')}
-                                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                >
-                                                    <option value="weekly">Semanal</option>
-                                                    <option value="biweekly">Quinzenal (a cada 15 dias)</option>
-                                                </Select>
+                                                    options={[{ value: 'weekly', label: 'Semanal' }, { value: 'biweekly', label: 'Quinzenal' }]}
+                                                    onChange={(v) => setFrequencyInterval(v as 'weekly' | 'biweekly')}
+                                                />
                                             </div>
                                         </div>
 
                                         {calculationMode === 'sessions' ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-4">
                                                 <div>
                                                     <label className="form-label">
                                                         Número de Sessões *
@@ -1363,19 +1299,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                     <label className="form-label">
                                                         Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
                                                     </label>
-                                                    <Select
-                                                        name="sessionsPerWeek"
-                                                        value={formData.sessionsPerWeek}
-                                                        onChange={handleChange}
-                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                    >
-                                                        <option value="">Selecione a frequência</option>
-                                                        {FREQUENCY_OPTIONS.map(opt => (
-                                                            <option key={opt} value={opt}>
-                                                                {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
-                                                            </option>
-                                                        ))}
-                                                    </Select>
+                                                    <ChoiceChips
+                                                        fill
+                                                        label="Sessões por frequência"
+                                                        value={formData.sessionsPerWeek ? String(formData.sessionsPerWeek) : ''}
+                                                        options={FREQUENCY_OPTIONS.map(opt => ({ value: String(opt), label: `${opt}×` }))}
+                                                        onChange={(v) => setField('sessionsPerWeek', v)}
+                                                    />
                                                     {errors.sessionsPerWeek && (
                                                         <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
                                                     )}
@@ -1385,24 +1315,17 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-4">
                                                 <div>
                                                     <label className="form-label">
                                                         Duração do Pacote *
                                                     </label>
-                                                    <Select
-                                                        name="durationMonths"
-                                                        value={formData.durationMonths}
-                                                        onChange={handleChange}
-                                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                                    >
-                                                        <option value="">Escolha duração do pacote</option>
-                                                        {DURATION_OPTIONS.map(opt => (
-                                                            <option key={opt} value={opt}>
-                                                                {opt} {opt > 1 ? 'meses' : 'mês'}
-                                                            </option>
-                                                        ))}
-                                            </Select>
+                                                    <ChoiceChips
+                                                        label="Duração do pacote"
+                                                        value={formData.durationMonths ? String(formData.durationMonths) : ''}
+                                                        options={DURATION_OPTIONS.map(opt => ({ value: String(opt), label: `${opt} ${opt > 1 ? 'meses' : 'mês'}` }))}
+                                                        onChange={(v) => setField('durationMonths', v)}
+                                                    />
                                             {errors.durationMonths && (
                                                 <span className="text-red-500 text-sm">{errors.durationMonths}</span>
                                             )}
@@ -1412,19 +1335,13 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             <label className="form-label">
                                                 Sessões por {occurrenceLabel === 'quinzena' ? 'Quinzena' : 'Semana'} *
                                             </label>
-                                            <Select
-                                                name="sessionsPerWeek"
-                                                value={formData.sessionsPerWeek}
-                                                onChange={handleChange}
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                            >
-                                                <option value="">Escolha quantidade de vez na {occurrenceLabel}</option>
-                                                {FREQUENCY_OPTIONS.map(opt => (
-                                                    <option key={opt} value={opt}>
-                                                        {opt} {opt > 1 ? 'vezes' : 'vez'} por {occurrenceLabel}
-                                                    </option>
-                                                ))}
-                                            </Select>
+                                            <ChoiceChips
+                                                        fill
+                                                        label="Sessões por frequência"
+                                                        value={formData.sessionsPerWeek ? String(formData.sessionsPerWeek) : ''}
+                                                        options={FREQUENCY_OPTIONS.map(opt => ({ value: String(opt), label: `${opt}×` }))}
+                                                        onChange={(v) => setField('sessionsPerWeek', v)}
+                                                    />
                                             {errors.sessionsPerWeek && (
                                                 <span className="text-red-500 text-sm">{errors.sessionsPerWeek}</span>
                                             )}
@@ -1449,186 +1366,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                     </p>
                                 </div>
                             )}
-                            {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando (criação apenas) */}
-                            {!isEditing && (v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
-                                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <TrendingUp className="w-4 h-4 text-rose-500" />
-                                            <p className="text-sm font-semibold text-rose-800">
-                                                Financeiro
-                                            </p>
-                                            <span className="text-3xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
-                                                recomendado
-                                            </span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleImportFromV2}
-                                            disabled={v2ImportLoading}
-                                            className="text-xs bg-rose-100 hover:bg-rose-200 text-rose-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                                        >
-                                            {v2ImportLoading ? 'Buscando...' : 'Carregar pendências'}
-                                        </button>
-                                    </div>
-                                    {filteredDebts.length > 0 ? (
-                                        <>
-                                            <div className="flex items-center justify-between">
-                                                <p className="text-xs text-blue-700 font-medium">
-                                                    Selecione as sessões a absorver no pacote:
-                                                </p>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (selectedDebtIds.size === filteredDebts.length) {
-                                                            setSelectedDebtIds(new Set());
-                                                        } else {
-                                                            setSelectedDebtIds(new Set(filteredDebts.map(s => s.v2PaymentId)));
-                                                        }
-                                                    }}
-                                                    className="text-3xs text-rose-500 underline"
-                                                >
-                                                    {selectedDebtIds.size === filteredDebts.length ? 'Desmarcar todas' : 'Marcar todas'}
-                                                </button>
-                                            </div>
-                                            <div className="space-y-1">
-                                                {filteredDebts.map(s => (
-                                                    <label key={s.id} className="flex items-center gap-2 bg-white rounded px-2 py-1 cursor-pointer hover:bg-rose-50">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedDebtIds.has(s.v2PaymentId)}
-                                                            onChange={() => {
-                                                                setSelectedDebtIds(prev => {
-                                                                    const next = new Set(prev);
-                                                                    if (next.has(s.v2PaymentId)) next.delete(s.v2PaymentId);
-                                                                    else next.add(s.v2PaymentId);
-                                                                    return next;
-                                                                });
-                                                            }}
-                                                            className="accent-rose-500"
-                                                        />
-                                                        <span className="text-xs text-rose-900 flex-1">
-                                                            {s.date ? formatAppointmentDate(s.date) : 'Sem data'}
-                                                            {s.time ? ` às ${s.time}` : ''}
-                                                            {s.specialty ? ` — ${s.specialty}` : ''}
-                                                            {s.amount ? ` — R$ ${Number(s.amount).toFixed(2).replace('.', ',')}` : ''}
-                                                            {s.doctorName ? ` (${s.doctorName})` : ''}
-                                                        </span>
-                                                        <span className="text-3xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">pendente</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                            {selectedDebtIds.size > 0 && (
-                                                <p className="text-xs text-emerald-700 font-medium">
-                                                    {selectedDebtIds.size} sessão(ões) selecionada(s) para absorção no pacote
-                                                </p>
-                                            )}
-                                            {otherSpecialtyDebts.length > 0 && (
-                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
-                                                    ⚠️ {otherSpecialtyDebts.length} débito(s) de outra(s) especialidade(s) não exibido(s) — crie pacotes separados.
-                                                </p>
-                                            )}
-                                        </>
-                                    ) : v2ImportedSessions.length > 0 ? (
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-blue-600 italic">
-                                                Nenhum débito de {formData.sessionType} encontrado.
-                                            </p>
-                                            {otherSpecialtyDebts.length > 0 && (
-                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
-                                                    ⚠️ {otherSpecialtyDebts.length} débito(s) de outra(s) especialidade(s) — crie pacotes separados.
-                                                </p>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-blue-600 italic">
-                                            {formData.sessionType ? 'Buscando pendências...' : 'Selecione o tipo de terapia para ver débitos em aberto.'}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Agendamento Existente — oculto quando há débitos selecionados ou em edição */}
-                            {!isEditing && selectedDebtIds.size === 0 && <div className={`p-4 rounded-xl border transition-colors ${selectedExistingAppointment ? 'bg-blue-50 border-blue-300' : 'bg-slate-50 border-slate-200'}`}>
-                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <span className={`w-7 h-7 rounded-full flex items-center justify-center ${selectedExistingAppointment ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>
-                                        <Calendar className="w-4 h-4" />
-                                    </span>
-                                    <span>
-                                        {selectedExistingAppointment ? 'Sessão existente incorporada' : 'Incorporar sessão existente'}
-                                        <span className="block text-xs font-normal text-slate-500">
-                                            {selectedExistingAppointment
-                                                ? 'Esta sessão será vinculada ao novo pacote.'
-                                                : 'Opcional — selecione uma sessão avulsa já agendada.'}
-                                        </span>
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => { const pid = patient?.patientId || patient?._id; if (pid) fetchAppointmentsByPatient(pid); }}
-                                        className="ml-auto text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                        title="Recarregar agendamentos"
-                                    >
-                                        <RefreshCw className="w-3 h-3" /> Recarregar
-                                    </button>
-                                </h3>
-                                <Select
-                                    name="appointmentId"
-                                    value={formData.appointmentId}
-                                    onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                                >
-                                    <option value="">Selecione um agendamento</option>
-                                    {appointments
-                                        .filter((appt) => {
-                                            const svc = (appt as any).serviceType;
-                                            const ops = (appt as any).operationalStatus;
-                                            return svc !== 'package_session'
-                                                && svc !== 'liminar_session'
-                                                && svc !== 'convenio_session'
-                                                && ops !== 'canceled'
-                                                && ops !== 'missed'
-                                                && ops !== 'completed';
-                                        })
-                                        .map((appt) => {
-                                            const svcType = (appt as any).serviceType;
-                                            const typeLabel =
-                                                svcType === 'evaluation' ? '[Avaliação]' :
-                                                    svcType === 'individual_session' ? '[Avulsa]' :
-                                                        svcType === 'liminar_session' ? '[Liminar]' :
-                                                            svcType === 'convenio_session' ? '[Convênio]' : '';
-                                            return (
-                                                <option
-                                                    key={appt._id || appt.id}
-                                                    value={appt._id || appt.id}
-                                                >
-                                                    {typeLabel} {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
-                                                    Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
-                                                    {appt.specialty || 'Tipo não especificado'}
-                                                </option>
-                                            );
-                                    })}
-                                </Select>
-                                {errors.appointmentId && (
-                                    <p className="mt-2 text-xs font-medium text-red-600">{errors.appointmentId}</p>
-                                )}
-                                {selectedExistingAppointment && (
-                                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-xs text-slate-600">
-                                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">1</span>
-                                        <div>
-                                            <p className="font-semibold text-slate-800">Sessão inicial do pacote</p>
-                                            <p className="mt-0.5">
-                                                {formatAppointmentDate(selectedExistingAppointment.date)} às {selectedExistingAppointment.time || 'horário não definido'}
-                                                {' · '}{selectedExistingAppointment.doctor?.fullName || 'Profissional não especificado'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>}
-
                     {/* Data e Hora da Primeira Sessão — apenas na criação */}
                     {!isEditing && (
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-base font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
                                 <span className={`w-7 h-7 rounded-full flex items-center justify-center ${selectedExistingAppointment ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                     <Clock className="w-4 h-4" />
                                 </span>
@@ -1726,7 +1467,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 </div>
 
                                 {sameDaySessions && (
-                                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-100 mt-4">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
                                         <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                             <Clock className="w-5 h-5 text-orange-600" />
                                             Horários do Dia
@@ -1792,7 +1533,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                 )}
 
                                 {!sameDaySessions && formData.sessionsPerWeek > 1 && (
-                                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-100 mt-4">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
                                         <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                             <Calendar className="w-5 h-5 text-emerald-600" />
                                             Dias e Horários Adicionais da Semana
@@ -1874,6 +1615,183 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                             </div>
                     )}
+                            {/* 🌸 Financeiro — só exibe se há débitos ou ainda carregando (criação apenas) */}
+                            {!isEditing && (v2ImportLoading || filteredDebts.length > 0 || v2ImportedSessions.length === 0) && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp className="w-4 h-4 text-amber-600" />
+                                            <p className="text-sm font-semibold text-amber-800">
+                                                Financeiro
+                                            </p>
+                                            <span className="text-3xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                                                recomendado
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleImportFromV2}
+                                            disabled={v2ImportLoading}
+                                            className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            {v2ImportLoading ? 'Buscando...' : 'Carregar pendências'}
+                                        </button>
+                                    </div>
+                                    {filteredDebts.length > 0 ? (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs text-amber-800 font-medium">
+                                                    Selecione as sessões a absorver no pacote:
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (selectedDebtIds.size === filteredDebts.length) {
+                                                            setSelectedDebtIds(new Set());
+                                                        } else {
+                                                            setSelectedDebtIds(new Set(filteredDebts.map(s => s.v2PaymentId)));
+                                                        }
+                                                    }}
+                                                    className="text-3xs text-amber-600 underline"
+                                                >
+                                                    {selectedDebtIds.size === filteredDebts.length ? 'Desmarcar todas' : 'Marcar todas'}
+                                                </button>
+                                            </div>
+                                            <div className="space-y-1">
+                                                {filteredDebts.map(s => (
+                                                    <label key={s.id} className="flex items-center gap-2 bg-white rounded px-2 py-1 cursor-pointer hover:bg-amber-50">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedDebtIds.has(s.v2PaymentId)}
+                                                            onChange={() => {
+                                                                setSelectedDebtIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(s.v2PaymentId)) next.delete(s.v2PaymentId);
+                                                                    else next.add(s.v2PaymentId);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            className="accent-amber-600"
+                                                        />
+                                                        <span className="text-xs text-amber-900 flex-1">
+                                                            {s.date ? formatAppointmentDate(s.date) : 'Sem data'}
+                                                            {s.time ? ` às ${s.time}` : ''}
+                                                            {s.specialty ? ` — ${s.specialty}` : ''}
+                                                            {s.amount ? ` — R$ ${Number(s.amount).toFixed(2).replace('.', ',')}` : ''}
+                                                            {s.doctorName ? ` (${s.doctorName})` : ''}
+                                                        </span>
+                                                        <span className="text-3xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">pendente</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            {selectedDebtIds.size > 0 && (
+                                                <p className="text-xs text-emerald-700 font-medium">
+                                                    {selectedDebtIds.size} sessão(ões) selecionada(s) para absorção no pacote
+                                                </p>
+                                            )}
+                                            {otherSpecialtyDebts.length > 0 && (
+                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
+                                                    ⚠️ {otherSpecialtyDebts.length} débito(s) de outra(s) especialidade(s) não exibido(s) — crie pacotes separados.
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : v2ImportedSessions.length > 0 ? (
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-amber-700 italic">
+                                                Nenhum débito de {formData.sessionType} encontrado.
+                                            </p>
+                                            {otherSpecialtyDebts.length > 0 && (
+                                                <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
+                                                    ⚠️ {otherSpecialtyDebts.length} débito(s) de outra(s) especialidade(s) — crie pacotes separados.
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-amber-700 italic">
+                                            {formData.sessionType ? 'Buscando pendências...' : 'Selecione o tipo de terapia para ver débitos em aberto.'}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Agendamento Existente — oculto quando há débitos selecionados ou em edição */}
+                            {!isEditing && selectedDebtIds.size === 0 && <div className={`p-4 rounded-xl border transition-colors ${selectedExistingAppointment ? 'bg-blue-50 border-blue-300' : 'bg-slate-50 border-slate-200'}`}>
+                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <span className={`w-7 h-7 rounded-full flex items-center justify-center ${selectedExistingAppointment ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>
+                                        <Calendar className="w-4 h-4" />
+                                    </span>
+                                    <span>
+                                        {selectedExistingAppointment ? 'Sessão existente incorporada' : 'Incorporar sessão existente'}
+                                        <span className="block text-xs font-normal text-slate-500">
+                                            {selectedExistingAppointment
+                                                ? 'Esta sessão será vinculada ao novo pacote.'
+                                                : 'Opcional — selecione uma sessão avulsa já agendada.'}
+                                        </span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => { const pid = patient?.patientId || patient?._id; if (pid) fetchAppointmentsByPatient(pid); }}
+                                        className="ml-auto text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                        title="Recarregar agendamentos"
+                                    >
+                                        <RefreshCw className="w-3 h-3" /> Recarregar
+                                    </button>
+                                </h3>
+                                <Select
+                                    name="appointmentId"
+                                    value={formData.appointmentId}
+                                    onChange={handleChange}
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                                >
+                                    <option value="">Selecione um agendamento</option>
+                                    {appointments
+                                        .filter((appt) => {
+                                            const svc = (appt as any).serviceType;
+                                            const ops = (appt as any).operationalStatus;
+                                            return svc !== 'package_session'
+                                                && svc !== 'liminar_session'
+                                                && svc !== 'convenio_session'
+                                                && ops !== 'canceled'
+                                                && ops !== 'missed'
+                                                && ops !== 'completed';
+                                        })
+                                        .map((appt) => {
+                                            const svcType = (appt as any).serviceType;
+                                            const typeLabel =
+                                                svcType === 'evaluation' ? '[Avaliação]' :
+                                                    svcType === 'individual_session' ? '[Avulsa]' :
+                                                        svcType === 'liminar_session' ? '[Liminar]' :
+                                                            svcType === 'convenio_session' ? '[Convênio]' : '';
+                                            return (
+                                                <option
+                                                    key={appt._id || appt.id}
+                                                    value={appt._id || appt.id}
+                                                >
+                                                    {typeLabel} {formatAppointmentDate(appt.date)} - {appt.time || 'Horário não definido'} •
+                                                    Dr. {appt.doctor?.fullName || 'Profissional não especificado'} •
+                                                    {appt.specialty || 'Tipo não especificado'}
+                                                </option>
+                                            );
+                                    })}
+                                </Select>
+                                {errors.appointmentId && (
+                                    <p className="mt-2 text-xs font-medium text-red-600">{errors.appointmentId}</p>
+                                )}
+                                {selectedExistingAppointment && (
+                                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-xs text-slate-600">
+                                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">1</span>
+                                        <div>
+                                            <p className="font-semibold text-slate-800">Sessão inicial do pacote</p>
+                                            <p className="mt-0.5">
+                                                {formatAppointmentDate(selectedExistingAppointment.date)} às {selectedExistingAppointment.time || 'horário não definido'}
+                                                {' · '}{selectedExistingAppointment.doctor?.fullName || 'Profissional não especificado'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>}
+
+
 
 
                         </section>
@@ -1881,11 +1799,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         <div style={{ display: activeStep === 3 ? undefined : 'none' }} aria-label="Financeiro e resumo" className="grid grid-cols-1 md:grid-cols-5 items-start gap-4 text-left [&_.form-label]:text-left">
 
                             {/* Informações Financeiras */}
-                            <div className="md:col-span-3 bg-white p-4 rounded-xl border border-slate-200">
-                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <DollarSign className="w-5 h-5 text-green-600" />
-                                    Informações Financeiras
-                                </h3>
+                            <div className="md:col-span-3">
                                 <div className="space-y-4">
                                     <div>
                                         <label className="form-label">
@@ -1896,13 +1810,11 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                 R$ {Number(formData.sessionValue || 0).toFixed(2)}
                                             </div>
                                         ) : (
-                                            <InputCurrency
-                                                name="sessionValue"
-                                                value={formData.sessionValue || 0}
-                                                onChange={handleChange}
-                                                min="0"
-                                                step="0.01"
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-green-500 bg-white focus:ring-green-500"
+                                            <MoneyInput
+                                                large
+                                                accent="emerald"
+                                                value={formData.sessionValue ? Number(formData.sessionValue).toFixed(2) : ''}
+                                                onChange={(v) => setField('sessionValue', v === '' ? 0 : v)}
                                             />
                                         )}
 
@@ -1967,10 +1879,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             <label className="block text-xs font-medium text-gray-600 mb-1">
                                                                 Valor pago agora (R$) *
                                                             </label>
-                                                            <InputCurrency
-                                                                value={payment.amount}
-                                                                onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
-                                                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                                                            <MoneyInput
+                                                                accent="emerald"
+                                                                value={payment.amount ? Number(payment.amount).toFixed(2) : ''}
+                                                                onChange={(v) => updatePayment(payment.id, 'amount', v === '' ? 0 : Number(v))}
                                                             />
                                                             {index === 0 && payments.length === 1 && (
                                                                 <p className="mt-1 text-3xs leading-tight text-slate-400">
@@ -2010,19 +1922,19 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                                             <label className="block text-xs font-medium text-gray-600 mb-1">
                                                                 Método de Pagamento *
                                                             </label>
-                                                            <select
+                                                            <ChoiceChips
+                                                                label="Método de pagamento"
                                                                 value={payment.method}
-                                                                onChange={(e) => updatePayment(payment.id, 'method', e.target.value)}
-                                                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
-                                                            >
-                                                                <option value="">Escolha um método</option>
-                                                                <option value="dinheiro">Dinheiro</option>
-                                                                <option value="pix">PIX</option>
-                                                                <option value="cartao_credito">Cartão de Crédito</option>
-                                                                <option value="cartao_debito">Cartão de Débito</option>
-                                                                <option value="transferencia">Transferência</option>
-                                                                <option value="boleto">Boleto</option>
-                                                            </select>
+                                                                options={[
+                                                                    { value: 'pix', label: 'PIX' },
+                                                                    { value: 'dinheiro', label: 'Dinheiro' },
+                                                                    { value: 'cartao_credito', label: 'Cartão de crédito' },
+                                                                    { value: 'cartao_debito', label: 'Cartão de débito' },
+                                                                    { value: 'transferencia', label: 'Transferência' },
+                                                                    { value: 'boleto', label: 'Boleto' },
+                                                                ]}
+                                                                onChange={(v) => updatePayment(payment.id, 'method', v)}
+                                                            />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2051,10 +1963,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             )}
 
                                             {/* Total Pago */}
-                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-medium text-blue-800">Total Pago:</span>
-                                                    <span className="text-lg font-bold text-blue-800">
+                                                    <span className="text-sm font-medium text-slate-700">Total Pago:</span>
+                                                    <span className="text-lg font-bold text-emerald-700">
                                                         R$ {getTotalPaid().toFixed(2)}
                                                     </span>
                                                 </div>
@@ -2066,9 +1978,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                             <div className="md:col-span-2 space-y-3">
                             {/* Resumo do Pacote */}
-                            <div className="md:col-span-2 bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
-                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <Package className="w-5 h-5 text-blue-600" />
+                            <div className="md:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3">
                                     Resumo do Pacote
                                 </h3>
                                 <div className="space-y-3">
@@ -2076,7 +1987,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                         <span className="text-sm text-gray-600">Sessões totais:</span>
                                         <span className="text-sm font-semibold text-gray-900">
                                             {totalSessions}
-                                            {selectedDebtIds.size > 0 && <span className="text-xs text-rose-500 ml-1">({selectedDebtIds.size} já realizadas)</span>}
+                                            {selectedDebtIds.size > 0 && <span className="text-xs text-amber-600 ml-1">({selectedDebtIds.size} já realizadas)</span>}
                                         </span>
                                     </div>
                                     {selectedDebtIds.size > 0 && (
@@ -2101,10 +2012,10 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             </span>
                                         </div>
                                     )}
-                                    <div className="border-t border-blue-200 pt-2">
+                                    <div className="border-t border-slate-200 pt-2">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm font-semibold text-blue-700">Valor total:</span>
-                                            <span className="text-sm font-bold text-blue-700">
+                                            <span className="text-sm font-semibold text-slate-700">Valor total:</span>
+                                            <span className="text-xl font-bold tabular-nums text-emerald-700">
                                                 R$ {Number(totalValuePackage || 0).toFixed(2)}
                                             </span>
                                         </div>
@@ -2113,9 +2024,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                             </div>
 
                             {/* Resumo de Pagamento */}
-                            <div className="md:col-span-2 bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
-                                <h3 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <TrendingUp className="w-5 h-5 text-gray-600" />
+                            <div className="md:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3">
                                     {formData.paymentType === 'per-session' ? 'Forma de Pagamento' : 'Resumo de Pagamento'}
                                 </h3>
                                 <div className="space-y-3">
@@ -2141,7 +2051,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                                             <div className="border-t border-gray-200 pt-2">
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-sm font-semibold text-gray-700">Saldo restante:</span>
-                                                    <span className={`text-sm font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'
+                                                    <span className={`text-sm font-bold ${remainingBalance > 0 ? 'text-amber-700' : 'text-emerald-600'
                                                         }`}>
                                                         R$ {Number(remainingBalance || 0).toFixed(2)}
                                                     </span>
@@ -2164,7 +2074,12 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
 
                 {/* Footer */}
                 <div className="bg-gray-50 px-4 sm:px-5 py-3 flex flex-wrap justify-between items-center gap-3 border-t border-gray-200 flex-shrink-0">
-                    <div className="text-sm text-gray-500">
+                    <div className="min-w-0 text-sm text-gray-500" aria-live="polite">
+                        <p className="truncate text-xs text-slate-500">
+                            <span className="font-medium text-slate-700">{patient.fullName}</span>
+                            {' · '}{totalSessions} sessões{' · '}
+                            <span className="font-semibold tabular-nums text-slate-800">{Number(totalValuePackage || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </p>
                         {isEditing
                             ? (notesChanged ? null : "Nenhuma alteração a salvar")
                             : !isFormValid
@@ -2181,7 +2096,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         <Button
                             onClick={onClose}
                             variant="outline"
-                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
+                            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-quick font-medium"
                         >
                             Cancelar
                         </Button>
@@ -2196,7 +2111,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         <Button
                             onClick={handleSave}
                             disabled={!canSubmitForm || isLoading}
-                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${!canSubmitForm || isLoading
+                            className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-quick ${!canSubmitForm || isLoading
                                 ? 'bg-gray-400 cursor-not-allowed text-white'
                                 : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
                                 }`}
@@ -2217,7 +2132,7 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+            </>
+        </Modal>
     );
 }

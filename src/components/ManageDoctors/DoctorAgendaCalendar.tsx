@@ -2,7 +2,8 @@
 
 import { addDays, format, formatISO, isSameDay, parseISO, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { MotionDisclosurePanel } from '../ui/MotionDisclosurePanel';
 import { Calendar, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -214,11 +215,9 @@ const DoctorAgendaCalendar = ({
       </div>
 
       {/* Painel expansível de horários */}
+      <AnimatePresence initial={false}>
       {expandedDate && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.2 }}
+        <MotionDisclosurePanel
           className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
         >
           <div className="p-4">
@@ -288,8 +287,9 @@ const DoctorAgendaCalendar = ({
               );
             })()}
           </div>
-        </motion.div>
+        </MotionDisclosurePanel>
       )}
+      </AnimatePresence>
 
       {/* Adicione esta verificação para quando não há slots na semana */}
       {daySlots.length === 0 && !expandedDate && (

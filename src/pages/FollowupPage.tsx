@@ -751,7 +751,7 @@ const FollowupPage = () => {
                             <Button
                               onClick={() => openLeadTimeline(lead)}
                               disabled={showTimelineModal && selectedLead?._id === lead._id}
-                              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-1 ${showTimelineModal && selectedLead?._id === lead._id
+                              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-quick flex items-center gap-1 ${showTimelineModal && selectedLead?._id === lead._id
                                 ? "bg-slate-100 text-slate-600 cursor-not-allowed"
                                 : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
                                 }`}

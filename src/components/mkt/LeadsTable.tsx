@@ -150,7 +150,7 @@ const LeadTable: React.FC<LeadTableProps> = ({
                                 <Button
                                     onClick={() => onOpenTimeline(lead)}
                                     disabled={showModal && selectedLeadId === lead._id}
-                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 mx-auto ${showModal && selectedLeadId === lead._id
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-quick flex items-center gap-2 mx-auto ${showModal && selectedLeadId === lead._id
                                             ? "bg-slate-100 text-slate-600 cursor-not-allowed"
                                             : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
                                         }`}

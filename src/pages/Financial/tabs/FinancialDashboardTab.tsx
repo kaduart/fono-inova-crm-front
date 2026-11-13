@@ -2914,7 +2914,7 @@ const MetricCard = ({ title, subtitle, value, icon, color, onClick, tooltip }: {
   const ic = iconMap[color] ?? iconMap.gray;
   return (
     <div
-      className={`relative overflow-hidden bg-gradient-to-br ${bg} rounded-2xl border p-4 shadow-sm hover:shadow-lg transition-all duration-200 h-full ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+      className={`relative overflow-hidden bg-gradient-to-br ${bg} rounded-2xl border p-4 shadow-sm hover:shadow-lg transition-all duration-quick h-full ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-3">
