@@ -1,3 +1,5 @@
+import { Modal } from '../ui/Modal';
+import { Field, ModalHeader, ModalFooter, inputClass } from '../../pages/Financial/components/formKit';
 import { Calendar, Filter, X, ArrowRightLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
@@ -150,59 +152,57 @@ function MoveGuideModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
-        <h4 className="text-base font-semibold text-gray-900 mb-1">Mover atendimento entre guias</h4>
-        <p className="text-xs text-gray-500 mb-4">
-          {formatDateStatic(appt.date)} · {appt.specialty || appt.sessionType || '—'}
-          {appt.insuranceProvider ? ` · ${appt.insuranceProvider}` : ''}
-        </p>
-
-        <label className="block text-xs font-medium text-gray-600 mb-1">Guia de destino</label>
-        {loadingGuides ? (
-          <p className="text-sm text-gray-400 mb-3">Carregando guias...</p>
-        ) : (
-          <select
-            value={targetGuideId}
-            onChange={(e) => setTargetGuideId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 outline-none focus:border-indigo-400"
-          >
-            <option value="">Selecione...</option>
-            {(guides || []).map((g) => (
-              <option key={g._id} value={g._id}>
-                {g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
-              </option>
-            ))}
-          </select>
-        )}
-
-        <label className="block text-xs font-medium text-gray-600 mb-1">Motivo (opcional)</label>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Ex: correção administrativa"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-indigo-400"
-        />
-
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={submitting || !targetGuideId}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {submitting ? 'Movendo...' : 'Confirmar'}
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={() => !submitting && onClose()}
+      labelledBy="move-guide-title"
+      zIndexClass="z-[1300]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <ModalHeader
+        icon={<ArrowRightLeft className="w-6 h-6" />}
+        color="#059669"
+        title="Mover atendimento entre guias"
+        subtitle={`${formatDateStatic(appt.date)} · ${appt.specialty || appt.sessionType || '—'}${appt.insuranceProvider ? ` · ${appt.insuranceProvider}` : ''}`}
+        onClose={onClose}
+        titleId="move-guide-title"
+        closeDisabled={submitting}
+      />
+      <div className="space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+        <Field label="Guia de destino" required>
+          {loadingGuides ? (
+            <p className="py-2 text-sm text-gray-400">Carregando guias...</p>
+          ) : (
+            <select value={targetGuideId} onChange={(e) => setTargetGuideId(e.target.value)} className={inputClass('emerald')}>
+              <option value="">Selecione...</option>
+              {(guides || []).map((g) => (
+                <option key={g._id} value={g._id}>
+                  {g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Motivo">
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ex.: correção administrativa (opcional)"
+            className={inputClass('emerald')}
+          />
+        </Field>
       </div>
-    </div>
+      <ModalFooter
+        accent="emerald"
+        onCancel={onClose}
+        onSubmit={handleConfirm}
+        submitting={submitting}
+        submitDisabled={!targetGuideId}
+        submitLabel="Mover atendimento"
+        submittingLabel="Movendo..."
+      />
+    </Modal>
   );
 }
 
