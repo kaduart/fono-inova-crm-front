@@ -5,9 +5,7 @@
 
 import { useMemo } from 'react';
 import { MapPin, TrendingUp, Users, MousePointer, ExternalLink, Award, AlertTriangle } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
-} from 'recharts';
+import { AnalyticsRanking } from './analytics/AnalyticsVisuals';
 
 interface PageMetric {
   path: string;
@@ -72,7 +70,7 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="animate-pulse space-y-4">
+        <div className="animate-pulse space-y-4 motion-reduce:animate-none">
           <div className="h-6 bg-gray-200 rounded w-1/3"></div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
@@ -90,19 +88,19 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-center justify-between">
+      <div className="border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <MapPin className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 Páginas SEO - Anápolis
               </h3>
-              <p className="text-sm text-gray-500">
+              <p className="mt-1 max-w-prose text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 7 páginas de especialidade para busca orgânica local (ex: "fonoaudiologia anápolis") — sem vínculo com campanhas pagas
               </p>
             </div>
@@ -114,7 +112,7 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
       </div>
 
       {/* Métricas Resumidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 border-b border-gray-100">
+      <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100 dark:divide-slate-800 dark:border-slate-800 sm:grid-cols-4 [&>div]:rounded-none [&>div]:bg-transparent [&>div]:px-5 [&>div]:py-4 [&>div]:text-left [&>div>div:first-child]:justify-start [&>div>div:last-child]:tabular-nums">
         <div className="text-center p-3 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-center gap-1 text-gray-500 text-xs mb-1">
             <Users className="w-3 h-3" />
@@ -148,44 +146,30 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
             Conv. Rate
           </div>
           <div className="text-xl font-bold text-purple-600">
-            {conversionRate}%
+            {totals.views > 0 ? `${conversionRate}%` : '—'}
           </div>
         </div>
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 border-b border-gray-100">
+      <div className="grid grid-cols-1 gap-8 border-b border-slate-100 p-5 dark:border-slate-800 sm:p-6 lg:grid-cols-2">
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-3">Views por Página</h4>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={anapolisMetrics} layout="vertical">
-              <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis dataKey="title" type="category" width={130} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(value) => [`${value} views`, 'Views']} />
-              <Bar dataKey="views" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <AnalyticsRanking items={anapolisMetrics.map(p => ({ id: p.id, label: p.title, value: p.views }))}
+            unit="views" empty="Nenhuma visualização registrada para estas páginas no período selecionado." />
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-3">Leads por Página</h4>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={anapolisMetrics} layout="vertical">
-              <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis dataKey="title" type="category" width={130} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(value) => [`${value} leads`, 'Leads']} />
-              <Bar dataKey="leads" fill="#10b981" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <AnalyticsRanking items={anapolisMetrics.map(p => ({ id: p.id, label: p.title, value: p.leads }))}
+            unit="leads" color="#177b68" empty="Nenhum lead atribuído a estas páginas no período selecionado." />
         </div>
       </div>
 
       {/* Insights */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border-b border-gray-100 bg-gray-50">
         {(() => {
-          const topPage = anapolisMetrics[0];
-          const topConverter = anapolisMetrics.filter(p => p.views > 5).sort((a, b) => ((b.leads/b.views) || 0) - ((a.leads/a.views) || 0))[0];
+          const topPage = anapolisMetrics.find(p => p.views > 0);
+          const topConverter = anapolisMetrics.filter(p => p.views > 5 && p.leads > 0).sort((a, b) => ((b.leads/b.views) || 0) - ((a.leads/a.views) || 0))[0];
           const needsAttention = anapolisMetrics.filter(p => p.views > 10 && p.leads === 0);
           
           return (
@@ -195,8 +179,8 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
                   <Award className="w-4 h-4 text-green-600" />
                   <span className="text-xs font-semibold text-green-800">Mais Acessada</span>
                 </div>
-                <p className="text-sm font-medium truncate">{topPage?.title}</p>
-                <p className="text-lg font-bold text-green-600">{topPage?.views} views</p>
+                <p className="text-sm font-medium">{topPage?.title || 'Sem tráfego registrado'}</p>
+                {topPage && <p className="text-lg font-bold text-green-600">{topPage.views} views</p>}
               </div>
               
               <div className="bg-white rounded-lg p-3 border border-blue-200">
@@ -204,9 +188,9 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
                   <TrendingUp className="w-4 h-4 text-blue-600" />
                   <span className="text-xs font-semibold text-blue-800">Maior Conversão</span>
                 </div>
-                <p className="text-sm font-medium truncate">{topConverter?.title || 'N/A'}</p>
+                <p className="text-sm font-medium">{topConverter?.title || 'Sem conversões elegíveis'}</p>
                 <p className="text-lg font-bold text-blue-600">
-                  {topConverter ? ((topConverter.leads/topConverter.views) * 100).toFixed(1) : 0}%
+                  {topConverter ? `${((topConverter.leads/topConverter.views) * 100).toFixed(1)}%` : '—'}
                 </p>
               </div>
               
@@ -218,7 +202,7 @@ export default function AnapolisSEOPagesCard({ pages, loading }: AnapolisSEOPage
                 <p className="text-sm">
                   {needsAttention.length > 0 
                     ? `${needsAttention.length} páginas sem leads` 
-                    : 'Todas convertendo! 🎉'}
+                    : totals.views > 0 ? 'Nenhuma página acima do limite de atenção.' : 'Sem tráfego para avaliar.'}
                 </p>
               </div>
             </>

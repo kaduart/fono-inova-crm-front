@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
 // Mock do matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -80,6 +81,9 @@ Object.defineProperty(window, 'confirm', {
 
 // Limpa todos os mocks após cada teste
 afterEach(() => {
+  // Register explicitly for every test file, including when Vitest reuses a fork.
+  // Otherwise cached Testing Library imports may leave previous dialogs mounted.
+  cleanup();
   vi.clearAllMocks();
 });
 

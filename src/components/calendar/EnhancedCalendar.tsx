@@ -2812,8 +2812,8 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 onCancelAppointment={onCancelAppointment}
                 onClose={() => setCancellationTarget(null)} />}
 
-            {isAppointmentDetailModalOpen && !cancellationTarget && <AppointmentDetailModal
-                isOpen={isAppointmentDetailModalOpen}
+            <AppointmentDetailModal
+                isOpen={isAppointmentDetailModalOpen && !cancellationTarget}
                 onClose={() => setIsAppointmentDetailModalOpen(false)}
                 onCancelAppointment={onCancelAppointment}
                 onCompleteAppointment={onCompleteAppointment}
@@ -2830,7 +2830,7 @@ const EnhancedCalendar: React.FC<EnhancedCalendarProps> = ({
                 doctors={doctors}
                 patients={patients}
                 permissions={permissions}
-            />}
+            />
 
             {/* 🆕 PORTAL: Popup do dia — renderiza fora do DOM para ficar acima de tudo */}
             {activePopup && createPortal(

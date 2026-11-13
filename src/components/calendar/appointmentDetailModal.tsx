@@ -1,4 +1,8 @@
 import { isPrepaidPackageAppointment } from '../../utils/appointmentPackageBilling';
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'framer-motion';
+import FocusTrap from '@mui/material/Unstable_TrapFocus';
+import { motionDuration, motionEase, motionScale } from '../../design/motion';
+import { MotionText } from '../ui/MotionText';
 import { resolveBillingType } from '../../utils/appointmentBillingType';
 import AppointmentCancellationModal from './AppointmentCancellationModal';
 import { ptBR } from 'date-fns/locale';
@@ -11,7 +15,7 @@ import {
     DialogTitle,
     TextField,
 } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from '../../utils/toast';
 import type { CancelExtras } from './CancelRequesterPicker';
 import { validateAppointmentComplete, canAddToPatientBalance } from '../../utils/appointmentCompleteGuard';
@@ -40,6 +44,10 @@ import {
     getDefaultPermissions,
 } from '../../types/calendarCapabilities';
 import { ymdSP } from '../../utils/dateFormat';
+
+// Multiple appointment surfaces can be mounted by different hosts. Only the
+// topmost one may enforce focus; otherwise two traps can focus each other forever.
+const appointmentFocusOwners: symbol[] = [];
 
 interface AppointmentDetailModalProps {
     isOpen: boolean;
@@ -302,6 +310,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     permissions: permissionsProp,
     zIndex = 50,
 }) => {
+    const present = useIsPresent();
+    const reduceMotion = useReducedMotion();
+    const dialogId = useId();
+    const focusOwner = useRef(Symbol('appointment-dialog'));
+    const surfaceRoot = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        // React 18 does not forward the boolean inert prop reliably.
+        surfaceRoot.current?.toggleAttribute('inert', !present);
+    }, [present]);
     const permissions = permissionsProp ?? getDefaultPermissions('admin');
     // 🆕 BUSCAR LISTA DE PROFISSIONAIS do backend quando o modal abrir
     const [allDoctors, setAllDoctors] = useState<IDoctor[]>(doctors || []);
@@ -355,6 +372,15 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     }
     
     const [activeTab, setActiveTab] = useState<'details' | 'confirm' | 'cancel' | 'edit'>(initialTab || 'details');
+    useEffect(() => {
+        if (!isOpen || !present || activeTab === 'cancel') return;
+        const owner = focusOwner.current;
+        appointmentFocusOwners.push(owner);
+        return () => {
+            const index = appointmentFocusOwners.indexOf(owner);
+            if (index >= 0) appointmentFocusOwners.splice(index, 1);
+        };
+    }, [isOpen, present, activeTab]);
 
     // 🎯 CAPABILITY: lista de tabs disponíveis baseada nas permissions
     const availableTabs = useMemo(() => {
@@ -2225,12 +2251,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         {isEditing ? (
                             <>
                                 <LoadingSpinner size="small" color="border-white" fullPage={false} />
-                                <span>Salvando...</span>
+                                <MotionText>Salvando...</MotionText>
                             </>
                         ) : (
                             <>
                                 <PencilIcon size={18} />
-                                <span>Salvar Alterações</span>
+                                <MotionText>Salvar Alterações</MotionText>
                             </>
                         )}
                     </button>
@@ -2260,8 +2286,23 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4" style={{ zIndex }}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[720px] text-left flex flex-col max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden relative text-sm">
+        <FocusTrap open={present && !isBalanceModalOpen && !professionalPaymentDialogOpen && !showDebtConfirm}
+            isEnabled={() => appointmentFocusOwners[appointmentFocusOwners.length - 1] === focusOwner.current}>
+        <motion.div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4" style={{ zIndex }}
+            ref={surfaceRoot} tabIndex={-1} aria-hidden={!present ? true : undefined}
+            initial={{ opacity: reduceMotion ? 1 : 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : motionDuration.quick, ease: motionEase.smoothOut }}
+            onKeyDown={e => {
+                if (e.key === 'Escape' && !isBalanceModalOpen && !professionalPaymentDialogOpen && !showDebtConfirm && !processingState?.isProcessing) {
+                    e.stopPropagation(); onClose();
+                }
+            }}>
+            <motion.div role="dialog" aria-modal="true" aria-labelledby={`${dialogId}-title`}
+                className="bg-white rounded-xl shadow-2xl w-full max-w-[720px] text-left flex flex-col max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden relative text-sm"
+                initial={reduceMotion ? false : { scale: motionScale.modal, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: reduceMotion ? 1 : motionScale.modal, opacity: 0, transition: { duration: reduceMotion ? 0 : motionDuration.quick } }}
+                transition={{ duration: reduceMotion ? 0 : motionDuration.fast, ease: motionEase.smoothOut }}>
 
                 {/* 🔄 OVERLAY DE PROCESSAMENTO */}
                 {processingState?.isProcessing && (
@@ -2289,11 +2330,12 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
                 {/* Cabeçalho enxuto: só o título da seção + fechar */}
                 <div className="flex shrink-0 items-center justify-between gap-4 px-5 pb-3 pt-5 sm:px-6">
-                    <div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><HeaderIcon size={19} /></span><h2 className="text-lg font-semibold leading-tight tracking-tight text-gray-900">{tabConfig.title}</h2></div>
+                    <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><HeaderIcon size={19} /></span><h2 id={`${dialogId}-title`} className="text-lg font-semibold leading-tight tracking-tight text-gray-900">{tabConfig.title}</h2></div>
                     <button
                         type="button"
                         onClick={onClose}
                         aria-label="Fechar janela"
+                        disabled={!!processingState?.isProcessing}
                         className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
                     >
                         <X className="w-5 h-5" />
@@ -2312,14 +2354,30 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                                 type="button"
                                 role="tab"
                                 aria-selected={selected}
+                                id={`${dialogId}-tab-${tab}`}
+                                aria-controls={`${dialogId}-panel`}
+                                tabIndex={selected ? 0 : -1}
                                 onClick={() => setActiveTab(tab)}
-                                className={`-mb-px flex min-w-0 flex-1 items-center justify-center rounded-t focus:outline-none focus-visible:bg-green-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600 gap-1 whitespace-nowrap border-b-2 px-1.5 py-2 text-xs font-medium transition-colors sm:flex-none sm:gap-1.5 sm:px-3 sm:text-sm ${selected
-                                        ? 'border-green-600 text-green-700'
+                                onKeyDown={e => {
+                                    const index = availableTabs.indexOf(tab);
+                                    const next = e.key === 'ArrowRight' ? (index + 1) % availableTabs.length
+                                        : e.key === 'ArrowLeft' ? (index + availableTabs.length - 1) % availableTabs.length
+                                        : e.key === 'Home' ? 0 : e.key === 'End' ? availableTabs.length - 1 : null;
+                                    if (next !== null) {
+                                        e.preventDefault(); setActiveTab(availableTabs[next]);
+                                        (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
+                                    }
+                                }}
+                                className={`relative -mb-px flex min-w-0 flex-1 items-center justify-center rounded-t focus:outline-none focus-visible:bg-green-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600 gap-1 whitespace-nowrap border-b-2 px-1.5 py-2 text-xs font-medium transition-colors duration-fast motion-reduce:transition-none sm:flex-none sm:gap-1.5 sm:px-3 sm:text-sm ${selected
+                                        ? 'border-transparent text-green-700'
                                         : 'border-transparent text-gray-600 hover:text-gray-900'
                                     }`}
                             >
                                 <Icon size={16} />
                                 <span>{config.title.split(' ')[0]}</span>
+                                {selected && <motion.span aria-hidden="true" layoutId={`${dialogId}-tab-indicator`}
+                                    className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-green-600"
+                                    transition={{ duration: reduceMotion ? 0 : motionDuration.fast, ease: motionEase.smoothOut }} />}
                             </button>
                         );
                     })}
@@ -2327,7 +2385,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 </div>
 
                 {/* Conteúdo */}
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+                <div role="tabpanel" id={`${dialogId}-panel`} aria-labelledby={`${dialogId}-tab-${activeTab}`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
                     {renderTabContent()}
                 </div>
 
@@ -2355,6 +2413,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                             <button
                                 type="button"
                                 onClick={onClose}
+                                disabled={!!processingState?.isProcessing}
                                 className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
                             >
                                 Fechar
@@ -2363,7 +2422,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                         {renderActionButton()}
                     </div>
                 </div>
-            </div>
+            </motion.div>
             
             {/* 💰 MODAL DE CONTA CORRENTE */}
             <PatientBalanceModal
@@ -2467,9 +2526,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     </div>
                 </div>
             )}
-        </div>
+        </motion.div>
+        </FocusTrap>
     );
 
 };
 
-export default AppointmentDetailModal;
+// Keep the presence boundary mounted even after isOpen becomes false. Motion
+// retains the previous event/props during exit; no business operation waits for it.
+export default function AnimatedAppointmentDetailModal(props: AppointmentDetailModalProps) {
+    return <AnimatePresence>{props.isOpen && props.event && <AppointmentDetailModal key="appointment-detail" {...props} />}</AnimatePresence>;
+}

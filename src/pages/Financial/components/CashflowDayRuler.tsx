@@ -90,7 +90,7 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
                             const meta = RULER_STATES.find(s => s.key === state)!;
                             const label = `${a.time} ${a.patientInfo?.fullName || a.patient?.fullName || a.patientName || ''}: ${STATE_TEXT[state]}`;
                             return <button key={idOf(a) || i} type="button" title={label} aria-label={label} onClick={() => onState(state)}
-                                className={`absolute inset-y-1 rounded-[5px] p-0 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
+                                className={`absolute inset-y-1 rounded-[5px] p-0 transition-opacity duration-quick motion-reduce:transition-none hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
                                 style={{ left: pct(min), width: `calc(${(dur / span) * 100}% - 3px)` }} />;
                         })}
                         {showNow && <span aria-hidden className="pointer-events-none absolute -inset-y-1.5 w-0.5 bg-gray-900 dark:bg-gray-100" style={{ left: pct(nowMin) }} />}
@@ -100,7 +100,7 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
         </div>
         <div className="flex flex-wrap gap-2">
             {RULER_STATES.filter(s => counts[s.key]).map(s => <button key={s.key} type="button" onClick={() => onState(s.key)}
-                className="inline-flex min-h-9 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-800 hover:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+                className="inline-flex min-h-9 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-800 transition-colors duration-quick motion-reduce:transition-none hover:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
                 <span aria-hidden className={`h-3 w-3 rounded-[3px] ${s.swatch}`} />
                 <b className="tabular-nums">{counts[s.key]}</b>{s.label}
                 {values[s.key] && <span className="tabular-nums text-gray-600 dark:text-gray-300">{values[s.key]}</span>}

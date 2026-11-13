@@ -36,6 +36,8 @@ import {
 import { translateEvent } from '../../services/analytics';
 import API from '../../services/api';
 import AnapolisSEOPagesCard from './AnapolisSEOPagesCard';
+import { LandingPagePerformance } from './analytics/LandingPagePerformance';
+import { SegmentedTabs } from '../ui/SegmentedTabs';
 import LandingPagesTab from './LandingPagesTab';
 import { brl, KpiStrip } from '../../pages/Financial/components/finUi';
 import { useRoiSummary } from '../mkt/SalesParts';
@@ -401,80 +403,14 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     
     const renderFilters = () => (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-            {/* Tabs */}
-            <div className="flex items-center gap-2 mb-4 border-b border-gray-200 pb-4">
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        activeTab === 'overview' 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    Visão Geral
-                </button>
-                <button
-                    onClick={() => setActiveTab('acquisition')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        activeTab === 'acquisition'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    Aquisição
-                </button>
-                <button
-                    onClick={() => setActiveTab('pages')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        activeTab === 'pages'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    Páginas & Serviços
-                </button>
-                <button
-                    onClick={() => setActiveTab('daily')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        activeTab === 'daily' 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    Relatório Diário
-                </button>
-                <button
-                    onClick={() => setActiveTab('landing-pages')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        activeTab === 'landing-pages' 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    Landing Pages ({landingPages.length})
-                </button>
-                <button
-                    onClick={() => setActiveTab('anapolis-seo')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        activeTab === 'anapolis-seo' 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    <MapPin className="w-4 h-4" />
-                    Anápolis SEO
-                </button>
-                <button
-                    onClick={() => setActiveTab('insights')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        activeTab === 'insights' 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                >
-                    <Lightbulb className="w-4 h-4" />
-                    Insights & Alertas
-                </button>
+            <div className="mb-5">
+                <SegmentedTabs label="Relatórios de Analytics" value={activeTab} onValueChange={setActiveTab}
+                    options={[
+                        { id: 'overview', label: 'Visão geral' }, { id: 'acquisition', label: 'Aquisição' },
+                        { id: 'pages', label: 'Páginas e serviços' }, { id: 'daily', label: 'Relatório diário' },
+                        { id: 'landing-pages', label: 'Landing pages' }, { id: 'anapolis-seo', label: 'Anápolis SEO' },
+                        { id: 'insights', label: 'Insights e alertas' },
+                    ]} />
             </div>
 
             {/* Filtro de data */}
@@ -983,166 +919,7 @@ const SiteAnalyticsDashboard = (_props: SiteAnalyticsDashboardProps) => {
     
     const renderLandingPages = () => (
         <div className="space-y-6">
-            {/* Stats das LPs */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Total LPs</div>
-                    <div className="text-2xl font-bold text-gray-900">{landingPages.length}</div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Total Views</div>
-                    <div className="text-2xl font-bold text-blue-600">
-                        {landingPages.reduce((sum, lp) => sum + (lp.views || 0), 0).toLocaleString()}
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Total Leads</div>
-                    <div className="text-2xl font-bold text-green-600">
-                        {landingPages.reduce((sum, lp) => sum + (lp.leads || 0), 0).toLocaleString()}
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500 mb-1">Taxa Conv.</div>
-                    <div className="text-2xl font-bold text-purple-600">
-                        {(() => {
-                            const totalViews = landingPages.reduce((sum, lp) => sum + (lp.views || 0), 0);
-                            const totalLeads = landingPages.reduce((sum, lp) => sum + (lp.leads || 0), 0);
-                            return totalViews > 0 ? ((totalLeads / totalViews) * 100).toFixed(1) : 0;
-                        })()}%
-                    </div>
-                </div>
-            </div>
-
-            {/* Gráficos de Performance */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top 10 LPs por Views */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-blue-500" />
-                        Top 10 LPs por Views
-                    </h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={landingPages.slice(0, 10).sort((a, b) => (b.views || 0) - (a.views || 0))} layout="vertical">
-                            <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-                            <XAxis type="number" tick={{ fontSize: 11 }} />
-                            <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
-                            <Tooltip formatter={(value) => [`${value.toLocaleString()} views`, 'Views']} />
-                            <Bar dataKey="views" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Top 10 LPs por Leads */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <Users className="w-5 h-5 text-green-500" />
-                        Top 10 LPs por Leads
-                    </h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={landingPages.slice(0, 10).sort((a, b) => (b.leads || 0) - (a.leads || 0))} layout="vertical">
-                            <CartesianGrid stroke="#f0f0f0" horizontal={false} />
-                            <XAxis type="number" tick={{ fontSize: 11 }} />
-                            <YAxis dataKey="slug" type="category" width={150} tick={{ fontSize: 10 }} />
-                            <Tooltip formatter={(value) => [`${value.toLocaleString()} leads`, 'Leads']} />
-                            <Bar dataKey="leads" fill="#10b981" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            {/* Distribuição por Categoria */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Distribuição por Categoria</h2>
-                {(() => {
-                    const byCategory = landingPages.reduce((acc, lp) => {
-                        acc[lp.category] = (acc[lp.category] || 0) + 1;
-                        return acc;
-                    }, {} as Record<string, number>);
-                    const data = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
-                    return (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <ResponsiveContainer width="100%" height={200}>
-                                <PieChart>
-                                    <Pie data={data} cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={3} dataKey="value">
-                                        {data.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="flex flex-col justify-center space-y-2">
-                                {data.sort((a, b) => b.value - a.value).map((item, idx) => (
-                                    <div key={item.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                        <span className="text-sm font-medium capitalize">{item.name}</span>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                                            <span className="text-sm font-bold">{item.value} LPs</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    );
-                })()}
-            </div>
-
-            {/* Insights & Recomendações */}
-            {(() => {
-                const topLp = landingPages.sort((a, b) => (b.views || 0) - (a.views || 0))[0];
-                const topConverter = landingPages.filter(lp => lp.views > 10).sort((a, b) => ((b.leads/b.views) || 0) - ((a.leads/a.views) || 0))[0];
-                const needsAttention = landingPages.filter(lp => lp.views > 50 && lp.leads === 0);
-                
-                return (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Award className="w-5 h-5 text-green-600" />
-                                <span className="font-semibold text-green-800">Mais Acessada</span>
-                            </div>
-                            {topLp ? (
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900 truncate">{topLp.title}</p>
-                                    <p className="text-xs text-gray-500">/{topLp.slug}</p>
-                                    <p className="text-lg font-bold text-green-600 mt-1">{topLp.views?.toLocaleString()} views</p>
-                                </div>
-                            ) : <p className="text-sm text-gray-500">Sem dados</p>}
-                        </div>
-                        
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <TrendingUp className="w-5 h-5 text-blue-600" />
-                                <span className="font-semibold text-blue-800">Maior Conversão</span>
-                            </div>
-                            {topConverter ? (
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900 truncate">{topConverter.title}</p>
-                                    <p className="text-xs text-gray-500">/{topConverter.slug}</p>
-                                    <p className="text-lg font-bold text-blue-600 mt-1">
-                                        {((topConverter.leads / topConverter.views) * 100).toFixed(1)}% conv.
-                                    </p>
-                                </div>
-                            ) : <p className="text-sm text-gray-500">Sem dados suficientes</p>}
-                        </div>
-                        
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <AlertTriangle className="w-5 h-5 text-red-600" />
-                                <span className="font-semibold text-red-800">Precisa Atenção</span>
-                            </div>
-                            {needsAttention.length > 0 ? (
-                                <div>
-                                    <p className="text-sm text-gray-700">{needsAttention.length} LPs com tráfego mas sem leads</p>
-                                    <p className="text-xs text-gray-500 mt-1">Revisar CTA e copy</p>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-gray-500">Todas as LPs com tráfego estão convertendo! 🎉</p>
-                            )}
-                        </div>
-                    </div>
-                );
-            })()}
+            <LandingPagePerformance pages={landingPages} />
 
             {/* Lista de LPs */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

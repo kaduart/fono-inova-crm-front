@@ -29,6 +29,7 @@ const todayLocalISO = () => fmtDate(new Date(), 'yyyy-MM-dd');
 import { doctorHandlesSpecialty } from '../../utils/doctorSpecialty';
 import { DURATION_OPTIONS, FREQUENCY_OPTIONS, IAppointment, IDoctor, IPatient, ITherapyPackage, PAYMENT_TYPES, THERAPY_TYPES } from '../../utils/types/types';
 import { Button } from '../ui/Button';
+import { WorkflowSteps } from '../ui/WorkflowSteps';
 import InputCurrency from '../ui/InputCurrency';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Select } from '../ui/Select';
@@ -1144,26 +1145,8 @@ export default function TherapyPackageFormModal({ initialData, patient, doctors,
                 </div>
 
                 <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
-                    <nav aria-label="Etapas do pacote" className="relative mx-auto max-w-2xl py-1">
-                        <div aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-5 h-1 rounded-full bg-slate-200">
-                            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${activeStep / 3 * 100}%` }} />
-                        </div>
-                        <ol className="relative grid grid-cols-4">
-                            {['Profissional', 'Pacote', 'Agenda', 'Financeiro'].map((label, index) => (
-                                <li key={label} className="flex justify-center">
-                                    <button type="button" disabled={isLoading}
-                                        aria-current={activeStep === index ? 'step' : undefined}
-                                        onClick={() => goToStep(index)}
-                                        className="flex flex-col items-center gap-2 rounded-lg px-1 text-center text-xs sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 disabled:opacity-50">
-                                        <span className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold ${activeStep > index ? 'border-emerald-600 bg-emerald-600 text-white' : activeStep === index ? 'border-emerald-600 bg-white text-emerald-700' : 'border-slate-200 bg-white text-slate-500'}`}>
-                                            {activeStep > index ? <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg> : activeStep === index ? <span className="h-3 w-3 rounded-full bg-emerald-600" aria-hidden="true" /> : index + 1}
-                                        </span>
-                                        <span className={activeStep === index ? 'font-semibold text-emerald-900' : 'text-slate-600'}>{label}</span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ol>
-                    </nav>
+                    <WorkflowSteps labels={['Profissional', 'Pacote', 'Agenda', 'Financeiro']}
+                        current={activeStep} disabled={isLoading} onSelect={goToStep} />
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-relaxed text-slate-600" aria-live="polite">
                         <span className="font-medium text-slate-800">{patient.fullName}</span>
                         <span>{totalSessions} sessões</span>

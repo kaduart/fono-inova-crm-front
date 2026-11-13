@@ -1,3 +1,4 @@
+import { useNotificationMotion } from '../../../hooks/useNotificationMotion';
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X } from "lucide-react";
 import { useEffect } from "react";
@@ -6,17 +7,18 @@ import { useChatNavigation } from "../../../contexts/ChatNavigationContext";
 import { useNotification } from "../../../contexts/NotificationContext";
 
 export const ChatNotificationPopup = () => {
-    const { chatNotification, closeChatNotification } = useNotification();
+    const { chatNotification: incomingNotification, closeChatNotification } = useNotification();
     const { setPendingContactPhone, setShouldOpenMessagesTab } = useChatNavigation();
 
     useEffect(() => {
-        if (chatNotification) {
+        if (incomingNotification) {
             const audio = new Audio(notifySound);
             audio.play().catch(() => { });
         }
-    }, [chatNotification]);
+    }, [incomingNotification]);
 
-    if (!chatNotification) return null;
+    const { notification: chatNotification, visible, motionProps } = useNotificationMotion(incomingNotification);
+  if (!chatNotification) return null;
 
     const handleOpenChat = () => {
         console.log('🔔 ChatNotificationPopup: Abrindo chat para', chatNotification.from);
@@ -33,12 +35,10 @@ export const ChatNotificationPopup = () => {
 
     return (
         <AnimatePresence>
+      {visible && (
             <motion.div
                 className="fixed bottom-6 right-6 z-50"
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 40 }}
-                transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                {...motionProps}
             >
                 <div className="bg-white border border-emerald-400/60 rounded-2xl shadow-xl p-5 w-80 backdrop-blur-md">
                     <div className="flex justify-between items-start">
@@ -79,6 +79,7 @@ export const ChatNotificationPopup = () => {
                     </div>
                 </div>
             </motion.div>
-        </AnimatePresence>
+        )}
+    </AnimatePresence>
     );
 };
