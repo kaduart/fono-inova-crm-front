@@ -229,7 +229,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({ phone, leadId, onSend,
                                     </div>
                                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                         <div 
-                                            className="h-full bg-emerald-500 transition-all duration-300"
+                                            className="h-full bg-emerald-500 transition-all duration-fast"
                                             style={{ width: `${uploadProgress}%` }}
                                         />
                                     </div>

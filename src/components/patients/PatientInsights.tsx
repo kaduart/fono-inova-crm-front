@@ -3,6 +3,8 @@
 // nenhum valor financeiro é calculado aqui (DOMAIN_INVARIANTS: KPIs financeiros só no back).
 import { Activity, CalendarCheck2, ChevronDown, Stethoscope, TrendingDown, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { MotionDisclosurePanel } from '../ui/MotionDisclosurePanel';
 import AnimatedValue from '../ui/insight/AnimatedValue';
 import BarList from '../ui/insight/BarList';
 import Sparkline from '../ui/insight/Sparkline';
@@ -72,7 +74,7 @@ function Tile({ icon, label, value, hint, tone = 'slate', children }: { icon: Re
   );
 }
 
-export default function PatientInsights({ appointments }: { appointments: ApptLike[] }) {
+export default function PatientInsights({ appointments, totals }: { appointments: ApptLike[]; totals?: { total: number; done: number } }) {
   const ins = useMemo(() => computePatientInsights(appointments || []), [appointments]);
   const specItems = Object.entries(ins.bySpec)
     .sort((a, b) => b[1] - a[1])
@@ -108,7 +110,7 @@ export default function PatientInsights({ appointments }: { appointments: ApptLi
           hint={ins.trend === null ? `sessões nas últimas 4 semanas (${ins.prev4} nas 4 anteriores, pouco para comparar)` : `${ins.last4} sessões nas últimas 4 semanas contra ${ins.prev4} nas 4 anteriores`} />
         <Tile icon={<CalendarCheck2 size={14} />} label="Presença (90 dias)" tone={presenceTone}
           value={ins.presence === null ? '—' : <AnimatedValue value={`${ins.presence}%`} />}
-          hint={`${ins.done90} realizadas · ${ins.missed90} falta${ins.missed90 === 1 ? '' : 's'} · ${ins.canceled90} cancelada${ins.canceled90 === 1 ? '' : 's'}`} />
+          hint={<>{`${ins.done90} realizadas · ${ins.missed90} falta${ins.missed90 === 1 ? '' : 's'} · ${ins.canceled90} cancelada${ins.canceled90 === 1 ? '' : 's'}`}{totals && totals.total > 0 && <span className="mt-0.5 block">{totals.total} atendimentos no total · {totals.done} concluídos</span>}</>} />
         <Tile icon={<Stethoscope size={14} />} label="Especialidades (90 dias)" value={<AnimatedValue value={specItems.length} />}>
           {specItems.length > 0 ? <BarList items={specItems} /> : <p className="text-xs text-slate-500">Sem sessões no período</p>}
         </Tile>
@@ -132,9 +134,15 @@ export function FoldSection({ title, meta, icon, defaultOpen = false, children }
           <span className="block font-semibold text-slate-900 dark:text-slate-50">{title}</span>
           {meta && <span className="block text-xs text-slate-600 dark:text-slate-400">{meta}</span>}
         </span>
-        <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden />
+        <ChevronDown size={18} className={`shrink-0 text-slate-500 transition-transform duration-quick ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
-      {open && <div className="border-t border-slate-100 p-4 dark:border-slate-800">{children}</div>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <MotionDisclosurePanel className="overflow-hidden">
+            <div className="border-t border-slate-100 p-4 dark:border-slate-800">{children}</div>
+          </MotionDisclosurePanel>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

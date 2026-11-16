@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Save, X, Calendar, Plus, Trash2, Clock, User, DollarSign, CalendarDays, AlertTriangle, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Clock, CalendarDays, AlertTriangle, GripVertical } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import API from '../../../services/api';
 import { toast } from '../../../utils/toast';
-import { ModalShell, Spinner } from '../../ui/TailwindParts';
+import { Spinner } from '../../ui/TailwindParts';
+import { Modal } from '../../ui/Modal';
+import { ModalHeader, ModalFooter, ChoiceChips, MoneyInput } from '../../../pages/Financial/components/formKit';
 
 import { SPECIALTY_VALUES } from '../../../constants/specialties';
 
@@ -304,122 +306,111 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
 
   if (!guide) return null;
 
-  const fieldCls = 'h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100';
-  const labelCls = 'mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300';
-  const helpCls = 'mt-1 block text-[0.7rem] text-slate-500 dark:text-slate-400';
+  const fieldCls = 'h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 transition-colors duration-quick hover:border-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100';
+  const labelCls = 'mb-1.5 block text-xs font-semibold text-gray-600 dark:text-slate-300';
+  const helpCls = 'mt-1 block text-xs text-slate-500 dark:text-slate-400';
+
+  const setFrequency = (n) => {
+    setForm(prev => {
+      const cur = prev.slots;
+      if (n === cur.length) return prev;
+      if (n < cur.length) return { ...prev, slots: cur.slice(0, n) };
+      const extra = Array.from({ length: n - cur.length }, () => ({ dayOfWeek: 1, time: '14:00' }));
+      return { ...prev, slots: [...cur, ...extra] };
+    });
+  };
+  const dayShort = (v) => (DAYS.find(d => d.value === Number(v))?.label || '').toLowerCase();
+  const firstSlot = form.slots[0];
+  const startLabel = form.startDate && /^\d{4}-\d{2}-\d{2}/.test(form.startDate) ? `a partir de ${form.startDate.slice(8, 10)}/${form.startDate.slice(5, 7)}` : null;
+  const summaryText = [
+    Number(form.sessionValue) > 0 ? Number(form.sessionValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+    `${form.slots.length}× por semana`,
+    form.slots.length === 1 && firstSlot?.time ? `${dayShort(firstSlot.dayOfWeek)} ${firstSlot.time}` : null,
+    startLabel,
+  ].filter(Boolean).join(' · ');
 
   return (
-    <ModalShell open={open} onClose={() => onClose(false)} labelledBy="plan-form-title" className="max-h-[94vh] w-full max-w-xl sm:rounded-3xl">
-      {/* Cabeçalho */}
-      <div className="shrink-0 border-b border-slate-100 bg-slate-50/70 px-6 py-5 dark:border-slate-800 dark:bg-slate-800/40">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-white">
-              <CalendarDays size={20} aria-hidden />
-            </div>
-            <div>
-              <h2 id="plan-form-title" className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">
-                {mode === 'replace' ? 'Editar Plano de Atendimento' : 'Novo Plano de Atendimento'}
-              </h2>
-              {patientName && (
-                <p className="flex items-center gap-1 text-[0.8rem] font-bold text-emerald-700 dark:text-emerald-400">
-                  <User size={12} aria-hidden /> {patientName}
-                </p>
-              )}
-              <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                Guia #{guide.number} • {guide.specialty.replace('_', ' ')} • {guide.totalSessions} sessões autorizadas
+    <>
+    <Modal
+      open={open}
+      onClose={() => !saving && onClose(false)}
+      labelledBy="plan-form-title"
+      zIndexClass="z-[100]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
+        <ModalHeader
+          icon={<CalendarDays className="h-6 w-6" />}
+          color="#059669"
+          title={mode === 'replace' ? 'Editar Plano de Atendimento' : 'Novo Plano de Atendimento'}
+          subtitle={`${patientName ? `${patientName} · ` : ''}Guia #${guide.number} · ${guide.specialty.replace('_', ' ')} · ${guide.totalSessions} sessões`}
+          onClose={() => onClose(false)}
+          titleId="plan-form-title"
+        />
+
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+          {mode === 'create' && (
+            <div className="flex gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+              <Clock size={16} className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
+              <p>
+                O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
+                e criar os pagamentos como <strong>pendentes</strong> do convênio.
               </p>
             </div>
-          </div>
-          <button type="button" onClick={() => onClose(false)} aria-label="Fechar"
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100">
-            <X size={18} aria-hidden />
-          </button>
-        </div>
-      </div>
+          )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {mode === 'create' && (
-          <div className="mb-5 flex gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[0.8125rem] font-medium text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
-            <Clock size={16} className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
-            <p>
-              O sistema vai gerar <strong>{guide.totalSessions} agendamentos</strong> automaticamente
-              e criar os pagamentos como <strong>pendentes</strong> do convênio.
-            </p>
-          </div>
-        )}
+          {loadingPlan && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+              <Spinner size={12} /> Verificando plano existente...
+            </div>
+          )}
 
-        {loadingPlan && (
-          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[0.8125rem] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-            <Spinner size={12} /> Verificando plano existente...
-          </div>
-        )}
+          {existingPlan && !loadingPlan && (
+            <div role="alert" className="flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+              <p>
+                <strong>Edição de plano ativo.</strong> As alterações valem só para as <strong>sessões futuras</strong> (a partir de hoje); as já realizadas não mudam.
+                {existingPlan.generatedAppointments?.length > 0 && (
+                  <> Sessões geradas no plano: <strong>{existingPlan.generatedAppointments.length}</strong>.</>
+                )}
+              </p>
+            </div>
+          )}
 
-        {existingPlan && !loadingPlan && (
-          <div role="alert" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[0.8125rem] font-medium text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-            <strong>⚠️ Edição de plano ativo.</strong><br />
-            As alterações serão aplicadas apenas às <strong>sessões futuras</strong> (a partir de hoje). Sessões já realizadas não serão alteradas.
-            {existingPlan.generatedAppointments?.length > 0 && (
-              <>
-                <br />
-                Sessões geradas no plano: <strong>{existingPlan.generatedAppointments.length}</strong>
-              </>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-5">
-          {/* Linha 1: Profissional + Data início */}
-          <div className="flex gap-3">
-            <label className="min-w-0 flex-1">
-              <span className={labelCls}>Profissional responsável *</span>
-              <span className="relative block">
-                <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-                <select value={form.doctorId} onChange={(e) => setForm(prev => ({ ...prev, doctorId: e.target.value }))}
-                  disabled={loadingDoctors} className={`${fieldCls} pl-9`}>
-                  {loadingDoctors ? (
-                    <option value={form.doctorId}>Carregando...</option>
-                  ) : (
-                    <>
-                      <option value="" disabled>Selecione</option>
-                      {doctors.map(doc => (
-                        <option key={doc._id} value={doc._id}>
-                          {doc.fullName} {doc.specialty ? `(${doc.specialty})` : ''}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </span>
-            </label>
-            <label className="w-[38%] min-w-[150px]">
+          {/* Valor em destaque + início */}
+          <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[1fr_11rem]">
+            <div>
+              <span className={labelCls}>Valor por sessão</span>
+              <MoneyInput
+                large
+                accent="emerald"
+                value={form.sessionValue === '' || form.sessionValue == null ? '' : String(form.sessionValue)}
+                onChange={(v) => setForm(prev => ({ ...prev, sessionValue: v }))}
+              />
+            </div>
+            <label>
               <span className={labelCls}>Início *</span>
               <input type="date" value={form.startDate} onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))} className={fieldCls} />
-              {mode === 'replace' && <span className={helpCls}>Sessões antes desta data não são geradas</span>}
+              {mode === 'replace' && <span className={helpCls}>Antes desta data não gera sessões</span>}
             </label>
           </div>
 
-          {/* Linha 2: Frequência semanal (derivada dos horários) + Valor por sessão */}
-          <div className="flex gap-3">
-            <label className="flex-1">
-              <span className={labelCls}>Frequência semanal</span>
-              <input type="text" value={`${form.slots.length}x por semana`} disabled className={fieldCls} />
-              <span className={helpCls}>Definida pela quantidade de horários abaixo</span>
-            </label>
-            <label className="flex-1">
-              <span className={labelCls}>Valor/sessão</span>
-              <span className="relative block">
-                <DollarSign size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-                <input type="number" min={0} step={0.01} value={form.sessionValue}
-                  onChange={(e) => setForm(prev => ({ ...prev, sessionValue: e.target.value }))} className={`${fieldCls} pl-8`} />
-              </span>
-            </label>
+          {/* Frequência semanal: define a quantidade de horários */}
+          <div>
+            <span className={labelCls}>Frequência semanal</span>
+            <ChoiceChips
+              label="Frequência semanal"
+              fill
+              value={String(form.slots.length)}
+              onChange={(v) => setFrequency(Number(v))}
+              options={[1, 2, 3, 4, 5].map(n => ({ value: String(n), label: `${n}×` }))}
+            />
           </div>
 
           {/* Dias e horários */}
           <div>
-            <p className="mb-0.5 flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
-              <Clock size={14} aria-hidden /> Dias e horários da semana *
+            <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-slate-300">
+              Dias e horários da semana *
             </p>
             {form.slots.length > 1 && (
               <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Arraste para definir a ordem de prioridade na geração das sessões</p>
@@ -433,55 +424,87 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
                   onDragOver={handleDragOver(idx)}
                   onDrop={handleDrop(idx)}
                   onDragEnd={handleDragEnd}
-                  className={`flex items-center gap-3 rounded-2xl border bg-slate-50 p-2.5 transition hover:border-slate-300 hover:bg-white dark:bg-slate-800/50 dark:hover:bg-slate-800 ${dragOverIdx === idx && draggedIdx !== idx ? 'border-emerald-600' : 'border-slate-100 dark:border-slate-700'} ${draggedIdx === idx ? 'opacity-40' : ''}`}
+                  className={`flex flex-col gap-2 rounded-xl border bg-slate-50 p-3 transition-colors duration-quick dark:bg-slate-800/50 ${dragOverIdx === idx && draggedIdx !== idx ? 'border-emerald-600' : 'border-slate-200 dark:border-slate-700'} ${draggedIdx === idx ? 'opacity-40' : ''}`}
                 >
-                  {form.slots.length > 1 && (
-                    <span className="flex cursor-grab items-center text-slate-400 active:cursor-grabbing" aria-hidden>
-                      <GripVertical size={16} />
-                    </span>
-                  )}
-                  <select aria-label={`Dia do horário ${idx + 1}`} value={slot.dayOfWeek}
-                    onChange={(e) => handleSlotChange(idx, 'dayOfWeek', Number(e.target.value))} className={`${fieldCls} flex-1 bg-white`}>
-                    {DAYS.map(d => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                  <input type="time" aria-label={`Hora do horário ${idx + 1}`} value={slot.time}
-                    onChange={(e) => handleSlotChange(idx, 'time', e.target.value)} className={`${fieldCls} flex-1 bg-white`} />
-                  {form.slots.length > 1 && (
-                    <button type="button" onClick={() => removeSlot(idx)} aria-label={`Remover horário ${idx + 1}`}
-                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
-                      <Trash2 size={16} aria-hidden />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {form.slots.length > 1 && (
+                      <span className="flex cursor-grab items-center text-slate-400 active:cursor-grabbing" aria-hidden>
+                        <GripVertical size={16} />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1" role="group" aria-label={`Dia do horário ${idx + 1}`}>
+                      <ChoiceChips
+                        label={`Dia do horário ${idx + 1}`}
+                        fill
+                        value={String(slot.dayOfWeek)}
+                        onChange={(v) => handleSlotChange(idx, 'dayOfWeek', Number(v))}
+                        options={DAYS.map(d => ({ value: String(d.value), label: d.label.slice(0, 3) }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className="shrink-0 text-slate-400" aria-hidden />
+                    <input type="time" aria-label={`Hora do horário ${idx + 1}`} value={slot.time}
+                      onChange={(e) => handleSlotChange(idx, 'time', e.target.value)} className={`${fieldCls} flex-1 bg-white`} />
+                    {form.slots.length > 1 && (
+                      <button type="button" onClick={() => removeSlot(idx)} aria-label={`Remover horário ${idx + 1}`}
+                        className="rounded-lg p-2.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} aria-hidden />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
               {form.slots.length < 5 && (
                 <button type="button" onClick={addSlot}
-                  className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
                   <Plus size={14} aria-hidden /> Adicionar horário
                 </button>
               )}
             </div>
           </div>
+
+          {/* Profissional */}
+          <label className="block">
+            <span className={labelCls}>Profissional responsável *</span>
+            <select value={form.doctorId} onChange={(e) => setForm(prev => ({ ...prev, doctorId: e.target.value }))}
+              disabled={loadingDoctors} className={fieldCls}>
+              {loadingDoctors ? (
+                <option value={form.doctorId}>Carregando...</option>
+              ) : (
+                <>
+                  <option value="" disabled>Selecione</option>
+                  {doctors.map(doc => (
+                    <option key={doc._id} value={doc._id}>
+                      {doc.fullName} {doc.specialty ? `(${doc.specialty})` : ''}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </label>
         </div>
-      </div>
 
-      <div className="flex shrink-0 justify-end gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/40">
-        <button type="button" onClick={() => onClose(false)} disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-          <X size={16} aria-hidden /> Cancelar
-        </button>
-        <button type="button" onClick={handleSubmit} disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
-          {saving ? <Spinner size={16} light /> : <Save size={16} aria-hidden />}
-          {saving
-            ? (existingPlan ? 'Substituindo plano...' : 'Gerando plano...')
-            : (existingPlan ? 'Salvar alterações' : 'Criar plano')}
-        </button>
-      </div>
+        <ModalFooter
+          accent="emerald"
+          onCancel={() => onClose(false)}
+          onSubmit={handleSubmit}
+          submitting={saving}
+          submitLabel={existingPlan ? 'Salvar alterações' : 'Criar plano'}
+          submittingLabel={existingPlan ? 'Substituindo plano...' : 'Gerando plano...'}
+          summary={summaryText}
+        />
+      </>
+    </Modal>
 
-      <ModalShell open={confirmReplaceOpen} onClose={() => setConfirmReplaceOpen(false)} labelledBy="plan-confirm-title" className="w-full max-w-sm rounded-2xl">
+    <Modal
+      open={confirmReplaceOpen}
+      onClose={() => setConfirmReplaceOpen(false)}
+      labelledBy="plan-confirm-title"
+      zIndexClass="z-[110]"
+      panelClassName="w-full max-w-sm rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <>
         <div className="flex items-start gap-3 px-6 pb-2 pt-6">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
             <AlertTriangle size={18} aria-hidden />
@@ -513,16 +536,17 @@ const InsurancePlanForm = ({ open, onClose, guide, plan, patientId, patientName 
         </div>
         <div className="flex justify-end gap-2 px-6 pb-5 pt-3">
           <button type="button" onClick={() => setConfirmReplaceOpen(false)}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+            className="min-h-11 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
             Cancelar
           </button>
           <button type="button" onClick={performSave} disabled={loadingPreview}
-            className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
+            className="min-h-11 rounded-xl bg-emerald-700 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
             Confirmar e salvar
           </button>
         </div>
-      </ModalShell>
-    </ModalShell>
+      </>
+    </Modal>
+    </>
   );
 };
 

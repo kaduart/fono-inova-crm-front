@@ -18,7 +18,8 @@ const HeaderNavButton: React.FC<HeaderNavButtonProps> = ({ children, active, onC
     <button
         type="button"
         onClick={onClick}
-        title={title}
+        data-tooltip={title}
+        aria-label={title}
         aria-current={active ? 'page' : undefined}
         aria-expanded={hasChevron ? open : undefined}
         className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${

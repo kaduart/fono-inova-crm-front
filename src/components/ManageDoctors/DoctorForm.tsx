@@ -5,7 +5,7 @@ import { toast } from '../../utils/toast';
 import { FaUserEdit } from "react-icons/fa";
 import { EXTRA_SPECIALTIES, IDoctor, THERAPY_TYPES, TherapyType, ICommissionRules } from "../../utils/types/types";
 import doctorService from "../../services/doctorService";
-import { Button } from "../ui/Button";
+import { ModalHeader } from "../../pages/Financial/components/formKit";
 import Input from "../ui/Input";
 import { Label } from "../ui/Label";
 import { Select } from "../ui/Select";
@@ -180,38 +180,21 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
     const isEditing = !!selectedDoctor?._id;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4">
             <form
                 onSubmit={handleSubmit}
-                className="w-full max-w-5xl overflow-y-auto max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-gray-100 animate-fadeIn"
+                className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[20px] bg-white text-left shadow-2xl sm:rounded-[20px]"
             >
-                {/* CABEÇALHO — padrão institucional */}
-                <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-400 via-emerald-500 to-green-400 text-white shadow-sm rounded-t-2xl">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-full">
-                            {isEditing
-                                ? (
-                                    <FaUserEdit className="w-5 h-5" />
-                                ) : (
-                                    <UserPlus className="w-5 h-5" />
-                                )}
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold tracking-wide">
-                                {isEditing ? "Editar Profissional" : "Novo Profissional"}
-                            </h2>
-                            <p className="text-sm/5 opacity-90">
-                                {isEditing
-
-                                    ? "Atualize os dados do profissional"
-                                    : "Adicione um novo profissional à equipe"}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <ModalHeader
+                    icon={isEditing ? <FaUserEdit className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
+                    color="#059669"
+                    title={isEditing ? 'Editar profissional' : 'Novo profissional'}
+                    subtitle={isEditing ? 'Atualize os dados do profissional' : 'Dados, horários, status e comissões'}
+                    onClose={onCancel}
+                />
 
                 {/* CORPO — abas para organizar Dados, Horários, Status e Comissões */}
-                <div className="p-6 space-y-6 bg-gradient-to-b from-white to-gray-50 rounded-b-2xl">
+                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="bg-gray-100 p-1 rounded-xl w-full justify-start">
                             <TabsTrigger value="dados" className="data-[state=active]:bg-white data-[state=active]:text-emerald-700">Dados</TabsTrigger>
@@ -515,37 +498,20 @@ const DoctorForm = ({ selectedDoctor, onSubmitDoctor, onCancel, loading }: Docto
                     </Tabs>
                 </div>
 
-                {/* RODAPÉ — botões padronizados */}
-                <div className="flex justify-between px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onCancel}
-                        className="border-gray-300 hover:bg-gray-100"
-                    >
+                {/* Rodapé fixo */}
+                <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:px-6">
+                    <button type="button" onClick={onCancel} disabled={loading} className="min-h-11 rounded-xl px-4 py-2 text-sm font-medium text-gray-600 transition-colors duration-quick hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60">
                         Cancelar
-                    </Button>
-                    <Button
+                    </button>
+                    <button
                         type="submit"
                         disabled={!isFormValid || loading}
-                        className={`text-white ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''} bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600`}
+                        className="flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-quick hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {loading ? (
-                            <div className="flex items-center">
-                                <div className="w-4 h-4 mr-2 border-2 rounded-full animate-spin border-t-transparent"></div>
-                                Processando...
-                            </div>
-                        ) : (
-                            <div className="flex items-center">
-                                {isEditing ? (
-                                    <FaUserEdit className="w-4 h-4 mr-1.5" />
-                                ) : (
-                                    <UserPlus className="w-4 h-4 mr-1.5" />
-                                )}
-                                {isEditing ? "Salvar Alterações" : "Cadastrar Profissional"}
-                            </div>
-                        )}
-                    </Button>
+                        {loading
+                            ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />Processando...</>
+                            : isEditing ? 'Salvar alterações' : 'Cadastrar profissional'}
+                    </button>
                 </div>
             </form>
         </div>

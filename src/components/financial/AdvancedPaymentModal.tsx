@@ -1,9 +1,9 @@
-import { Check, ChevronDown, Plus, X } from 'lucide-react';
+import { CalendarClock, Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '../../utils/toast';
 import { IDoctor, IPatient } from '../../utils/types/types';
-import InputCurrency from '../ui/InputCurrency';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { Modal } from '../ui/Modal';
+import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from '../../pages/Financial/components/formKit';
 
 import { notifyApiError } from '../../utils/notifyApiError';
 import { sessoes } from '../../utils/plural';
@@ -26,7 +26,7 @@ export const AdvancedPaymentModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [paymentData, setPaymentData] = useState({
         doctorId: '',
-        amount: 0,
+        amount: '',
         paymentMethod: 'cartão',
         notes: '',
         patientId: '',
@@ -43,7 +43,7 @@ export const AdvancedPaymentModal = ({
         if (open) {
             setPaymentData({
                 doctorId: doctors[0]?._id || '',
-                amount: 0,
+                amount: '',
                 paymentMethod: 'cartão',
                 notes: '',
                 patientId: patients[0]?._id || '',
@@ -95,7 +95,7 @@ export const AdvancedPaymentModal = ({
             }
         }
 
-        const amount = parseFloat(paymentData.amount.toString());
+        const amount = parseFloat(paymentData.amount);
         if (isNaN(amount) || amount <= 0) {
             toast.error('Valor inválido');
             return;
@@ -147,259 +147,143 @@ export const AdvancedPaymentModal = ({
         setAdvanceSessions(newSessions);
     };
 
-    if (!open) return null;
+    const money = parseFloat(paymentData.amount);
+    const summary = money > 0
+        ? `${money.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} · ${advanceSessions.length} ${sessoes(advanceSessions.length)}`
+        : null;
+    const set = (patch: Partial<typeof paymentData>) => setPaymentData({ ...paymentData, ...patch });
 
     return (
-        <div className={`fixed inset-0 z-50 items-center justify-center p-4 ${open ? 'flex' : 'hidden'}`}>
-            <div
-                className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-                onClick={isLoading ? undefined : onClose}
-                aria-hidden="true"
+        <Modal
+            open={open}
+            onClose={() => !isLoading && onClose()}
+            labelledBy="advanced-payment-title"
+            zIndexClass="z-[1300]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+        >
+            <ModalHeader
+                icon={<CalendarClock className="w-6 h-6" />}
+                color="#059669"
+                title="Pagamento de sessões futuras"
+                subtitle="Paciente paga agora, sessões ficam agendadas"
+                onClose={onClose}
+                titleId="advanced-payment-title"
             />
 
-            <div className="relative bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-auto max-h-[90vh] overflow-y-auto transform transition-all">
-                {/* Cabeçalho */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-white">
-                        Pagamento de Sessões Futuras
-                    </h3>
-                    <button
-                        type="button"
-                        className="text-white hover:text-blue-200 focus:outline-none disabled:opacity-50"
-                        onClick={isLoading ? undefined : onClose}
-                        disabled={isLoading}
-                    >
-                        <X className="h-6 w-6" />
-                    </button>
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Paciente" required>
+                        <select
+                            value={paymentData.patientId}
+                            onChange={(e) => set({ patientId: e.target.value })}
+                            disabled={isLoading}
+                            className={inputClass('emerald')}
+                        >
+                            <option value="">Selecione um paciente</option>
+                            {patients.map((patient) => (
+                                <option key={patient._id} value={patient._id}>{patient.fullName}</option>
+                            ))}
+                        </select>
+                    </Field>
+                    <Field label="Profissional" required>
+                        <select
+                            value={paymentData.doctorId}
+                            onChange={(e) => set({ doctorId: e.target.value })}
+                            disabled={isLoading || doctors.length === 0}
+                            className={inputClass('emerald')}
+                        >
+                            {doctors.map((doctor) => (
+                                <option key={doctor._id} value={doctor._id}>{doctor.fullName}</option>
+                            ))}
+                        </select>
+                    </Field>
                 </div>
 
-                {/* Corpo */}
-                <div className="p-6">
-                    <div className="space-y-6">
-                        {/* Seleção de Paciente e Profissional */}
-                        <div className="flex flex-wrap gap-4">
-                            <div className="flex-1 min-w-[250px]">
-                                <label className="form-label">
-                                    Paciente *
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        value={paymentData.patientId}
-                                        onChange={(e) => setPaymentData({
-                                            ...paymentData,
-                                            patientId: e.target.value
-                                        })}
-                                        disabled={isLoading}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 appearance-none"
-                                    >
-                                        <option value="">Selecione um paciente</option>
-                                        {patients.map(patient => (
-                                            <option key={patient._id} value={patient._id}>
-                                                {patient.fullName}
-                                            </option>
-                                        ))}
+                <div>
+                    <div className="mb-3 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-600">Sessões futuras</span>
+                        <button
+                            type="button"
+                            onClick={addSession}
+                            className="inline-flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold text-emerald-700 transition-colors duration-quick hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        >
+                            <Plus size={16} /> Adicionar sessão
+                        </button>
+                    </div>
+                    <div className="space-y-3">
+                        {advanceSessions.map((session, index) => (
+                            <div key={index} className="grid grid-cols-2 items-end gap-3 rounded-2xl border border-gray-200 bg-gray-50/60 p-3 sm:grid-cols-[1fr_8rem_1fr_auto]">
+                                <Field label="Data">
+                                    <input type="date" value={session.date} onChange={(e) => updateSession(index, 'date', e.target.value)} className={inputClass('emerald')} />
+                                </Field>
+                                <Field label="Horário">
+                                    <input type="time" value={session.time} onChange={(e) => updateSession(index, 'time', e.target.value)} className={inputClass('emerald')} />
+                                </Field>
+                                <Field label="Tipo" className="col-span-2 sm:col-span-1">
+                                    <select value={session.sessionType} onChange={(e) => updateSession(index, 'sessionType', e.target.value)} className={inputClass('emerald')}>
+                                        <option value="psicologia">Psicologia</option>
+                                        <option value="neuropsicologia">Neuropsicologia</option>
+                                        <option value="orientacao">Orientação</option>
                                     </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                        <ChevronDown className="h-4 w-4" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex-1 min-w-[250px]">
-                                <label className="form-label">
-                                    Profissional *
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        value={paymentData.doctorId}
-                                        onChange={(e) => setPaymentData({
-                                            ...paymentData,
-                                            doctorId: e.target.value
-                                        })}
-                                        disabled={isLoading || doctors.length === 0}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 appearance-none"
-                                    >
-                                        {doctors.map(doctor => (
-                                            <option key={doctor._id} value={doctor._id}>
-                                                {doctor.fullName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                        <ChevronDown className="h-4 w-4" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sessões Futuras */}
-                        <div className="border-t pt-4 mt-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-medium">Sessões Futuras</h3>
+                                </Field>
                                 <button
                                     type="button"
-                                    onClick={addSession}
-                                    className="text-blue-600 flex items-center text-sm"
+                                    onClick={() => removeSession(index)}
+                                    disabled={advanceSessions.length <= 1}
+                                    aria-label="Remover sessão"
+                                    className="col-span-2 flex h-11 w-11 items-center justify-center justify-self-end rounded-xl text-gray-400 transition-colors duration-quick hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-40 sm:col-span-1"
                                 >
-                                    <Plus size={16} className="mr-1" /> Adicionar Sessão
+                                    <X size={18} />
                                 </button>
                             </div>
-
-                            <div className="space-y-4">
-                                {advanceSessions.map((session, index) => (
-                                    <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center p-3 bg-gray-50 rounded-lg">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                                                Data
-                                            </label>
-                                            <input
-                                                type="date"
-                                                value={session.date}
-                                                onChange={(e) => updateSession(index, 'date', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                                                Horário
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={session.time}
-                                                onChange={(e) => updateSession(index, 'time', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">
-                                                Tipo de Sessão
-                                            </label>
-                                            <select
-                                                value={session.sessionType}
-                                                onChange={(e) => updateSession(index, 'sessionType', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                            >
-                                                <option value="psicologia">Psicologia</option>
-                                                <option value="neuropsicologia">Neuropsicologia</option>
-                                                <option value="orientacao">Orientação</option>
-                                            </select>
-                                        </div>
-
-                                        <div className="flex justify-end">
-                                            <button
-                                                type="button"
-                                                onClick={() => removeSession(index)}
-                                                className="text-red-500 hover:text-red-700"
-                                                disabled={advanceSessions.length <= 1}
-                                            >
-                                                <X size={20} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Valor e Forma de Pagamento */}
-                        <div className="flex flex-wrap gap-4 border-t pt-4">
-                            <div className="flex-1 min-w-[250px]">
-                                <label className="form-label">
-                                    Valor Total (R$) *
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">R$</span>
-                                    <InputCurrency
-                                        name='amount'
-                                        value={paymentData.amount}
-                                        onChange={(e) => setPaymentData({
-                                            ...paymentData,
-                                            amount: e.target.value
-                                        })}
-                                        disabled={isLoading}
-                                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Valor total para {advanceSessions.length} {sessoes(advanceSessions.length)}
-                                </p>
-                            </div>
-
-                            <div className="flex-1 min-w-[250px]">
-                                <label className="form-label">
-                                    Forma de Pagamento *
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        value={paymentData.paymentMethod}
-                                        onChange={(e) => setPaymentData({
-                                            ...paymentData,
-                                            paymentMethod: e.target.value
-                                        })}
-                                        disabled={isLoading}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 appearance-none"
-                                    >
-                                        <option value="cartão">Cartão</option>
-                                        <option value="pix">PIX</option>
-                                        <option value="dinheiro">Dinheiro</option>
-                                        <option value="transferência">Transferência</option>
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                        <ChevronDown className="h-4 w-4" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Observações */}
-                        <div>
-                            <label className="form-label">
-                                Observações
-                            </label>
-                            <textarea
-                                value={paymentData.notes}
-                                onChange={(e) => setPaymentData({
-                                    ...paymentData,
-                                    notes: e.target.value
-                                })}
-                                disabled={isLoading}
-                                placeholder="Opcional"
-                                rows={2}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
-                            />
-                        </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Rodapé */}
-                <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={isLoading}
-                        className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={isLoading}
-                        className="px-5 py-2.5 text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-70 transition-opacity flex items-center"
-                    >
-                        {isLoading ? (
-                            <>
-                                <LoadingSpinner size="small" color="border-white" />
-                            </>
-                        ) : (
-                            <>
-                                <Check className="h-5 w-5 mr-2" />
-                                Registrar Pagamento
-                            </>
-                        )}
-                    </button>
+                <Field
+                    label="Valor total"
+                    required
+                    hint={`Valor total para ${advanceSessions.length} ${sessoes(advanceSessions.length)}`}
+                >
+                    <MoneyInput large value={paymentData.amount} onChange={(v) => set({ amount: v })} accent="emerald" />
+                </Field>
+
+                <div>
+                    <span className="mb-2 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
+                    <ChoiceChips
+                        label="Forma de pagamento"
+                        value={paymentData.paymentMethod}
+                        onChange={(v) => set({ paymentMethod: v })}
+                        options={[
+                            { value: 'cartão', label: 'Cartão' },
+                            { value: 'pix', label: 'Pix' },
+                            { value: 'dinheiro', label: 'Dinheiro' },
+                            { value: 'transferência', label: 'Transferência' },
+                        ]}
+                    />
                 </div>
+
+                <Field label="Observações">
+                    <textarea
+                        value={paymentData.notes}
+                        onChange={(e) => set({ notes: e.target.value })}
+                        disabled={isLoading}
+                        placeholder="Opcional"
+                        rows={2}
+                        className={`${inputClass('emerald')} resize-none`}
+                    />
+                </Field>
             </div>
-        </div>
+
+            <ModalFooter
+                accent="emerald"
+                onCancel={onClose}
+                onSubmit={handleSubmit}
+                submitting={isLoading}
+                submitLabel="Registrar pagamento"
+                submittingLabel="Registrando..."
+                summary={summary}
+            />
+        </Modal>
     );
 };

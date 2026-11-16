@@ -187,7 +187,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
             {/* Header */}
             <div className="mb-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#8B5CF6' }}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#059669' }}>
                         <Shield className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -199,7 +199,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                     variant="contained"
                     startIcon={<Plus size={18} />}
                     onClick={() => setCreateModalOpen(true)}
-                    sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2, textTransform: 'none' }}
+                    sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, borderRadius: 2, textTransform: 'none' }}
                 >
                     Nova Autorização
                 </Button>
@@ -257,7 +257,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                                     <CardContent sx={{ p: 2.5 }}>
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
-                                                <Avatar sx={{ bgcolor: 'var(--fx-indigo-100)', color: '#4F46E5', width: 40, height: 40 }}>
+                                                <Avatar sx={{ bgcolor: '#d1fae5', color: '#047857', width: 40, height: 40 }}>
                                                     {auth.patientName?.charAt(0) || '?'}
                                                 </Avatar>
                                                 <div>
@@ -288,7 +288,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
                                                     variant="contained"
                                                     size="small"
                                                     onClick={() => handleOpenDrawer(auth)}
-                                                    sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7C3AED' }, borderRadius: 2, textTransform: 'none' }}
+                                                    sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, borderRadius: 2, textTransform: 'none' }}
                                                 >
                                                     {['draft', 'ready'].includes(activeTab) ? 'Abrir' : 'Revisar'}
                                                 </Button>
@@ -314,7 +314,7 @@ export const AutorizacoesTab = ({ month, year, patientFilter = '' }: Autorizacoe
             <Dialog open={createModalOpen} onClose={() => setCreateModalOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Shield className="w-5 h-5 text-purple-600" />
+                        <Shield className="w-5 h-5 text-emerald-600" />
                         <Typography variant="h6">Nova Autorização</Typography>
                     </Box>
                 </DialogTitle>

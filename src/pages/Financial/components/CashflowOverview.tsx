@@ -24,6 +24,7 @@ export default function CashflowOverview(p: Props) {
     const [packages, setPackages] = useState<PackageEndingItem[]>(packagesCache?.items || []);
     const [packageState, setPackageState] = useState<'loading' | 'ready' | 'error'>(packagesCache ? 'ready' : 'loading');
     const [showPackages, setShowPackages] = useState(false);
+    const [showDayDetails, setShowDayDetails] = useState(false);
     useEffect(() => {
         if (packagesCache && Date.now() - packagesCache.at < 5 * 60_000) return;
         let active = true;
@@ -74,7 +75,7 @@ export default function CashflowOverview(p: Props) {
         onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onMetric!(key); } },
     } : {};
     const cellCls = `min-w-0 border-gray-200 px-4 py-4 dark:border-gray-700 ${p.onMetric ? 'group cursor-pointer hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 dark:hover:bg-gray-800' : ''}`;
-    const label = 'text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300';
+    const label = 'text-xs font-medium text-gray-600 dark:text-gray-300';
     const more = (text: string) => p.onMetric ? <dd className="mt-1.5 text-xs font-semibold text-emerald-700 group-hover:underline dark:text-emerald-300">{text} ›</dd> : null;
     // Do previsto ao caixa: só soma números que o banco já devolve; o resto é "sem explicação".
     const entrou = Math.min(caixa, previsto);
@@ -115,22 +116,29 @@ export default function CashflowOverview(p: Props) {
             </div>
         </dl>
         {data.agenda && previsto > 0 && <section aria-labelledby="cashflow-bridge" className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
-            <h3 id="cashflow-bridge" className="text-sm font-semibold">Do previsto ao caixa <span className="font-normal text-gray-600 dark:text-gray-300">· para onde foram os {money(previsto)}</span></h3>
-            <div className="my-2.5 flex h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" aria-hidden>
-                {bridge.filter(([, v]) => v > 0).map(([k, v, c]) => <span key={k} className={c} style={{ width: `${Math.min(100, (v / previsto) * 100)}%` }} />)}
+            <h3 id="cashflow-bridge" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Do previsto ao caixa <span className="font-normal text-gray-500 dark:text-gray-400">· para onde foram os {money(previsto)}</span></h3>
+            <div className="my-3 flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden>
+                {bridge.filter(([, v]) => v > 0).map(([k, v, c]) => <span key={k} className={`${c} transition-[width] duration-fast ease-out motion-reduce:transition-none`} style={{ width: `${Math.min(100, (v / previsto) * 100)}%` }} />)}
+                {rest > 0 && <span className="bg-violet-500 dark:bg-violet-400 transition-[width] duration-fast ease-out motion-reduce:transition-none" style={{ width: `${Math.min(100, (rest / previsto) * 100)}%` }} />}
             </div>
-            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                {bridge.map(([k, v]) => <li key={k}><b className="tabular-nums">{money(v)}</b> {k}</li>)}
-                {rest > 0 && <li><b className="tabular-nums">{money(rest)}</b> pacote pago antes, liminar ou sem lançamento</li>}
+            <ul className="grid gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2 lg:grid-cols-4">
+                {bridge.map(([k, v, c]) => <li key={k} className="flex items-start gap-2"><span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${c}`} /><span><b className="block text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">{money(v)}</b>{k}</span></li>)}
+                {rest > 0 && <li className="flex items-start gap-2"><span aria-hidden className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500 dark:bg-violet-400" /><span><b className="block text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">{money(rest)}</b>pacote pago antes, liminar ou sem lançamento</span></li>}
                 {caixa > previsto && <li className="text-gray-600 dark:text-gray-300">+ {money(caixa - previsto)} acima do previsto (pacotes e pagamentos antecipados)</li>}
             </ul>
         </section>}
         {p.ruler && <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">{p.ruler}</div>}
-        {p.agendaSummary}
+        {p.agendaSummary && <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <button type="button" aria-expanded={showDayDetails} onClick={() => setShowDayDetails(v => !v)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Ver detalhes do dia <span className="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">agenda, pacientes novos e perfil</span></span>
+                <span aria-hidden className={`text-gray-400 transition-transform duration-fast ${showDayDetails ? 'rotate-180' : ''}`}>⌄</span>
+            </button>
+            {showDayDetails && <div className="border-t border-gray-100 p-3 dark:border-gray-800">{p.agendaSummary}</div>}
+        </div>}
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <section aria-labelledby="cashflow-actions" className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <h3 id="cashflow-actions" className="text-base font-bold">Precisa de você</h3>
+                <h3 id="cashflow-actions" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Precisa de você</h3>
                 {atStake > 0 && <span className="text-xs text-gray-600 dark:text-gray-300">{money(atStake)} em jogo, do maior para o menor{packages.length ? '. Pacotes sem valor definido ficam no fim' : ''}</span>}
             </div>
             <div className="px-4">

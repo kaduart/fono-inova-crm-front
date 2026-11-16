@@ -8,6 +8,7 @@ vi.mock('../../services/financialSummaryService',()=>({
  getPatientPendingSnapshot:vi.fn().mockResolvedValue({data:[{id:'payment-1',source:'payment',amount:160,status:'pending',canSettle:true,countInDebt:true,description:'Atendimento comprovado',createdAt:'2026-07-06T12:00:00Z',appointment:null}],meta:{totalPending:160,totalPendingNet:160,count:1,collectibleCount:1}}),
  getPatientPaidPayments:vi.fn().mockResolvedValue([]),receivePayment:vi.fn(),
 }));
+vi.mock('../ui/insight/AnimatedValue',()=>({default:({value}:any)=><>{String(value)}</>}));
 vi.mock('../../utils/cacheManager',()=>({invalidateCache:vi.fn()}));
 vi.mock('./balance/PaymentConfirmModal',()=>({PaymentConfirmModal:({isOpen,onConfirm}:any)=>isOpen?<button onClick={onConfirm}>Confirmar teste</button>:null}));
 describe('patient balance CRM endpoint compatibility',()=>{

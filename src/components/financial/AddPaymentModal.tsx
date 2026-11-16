@@ -1,10 +1,9 @@
-import { CreditCard, DollarSign, FileText, Landmark, QrCode, X } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 import { useState } from "react";
 import { toast } from '../../utils/toast';
 import usePayment from "../../hooks/usePayment";
-import { Button } from "../ui/Button";
-import InputCurrency from '../ui/InputCurrency';
-import { LoadingSpinner } from "../ui/LoadingSpinner";
+import { Modal } from '../ui/Modal';
+import { ChoiceChips, Field, ModalHeader, ModalFooter, MoneyInput, inputClass } from '../../pages/Financial/components/formKit';
 
 import { notifyApiError } from '../../utils/notifyApiError';
 
@@ -15,14 +14,14 @@ interface AddPaymentModalProps {
 }
 
 const paymentMethods = [
-    { value: "dinheiro", label: "Dinheiro", icon: DollarSign },
-    { value: "pix", label: "PIX", icon: QrCode },
-    { value: "cartão", label: "Cartão", icon: CreditCard },
-    { value: "transferência", label: "Transferência", icon: Landmark },
+    { value: "dinheiro", label: "Dinheiro" },
+    { value: "pix", label: "Pix" },
+    { value: "cartão", label: "Cartão" },
+    { value: "transferência", label: "Transferência" },
 ];
 
 export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentModalProps) => {
-    const [amount, setAmount] = useState<number>(0);
+    const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState("dinheiro");
     const [serviceType, setServiceType] = useState("package_session");
     const [note, setNote] = useState("");
@@ -31,9 +30,9 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
     // Payment Hook
     const { addPayment, loading: isProcessing } = usePayment();
 
-    console.log('Adicionando pagamento ao pacote:', packageData);
     const handleSubmit = async () => {
-        if (!amount || amount <= 0) {
+        const value = parseFloat(amount);
+        if (!(value > 0)) {
             toast.warn("Informe um valor válido");
             return;
         }
@@ -45,12 +44,10 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
             const result = await addPayment({
                 patientId: packageData?.patient?._id,
                 doctorId: packageData?.doctor?._id,
-                amount,
+                amount: value,
                 paymentMethod,
                 notes: note
             });
-
-            console.log(`[AddPaymentModal] Pagamento registrado`);
 
             toast.success("Pagamento registrado com sucesso! 💚");
             onSuccess(result.data);
@@ -63,150 +60,66 @@ export const AddPaymentModal = ({ packageData, onClose, onSuccess }: AddPaymentM
         }
     };
 
+    const value = parseFloat(amount);
+    const submitting = loading || isProcessing;
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transition-all duration-300">
-                {/* Header com Gradiente */}
-                <div className="bg-gradient-to-r from-green-600 to-emerald-700 p-6 text-white relative">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 text-white hover:text-green-100 transition-colors p-1 rounded-full hover:bg-white/10"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <DollarSign className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold">Adicionar Pagamento</h2>
-                            <p className="text-green-100 text-sm mt-1">
-                                Registre um novo pagamento manual
-                            </p>
-                        </div>
-                    </div>
+        <Modal
+            open
+            onClose={() => !submitting && onClose()}
+            labelledBy="add-payment-title"
+            zIndexClass="z-[1300]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+        >
+            <ModalHeader
+                icon={<DollarSign className="w-6 h-6" />}
+                color="#059669"
+                title="Adicionar pagamento"
+                subtitle="Registre um pagamento manual"
+                onClose={onClose}
+                titleId="add-payment-title"
+            />
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+                <Field label="Valor" required>
+                    <MoneyInput large value={amount} onChange={setAmount} accent="emerald" />
+                </Field>
+                <div>
+                    <span className="mb-2 block text-xs font-semibold text-gray-600">Tipo de serviço</span>
+                    <ChoiceChips
+                        label="Tipo de serviço"
+                        value={serviceType}
+                        onChange={setServiceType}
+                        options={[
+                            { value: "package_session", label: "Sessão de pacote" },
+                            { value: "individual_session", label: "Sessão avulsa" },
+                            { value: "evaluation", label: "Avaliação" },
+                            { value: "other", label: "Outro" },
+                        ]}
+                    />
                 </div>
-
-                {/* Conteúdo do Formulário */}
-                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-                    {/* Valor */}
-                    <div>
-                        <label className="form-label flex items-center gap-2">
-                            <DollarSign className="w-4 h-4 text-green-600" />
-                            Valor do Pagamento *
-                        </label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">R$</span>
-                            <InputCurrency
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white transition-all duration-200"
-                                value={amount}
-                                onChange={(e) => setAmount(Number(e.target.value))}
-                                placeholder="0,00"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Tipo de Serviço */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                            Tipo de Serviço *
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            {[
-                                { value: "package_session", label: "Sessão de Pacote" },
-                                { value: "individual_session", label: "Sessão Avulsa" },
-                                { value: "evaluation", label: "Avaliação" },
-                                { value: "other", label: "Outro" },
-                            ].map((type) => (
-                                <button
-                                    key={type.value}
-                                    type="button"
-                                    onClick={() => setServiceType(type.value)}
-                                    className={`flex items-center justify-center p-3 border rounded-xl text-sm font-medium transition-all
-          ${serviceType === type.value
-                                            ? 'border-green-500 bg-green-50 text-green-700 shadow-sm'
-                                            : 'border-gray-300 bg-white text-gray-700 hover:border-green-300 hover:bg-green-25'}`}
-                                >
-                                    {type.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Método de Pagamento */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                            Método de Pagamento *
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            {paymentMethods.map((method) => {
-                                const Icon = method.icon;
-                                return (
-                                    <button
-                                        key={method.value}
-                                        type="button"
-                                        onClick={() => setPaymentMethod(method.value)}
-                                        className={`flex items-center gap-2 p-3 border rounded-xl text-sm font-medium transition-all ${paymentMethod === method.value
-                                            ? 'border-green-500 bg-green-50 text-green-700 shadow-sm'
-                                            : 'border-gray-300 bg-white text-gray-700 hover:border-green-300 hover:bg-green-25'
-                                            }`}
-                                    >
-                                        <Icon className="w-4 h-4" />
-                                        {method.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Observações */}
-                    <div>
-                        <label className="form-label flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-green-600" />
-                            Observações (Opcional)
-                        </label>
-                        <textarea
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white resize-none transition-all duration-200"
-                            rows={3}
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            placeholder="Adicione uma observação sobre este pagamento..."
-                        />
-                    </div>
+                <div>
+                    <span className="mb-2 block text-xs font-semibold text-gray-600">Forma de pagamento</span>
+                    <ChoiceChips fill label="Forma de pagamento" value={paymentMethod} onChange={setPaymentMethod} options={paymentMethods} />
                 </div>
-
-                {/* Footer com Botões */}
-                <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-t border-gray-200">
-                    <Button
-                        onClick={onClose}
-                        variant="outline"
-                        className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200 font-medium"
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={loading || !amount || amount <= 0 || isProcessing}
-                        className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-200 ${loading || !amount || amount <= 0
-                            ? 'bg-gray-400 cursor-not-allowed text-white'
-                            : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl'
-                            }`}
-                    >
-                        {loading || isProcessing ? (
-                            <div className="flex items-center gap-2">
-                                <LoadingSpinner size="small" color="border-white" />
-                                <span>Registrando...</span>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <DollarSign className="w-4 h-4" />
-                                <span>Registrar Pagamento</span>
-                            </div>
-                        )}
-                    </Button>
-                </div>
+                <Field label="Observações">
+                    <textarea
+                        className={`${inputClass('emerald')} resize-none`}
+                        rows={2}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Opcional"
+                    />
+                </Field>
             </div>
-        </div>
+            <ModalFooter
+                accent="emerald"
+                onCancel={onClose}
+                onSubmit={handleSubmit}
+                submitting={submitting}
+                submitDisabled={!(value > 0)}
+                submitLabel="Registrar pagamento"
+                submittingLabel="Registrando..."
+                summary={value > 0 ? `${value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} · ${paymentMethods.find((m) => m.value === paymentMethod)?.label}` : null}
+            />
+        </Modal>
     );
 };

@@ -1,3 +1,4 @@
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Avatar } from '@mui/material';
 
@@ -100,7 +101,7 @@ export const ListaPacientesVIP: React.FC<ListaPacientesVIPProps> = ({
   }
 
   return (
-    <Box>
+    <FadeIn><Box>
       <DashboardSection title={title} subtitle={subtitle} icon={Crown} iconColor="#FFD700" />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -246,6 +247,6 @@ export const ListaPacientesVIP: React.FC<ListaPacientesVIPProps> = ({
           onClose={() => setIsModalOpen(false)}
         />
       )}
-    </Box>
+    </Box></FadeIn>
   );
 };

@@ -113,7 +113,7 @@ export default function SmartAgendaPanel({
                   setSchedulingId(null);
                 }
               }}
-              className="w-full text-left bg-white hover:bg-indigo-50 border border-indigo-100 hover:border-indigo-300 rounded-lg p-3 transition-all duration-200 group disabled:opacity-60"
+              className="w-full text-left bg-white hover:bg-indigo-50 border border-indigo-100 hover:border-indigo-300 rounded-lg p-3 transition-all duration-quick group disabled:opacity-60"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

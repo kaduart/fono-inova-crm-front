@@ -55,7 +55,7 @@ const TimelineModal: React.FC<TimelineModalProps> = ({
                 initial={{ y: 20, opacity: 0, scale: 0.95 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 20, opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             >
                 {/* CABEÇALHO DO MODAL */}
                 <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-6 text-white flex-shrink-0">

@@ -29,7 +29,7 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
     return (
       <button
         onClick={onClick}
-        className={label ? `relative ${labeledClass} ${className}` : `relative p-2 rounded-lg transition-all duration-200 hover:bg-emerald-600 text-white ${className}`}
+        className={label ? `relative ${labeledClass} ${className}` : `relative p-2 rounded-lg transition-all duration-quick hover:bg-emerald-600 text-white ${className}`}
         title="WhatsApp"
       >
         {!label && <MessageCircle className="h-5 w-5" aria-hidden />}
@@ -79,7 +79,7 @@ export const WhatsAppNotificationButton: React.FC<WhatsAppNotificationButtonProp
     <button
       onClick={handleClick}
       className={label ? `relative ${labeledClass} transition-colors ${className}` : `
-        relative p-2 rounded-lg transition-all duration-200
+        relative p-2 rounded-lg transition-all duration-quick
         hover:bg-emerald-600 text-white
         ${className}
       `}

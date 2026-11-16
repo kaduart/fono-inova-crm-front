@@ -13,6 +13,7 @@ export default function LiminarContractPanel({ patientId, doctors, createTrigger
   const queryClient = useQueryClient();
   const { items, loading, error, fetchData } = useLiminarContracts(patientId);
   const [showCreate, setShowCreate] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   useEffect(() => {
     if (createTrigger && createTrigger > 0) setShowCreate(true);
@@ -82,6 +83,8 @@ export default function LiminarContractPanel({ patientId, doctors, createTrigger
               data={{ contract, plan, planError, committed }}
               colorIndex={i}
               onRefresh={fetchData}
+              detailsExpanded={detailsExpanded}
+              onToggleDetails={() => setDetailsExpanded(v => !v)}
             />
           ))}
         </div>

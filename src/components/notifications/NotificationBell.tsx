@@ -110,7 +110,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className = 
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`
-          relative p-2 rounded-lg transition-all duration-200
+          relative p-2 rounded-lg transition-all duration-quick
           ${isOpen ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}
           ${!isBusinessHours && unreadCount > 0 ? 'animate-pulse' : ''}
         `}

@@ -143,7 +143,7 @@ export function TimeMultiSelect({
               className={`
                 relative overflow-hidden
                 rounded-lg p-3
-                border-2 transition-all duration-200
+                border-2 transition-all duration-quick
                 flex flex-col items-center justify-center
                 ${isSelected
                   ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-sm'
@@ -175,7 +175,7 @@ export function TimeMultiSelect({
             className={`
               relative overflow-hidden
               rounded-lg p-3
-              border transition-all duration-200
+              border transition-all duration-quick
               flex items-center justify-center
               ${isSelected
                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'

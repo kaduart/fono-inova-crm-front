@@ -34,8 +34,8 @@ const StatCard = ({
       key={item.label}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      className={`bg-white rounded-2xl shadow-sm border ${item.borderColor} p-5 hover:shadow-md transition-all duration-200 group`}
+      transition={{ duration: 0.25, delay: index * 0.04 }}
+      className={`bg-white rounded-2xl shadow-sm border ${item.borderColor} p-5 hover:shadow-md transition-all duration-quick group`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2 rounded-xl ${item.bgColor} border ${item.borderColor}`}>
@@ -47,7 +47,7 @@ const StatCard = ({
       <p className="text-2xl font-bold text-slate-800 mb-1">{item.value}</p>
       <p className="text-sm text-slate-600 font-medium">{item.label}</p>
 
-      <div className={`h-1 w-8 ${item.color} rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+      <div className={`h-1 w-8 ${item.color} rounded-full mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-fast`} />
     </motion.div>
   );
 };

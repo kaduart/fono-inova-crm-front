@@ -1,12 +1,11 @@
 import { ptBR } from 'date-fns/locale';
-import { ClipboardList, Heart, MapPin, Phone, ShieldCheck, User } from 'lucide-react';
+import { ChevronDown, ClipboardList, Heart, MapPin, Phone, ShieldCheck, User } from 'lucide-react';
 import { JSX, useState } from 'react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '../../components/ui/Button';
-import { Card, CardContent } from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -22,21 +21,38 @@ interface PatientFormProps {
   onSuccess?: (data: PatientFormData) => void;
   patient?: IPatient;
   isLoading?: boolean;
+  onCancel?: () => void;
 }
 
 // Fora do componente: definido dentro, cada re-render (o aviso de duplicado observa os
 // campos) recriava o tipo e remontava os inputs, tirando o foco a cada tecla.
-const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: JSX.Element | JSX.Element[] }) => (
-  <Card className="border border-gray-200 shadow-sm rounded-xl mb-6 transition-all hover:shadow-md">
-    <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-50 to-white border-b border-gray-100 rounded-t-xl">
-      <Icon className="text-green-600 w-5 h-5" />
-      <h3 className="text-gray-700 font-medium">{title}</h3>
-    </div>
-    <CardContent className="p-6">{children}</CardContent>
-  </Card>
-);
+const Section = ({ title, icon: Icon, children, fold = false, filled = false, hint }: { title: string; icon: any; children: JSX.Element | JSX.Element[]; fold?: boolean; filled?: boolean; hint?: string }) => {
+  if (fold) {
+    // Recolhida não desmonta os campos: continuam no formulário e vão no salvar.
+    return (
+      <details open={filled || undefined} className="group rounded-xl border border-gray-200">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-bold text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 [&::-webkit-details-marker]:hidden">
+          <Icon className="h-4 w-4 text-emerald-600" aria-hidden />
+          {title}
+          {hint && <span className="font-normal text-gray-500">{hint}</span>}
+          <ChevronDown size={16} className="ml-auto text-gray-500 transition-transform duration-quick group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="border-t border-gray-100 p-4">{children}</div>
+      </details>
+    );
+  }
+  return (
+    <section>
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-50 text-emerald-700" aria-hidden><Icon className="h-4 w-4" /></span>
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+};
 
-const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
+const PatientForm = ({ patient, isLoading, onSuccess, onCancel }: PatientFormProps) => {
   const {
     register,
     handleSubmit,
@@ -86,9 +102,9 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-fadeIn">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Dados Pessoais */}
-      <Section title="Dados Pessoais" icon={User}>
+      <Section title="Dados pessoais" icon={User}>
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-9">
             {renderField('Nome completo', <Input {...register('fullName')} placeholder="Digite o nome completo" />, errors.fullName?.message)}
@@ -162,7 +178,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
       </Section>
 
       {/* Documentos e Contato */}
-      <Section title="Documentos e Contato" icon={ClipboardList}>
+      <Section title="Documentos e contato" icon={ClipboardList}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {renderField('CPF', <Input {...register('cpf')} placeholder="000.000.000-00" />, errors.cpf?.message)}
           {renderField('RG', <Input {...register('rg')} placeholder="Digite o RG" />, errors.rg?.message)}
@@ -193,7 +209,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
       </Section>
 
       {/* Informações Clínicas */}
-      <Section title="Informações Clínicas" icon={Heart}>
+      <Section title="Informações clínicas" icon={Heart} fold filled={Boolean(patient && [patient.mainComplaint, patient.clinicalHistory, patient.medications, patient.allergies, patient.familyHistory].some(Boolean))}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {renderField('Queixa principal', <Textarea {...register('mainComplaint')} />, errors.mainComplaint?.message)}
           {renderField('Histórico clínico', <Textarea {...register('clinicalHistory')} />, errors.clinicalHistory?.message)}
@@ -204,7 +220,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
       </Section>
 
       {/* Plano de Saúde e Responsável */}
-      <Section title="Plano de Saúde e Responsável" icon={ShieldCheck}>
+      <Section title="Plano de saúde e responsável" icon={ShieldCheck} fold filled={Boolean(patient && (patient.healthPlan?.name || patient.healthPlan?.policyNumber || patient.legalGuardian))}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {renderField('Convênio', <Input {...register('healthPlan.name')} />, errors.healthPlan?.name?.message)}
           {renderField('Nº da apólice', <Input {...register('healthPlan.policyNumber')} />, errors.healthPlan?.policyNumber?.message)}
@@ -213,7 +229,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
       </Section>
 
       {/* Contato de Emergência */}
-      <Section title="Contato de Emergência" icon={Phone}>
+      <Section title="Contato de emergência" icon={Phone} fold filled={Boolean(patient && (patient.emergencyContact?.name || patient.emergencyContact?.phone))}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {renderField('Nome', <Input {...register('emergencyContact.name')} />, errors.emergencyContact?.name?.message)}
           {renderField('Contato', <Input {...register('emergencyContact.phone')} />, errors.emergencyContact?.phone?.message)}
@@ -221,12 +237,17 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
         </div>
       </Section>
 
-      {/* Botão */}
-      <div className="flex justify-end">
+      {/* Rodapé fixo: o salvar fica sempre à vista */}
+      <div className="sticky -bottom-5 -mx-5 -mb-5 flex items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
+        {onCancel && (
+          <button type="button" onClick={onCancel} disabled={isLoading} className="min-h-11 rounded-xl px-4 text-sm font-medium text-gray-600 transition-colors duration-quick hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60">
+            Cancelar
+          </button>
+        )}
         <Button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-2 text-white bg-gradient-to-r from-green-600 to-green-500 rounded-lg shadow-md hover:shadow-lg transition-all"
+          className="min-h-11 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-quick hover:bg-emerald-700"
         >
           {isLoading ? (
             <span className="flex items-center">
@@ -234,7 +255,7 @@ const PatientForm = ({ patient, isLoading, onSuccess }: PatientFormProps) => {
               Salvando...
             </span>
           ) : (
-            'Salvar Paciente'
+            'Salvar paciente'
           )}
         </Button>
       </div>

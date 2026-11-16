@@ -5,6 +5,7 @@ import { Calendar, ClipboardList, LayoutGrid, List, Mail, Pencil, Phone, Power, 
 import { useMemo, useState } from 'react';
 import { getSpecialtyLabel } from '../../constants/specialties';
 import { getInitials } from '../../constants/specialtyColors';
+import { Pagination } from '../common/Pagination';
 
 const formatPhoneNumber = (phone?: string) => {
     if (!phone) return '—';
@@ -179,6 +180,8 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda, onDeactivate, onReactivate 
     const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
     const [search, setSearch] = useState('');
     const [toDeactivate, setToDeactivate] = useState<any | null>(null);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [view, setView] = useState<ViewMode>(() => {
         try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'list'; } catch { return 'list'; }
     });
@@ -209,7 +212,12 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda, onDeactivate, onReactivate 
         .filter(d => !q || norm(`${d.fullName || ''} ${d.email || ''} ${d.licenseNumber || ''}`).includes(q))
         .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '', 'pt-BR'));
 
-    const pickTab = (t: TabType) => { setActiveTab(t); setSelectedSpecialty(''); };
+    const totalPages = Math.max(1, Math.ceil(currentDoctors.length / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const pageStart = (safePage - 1) * pageSize;
+    const pagedDoctors = currentDoctors.slice(pageStart, pageStart + pageSize);
+
+    const pickTab = (t: TabType) => { setActiveTab(t); setSelectedSpecialty(''); setPage(1); };
     const itemProps = (doctor: any): ItemProps => ({
         doctor,
         onEdit,
@@ -230,7 +238,7 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda, onDeactivate, onReactivate 
                     <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
                         <span className="sr-only">Buscar profissional</span>
                         <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden />
-                        <input type="search" placeholder="Nome, e-mail ou registro" value={search} onChange={e => setSearch(e.target.value)}
+                        <input type="search" placeholder="Nome, e-mail ou registro" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
                             className="min-h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
                     </label>
                     <div className="inline-flex overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600" role="group" aria-label="Vista">
@@ -242,9 +250,9 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda, onDeactivate, onReactivate 
 
             {specialties.length > 1 && (
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Especialidade">
-                    <button type="button" aria-pressed={!selectedSpecialty} onClick={() => setSelectedSpecialty('')} className={chipCls(!selectedSpecialty)}>Todas <b>{tabDoctors.length}</b></button>
+                    <button type="button" aria-pressed={!selectedSpecialty} onClick={() => { setSelectedSpecialty(''); setPage(1); }} className={chipCls(!selectedSpecialty)}>Todas <b>{tabDoctors.length}</b></button>
                     {specialties.map(([s, count]) => (
-                        <button key={s} type="button" aria-pressed={selectedSpecialty === s} onClick={() => setSelectedSpecialty(selectedSpecialty === s ? '' : s)} className={chipCls(selectedSpecialty === s)}>
+                        <button key={s} type="button" aria-pressed={selectedSpecialty === s} onClick={() => { setSelectedSpecialty(selectedSpecialty === s ? '' : s); setPage(1); }} className={chipCls(selectedSpecialty === s)}>
                             {getSpecialtyLabel(s)} <b>{count}</b>
                         </button>
                     ))}
@@ -266,11 +274,27 @@ const DoctorList = ({ doctors, onEdit, onViewAgenda, onDeactivate, onReactivate 
                     <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_5rem_5rem_minmax(0,1.4fr)_minmax(0,1.6fr)_14rem] gap-x-4 border-b border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:text-gray-400 lg:grid">
                         <span>Profissional</span><span>Especialidade</span><span>Pacientes</span><span>Sessões no mês</span><span>Ocupação da semana</span><span>Contato</span><span className="w-[200px]" />
                     </div>
-                    <ul>{currentDoctors.map(d => <DoctorRow key={d._id} {...itemProps(d)} />)}</ul>
+                    <ul>{pagedDoctors.map(d => <DoctorRow key={d._id} {...itemProps(d)} />)}</ul>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {currentDoctors.map(d => <DoctorCard key={d._id} {...itemProps(d)} />)}
+                    {pagedDoctors.map(d => <DoctorCard key={d._id} {...itemProps(d)} />)}
+                </div>
+            )}
+
+            {currentDoctors.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600 dark:text-gray-400">
+                    <span>
+                        Mostrando {pageStart + 1}–{Math.min(pageStart + pageSize, currentDoctors.length)} de {currentDoctors.length}
+                        <label className="ml-3 inline-flex items-center gap-1.5">
+                            Exibir
+                            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                                className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                        </label>
+                    </span>
+                    <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} accentClassName="bg-emerald-600" className="w-full sm:w-72" />
                 </div>
             )}
 

@@ -1,3 +1,5 @@
+import { Modal } from '../ui/Modal';
+import { SaveButton, type SaveStatus } from '../ui/SaveButton';
 import { AlertTriangle, KeyRound, Mail, Plus, Power, RotateCw, Search, UserRound, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
@@ -208,27 +210,27 @@ export default function SecretariesManagement({ addNewAdmin }: Props) {
 function ResetPasswordModal({ secretary, onClose, onDone }: { secretary: Secretary; onClose: () => void; onDone: () => void }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>('idle');
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (password.length < 6) { toast.error('A senha precisa ter ao menos 6 caracteres.'); return; }
-    if (password !== confirm) { toast.error('As senhas não coincidem.'); return; }
-    setSaving(true);
+    if (password.length < 6) { toast.error('A senha precisa ter ao menos 6 caracteres.'); setStatus('error'); return; }
+    if (password !== confirm) { toast.error('As senhas não coincidem.'); setStatus('error'); return; }
+    setStatus('pending');
     try {
       await adminService.resetSecretaryPassword(secretary._id, password);
       toast.success(`Senha de ${secretary.fullName} redefinida.`);
-      onDone();
+      setStatus('success');
+      setTimeout(onDone, 700);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Não foi possível redefinir a senha.');
-    } finally {
-      setSaving(false);
+      setStatus('error');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]" onMouseDown={onClose}>
-      <form onSubmit={submit} className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900" onMouseDown={event => event.stopPropagation()}>
+    <Modal open onClose={onClose} zIndexClass="z-[100]" panelClassName="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900">
+      <form onSubmit={submit}>
         <button type="button" onClick={onClose} className="absolute right-3 top-3 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-100" aria-label="Fechar"><X size={18} /></button>
         <div className="mb-3 flex items-center gap-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"><KeyRound size={18} aria-hidden /></span>
@@ -249,9 +251,9 @@ function ResetPasswordModal({ secretary, onClose, onDone }: { secretary: Secreta
         </label>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="inline-flex min-h-10 items-center rounded-lg border border-gray-300 px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Cancelar</button>
-          <button type="submit" disabled={saving} className="inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-3.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">{saving ? 'Salvando…' : 'Redefinir'}</button>
+          <SaveButton type="submit" status={status} idleLabel="Redefinir" errorLabel="Redefinir" successLabel="Senha redefinida" />
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

@@ -1,11 +1,12 @@
-import { Calendar, DollarSign, User, UserPlus, Users, X, AlertTriangle } from 'lucide-react';
+import { Calendar, User, UserPlus, Users, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 
 import { ptBR } from "date-fns/locale";
 import { Building2 } from 'lucide-react';
 import ReactInputMask from '../ui/MaskedInput';
-import Modal from 'react-modal';
+import { Modal } from '../ui/Modal';
+import { ModalHeader, ModalFooter, ChoiceChips, MoneyInput, inputClass } from '../../pages/Financial/components/formKit';
 import { toast } from '../../utils/toast';
 import { useConvenios } from '../../hooks/useConvenios';
 import { toDateString } from '../../utils/dateUtils';
@@ -13,7 +14,6 @@ import { IDoctor, IPatient, ScheduleAppointment } from '../../utils/types/types'
 import patientService from '../../services/patientService';
 import { PossibleDuplicatesNotice, usePossibleDuplicates } from './PossibleDuplicatesNotice';
 import doctorService from '../../services/doctorService';
-import { Button } from '../ui/Button';
 import InputCurrency from '../ui/InputCurrency';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
@@ -22,6 +22,30 @@ import SmartAgendaPanel from '../calendar/SmartAgendaPanel';
 import { SuggestedSlot } from '../../services/agendaService';
 
 type ServiceType = ScheduleAppointment['serviceType'];
+
+const SERVICE_TYPE_OPTIONS: { value: ServiceType; label: string }[] = [
+    { value: 'individual_session', label: 'Sessão avulsa' },
+    { value: 'evaluation', label: 'Avaliação' },
+    { value: 'package_session', label: 'Sessão de pacote' },
+    { value: 'neuropsych_evaluation', label: 'Avaliação neuropsicológica' },
+    { value: 'return' as ServiceType, label: 'Retorno' },
+    { value: 'tongue_tie_test', label: 'Teste da linguinha' },
+    { value: 'alignment', label: 'Alinhamento' },
+    { value: 'meet', label: 'Reunião' },
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+    { value: 'pix', label: 'PIX' },
+    { value: 'dinheiro', label: 'Dinheiro' },
+    { value: 'cartão', label: 'Cartão' },
+    { value: 'transferência', label: 'Transferência' },
+];
+
+const localISODate = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toLocaleDateString('sv-SE');
+};
 
 const defaultForm: ScheduleAppointment = {
     doctorId: '',
@@ -362,7 +386,7 @@ const ScheduleAppointmentModal = ({
             };
         }
 
-        // 🏥 Convênio NUNCA pode ter packageId (hard block no backend)
+        // Convênio NUNCA pode ter packageId (hard block no backend)
         const { packageId, ...formDataWithoutPackage } = formData;
         const payload = {
             ...formDataWithoutPackage,
@@ -428,6 +452,20 @@ const ScheduleAppointmentModal = ({
         return true;
     }, [formData, packages, billingType, insuranceProvider, isNewPatient, newPatientName, newPatientPhone, dupCandidates, dupConfirmedDistinct]);
 
+    const scheduleSummary = (() => {
+        const doctor = availableDoctors.find((d) => d._id === formData.doctorId);
+        const parts: string[] = [];
+        if (doctor?.fullName) parts.push(doctor.fullName);
+        if (formData.date) {
+            const [y, m, d] = String(formData.date).split('-');
+            parts.push(`${d}/${m}${y && formData.time ? ` ${formData.time}` : ''}`);
+        }
+        if (serviceType === 'package_session') parts.push('sai do pacote');
+        else if (billingType === 'convenio') parts.push('convênio');
+        else if (Number(formData.paymentAmount ?? 0) > 0) parts.push(Number(formData.paymentAmount ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+        return parts.length ? parts.join(' · ') : null;
+    })();
+
     const handleFieldChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
@@ -443,25 +481,21 @@ const ScheduleAppointmentModal = ({
 
     return (
         <Modal
-            isOpen={isOpen}
-            onRequestClose={onClose}
-            className="p-6 bg-white rounded-xl max-w-2xl mx-auto my-10 shadow-xl w-full max-h-[90vh] overflow-y-auto outline-none z-[99999]"
-            overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[99998]"
-            ariaHideApp={false}
+            open={isOpen}
+            onClose={() => onClose?.()}
+            labelledBy="schedule-modal-title"
+            zIndexClass="z-[99999]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
         >
-            <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <Calendar className="text-blue-600" size={24} />
-                    Novo Agendamento
-                </h2>
-                <button
-                    onClick={onClose}
-                    className="text-gray-500 hover:text-gray-700 transition-colors"
-                    aria-label="Fechar modal"
-                >
-                    <X size={24} />
-                </button>
-            </div>
+            <ModalHeader
+                icon={<Calendar className="w-6 h-6" />}
+                color="#059669"
+                title="Novo agendamento"
+                subtitle="Paciente, profissional, horário e pagamento"
+                onClose={() => onClose?.()}
+                titleId="schedule-modal-title"
+            />
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             {(erroMessage || submitError) && (
                 <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
                     <p>{erroMessage || submitError}</p>
@@ -491,12 +525,11 @@ const ScheduleAppointmentModal = ({
             )}
 
             <div className="space-y-6">
-                {/* Profissional e Paciente */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-lg relative">
+                {/* Paciente */}
+                    <div className="relative">
                         <Label
                             htmlFor="patientId"
-                            className="block mb-2 font-medium text-gray-700 flex items-center gap-2"
+                            className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-600"
                         >
                             <User size={18} /> Paciente
                         </Label>
@@ -509,7 +542,7 @@ const ScheduleAppointmentModal = ({
                                     value={patientSearch}
                                     onChange={(e) => setPatientSearch(e.target.value)}
                                     placeholder="Digite o nome do paciente..."
-                                    className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm pr-10"
+                                    className={`${inputClass('emerald')} pr-10`}
                                 />
                                 {isSearching && (
                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -595,14 +628,14 @@ const ScheduleAppointmentModal = ({
                                     placeholder="Telefone *"
                                     value={newPatientPhone}
                                     onChange={(e) => setNewPatientPhone(e.target.value)}
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    className={inputClass('emerald')}
                                 />
                                 <input
                                     type="date"
                                     placeholder="Data de nascimento"
                                     value={newPatientBirthDate}
                                     onChange={(e) => setNewPatientBirthDate(e.target.value)}
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    className={inputClass('emerald')}
                                 />
                                 <PossibleDuplicatesNotice
                                     candidates={dupCandidates}
@@ -628,8 +661,24 @@ const ScheduleAppointmentModal = ({
                         )}
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label htmlFor="doctorId" className="block mb-2 font-medium text-gray-700 flex items-center gap-2">
+
+                {/* Tipo de atendimento */}
+                <div>
+                    <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                        Tipo de atendimento
+                    </Label>
+                    <ChoiceChips
+                        label="Tipo de atendimento"
+                        value={formData.serviceType}
+                        options={SERVICE_TYPE_OPTIONS}
+                        onChange={(v) => handleTypeChange({ target: { value: v } } as React.ChangeEvent<HTMLSelectElement>)}
+                    />
+                </div>
+
+                {/* Profissional e especialidade */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="doctorId" className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-600">
                             <Users size={18} /> Profissional
                         </Label>
                         <Select
@@ -637,7 +686,7 @@ const ScheduleAppointmentModal = ({
                             value={formData.doctorId}
                             onChange={handleChange}
                             disabled={isLoadingDoctors}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100"
+                            className={inputClass('emerald')}
                         >
                             <option value="">
                                 {isLoadingDoctors ? 'Carregando...' : 'Selecione um profissional'}
@@ -647,6 +696,27 @@ const ScheduleAppointmentModal = ({
                                     {doctor.fullName} - {doctor.specialty}
                                 </option>
                             ))}
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="sessionType" className="mb-1.5 block text-xs font-semibold text-gray-600">
+                            Especialidade
+                        </Label>
+                        <Select
+                            name="sessionType"
+                            value={formData.sessionType}
+                            onChange={handleChange}
+                            className={inputClass('emerald')}
+                        >
+                            <option value="fonoaudiologia">Fonoaudiologia</option>
+                            <option value="psicologia">Psicologia</option>
+                            <option value="terapia_ocupacional">Terapia Ocupacional</option>
+                            <option value="fisioterapia">Fisioterapia</option>
+                            <option value="pediatria">Pediatria</option>
+                            <option value="neuroped">Neuropediatria</option>
+                            <option value="psicomotricidade">Psicomotricidade</option>
+                            <option value="musicoterapia">Musicoterapia</option>
+                            <option value="psicopedagogia">Psicopedagogia</option>
                         </Select>
                     </div>
                 </div>
@@ -712,53 +782,26 @@ const ScheduleAppointmentModal = ({
                     }}
                 />
 
-                {/* Especialidade e Status */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label htmlFor="sessionType" className="block mb-2 font-medium text-gray-700">
-                            Especialidade
-                        </Label>
-                        <Select
-                            name="sessionType"
-                            value={formData.sessionType}
-                            onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        >
-                            <option value="fonoaudiologia">Fonoaudiologia</option>
-                            <option value="psicologia">Psicologia</option>
-                            <option value="terapia_ocupacional">Terapia Ocupacional</option>
-                            <option value="fisioterapia">Fisioterapia</option>
-                            <option value="pediatria">Pediatria</option>
-                            <option value="neuroped">Neuropediatria</option>
-                            <option value="psicomotricidade">Psicomotricidade</option>
-                            <option value="musicoterapia">Musicoterapia</option>
-                            <option value="psicopedagogia">Psicopedagogia</option>
-                        </Select>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label htmlFor="status" className="block mb-2 font-medium text-gray-700">
-                            Status
-                        </Label>
-                        <Select
-                            name="status"
-                            value={formData.status}
-                            onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        >
-                            <option value="agendado">Agendado</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="concluído">Concluído</option>
-                            <option value="cancelado">Cancelado</option>
-                            <option value="faltou">Paciente Faltou</option>
-                        </Select>
-                    </div>
-                </div>
-
                 {/* Data e Hora */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label className="block mb-2 font-medium text-gray-700">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Atalhos de data">
+                    {[{ label: 'Hoje', days: 0 }, { label: 'Amanhã', days: 1 }, { label: 'Em 7 dias', days: 7 }].map((q) => {
+                        const on = formData.date === localISODate(q.days);
+                        return (
+                            <button
+                                key={q.label}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => handleFieldChange('date', localISODate(q.days))}
+                                className={`min-h-11 rounded-xl border px-3.5 text-sm transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${on ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'}`}
+                            >
+                                {q.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
                             Data
                         </Label>
                         <DatePicker
@@ -775,7 +818,7 @@ const ScheduleAppointmentModal = ({
                             customInput={
                                 <ReactInputMask
                                     mask="99/99/9999"
-                                    className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    className={inputClass('emerald')}
                                 />
                             }
                             locale={ptBR}
@@ -785,8 +828,8 @@ const ScheduleAppointmentModal = ({
                         />
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label className="block mb-2 font-medium text-gray-700">
+                    <div>
+                        <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
                             Hora
                         </Label>
                         {/* <Input
@@ -794,7 +837,7 @@ const ScheduleAppointmentModal = ({
                             name="time"
                             value={formData.time}
                             onChange={handleChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className={inputClass('emerald')}
                         /> */}
                         <DatePicker
                             selected={formData.time ? new Date(`1970-01-01T${formData.time}`) : null}
@@ -810,58 +853,26 @@ const ScheduleAppointmentModal = ({
                             customInput={
                                 <ReactInputMask
                                     mask="99:99"
-                                    className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    className={inputClass('emerald')}
                                 />
                             }
                         />
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Tipo de Agendamento */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <Label htmlFor="serviceType" className="block mb-2 font-medium text-gray-700">
-                            Tipo de Agendamento
-                        </Label>
-                        <Select
-                            name="serviceType"
-                            value={formData.serviceType}
-                            onChange={handleTypeChange}
-                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        >
-
-
-                            <option value="alignment">Alinhamento</option>
-                            <option value="evaluation">Avaliação</option>
-                            <option value="neuropsych_evaluation">Avaliação Neuropsicológica</option>
-                            <option value="return">Retorno</option>
-                            <option value="meet">Reunião</option>
-                            <option value="individual_session">Sessão Avulsa</option>
-                            <option value="package_session">Sessão de Pacote</option>
-                            <option value="tongue_tie_test">Teste da Linguinha</option>
-                        </Select>
-                    </div>
-                </div>
-
                 {/* Pacote (se aplicável) */}
                 {serviceType === 'package_session' && (
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="bg-blue-100 p-2 rounded-full">
-                                <Calendar size={18} className="text-blue-600" />
-                            </span>
-                            Sessão de Pacote
-                        </h3>
+                    <div>
 
                         <div className="grid grid-cols-1">
-                            <Label htmlFor="packageId" className="block mb-2 font-medium text-gray-700">
+                            <Label htmlFor="packageId" className="mb-1.5 block text-xs font-semibold text-gray-600">
                                 Pacote
                             </Label>
                             <Select
                                 name="packageId"
                                 value={formData.packageId}
                                 onChange={handleChange}
-                                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                className={inputClass('emerald')}
                             >
                                 <option value="">Selecione um pacote</option>
                                 {packages.map(pkg => (
@@ -872,7 +883,7 @@ const ScheduleAppointmentModal = ({
                             </Select>
 
                             {formData.packageId && (
-                                <div className="mt-3 text-sm text-gray-600">
+                                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">
                                     <span className="font-medium">Sessões restantes: </span>
                                     {
                                         (() => {
@@ -894,32 +905,26 @@ const ScheduleAppointmentModal = ({
 
                 {/* Pagamento (para sessão avulsa) */}
                 {(serviceType !== 'package_session') && (
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <span className="bg-green-100 p-2 rounded-full">
-                                <DollarSign size={18} className="text-green-600" />
-                            </span>
-                            Pagamento
-                        </h3>
+                    <div className="space-y-4">
 
                         {/* 🏥 Toggle Particular/Convênio */}
                         <div className="mb-4">
-                            <Label className="block mb-2 font-medium text-gray-700">
-                                Tipo de Pagamento
+                            <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                Pagamento
                             </Label>
-                            <div className="flex gap-2">
+                            <div className="grid grid-flow-col auto-cols-fr gap-1 rounded-xl bg-gray-100 p-1">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setBillingType('particular');
                                         setFormData(prev => ({ ...prev, billingType: 'particular', paymentMethod: 'dinheiro' }));
                                     }}
-                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${billingType === 'particular'
-                                        ? 'bg-green-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    className={`min-h-10 rounded-[9px] px-4 text-sm font-semibold transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${billingType === 'particular'
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                 >
-                                    💵 Particular
+                                    Particular
                                 </button>
                                 <button
                                     type="button"
@@ -927,46 +932,42 @@ const ScheduleAppointmentModal = ({
                                         setBillingType('convenio');
                                         setFormData(prev => ({ ...prev, billingType: 'convenio', paymentMethod: 'convenio' }));
                                     }}
-                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${billingType === 'convenio'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    className={`min-h-10 rounded-[9px] px-4 text-sm font-semibold transition-colors duration-quick focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${billingType === 'convenio'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                 >
-                                    🏥 Convênio
+                                    Convênio
                                 </button>
                             </div>
                         </div>
 
                         {/* 💵 Campos Particular */}
                         {billingType === 'particular' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
                                 <div>
-                                    <Label className="block mb-2 font-medium text-gray-700">
+                                    <Label className="mb-1 block text-xs font-semibold text-gray-600">
                                         Valor
                                     </Label>
-                                    <InputCurrency
-                                        name="paymentAmount"
-                                        value={formData.paymentAmount}
-                                        onChange={handleChange}
-                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    <MoneyInput
+                                        large
+                                        accent="emerald"
+                                        value={formData.paymentAmount ? Number(formData.paymentAmount).toFixed(2) : ''}
+                                        onChange={(v) => setFormData(prev => ({ ...prev, paymentAmount: v === '' ? 0 : Number(v) }))}
                                     />
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="paymentMethod" className="block mb-2 font-medium text-gray-700">
+                                    <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
                                         Método de Pagamento
                                     </Label>
-                                    <Select
-                                        name="paymentMethod"
-                                        value={formData.paymentMethod}
-                                        onChange={handleChange}
-                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                    >
-                                        <option value="dinheiro">Dinheiro</option>
-                                        <option value="pix">PIX</option>
-                                        <option value="cartão">Cartão</option>
-                                        <option value="transferência">Transferência</option>
-                                    </Select>
+                                    <ChoiceChips
+                                        fill
+                                        label="Método de pagamento"
+                                        value={formData.paymentMethod ?? ''}
+                                        options={PAYMENT_METHOD_OPTIONS}
+                                        onChange={(v) => setFormData(prev => ({ ...prev, paymentMethod: v as ScheduleAppointment['paymentMethod'] }))}
+                                    />
                                 </div>
                             </div>
                         )}
@@ -976,7 +977,7 @@ const ScheduleAppointmentModal = ({
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <Label className="block mb-2 font-medium text-gray-700">
+                                        <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
                                             <Building2 size={16} className="inline mr-1" />
                                             Convênio *
                                         </Label>
@@ -994,7 +995,7 @@ const ScheduleAppointmentModal = ({
                                                 }));
                                             }}
                                             disabled={loadingConvenios}
-                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                                            className={inputClass('emerald')}
                                         >
                                             <option value="">{loadingConvenios ? 'Carregando...' : 'Selecione o convênio'}</option>
                                             {convenios.map(p => (
@@ -1006,7 +1007,7 @@ const ScheduleAppointmentModal = ({
                                     </div>
 
                                     <div>
-                                        <Label className="block mb-2 font-medium text-gray-700">
+                                        <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
                                             Valor Tabela
                                         </Label>
                                         <InputCurrency
@@ -1015,13 +1016,13 @@ const ScheduleAppointmentModal = ({
                                                 setInsuranceValue(Number(e.target.value));
                                                 setFormData(prev => ({ ...prev, insuranceValue: Number(e.target.value) }));
                                             }}
-                                            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                                            className={inputClass('emerald')}
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <Label className="block mb-2 font-medium text-gray-700">
+                                    <Label className="mb-1.5 block text-xs font-semibold text-gray-600">
                                         Código da Guia/Autorização (opcional)
                                     </Label>
                                     <input
@@ -1032,11 +1033,11 @@ const ScheduleAppointmentModal = ({
                                             setFormData(prev => ({ ...prev, authorizationCode: e.target.value }));
                                         }}
                                         placeholder="Ex: 123456789"
-                                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                                        className={inputClass('emerald')}
                                     />
                                 </div>
 
-                                <div className="bg-blue-100 p-3 rounded-lg text-sm text-blue-800">
+                                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
                                     💡 Atendimento será registrado com valor R$ 0,00 no caixa do dia.
                                     O valor só entrará após confirmação de recebimento do convênio.
                                 </div>
@@ -1045,9 +1046,33 @@ const ScheduleAppointmentModal = ({
                     </div>
                 )}
 
-                {/* Observações */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                    <Label htmlFor="notes" className="block mb-2 font-medium text-gray-700">
+                {/* Observações e situação (recolhido) */}
+                <details className="group rounded-xl border border-dashed border-gray-300 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-gray-700">
+                        Observações e situação
+                        <span className="text-xs font-normal text-gray-500">Opcional</span>
+                    </summary>
+                    <div className="mt-4 space-y-4">
+                        <div>
+                        <Label htmlFor="status" className="mb-1.5 block text-xs font-semibold text-gray-600">
+                            Status
+                        </Label>
+                        <Select
+                            name="status"
+                            value={formData.status}
+                            onChange={handleChange}
+                            className={inputClass('emerald')}
+                        >
+                            <option value="agendado">Agendado</option>
+                            <option value="confirmado">Confirmado</option>
+                            <option value="concluído">Concluído</option>
+                            <option value="cancelado">Cancelado</option>
+                            <option value="faltou">Paciente Faltou</option>
+                        </Select>
+                    </div>
+
+                <div>
+                    <Label htmlFor="notes" className="mb-1.5 block text-xs font-semibold text-gray-600">
                         Observações
                     </Label>
                     <Textarea
@@ -1056,52 +1081,24 @@ const ScheduleAppointmentModal = ({
                         onChange={handleChange}
                         rows={3}
                         placeholder="Detalhes da sessão, observações importantes, etc."
-                        className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={inputClass('emerald')}
                     />
                 </div>
+                    </div>
+                </details>
             </div>
 
-            {/* Botões de ação */}
-            <div className="mt-8 flex justify-end gap-4">
-                <Button
-                    variant="outline"
-                    onClick={onClose}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                    Cancelar
-                </Button>
-                <Button
-                    disabled={!canSchedule || isLoading || isCreatingPatient}
-                    onClick={handleSubmit}
-                    className={`px-6 py-3 text-white transition-colors flex items-center justify-center gap-2 ${!canSchedule || isLoading || isCreatingPatient
-                        ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
-                        : 'bg-emerald-600 hover:bg-emerald-700'
-                        }`}
-                >
-                    {isCreatingPatient ? (
-                        <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Criando paciente...
-                        </>
-                    ) : isLoading ? (
-                        <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processando...
-                        </>
-                    ) : (
-                        'Salvar Agendamento'
-                    )}
-
-                </Button>
-
             </div>
-
+            <ModalFooter
+                accent="emerald"
+                onCancel={() => onClose?.()}
+                onSubmit={handleSubmit}
+                submitting={isLoading || isCreatingPatient}
+                submitDisabled={!canSchedule}
+                summary={scheduleSummary}
+                submitLabel="Salvar agendamento"
+                submittingLabel={isCreatingPatient ? 'Criando paciente...' : 'Processando...'}
+            />
         </Modal>
     );
 };

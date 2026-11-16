@@ -33,7 +33,7 @@ const SpecialtyCard: React.FC<SpecialtyCardProps> = ({ specialty, stats }) => {
   
   return (
     <div
-      className="bg-white p-6 rounded-lg shadow-md border-l-4 transition-all duration-200 hover:shadow-lg"
+      className="bg-white p-6 rounded-lg shadow-md border-l-4 transition-all duration-quick hover:shadow-lg"
       style={{ borderLeftColor: specialty.color }}
     >
       <div className="flex items-center mb-4">

@@ -5,6 +5,7 @@
  * Hierarquia visual forte, leitura de cima para baixo, ação direta.
  */
 
+import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import API from '../../services/api';
 import { toast } from '../../utils/toast';
@@ -23,7 +24,6 @@ import {
     ExternalLink, AlertTriangle, CheckCircle2, XCircle, RefreshCw,
     Search, Zap, RotateCcw, Check, FileWarning, Trash2, Ban, Pencil,
 } from 'lucide-react';
-import { Tabs, Tab } from '@mui/material';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { WhatsAppDiagnostic } from '../../pages/Settings/WhatsAppDiagnostic';
 import { useVisiblePolling } from '../../utils/useVisiblePolling';
@@ -1207,13 +1207,14 @@ export default function SystemUnifiedDashboard() {
             </Grid>
 
             {/* ── TABS INTERNAS ──────────────────────────────────────────────── */}
-            <Tabs value={innerTab} onChange={(_, v) => setInnerTab(v)} sx={{ mb: 2, borderBottom: '1px solid var(--fx-gray-200)' }}>
-                <Tab label="Visão Geral" icon={<Activity size={15} />} iconPosition="start" />
-                <Tab label="Métricas Detalhadas" icon={<Zap size={15} />} iconPosition="start" />
-                <Tab label="Filas BullMQ" icon={<Layers size={15} />} iconPosition="start" />
-                <Tab label="Operações" icon={<Trash2 size={15} />} iconPosition="start" />
-                <Tab label="Diagnóstico WhatsApp" icon={<RefreshCw size={15} />} iconPosition="start" />
-            </Tabs>
+            <div className="mb-4"><SegmentedTabs label="Seções do sistema" value={String(innerTab)} onValueChange={(v) => setInnerTab(Number(v))}
+                options={[
+                    { id: '0', label: 'Visão Geral', icon: <Activity size={15} /> },
+                    { id: '1', label: 'Métricas Detalhadas', icon: <Zap size={15} /> },
+                    { id: '2', label: 'Filas BullMQ', icon: <Layers size={15} /> },
+                    { id: '3', label: 'Operações', icon: <Trash2 size={15} /> },
+                    { id: '4', label: 'Diagnóstico WhatsApp', icon: <RefreshCw size={15} /> },
+                ]} /></div>
 
             {innerTab === 0 && (
                 <>

@@ -1,4 +1,8 @@
 /** @type {import('tailwindcss').Config} */
+const motionTokens = require('./src/design/motion-tokens.json');
+const plugin = require('tailwindcss/plugin');
+const durations = Object.fromEntries(Object.entries(motionTokens.duration).map(([name, ms]) => [name, `${ms}ms`]));
+const smoothOut = `cubic-bezier(${motionTokens.ease.smoothOut.join(', ')})`;
 module.exports = {
   darkMode: "class",
   content: [
@@ -7,6 +11,8 @@ module.exports = {
   ],
   theme: {
     extend: {
+      transitionDuration: durations,
+      transitionTimingFunction: { 'smooth-out': smoothOut },
       fontFamily: {
         sans: ["Figtree", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
       },
@@ -20,6 +26,13 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [plugin(({ addBase }) => {
+    addBase({ ':root': {
+      ...Object.fromEntries(Object.entries(durations).map(([name, value]) => [`--motion-duration-${name}`, value])),
+      '--motion-ease-smooth-out': smoothOut,
+      '--motion-scale-modal': String(motionTokens.scale.modal),
+      '--motion-distance-text': `${motionTokens.distance.text}px`,
+    } });
+  })],
 }
 

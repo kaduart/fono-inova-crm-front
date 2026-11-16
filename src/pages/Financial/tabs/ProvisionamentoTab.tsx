@@ -1,3 +1,4 @@
+import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import {
   Add,
@@ -19,9 +20,7 @@ import {
   MenuItem,
   Paper,
   Select,
-  Tab,
   Table, TableBody, TableCell, TableHead, TableRow,
-  Tabs,
   Typography,
   Grid
 } from '@mui/material';
@@ -286,28 +285,14 @@ const ProvisionamentoTab = () => {
 
       {/* Tabs Internas */}
       <Paper sx={{ borderRadius: 2 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab icon={<TrendingUp />} label="Visão Geral" />
-          <Tab
-            icon={loadingAnalitico ? <CircularProgress size={16} /> : <Assessment />}
-            label="Analítico"
-          />
-          <Tab
-            icon={loadingPacotes ? <CircularProgress size={16} /> : <Calendar />}
-            label={`Pacotes (${pacotesAndamento.length + pacotesConcluidos.length})`}
-          />
-          <Tab
-            icon={loadingFechamento ? <CircularProgress size={16} /> : <PieChart />}
-            label="Fechamento (DRE)"
-          />
-          <Tab icon={<Assessment />} label="Pacientes" />
-        </Tabs>
+        <div className="px-4 pt-3"><SegmentedTabs label="Provisionamento" value={String(activeTab)} onValueChange={(v) => handleTabChange(null, Number(v))}
+          options={[
+            { id: '0', label: 'Visão Geral', icon: <TrendingUp fontSize="small" /> },
+            { id: '1', label: 'Analítico', icon: loadingAnalitico ? <CircularProgress size={16} /> : <Assessment fontSize="small" /> },
+            { id: '2', label: `Pacotes (${pacotesAndamento.length + pacotesConcluidos.length})`, icon: loadingPacotes ? <CircularProgress size={16} /> : <Calendar fontSize="small" /> },
+            { id: '3', label: 'Fechamento (DRE)', icon: loadingFechamento ? <CircularProgress size={16} /> : <PieChart fontSize="small" /> },
+            { id: '4', label: 'Pacientes', icon: <Assessment fontSize="small" /> },
+          ]} /></div>
 
         <Box sx={{ p: 3 }}>
           {/* ABA 0: Visão Geral + Agenda Temporária */}

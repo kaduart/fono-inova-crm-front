@@ -1,6 +1,7 @@
-import { CalendarClock, Check, Clock, Loader2, Stethoscope, UserRound, X } from 'lucide-react';
+import { CalendarClock, Check, Clock, Loader2, Stethoscope, UserRound } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Modal } from '../ui/Modal';
+import { ModalHeader, ModalFooter, inputClass } from '../../pages/Financial/components/formKit';
 
 export interface RescheduleTarget {
     id: string;
@@ -169,42 +170,26 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
         }
     };
 
-    return createPortal(
-        <div
-            className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-                if (e.target === e.currentTarget && !submitting) onClose();
-            }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mudar data do agendamento"
+    return (
+        <Modal
+            open
+            onClose={() => !submitting && onClose()}
+            labelledBy="reschedule-title"
+            zIndexClass="z-[100000]"
+            panelClassName="flex max-h-[92dvh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[20px] bg-white text-left shadow-2xl sm:rounded-[20px]"
         >
-            <div className="flex max-h-[calc(100dvh-32px)] w-full max-w-[560px] flex-col overflow-hidden rounded-xl bg-white text-left shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-5 sm:px-6">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
-                            <CalendarClock size={20} />
-                        </div>
-                        <div className="min-w-0">
-                            <h3 className="text-lg font-semibold leading-tight tracking-tight text-gray-900">
-                                {target.reactivating ? 'Reativar e remarcar' : 'Mudar data'}
-                            </h3>
-
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={submitting}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0 disabled:opacity-50"
-                        aria-label="Fechar"
-                    >
-                        <X size={18} className="text-gray-500" />
-                    </button>
-                </div>
+            <>
+                <ModalHeader
+                    icon={<CalendarClock className="w-6 h-6" />}
+                    color="#059669"
+                    title={target.reactivating ? 'Reativar e remarcar' : 'Mudar data'}
+                    subtitle={target.patientName}
+                    onClose={() => !submitting && onClose()}
+                    titleId="reschedule-title"
+                />
 
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-5 pt-1 sm:px-6">
-                    <div className="space-y-2 rounded-lg bg-gray-50 px-3 py-3">
+                    <div className="space-y-2 rounded-2xl border border-gray-200 px-4 py-3">
                         <p className="flex items-start gap-2 text-sm font-semibold text-gray-900"><UserRound size={16} className="mt-0.5 shrink-0 text-emerald-700" /><span className="break-words">{target.patientName}</span></p>
                         <p className="flex items-start gap-2 text-xs text-gray-600"><Stethoscope size={16} className="shrink-0" /><span className="break-words">{target.doctorName}{target.specialtyLabel ? ' · ' + target.specialtyLabel : ''}</span></p>
                         <p className="flex items-center gap-2 text-xs text-gray-600"><Clock size={16} className="shrink-0" /><span>Atual: <strong className="font-medium text-gray-800">{formatBR(target.currentDate)} às {target.currentTime}</strong></span></p>
@@ -218,7 +203,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                     )}
 
                     <div className="w-48 max-w-full">
-                        <label htmlFor="reschedule-date" className="block text-sm font-medium text-gray-800 mb-2">
+                        <label htmlFor="reschedule-date" className="mb-1.5 block text-xs font-semibold text-gray-600">
                             Nova data
                         </label>
                         <input
@@ -232,7 +217,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                                 setHint('');
                                 setError('');
                             }}
-                            className="min-h-11 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            className={inputClass('emerald')}
                         />
                         {holiday && (
                             <p className="mt-1 text-xs text-red-600">
@@ -242,7 +227,7 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                     </div>
 
                     <div>
-                        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><p className="text-sm font-medium text-gray-800">Horário</p><span className="flex flex-wrap items-center gap-3 text-xs text-gray-600"><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-emerald-400 bg-emerald-50" />Disponível</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-700" />Selecionado</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-amber-300 bg-amber-50" />Atual</span></span></div>
+                        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><p className="text-xs font-semibold text-gray-600">Horário</p><span className="flex flex-wrap items-center gap-3 text-xs text-gray-600"><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-emerald-400 bg-emerald-50" />Disponível</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-700" />Selecionado</span><span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-amber-300 bg-amber-50" />Atual</span></span></div>
                         {loadingSlots ? (
                             <div className="flex items-center gap-2 text-xs text-gray-500 py-3">
                                 <Loader2 size={14} className="animate-spin" /> Buscando horários livres…
@@ -305,32 +290,17 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
                     )}
                 </div>
 
-                <div className="grid shrink-0 grid-cols-[auto_1fr] items-center gap-2 border-t border-gray-200 bg-gray-50/70 px-5 py-4 sm:flex sm:justify-end sm:px-6">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={submitting}
-                        className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleConfirm}
-                        disabled={!canConfirm}
-                        className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold leading-tight text-white transition-colors hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
-                    >
-                        {submitting && <Loader2 size={14} className="animate-spin" />}
-                        {submitting
-                            ? 'Remarcando…'
-                            : date && time && !isSameAsCurrent
-                                ? `${target.reactivating ? 'Reativar para' : 'Remarcar para'} ${formatBR(date)} às ${time}`
-                                : target.reactivating ? 'Reativar e remarcar' : 'Remarcar'}
-                    </button>
-                </div>
-            </div>
-        </div>,
-        document.body
+                <ModalFooter
+                    accent="emerald"
+                    onCancel={onClose}
+                    onSubmit={handleConfirm}
+                    submitting={submitting}
+                    submitDisabled={!canConfirm}
+                    submitLabel={date && time && !isSameAsCurrent ? `${target.reactivating ? 'Reativar para' : 'Remarcar para'} ${formatBR(date)} às ${time}` : target.reactivating ? 'Reativar e remarcar' : 'Remarcar'}
+                    submittingLabel="Remarcando..."
+                />
+            </>
+        </Modal>
     );
 };
 

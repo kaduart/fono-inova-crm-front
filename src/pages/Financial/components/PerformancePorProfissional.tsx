@@ -1,3 +1,4 @@
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React from 'react';
 import { Box, Avatar } from '@mui/material';
 import { TrendingUp, Users, Activity } from 'lucide-react';
@@ -91,7 +92,7 @@ export const PerformancePorProfissional: React.FC<PerformancePorProfissionalProp
   const sortedProfessionals = [...professionals].sort((a, b) => b.resumo.receita - a.resumo.receita);
 
   return (
-    <Box>
+    <FadeIn><Box>
       <DashboardSection title={title} subtitle={subtitle} icon={TrendingUp} />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -200,6 +201,6 @@ export const PerformancePorProfissional: React.FC<PerformancePorProfissionalProp
           );
         })}
       </div>
-    </Box>
+    </Box></FadeIn>
   );
 };

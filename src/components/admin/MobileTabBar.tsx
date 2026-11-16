@@ -128,7 +128,7 @@ const MobileTabBar: React.FC<Props> = ({ activeTab, moreOpen, onTab, onToggleMor
                     onClick={() => setSheetOpen(v => !v)}
                     aria-label={sheetOpen ? 'Fechar ações rápidas' : 'Ações rápidas'}
                     aria-expanded={sheetOpen}
-                    className={`fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-4 z-[46] flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-900/30 transition-all duration-200 active:scale-95 ${fabHidden && !sheetOpen ? 'pointer-events-none translate-y-24 opacity-0' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-gray-950`}
+                    className={`fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-4 z-[46] flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-900/30 transition-all duration-quick active:scale-95 ${fabHidden && !sheetOpen ? 'pointer-events-none translate-y-24 opacity-0' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-gray-950`}
                 >
                     {sheetOpen ? <X size={24} aria-hidden /> : <Plus size={26} aria-hidden />}
                 </button>

@@ -66,6 +66,13 @@ export function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
 
 export interface KpiItem { label: string; value: ReactNode; sub?: ReactNode; hero?: boolean; danger?: boolean; onClick?: () => void; /** série curta para o mini-gráfico (opcional) */ trend?: number[] }
 const KPI_COLS: Record<3 | 4 | 5, string> = { 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-3 xl:grid-cols-5' };
+/** Luz suave que acompanha o mouse (estilo Spotlight Card do ReactBits, em CSS puro, sem re-render). */
+const spotlightMove = (e: React.MouseEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+};
+
 export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loading?: boolean; cols?: 3 | 4 | 5 }) {
     // Novo design: rótulo em caixa normal, número maior, "hero" com fio esmeralda no topo e "danger" com fio vermelho.
     return (
@@ -77,8 +84,11 @@ export function KpiStrip({ items, loading, cols = 4 }: { items: KpiItem[]; loadi
                 const rule = k.danger ? 'before:bg-red-500' : k.hero ? 'before:bg-emerald-500' : 'before:bg-transparent';
                 return (
                     <Tag key={k.label} type={k.onClick ? 'button' : undefined} onClick={k.onClick}
-                        className={`relative min-w-0 ${isLastOdd ? 'col-span-2 xl:col-span-1' : ''} bg-white px-4 pb-3.5 pt-3 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${rule} dark:bg-[#161d1b] ${k.onClick ? 'transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-white/5' : ''}`}>
-                        <div className="truncate text-[13px] font-medium text-gray-500 dark:text-gray-400">{k.label}</div>
+                        onMouseMove={spotlightMove}
+                        className={`group relative min-w-0 ${isLastOdd ? 'col-span-2 xl:col-span-1' : ''} bg-white px-4 pb-3.5 pt-3 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${rule} dark:bg-[#161d1b] ${k.onClick ? 'transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:hover:bg-white/5' : ''}`}>
+                        <span aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-medium ease-smooth-out motion-reduce:hidden group-hover:opacity-100"
+                            style={{ background: 'radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%), rgba(16,185,129,0.10), transparent 70%)' }} />
+                        <div className="relative truncate text-[13px] font-medium text-gray-500 dark:text-gray-400">{k.label}</div>
                         <div className={`mt-1 text-[1.65rem] font-bold leading-none tracking-tight tabular-nums ${loading ? 'animate-pulse text-gray-300 dark:text-gray-600' : k.danger ? 'text-red-700 dark:text-red-400' : k.hero ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-50'}`}>{loading ? k.value : <AnimatedValue value={k.value} />}</div>
                         {k.trend && !loading && <Sparkline values={k.trend} tone={k.danger ? 'red' : 'emerald'} />}
                         {k.sub && <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{k.sub}</div>}

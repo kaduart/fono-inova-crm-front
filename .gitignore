@@ -37,3 +37,4 @@ api-endpoints-report.txt
 vitest-report.json
 eslint-report.json
 !.github/ci/*.json
+!src/design/motion-tokens.json

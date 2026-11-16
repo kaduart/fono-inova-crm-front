@@ -84,7 +84,7 @@ interface MetricStatsProps {
 }
 function MetricStats({ production, billed, received, pending, onStatClick }: MetricStatsProps) {
     const stats = [
-        { label: 'Produção' as const, value: production, color: '#6366F1', bg: 'var(--fx-violet-50)' },
+        { label: 'Produção' as const, value: production, color: '#475569', bg: 'var(--fx-slate-50)' },
         { label: 'Faturado' as const, value: billed,     color: '#3B82F6', bg: 'var(--fx-blue-50)' },
         { label: 'Recebido' as const, value: received,   color: '#10B981', bg: 'var(--fx-green-50)' },
         { label: 'Pendente' as const, value: pending,    color: '#F59E0B', bg: 'var(--fx-amber-50)' },
@@ -1049,7 +1049,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                     {level > 1 && (
-                        <button onClick={goBack} className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                        <button onClick={goBack} className="flex items-center gap-1 text-emerald-700 hover:text-emerald-800 text-sm font-medium">
                             <ArrowLeft size={16} />
                         </button>
                     )}
@@ -1057,14 +1057,14 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                         {/* Breadcrumb */}
                         <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                             <button onClick={() => { setSelectedProvider(null); setDrawerPatient(null); setSearchText(''); }}
-                                className={`hover:text-indigo-600 ${level === 1 ? 'font-bold text-gray-800 dark:text-gray-200' : ''}`}>
+                                className={`hover:text-emerald-700 ${level === 1 ? 'font-bold text-gray-800 dark:text-gray-200' : ''}`}>
                                 Histórico
                             </button>
                             {selectedProvider && (
                                 <>
                                     <ChevronRight size={14} />
                                     <button onClick={() => setDrawerPatient(null)}
-                                        className={`hover:text-indigo-600 ${level === 2 && !drawerPatient ? 'font-bold text-gray-800 dark:text-gray-200' : ''}`}>
+                                        className={`hover:text-emerald-700 ${level === 2 && !drawerPatient ? 'font-bold text-gray-800 dark:text-gray-200' : ''}`}>
                                         {selectedProvider}
                                     </button>
                                 </>
@@ -1116,29 +1116,20 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                             <Box sx={{ mb: 3 }}>
                                 <button
                                     onClick={() => setMetricsOpen(o => !o)}
-                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-2 transition-all shadow-sm border border-indigo-200 hover:brightness-95"
-                                    style={{ background: 'linear-gradient(90deg, var(--fx-violet-50) 0%, var(--fx-blue-50) 100%)' }}
+                                    className="mb-2 flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors duration-150 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
                                 >
                                     <div className="flex items-center gap-3 flex-wrap">
-                                        <span className="text-sm font-black text-indigo-700 uppercase tracking-widest">Resumo</span>
+                                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Resumo</span>
                                         {!metricsOpen && (
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-violet-100 text-violet-700">
-                                                    💜 {fmtBRL(production)} produção
-                                                </span>
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-blue-100 text-blue-700">
-                                                    🔵 {fmtBRL(billed)} faturado
-                                                </span>
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-emerald-100 text-emerald-700">
-                                                    🟢 {fmtBRL(received)} recebido
-                                                </span>
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-amber-100 text-amber-700">
-                                                    🟡 {fmtBRL(pending)} pendente
-                                                </span>
+                                            <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-gray-600 dark:text-gray-300">
+                                                <span><b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtBRL(production)}</b> produção</span>
+                                                <span><b className="tabular-nums text-blue-700 dark:text-blue-300">{fmtBRL(billed)}</b> faturado</span>
+                                                <span><b className="tabular-nums text-emerald-700 dark:text-emerald-300">{fmtBRL(received)}</b> recebido</span>
+                                                <span><b className="tabular-nums text-amber-700 dark:text-amber-300">{fmtBRL(pending)}</b> pendente</span>
                                             </div>
                                         )}
                                     </div>
-                                    <ChevronDown size={18} className={`text-indigo-600 transition-transform duration-200 ${metricsOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDown size={18} className={`text-gray-500 transition-transform duration-quick ${metricsOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 <Collapse in={metricsOpen}>
                                     <MetricStats production={production} billed={billed} received={received} pending={pending} onStatClick={openDetailsModal} />
@@ -1183,9 +1174,9 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                             onClick={() => setShowAdvanced(v => !v)}
                             className={`inline-flex items-center gap-1.5 pl-3 pr-2.5 py-[7px] rounded-full text-xs font-semibold border transition-colors ${
                                 hasAdvancedFilters
-                                    ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700'
+                                    ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
                                     : showAdvanced
-                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                     : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 hover:bg-gray-50'
                             }`}
                         >
@@ -1196,7 +1187,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                     {[filterMonth !== 'all', filterStatus !== 'all', filterSpecialty !== 'all'].filter(Boolean).length}
                                 </span>
                             )}
-                            <ChevronDown size={12} className="transition-transform duration-200" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
+                            <ChevronDown size={12} className="transition-transform duration-quick" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
                         </button>
 
                         {(searchText || hasAdvancedFilters || selectedProvider || drawerPatient) && (
@@ -1222,7 +1213,7 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
 
                     <Collapse in={showAdvanced}>
                         <div className="relative flex flex-wrap gap-4 mb-4 p-4 pt-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-indigo-500" />
+                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-500" />
                             {[
                                 { label: 'Mês', value: filterMonth, set: setFilterMonth, options: [['all', 'Todos os meses'], ...months] as [string, string][], capitalize: true },
                                 { label: 'Status', value: filterStatus, set: setFilterStatus, options: [['all', 'Todos'], ...Object.entries(STATUS_STYLE).map(([k, v]) => [k, v.label] as [string, string])] as [string, string][], capitalize: false },
@@ -1238,9 +1229,9 @@ export default function InsuranceHistorySection({ activeYear, activeMonth, patie
                                         sx={{
                                             borderRadius: 2.5,
                                             fontSize: '0.85rem',
-                                            bgcolor: f.value !== 'all' ? 'var(--fx-indigo-50)' : 'var(--fx-slate-50)',
-                                            '& .MuiOutlinedInput-notchedOutline': { borderColor: f.value !== 'all' ? 'var(--fx-indigo-200)' : 'var(--fx-slate-200)' },
-                                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--fx-indigo-300)' },
+                                            bgcolor: f.value !== 'all' ? '#ecfdf5' : 'var(--fx-slate-50)',
+                                            '& .MuiOutlinedInput-notchedOutline': { borderColor: f.value !== 'all' ? '#a7f3d0' : 'var(--fx-slate-200)' },
+                                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#6ee7b7' },
                                             '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366F1', borderWidth: 1.5 },
                                         }}
                                     >

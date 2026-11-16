@@ -194,7 +194,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
                                     {doctorInfo?.fullName?.charAt(0) || "T"}
                                 </span>
                             </div>
-                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`h-4 w-4 transition-transform duration-quick ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {isProfileDropdownOpen && (

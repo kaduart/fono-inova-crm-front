@@ -1,3 +1,5 @@
+import { Modal } from '../ui/Modal';
+import { Field, ModalHeader, ModalFooter, inputClass } from '../../pages/Financial/components/formKit';
 import { Calendar, Filter, X, ArrowRightLeft } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from '../../utils/toast';
@@ -5,6 +7,7 @@ import { IAppointment } from '../../utils/types/types';
 import { getGuides, moveAppointmentToGuide } from '../../services/insuranceGuideApi';
 import type { InsuranceGuide } from '../../services/insuranceGuideApi';
 import { Pagination } from '../common/Pagination';
+import { getSpecialtyLabel } from '../../constants/specialties';
 
 interface Props {
   appointments: IAppointment[];
@@ -76,21 +79,21 @@ function OriginBadge({ appt, ordinalInPackage }: { appt: IAppointment; ordinalIn
     const total = appt.package.totalSessions;
     const label = ordinalInPackage && total ? `Pacote ${ordinalInPackage}/${total}` : 'Pacote';
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
         {label}
       </span>
     );
   }
   if (appt.liminarContract) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
         Liminar
       </span>
     );
   }
   if (appt.billingType === 'convenio') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
         {appt.insuranceProvider ? `Convênio (${appt.insuranceProvider})` : 'Convênio'}
       </span>
     );
@@ -150,59 +153,57 @@ function MoveGuideModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-5">
-        <h4 className="text-base font-semibold text-gray-900 mb-1">Mover atendimento entre guias</h4>
-        <p className="text-xs text-gray-500 mb-4">
-          {formatDateStatic(appt.date)} · {appt.specialty || appt.sessionType || '—'}
-          {appt.insuranceProvider ? ` · ${appt.insuranceProvider}` : ''}
-        </p>
-
-        <label className="block text-xs font-medium text-gray-600 mb-1">Guia de destino</label>
-        {loadingGuides ? (
-          <p className="text-sm text-gray-400 mb-3">Carregando guias...</p>
-        ) : (
-          <select
-            value={targetGuideId}
-            onChange={(e) => setTargetGuideId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 outline-none focus:border-indigo-400"
-          >
-            <option value="">Selecione...</option>
-            {(guides || []).map((g) => (
-              <option key={g._id} value={g._id}>
-                {g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
-              </option>
-            ))}
-          </select>
-        )}
-
-        <label className="block text-xs font-medium text-gray-600 mb-1">Motivo (opcional)</label>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Ex: correção administrativa"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-indigo-400"
-        />
-
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={submitting || !targetGuideId}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {submitting ? 'Movendo...' : 'Confirmar'}
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={() => !submitting && onClose()}
+      labelledBy="move-guide-title"
+      zIndexClass="z-[1300]"
+      panelClassName="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[20px] bg-white shadow-2xl sm:rounded-[20px]"
+    >
+      <ModalHeader
+        icon={<ArrowRightLeft className="w-6 h-6" />}
+        color="#059669"
+        title="Mover atendimento entre guias"
+        subtitle={`${formatDateStatic(appt.date)} · ${appt.specialty || appt.sessionType || '—'}${appt.insuranceProvider ? ` · ${appt.insuranceProvider}` : ''}`}
+        onClose={onClose}
+        titleId="move-guide-title"
+        closeDisabled={submitting}
+      />
+      <div className="space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+        <Field label="Guia de destino" required>
+          {loadingGuides ? (
+            <p className="py-2 text-sm text-gray-400">Carregando guias...</p>
+          ) : (
+            <select value={targetGuideId} onChange={(e) => setTargetGuideId(e.target.value)} className={inputClass('emerald')}>
+              <option value="">Selecione...</option>
+              {(guides || []).map((g) => (
+                <option key={g._id} value={g._id}>
+                  {g.number} — {g.insurance} ({g.remaining ?? (g.totalSessions - g.usedSessions)} restantes, {g.status})
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Motivo">
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ex.: correção administrativa (opcional)"
+            className={inputClass('emerald')}
+          />
+        </Field>
       </div>
-    </div>
+      <ModalFooter
+        accent="emerald"
+        onCancel={onClose}
+        onSubmit={handleConfirm}
+        submitting={submitting}
+        submitDisabled={!targetGuideId}
+        submitLabel="Mover atendimento"
+        submittingLabel="Movendo..."
+      />
+    </Modal>
   );
 }
 
@@ -442,15 +443,15 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
           <table className="min-w-full divide-y divide-gray-200 text-sm text-gray-700">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">#</th>
-                <th className="px-4 py-3 text-left font-medium">Data</th>
-                <th className="px-4 py-3 text-left font-medium">Hora</th>
-                <th className="px-4 py-3 text-left font-medium">Profissional</th>
-                <th className="px-4 py-3 text-left font-medium">Especialidade</th>
-                <th className="px-4 py-3 text-left font-medium">Origem</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-left font-medium">Valor</th>
-                <th className="px-4 py-3 text-left font-medium">Pagamento</th>
+                <th className="px-3 py-2.5 text-left font-medium">#</th>
+                <th className="px-3 py-2.5 text-left font-medium">Data</th>
+                <th className="px-3 py-2.5 text-left font-medium">Hora</th>
+                <th className="px-3 py-2.5 text-left font-medium">Profissional</th>
+                <th className="px-3 py-2.5 text-left font-medium">Especialidade</th>
+                <th className="px-3 py-2.5 text-left font-medium">Origem</th>
+                <th className="px-3 py-2.5 text-left font-medium">Status</th>
+                <th className="px-3 py-2.5 text-left font-medium">Valor</th>
+                <th className="px-3 py-2.5 text-left font-medium">Pagamento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -464,8 +465,8 @@ export function PatientAppointmentsTable({ appointments, patientId, onMoved }: P
                   <td className="px-4 py-3 whitespace-nowrap">
                     {appt.doctor?.fullName || '—'}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap capitalize">
-                    {appt.specialty || appt.sessionType || '—'}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {(appt.specialty || appt.sessionType) ? getSpecialtyLabel(appt.specialty || appt.sessionType) : '—'}
                     {appt.serviceType === 'evaluation' && (
                       <span className="ml-2 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Avaliação</span>
                     )}

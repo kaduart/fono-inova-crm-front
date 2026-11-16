@@ -1,3 +1,4 @@
+import { useNotificationMotion } from '../../hooks/useNotificationMotion';
 import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, CheckCircle, User, X, Zap } from "lucide-react";
 import React from "react";
@@ -6,9 +7,10 @@ import { useNotification } from "../../contexts/NotificationContext";
 import { formatCurrency } from "../../utils/format";
 
 const PixNotificationPopup: React.FC = () => {
-  const { paymentNotification, closePaymentNotification } = useNotification();
+  const { paymentNotification: incomingNotification, closePaymentNotification } = useNotification();
   const navigate = useNavigate();
 
+  const { notification: paymentNotification, visible, motionProps } = useNotificationMotion(incomingNotification);
   if (!paymentNotification) return null;
 
   const formatDate = (date: Date) =>
@@ -37,23 +39,12 @@ const PixNotificationPopup: React.FC = () => {
 
   return (
     <AnimatePresence>
-      {paymentNotification && (
+      {visible && (
         <motion.div
-          className="fixed bottom-6 right-6 z-50"
-          initial={{ opacity: 0, y: 40, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 40, scale: 0.95 }}
-          transition={{
-            type: "spring",
-            damping: 25,
-            stiffness: 400,
-            duration: 0.35,
-          }}
+          className="fixed bottom-6 right-6"
+          {...motionProps}
         >
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-green-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/30 border border-emerald-400/50 w-80 backdrop-blur-md cursor-pointer hover:shadow-emerald-400/50 transition-shadow">
-            {/* Efeitos de brilho */}
-            <div className="absolute -top-20 -right-20 w-40 h-40 bg-green-300/20 rounded-full blur-2xl"></div>
-            <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-lime-300/30 rounded-full blur-xl"></div>
+          <div className="relative overflow-hidden bg-emerald-700 text-white rounded-2xl shadow-lg border border-emerald-500/60 w-80 cursor-pointer">
 
             {/* Indicador de status */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-lime-400 to-emerald-400"></div>
@@ -93,7 +84,7 @@ const PixNotificationPopup: React.FC = () => {
 
                 <button
                   onClick={closePaymentNotification}
-                  className="text-lime-100/80 hover:text-white transition-all duration-200 hover:bg-white/10 rounded-lg p-1"
+                  className="text-lime-100/80 hover:text-white transition-all duration-quick hover:bg-white/10 rounded-lg p-1"
                 >
                   <X size={18} />
                 </button>
@@ -108,7 +99,7 @@ const PixNotificationPopup: React.FC = () => {
               >
                 <div className="text-lime-100/80 text-sm mb-1">Valor recebido</div>
                 <div className="text-2xl font-bold text-white drop-shadow-sm">
-                  {formatCurrency(paymentNotification.amount)}
+                  {formatCurrency(paymentNotification.amount ?? 0)}
                 </div>
               </motion.div>
 
@@ -129,8 +120,8 @@ const PixNotificationPopup: React.FC = () => {
                   <div>
                     <div className="text-lime-100/80 text-xs">Data e horário</div>
                     <div className="font-medium text-white">
-                      {formatDate(paymentNotification.date)} às{" "}
-                      {formatTime(paymentNotification.date)}
+                      {formatDate(paymentNotification.date ?? new Date())} às{" "}
+                      {formatTime(paymentNotification.date ?? new Date())}
                     </div>
                   </div>
                 </div>
@@ -155,13 +146,13 @@ const PixNotificationPopup: React.FC = () => {
                       navigate("/financeiro");
                     }
                   }}
-                  className="text-emerald-800 font-semibold text-sm py-2 px-4 rounded-lg bg-lime-300 hover:bg-lime-200 transition-all duration-200 shadow-lg hover:shadow-lime-300/25 hover:scale-105 active:scale-95"
+                  className="text-emerald-800 font-semibold text-sm py-2 px-4 rounded-lg bg-lime-300 hover:bg-lime-200 transition-all duration-quick shadow-lg hover:shadow-lime-300/25 hover:scale-105 active:scale-95"
                 >
                   Ver detalhes
                 </button>
                 <button
                   onClick={closePaymentNotification}
-                  className="text-lime-100/90 hover:text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors duration-200 hover:bg-white/10"
+                  className="text-lime-100/90 hover:text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors duration-quick hover:bg-white/10"
                 >
                   Fechar
                 </button>

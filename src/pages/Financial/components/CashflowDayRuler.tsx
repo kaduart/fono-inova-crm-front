@@ -13,6 +13,7 @@ export const RULER_STATES: { key: RulerState; label: string; swatch: string; blo
     { key: 'falta', label: 'faltas/cancel.', swatch: 'bg-red-600 dark:bg-red-500', block: 'bg-red-600 dark:bg-red-500' },
     { key: 'futuro', label: 'aguardando', swatch: 'border-[1.5px] border-dashed border-gray-400 bg-white dark:border-gray-500 dark:bg-gray-900', block: 'border-[1.5px] border-dashed border-gray-400 bg-white dark:border-gray-500 dark:bg-gray-900' },
 ];
+const BLOCK_TEXT: Record<RulerState, string> = { pago: 'Pago', pacote: 'Pacote', sem: 'Sem pgto', conv: 'Conv.', liminar: 'Liminar', falta: 'Falta', futuro: '' };
 const STATE_TEXT: Record<RulerState, string> = { pago: 'pago', pacote: 'pacote (já pago antes)', sem: 'atendido sem pagamento', conv: 'convênio', liminar: 'liminar', falta: 'falta ou cancelamento', futuro: 'aguardando' };
 
 /** Campos que a régua lê de /v2/appointments (o resto da linha é ignorado). */
@@ -74,34 +75,34 @@ export default function CashflowDayRuler({ appointments, isCompleted, pendingIds
     const showNow = isToday && nowMin >= start && nowMin <= end;
     return <section aria-labelledby="cashflow-ruler" className="space-y-2.5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 id="cashflow-ruler" className="text-base font-bold">Régua do dia</h3>
-            <span className="text-xs text-gray-600 dark:text-gray-300">Cada bloco é uma sessão. Clique para ver a lista.</span>
+            <h3 id="cashflow-ruler" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Régua do dia</h3>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Cada bloco é uma sessão. Passe o mouse para ver o paciente e clique para ver a lista.</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden py-1">
             <div className="grid min-w-[640px] grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
                 <span />
-                <div className="relative h-4 text-[11px] text-gray-600 dark:text-gray-400" aria-hidden>
+                <div className="relative h-5 pt-0.5 text-[11px] font-medium text-gray-400 dark:text-gray-500" aria-hidden>
                     {hours.map((h, i) => <span key={h} className={`absolute tabular-nums ${i === 0 ? '' : i === hours.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: pct(h * 60) }}>{h}h</span>)}
                 </div>
                 {lanes.map(([name, items]) => <div key={name} className="contents">
-                    <span className="truncate text-sm font-semibold text-gray-700 dark:text-gray-200" title={name}>{name}</span>
-                    <div className="relative h-9 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-200" title={name}>{name}</span>
+                    <div className="relative h-9 rounded-lg bg-gray-50 ring-1 ring-inset ring-gray-100 dark:bg-gray-800/60 dark:ring-gray-800">
                         {items.map(({ a, min, dur, state }, i) => {
                             const meta = RULER_STATES.find(s => s.key === state)!;
                             const label = `${a.time} ${a.patientInfo?.fullName || a.patient?.fullName || a.patientName || ''}: ${STATE_TEXT[state]}`;
                             return <button key={idOf(a) || i} type="button" title={label} aria-label={label} onClick={() => onState(state)}
-                                className={`absolute inset-y-1 rounded-[5px] p-0 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
-                                style={{ left: pct(min), width: `calc(${(dur / span) * 100}% - 3px)` }} />;
+                                className={`absolute inset-y-1.5 grid place-items-center overflow-hidden rounded-md p-0 text-[10.5px] font-bold leading-none ${state === 'pacote' ? 'text-emerald-900 dark:text-emerald-100' : state === 'futuro' ? 'text-gray-500 dark:text-gray-400' : 'text-white'} shadow-sm ring-1 ring-inset ring-black/5 transition-all hover:-translate-y-px duration-quick motion-reduce:transition-none hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 ${meta.block}`}
+                                style={{ left: pct(min), width: `calc(${(dur / span) * 100}% - 3px)` }}>{state === 'futuro' ? a.time : BLOCK_TEXT[state]}</button>;
                         })}
-                        {showNow && <span aria-hidden className="pointer-events-none absolute -inset-y-1.5 w-0.5 bg-gray-900 dark:bg-gray-100" style={{ left: pct(nowMin) }} />}
+                        {showNow && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-gray-900/70 dark:bg-gray-100/70" style={{ left: pct(nowMin) }} />}
                     </div>
                 </div>)}
             </div>
         </div>
         <div className="flex flex-wrap gap-2">
             {RULER_STATES.filter(s => counts[s.key]).map(s => <button key={s.key} type="button" onClick={() => onState(s.key)}
-                className="inline-flex min-h-9 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-800 hover:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-                <span aria-hidden className={`h-3 w-3 rounded-[3px] ${s.swatch}`} />
+                className="inline-flex min-h-8 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-[13px] text-gray-800 transition-colors duration-quick motion-reduce:transition-none hover:border-gray-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+                <span aria-hidden className={`h-2.5 w-2.5 rounded-[3px] ${s.swatch}`} />
                 <b className="tabular-nums">{counts[s.key]}</b>{s.label}
                 {values[s.key] && <span className="tabular-nums text-gray-600 dark:text-gray-300">{values[s.key]}</span>}
             </button>)}

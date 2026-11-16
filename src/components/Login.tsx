@@ -281,7 +281,7 @@ const Login = () => {
 
                     <button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium"
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-quick shadow-md font-medium"
                     >
                       {resetMode === 'email'
                         ? 'Enviar instruções por e-mail'
@@ -364,7 +364,7 @@ const Login = () => {
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium"
+                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-quick shadow-md font-medium"
                     >
                       Criar Senha
                     </button>
@@ -384,7 +384,7 @@ const Login = () => {
                       <button
                         key={role.id}
                         onClick={() => setSelectedRole(role.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all duration-200 ${selectedRole === role.id ? 'bg-green-600 text-white shadow-sm' : 'text-green-600 hover:bg-green-100'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all duration-quick ${selectedRole === role.id ? 'bg-green-600 text-white shadow-sm' : 'text-green-600 hover:bg-green-100'}`}
                       >
                         <role.icon size={16} />
                         <span>{role.label}</span>
@@ -440,7 +440,7 @@ const Login = () => {
 
                     <button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md font-medium flex justify-center items-center gap-2"
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-quick shadow-md font-medium flex justify-center items-center gap-2"
                     >
                       {isLoading ? (
                         <>

@@ -1,3 +1,4 @@
+import { Modal } from '../ui/Modal';
 import { useState } from 'react';
 import { UserX } from 'lucide-react';
 import { PATIENT_INACTIVATION_REASONS, type PatientInactivationReason } from '../../constants/patientInactivationReasons';
@@ -22,13 +23,12 @@ export default function PatientInactivateModal({ open, patientName, nextSessionL
   const [reason, setReason] = useState<PatientInactivationReason | ''>('');
   const [note, setNote] = useState('');
   const [cancelFuture, setCancelFuture] = useState(true);
-  if (!open) return null;
 
   const close = () => { if (!loading) { setReason(''); setNote(''); setCancelFuture(true); onClose(); } };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={close}>
-      <div role="dialog" aria-modal="true" aria-labelledby="inactivate-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+    <Modal open={open} onClose={close} labelledBy="inactivate-title" zIndexClass="z-50" panelClassName="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <div>
         <div className="mb-4 flex items-center gap-3">
           <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><UserX className="h-5 w-5 text-slate-700 dark:text-slate-200" /></div>
           <h3 id="inactivate-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -93,6 +93,6 @@ export default function PatientInactivateModal({ open, patientName, nextSessionL
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
