@@ -75,23 +75,8 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       rollupOptions: {
         output: {
-          manualChunks: {
-            // Vendor chunks - bibliotecas grandes que mudam pouco
-            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-            'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-            'vendor-charts': ['recharts'],
-            'vendor-calendar': ['@fullcalendar/core', '@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction'],
-            'vendor-forms': ['react-hook-form', 'zod'],
-            'vendor-utils': ['axios', 'date-fns'],
-            'vendor-ui': ['framer-motion', 'lucide-react', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
-
-            // Dynamic imports para features pesadas
-            'feature-analytics': ['./src/components/Dashboard/SiteAnalyticsDashboard.tsx', './src/components/Dashboard/AnalyticsDashboard.tsx'],
-            'feature-calendar': ['./src/components/calendar/EnhancedCalendar.tsx'],
-            'feature-chat': ['./src/components/mkt/whatsapp/AppChat.tsx', './src/components/mkt/whatsapp/ContactsPage.tsx'],
-            'feature-financial': ['./src/pages/Financial/FinancialDashboard.tsx', './src/components/financial/PaymentPage.tsx'],
-            'feature-doctors': ['./src/components/ManageDoctors/ManageDoctors.tsx', './src/components/ManageDoctors/DoctorAgenda.tsx']
-          },
+          // Let Rollup split the real import graph. Explicit feature/vendor entries
+          // pull unused libraries into production and can create runtime initialization cycles.
           chunkFileNames: (chunkInfo) => {
             // Nomear chunks de forma previsível para debugging
             const name = chunkInfo.name || 'chunk';
