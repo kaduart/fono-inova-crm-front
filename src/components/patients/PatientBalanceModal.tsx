@@ -12,6 +12,7 @@ import {
 } from '../../services/financialSummaryService';
 import { toast } from '../../utils/toast';
 import API from '../../services/api';
+import { bulkSettlePayments } from '../../services/paymentService';
 
 import { ModalSpinner } from '../ui/LoadingSpinner';
 import { Modal } from '../ui/Modal';
@@ -290,7 +291,7 @@ export const PatientBalanceModal: React.FC<Props> = ({
       if (useSplit) {
         payload.splitMethods = splitMethods.map(s => ({ method: s.method, amount: Number(s.amount) }));
       }
-      const res = await API.post('/v2/payments/bulk-settle', payload, { timeout: 60000 });
+      const res = await bulkSettlePayments(payload, { timeout: 60000 });
       if (!res.data?.success) {
         throw new Error(res.data?.error || 'Erro ao quitar pagamentos');
       }
