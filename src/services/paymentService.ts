@@ -1,6 +1,45 @@
 import { PaymentTotalsResponse } from "../utils/types/types";
 import { buildPaymentPayloadV2 as buildPaymentPayloadV2FromDTO } from '../dtos/payment.dto';
 import API from "./api";
+import { financialIdempotency, IDEMPOTENCY_HEADER } from "./idempotency";
+
+/**
+ * Conteúdo financeiro que identifica a operação (o mesmo que o back usa na
+ * impressão digital). Notas e campos de rastreio ficam de fora: mudar só a
+ * observação não cria outra operação.
+ */
+interface PaymentContentInput {
+    type?: string | null;
+    patientId?: string | number | null;
+    appointmentId?: string | number | null;
+    amount?: number | string | null;
+    totalAmount?: number | string | null;
+    paymentMethod?: string | null;
+    debitIds?: Array<string | number>;
+    payments?: Array<{ amount?: number | string; paymentMethod?: string }>;
+}
+
+function paymentRequestContent(p: PaymentContentInput) {
+    return {
+        type: p?.type ?? null,
+        patientId: p?.patientId != null ? String(p.patientId) : null,
+        appointmentId: p?.appointmentId != null ? String(p.appointmentId) : null,
+        amount: Number(p?.amount ?? 0),
+        paymentMethod: p?.paymentMethod ?? null,
+        debitIds: Array.isArray(p?.debitIds) ? p.debitIds.map(String).sort() : [],
+        payments: Array.isArray(p?.payments)
+            ? p.payments.map((x) => `${x?.paymentMethod ?? ''}|${Number(x?.amount ?? 0)}`).sort()
+            : [],
+    };
+}
+
+/** POST /v2/payments/request com a Idempotency-Key da operação. */
+function postPaymentRequest<T>(payload: object) {
+    const content = paymentRequestContent(payload as PaymentContentInput);
+    return financialIdempotency.run(`payment-request:${content.patientId}`, content, (key) =>
+        API.post<T>('/v2/payments/request', payload, { headers: { [IDEMPOTENCY_HEADER]: key } })
+    );
+}
 
 const _inflight = new Map<string, Promise<any>>();
 function deduped<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -600,7 +639,7 @@ export const createPayment = async (data: Partial<FinancialRecord>) => {
     if (USE_V2_PAYMENT_WRITES && !requiresV1(data)) {
         const v2Payload = buildPaymentPayloadV2(data);
         console.log('[PaymentService] createPayment → V2 (standalone)', v2Payload);
-        const res = await API.post<{ success: boolean; data: any }>('/v2/payments/request', v2Payload);
+        const res = await postPaymentRequest<{ success: boolean; data: any }>(v2Payload);
         return res.data?.data || res.data;
     }
 
@@ -912,7 +951,7 @@ export const pollPaymentStatus = async (
 export const createPaymentV2 = async (data: V2PaymentRequest): Promise<V2PaymentResponse> => {
     console.log('[V2] Criando pagamento:', { patientId: data.patientId, amount: data.amount });
     
-    const response = await API.post<V2PaymentResponse>('/v2/payments/request', data);
+    const response = await postPaymentRequest<V2PaymentResponse>(data);
     
     console.log('[V2] Pagamento enfileirado:', {
         eventId: response.data.data.eventId,
@@ -951,9 +990,15 @@ export const addBalancePaymentMultiV2 = async (
         debitsCount: data.debitIds.length 
     });
     
-    const response = await API.post<V2PaymentResponse>(
-        `/v2/payments/balance/${patientId}/multi`, 
-        data
+    // A chave natural do back para multi é paciente + débitos; a Idempotency-Key
+    // mantém o mesmo comportamento no front (retentativa reaproveita a chave).
+    const content = paymentRequestContent({ ...data, patientId, type: 'multi_payment', amount: data.totalAmount });
+    const response = await financialIdempotency.run(`payment-multi:${patientId}`, content, (key) =>
+        API.post<V2PaymentResponse>(
+            `/v2/payments/balance/${patientId}/multi`,
+            data,
+            { headers: { [IDEMPOTENCY_HEADER]: key } }
+        )
     );
     
     console.log('[V2] Payment-multi enfileirado:', {
@@ -1007,8 +1052,10 @@ export const createPaymentWithFallback = async (data: V2PaymentRequest) => {
                 throw error;
             }
             
-            console.warn('[PaymentService] V2 falhou, fallback para V1:', error.message);
-            // Continua para fallback
+            // Sem fallback para V1: depois de um timeout o V2 pode ter gravado, e
+            // lançar de novo por outro caminho duplicaria o pagamento (o V1 também
+            // responde 410 desde a desativação). A retentativa usa a mesma chave.
+            throw error;
         }
     }
     
@@ -1078,8 +1125,8 @@ export const addBalancePaymentMultiWithFallback = async (
                 throw error;
             }
             
-            console.warn('[PaymentService] V2 multi falhou, fallback:', error.message);
-            // Continua para fallback
+            // Sem fallback (ver createPaymentWithFallback).
+            throw error;
         }
     }
     

@@ -95,6 +95,7 @@ import AdminHeader from './admin/AdminHeader';
 import DashboardContentOptimized from './admin/DashboardContentOptimized';
 import ProfileContent from './admin/ProfileContent';
 import { notifyApiError } from '../utils/notifyApiError';
+import { isUncertainOutcome } from '../services/idempotency';
 
 // 🚀 LAZY LOADING - Componentes de abas secundárias só carregam quando necessário
 //
@@ -911,6 +912,10 @@ export default function AdminDashboard() {
             setPaymentContext({ mode: 'create' });
             loadPayments(currentMonth);
         } catch (error) {
+            if (isUncertainOutcome(error)) {
+                toast.warning('Não recebemos a confirmação do pagamento. Salve de novo: ele não será lançado duas vezes.');
+                return;
+            }
             toast.error('Erro ao registrar pagamento');
         }
     }, [loadPayments, currentMonth]);
