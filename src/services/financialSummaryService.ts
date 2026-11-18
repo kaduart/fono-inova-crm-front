@@ -1,4 +1,5 @@
 import API from './api';
+import { financialIdempotency, IDEMPOTENCY_HEADER } from './idempotency';
 
 export interface FinancialSummary {
   patientId: string;
@@ -177,7 +178,20 @@ export interface ReceivePaymentResponse {
   patientId: string;
 }
 
+/**
+ * Recebimento com Idempotency-Key: a retentativa da mesma operação (mesmo
+ * paciente, valor e método) reaproveita a chave; o back devolve o resultado
+ * já gravado em vez de quitar ou creditar de novo.
+ * A chave também vai em metadata.idempotencyKey (contrato anterior do back).
+ */
 export async function receivePayment(data: ReceivePaymentRequest): Promise<ReceivePaymentResponse> {
-  const res = await API.post('/v2/financial/receive', data);
+  const content = { patientId: String(data.patientId), amount: Number(data.amount), method: data.method };
+  const res = await financialIdempotency.run(`receive:${content.patientId}`, content, (key) =>
+    API.post(
+      '/v2/financial/receive',
+      { ...data, metadata: { ...(data.metadata || {}), idempotencyKey: key } },
+      { headers: { [IDEMPOTENCY_HEADER]: key } }
+    )
+  );
   return res.data;
 }

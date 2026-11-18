@@ -23,6 +23,7 @@ import { PatientBalancePaidTab } from './balance/PatientBalancePaidTab';
 import { PatientBalanceAddTab } from './balance/PatientBalanceAddTab';
 import { PaymentConfirmModal } from './balance/PaymentConfirmModal';
 import { notifyApiError } from '../../utils/notifyApiError';
+import { isUncertainOutcome } from '../../services/idempotency';
 import { invalidateCache } from '../../utils/cacheManager';
 
 export interface PaymentItem {
@@ -361,6 +362,11 @@ export const PatientBalanceModal: React.FC<Props> = ({
       onRefresh?.();
       toast.success('Recebimento registrado com sucesso');
     } catch (error: unknown) {
+      if (isUncertainOutcome(error)) {
+        // Sem resposta do servidor: pode ter gravado. Repetir usa a mesma chave e não duplica.
+        toast.warning('Não recebemos a confirmação do recebimento. Clique em receber de novo: ele não será lançado duas vezes.');
+        return;
+      }
       notifyApiError(error, 'Erro ao registrar recebimento');
     } finally {
       setIsSubmitting(false);
