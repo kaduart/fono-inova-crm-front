@@ -310,32 +310,14 @@ export const PatientBalanceModal: React.FC<Props> = ({
     }
   };
 
+  // Registro manual de débito: a aba "Registrar" está desabilitada e nada leva
+  // activeTab para 'add'. O back NÃO tem POST /api/v2/payments (só /request,
+  // /create-sync, /bulk-settle, /balance/:id/multi): a chamada antiga caía em 404.
+  // Até existir uma rota com Idempotency-Key para débito manual, este handler não
+  // envia nada (ver PatientBalanceModal.test.tsx).
   const handleCreatePending = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (addAmount <= 0) {
-      toast.error('Valor deve ser maior que zero');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await API.post('/v2/payments', {
-        patient: patientId,
-        amount: addAmount,
-        status: 'pending',
-        description: addDescription || 'Débito manual',
-      });
-      setAddAmount(0);
-      setAddDescription('');
-      setActiveTab('pending');
-      await fetchData();
-      invalidateCache('payments');
-      onRefresh?.();
-      toast.success('Débito pendente registrado com sucesso');
-    } catch (error: unknown) {
-      notifyApiError(error, 'Erro ao criar pagamento pendente');
-    } finally {
-      setIsSubmitting(false);
-    }
+    toast.error('Registro manual de débito temporariamente indisponível');
   };
 
   const handleReceivePayment = async (e: React.FormEvent) => {

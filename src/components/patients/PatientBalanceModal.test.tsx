@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import API from '../../services/api';
 import { PatientBalanceModal } from './PatientBalanceModal';
-vi.mock('../../services/api',()=>({default:{patch:vi.fn().mockResolvedValue({})}}));
+vi.mock('../../services/api',()=>({default:{patch:vi.fn().mockResolvedValue({}),post:vi.fn().mockResolvedValue({})}}));
 vi.mock('../../services/financialSummaryService',()=>({
  getPatientFinancialSummary:vi.fn().mockResolvedValue({totalPaid:0,paidCount:0,completedSessions:0}),
  getPatientPendingSnapshot:vi.fn().mockResolvedValue({data:[{id:'payment-1',source:'payment',amount:160,status:'pending',canSettle:true,countInDebt:true,description:'Atendimento comprovado',createdAt:'2026-07-06T12:00:00Z',appointment:null}],meta:{totalPending:160,totalPendingNet:160,count:1,collectibleCount:1}}),
@@ -17,5 +17,14 @@ describe('patient balance CRM endpoint compatibility',()=>{
   fireEvent.click(await screen.findByRole('button',{name:'Pagar'}));
   fireEvent.click(screen.getByRole('button',{name:'Confirmar teste'}));
   await waitFor(()=>expect(API.patch).toHaveBeenCalledWith('/v2/payments/payment-1',{status:'paid',paymentMethod:'dinheiro'}));
+ });
+ it('POST /v2/payments (sem rota no back) não é alcançável: aba Registrar desabilitada e nada é enviado',async()=>{
+  render(<PatientBalanceModal isOpen onClose={vi.fn()} patientId="patient-1" patientName="Paciente de teste"/>);
+  await screen.findByRole('button',{name:'Pagar'});
+  const tab=screen.getByRole('tab',{name:/Registrar/});
+  expect(tab).toBeDisabled();
+  fireEvent.click(tab);
+  expect(screen.queryByText(/Débito manual/i)).toBeNull();
+  expect(API.post).not.toHaveBeenCalled();
  });
 });
