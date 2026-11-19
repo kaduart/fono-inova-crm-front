@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const post = vi.fn();
 vi.mock('../api', () => ({ default: { post: (...a: any[]) => post(...a), get: vi.fn(), patch: vi.fn(), delete: vi.fn() } }));
 
-import { sendWhatsAppText } from '../whatsappService';
+import { sendWhatsAppText, sendWhatsAppMedia, whatsappService } from '../whatsappService';
 
 const timeout = () => Object.assign(new Error('timeout of 15000ms exceeded'), { code: 'ECONNABORTED' });
 const httpErr = (status: number, data: any) => Object.assign(new Error(`status ${status}`), { response: { status, data } });
@@ -50,5 +50,29 @@ describe('envio manual de WhatsApp com Idempotency-Key', () => {
     const [k1, k2, k3] = post.mock.calls.map(headerOf);
     expect(k1).toBe(k2);
     expect(k3).not.toBe(k2);
+  });
+
+  it('mídia: retentativa do mesmo arquivo usa a mesma chave; outro arquivo, outra chave', async () => {
+    const f1 = new File(['a'], 'a.pdf', { type: 'application/pdf', lastModified: 1 });
+    const f2 = new File(['bb'], 'b.pdf', { type: 'application/pdf', lastModified: 2 });
+    post.mockRejectedValueOnce(timeout()).mockResolvedValue({ data: { success: true } });
+    await expect(sendWhatsAppMedia(PHONE, f1, 'document')).rejects.toThrow();
+    await sendWhatsAppMedia(PHONE, f1, 'document');
+    await sendWhatsAppMedia(PHONE, f2, 'document');
+    const [k1, k2, k3] = post.mock.calls.map(headerOf);
+    expect(k1).toBeTruthy();
+    expect(k1).toBe(k2);
+    expect(k3).not.toBe(k2);
+  });
+
+  it('template: clique duplo sai uma vez e leva a chave', async () => {
+    let resolve!: (v: any) => void;
+    post.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    const a = whatsappService.sendTemplateMessage({ phone: PHONE, template: 'lembrete', parameters: { nome: 'Fulano' } } as any);
+    const b = whatsappService.sendTemplateMessage({ phone: PHONE, template: 'lembrete', parameters: { nome: 'Fulano' } } as any);
+    resolve({ data: { success: true } });
+    await Promise.all([a, b]);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(headerOf(post.mock.calls[0])).toBeTruthy();
   });
 });

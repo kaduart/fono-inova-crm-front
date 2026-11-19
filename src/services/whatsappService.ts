@@ -331,15 +331,22 @@ export async function sendWhatsAppMedia(
     if (caption) formData.append('caption', caption);
     if (leadId) formData.append('leadId', leadId);
 
-    const res = await API.post('/whatsapp/send-media', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-            if (onProgress && progressEvent.total) {
-                const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                onProgress(progress);
+    // Idempotency-Key: clique duplo e retentativa do MESMO arquivo para o MESMO número
+    // reaproveitam a chave; o back ainda amarra a chave ao hash do arquivo.
+    const p = normalizeE164BR(phone);
+    const res = await messageIdempotency.run(
+        `wa-media:${p}`,
+        { phone: p, name: file.name, size: file.size, lastModified: file.lastModified, type, caption: caption || null },
+        (key) => API.post('/whatsapp/send-media', formData, {
+            headers: { 'Content-Type': 'multipart/form-data', [IDEMPOTENCY_HEADER]: key },
+            onUploadProgress: (progressEvent) => {
+                if (onProgress && progressEvent.total) {
+                    const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    onProgress(progress);
+                }
             }
-        }
-    });
+        })
+    );
     return res.data;
 }
 
@@ -366,11 +373,17 @@ export const whatsappService = {
             type: "text",
             text: value,
         }));
-        const response = await API.post("/whatsapp/send-template", {
-            phone: p,
-            template,
-            params: paramsArray,
-        });
+        // Idempotency-Key: o mesmo template com os mesmos parâmetros para o mesmo número
+        // reaproveita a chave no clique duplo e na retentativa.
+        const response = await messageIdempotency.run(
+            `wa-template:${p}`,
+            { phone: p, template, params: paramsArray },
+            (key) => API.post("/whatsapp/send-template", {
+                phone: p,
+                template,
+                params: paramsArray,
+            }, { headers: { [IDEMPOTENCY_HEADER]: key } })
+        );
 
         return {
             success: true,
