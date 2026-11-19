@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { notifyApiError } from '../../utils/notifyApiError';
 import { WhatsAppDiagnostic } from '../../pages/Settings/WhatsAppDiagnostic';
+import { UncertainDeliveriesPanel } from './UncertainDeliveriesPanel';
 import { useVisiblePolling } from '../../utils/useVisiblePolling';
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
@@ -1214,6 +1215,7 @@ export default function SystemUnifiedDashboard() {
                     { id: '2', label: 'Filas BullMQ', icon: <Layers size={15} /> },
                     { id: '3', label: 'Operações', icon: <Trash2 size={15} /> },
                     { id: '4', label: 'Diagnóstico WhatsApp', icon: <RefreshCw size={15} /> },
+                    { id: '5', label: 'Envios incertos', icon: <AlertTriangle size={15} /> },
                 ]} /></div>
 
             {innerTab === 0 && (
@@ -1279,6 +1281,9 @@ export default function SystemUnifiedDashboard() {
 
             {/* Veio de Vendas & Marketing > Leads (é coisa de sistema, não de vendas) */}
             {innerTab === 4 && <WhatsAppDiagnostic />}
+
+            {/* Envios com resultado incerto: decisão humana (só admin) */}
+            {innerTab === 5 && <UncertainDeliveriesPanel />}
 
             {innerTab === 3 && (
                 <Box>
