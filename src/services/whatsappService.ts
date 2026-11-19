@@ -2,6 +2,7 @@
 import axios from "axios";
 import { normalizeE164BR } from "../utils/phone";
 import API from "./api";
+import { messageIdempotency, IDEMPOTENCY_HEADER } from "./idempotency";
 
 export interface WhatsAppPayload {
     phone: string;
@@ -250,13 +251,16 @@ export async function sendWhatsAppText(
     leadId?: string
 ) {
     const p = normalizeE164BR(phone);
-    const res = await API.post("/whatsapp/send-text", {
-        phone: p,
-        text,
-        ...(userId && { userId }),
-        ...(leadId && { leadId }),
-    });
-    return res.data; // { success, result, messageId }
+    // Idempotency-Key: clique duplo e retentativa da mesma mensagem não enviam duas vezes.
+    const res = await messageIdempotency.run(`wa-text:${p}`, { phone: p, text }, (key) =>
+        API.post("/whatsapp/send-text", {
+            phone: p,
+            text,
+            ...(userId && { userId }),
+            ...(leadId && { leadId }),
+        }, { headers: { [IDEMPOTENCY_HEADER]: key } })
+    );
+    return res.data; // { success, result, messageId, duplicated? }
 }
 
 // Parabéns de aniversário: o backend valida (só no dia, 1x por ano, telefone válido) e enfileira

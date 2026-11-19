@@ -7,6 +7,7 @@ import { logger } from '../../../../utils/logger';
 import { uid } from '../../../../utils/uid';
 import { formatMessage } from '../utils/messageHelpers';
 import API from '../../../../services/api';
+import { messageIdempotency, IDEMPOTENCY_HEADER } from '../../../../services/idempotency';
 import type { Contact, Message, MediaType } from '../types/chat.types';
 
 export function useChatMessages(contact: Contact | null, leadId?: string) {
@@ -149,7 +150,10 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
         setMessages(prev => [...prev, optimisticMessage]);
         setSending(true);
         try {
-            const { data } = await API.post("/whatsapp/send-text", { phone: contact.phone, text: cleanText, ...(leadId && { leadId }) });
+            // Idempotency-Key por mensagem: clique duplo / retentativa não enviam duas vezes.
+            const { data } = await messageIdempotency.run(`wa-text:${contact.phone}`, { phone: contact.phone, text: cleanText }, (key) =>
+                API.post("/whatsapp/send-text", { phone: contact.phone, text: cleanText, ...(leadId && { leadId }) }, { headers: { [IDEMPOTENCY_HEADER]: key } })
+            );
             if (data.success && data.messageId) {
                 setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: `m-${data.messageId}`, status: 'sent' } : m));
             } else {
@@ -157,7 +161,7 @@ export function useChatMessages(contact: Contact | null, leadId?: string) {
             }
         } catch (err: any) {
             setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: "error" } : m));
-            toast.error(err.message || "Erro ao enviar mensagem");
+            toast.error(err?.response?.data?.message || err.message || "Erro ao enviar mensagem");
             throw err;
         } finally {
             setSending(false);
