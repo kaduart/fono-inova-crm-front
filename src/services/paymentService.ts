@@ -41,6 +41,49 @@ function postPaymentRequest<T>(payload: object) {
     );
 }
 
+/**
+ * POST /v2/payments/create-sync com a Idempotency-Key da operação.
+ * Mesma sessão avulsa + mesmo valor/método = mesma operação (clique duplo,
+ * retentativa após timeout). O back também devolve o Payment já existente do
+ * agendamento, então mesmo sem chave não cria um segundo.
+ */
+export function createSyncPayment<T = any>(payload: {
+    patientId: string; appointmentId?: string | null; amount: number; paymentMethod?: string; status?: string;
+    [k: string]: unknown;
+}) {
+    const content = {
+        patientId: String(payload.patientId),
+        appointmentId: payload.appointmentId ? String(payload.appointmentId) : null,
+        amount: Number(payload.amount || 0),
+        paymentMethod: payload.paymentMethod || 'dinheiro',
+        status: payload.status || 'pending',
+    };
+    const scope = `create-sync:${content.appointmentId || content.patientId}`;
+    return financialIdempotency.run(scope, content, (key) =>
+        API.post<T>('/v2/payments/create-sync', payload, { headers: { [IDEMPOTENCY_HEADER]: key } })
+    );
+}
+
+/**
+ * POST /v2/payments/bulk-settle com a Idempotency-Key da operação. O back já
+ * deduplica pelo conjunto de Payments e devolve o recibo existente
+ * (`idempotent: true`) na repetição; a chave só evita requisição duplicada em voo.
+ */
+export function bulkSettlePayments<T = any>(payload: {
+    paymentIds: string[]; paymentMethod?: string; totalAmount?: number;
+    splitMethods?: Array<{ method: string; amount: number }>; notes?: string;
+}, config: { timeout?: number } = {}) {
+    const ids = [...payload.paymentIds].map(String).sort();
+    const content = {
+        paymentIds: ids,
+        paymentMethod: payload.paymentMethod || null,
+        splitMethods: (payload.splitMethods || []).map((s) => `${s.method}|${Number(s.amount)}`).sort(),
+    };
+    return financialIdempotency.run(`bulk-settle:${ids.join(',')}`, content, (key) =>
+        API.post<T>('/v2/payments/bulk-settle', payload, { ...config, headers: { [IDEMPOTENCY_HEADER]: key } })
+    );
+}
+
 const _inflight = new Map<string, Promise<any>>();
 function deduped<T>(key: string, fn: () => Promise<T>): Promise<T> {
     if (_inflight.has(key)) return _inflight.get(key)!;

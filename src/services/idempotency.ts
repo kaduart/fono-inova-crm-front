@@ -103,7 +103,8 @@ function isDefinitiveRejection(err: unknown): boolean {
   if (status === 408 || status === 425 || status === 429) return false;
   const data = (err as HttpLikeError)?.response?.data;
   const code = data?.code ?? data?.error?.code;
-  if (status === 409 && code === 'RECEIVE_IN_PROGRESS') return false; // outra tentativa em andamento
+  // Outra tentativa da MESMA operação em andamento: manter a chave para repetir.
+  if (status === 409 && (code === 'RECEIVE_IN_PROGRESS' || code === 'PAYMENT_IN_PROGRESS' || code === 'DELIVERY_IN_PROGRESS' || data?.retryable === true)) return false;
   return status >= 400 && status < 500;
 }
 
@@ -205,6 +206,16 @@ export function createIdempotentSender(opts: IdempotentSenderOptions = {}) {
 
 /** Instância do app (sessionStorage da aba). */
 export const financialIdempotency = createIdempotentSender();
+
+/**
+ * Envio manual de mensagem (WhatsApp). Mesma regra: a chave nasce na primeira
+ * tentativa de mandar ESTE texto para ESTE número e é reaproveitada no clique
+ * duplo e na retentativa depois de erro de rede/timeout. Depois de enviada
+ * (2xx), mandar o mesmo texto de novo é uma nova mensagem com nova chave.
+ * Resposta 409 DELIVERY_UNCERTAIN (não se sabe se saiu): a chave é descartada
+ * e a tela pede para conferir no WhatsApp antes de mandar de novo.
+ */
+export const messageIdempotency = createIdempotentSender();
 
 /** Mensagem para o usuário quando o resultado é incerto. */
 export function isUncertainOutcome(err: unknown): boolean {

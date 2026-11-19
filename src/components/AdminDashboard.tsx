@@ -86,7 +86,7 @@ import { AvailableSlotsParams, CancelParams, CreateAppointmentParams, UpdateAppo
 import type { CancelExtras } from './calendar/CancelRequesterPicker';
 import doctorService, { CreateDoctorParams } from '../services/doctorService';
 import API from '../services/api';
-import { createPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
+import { createPayment, createSyncPayment, FinancialRecord, getPaymentsV2, updatePayment } from '../services/paymentService';
 // 🚫 REMOVIDO: import do usePixSocket para evitar reload automático
 // import { usePixSocket } from '../hooks/usePixSocket';
 import AddAdminContent from './admin/AddAdminContent';
@@ -986,7 +986,7 @@ export default function AdminDashboard() {
                 const amount = payment.amount || 0;
 
                 try {
-                    const createRes = await API.post('/v2/payments/create-sync', {
+                    const createRes = await createSyncPayment({
                         patientId: payment.patientId || (payment.patient as any)?._id || payment.patient?.id,
                         doctorId: payment.doctorId || (payment.doctor as any)?._id || payment.doctor?.id,
                         amount,
