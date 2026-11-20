@@ -316,9 +316,34 @@ export const assigneeLabel = (a?: WaitingAssignee): string => {
 
 export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; withAmanda?: number; onOpenLeads?: () => void; onChanged: () => void }> = ({ items, withAmanda = 0, onOpenLeads, onChanged }) => {
     const now = useNow(30_000);
-    const { done, mark } = useContact();
+    // Marcação guardada pela ESPERA (waitKey), não só pelo lead: se a Amanda encaminhar o
+    // mesmo lead de novo, a nova espera tem outra chave e reaparece sem recarregar a página.
+    const [done, setDone] = useState<Record<string, 'saving' | 'ok' | 'err'>>({});
+    const [notice, setNotice] = useState<string | null>(null);
+    const keyOf = (l: WaitingLead) => l.waitKey || `${l.leadId}|${l.waitingSince}`;
+    const markReplied = async (l: WaitingLead) => {
+        const k = keyOf(l);
+        setDone(d => ({ ...d, [k]: 'saving' }));
+        setNotice(null);
+        try {
+            await commercialService.registerContact({ targetType: 'lead', targetId: l.leadId, kind: 'lead_reply', ...(l.waitKey ? { waitKey: l.waitKey } : {}) });
+            setDone(d => ({ ...d, [k]: 'ok' }));
+        } catch (e) {
+            const status = (e as { response?: { status?: number } })?.response?.status;
+            if (status === 409) {
+                // A espera mudou (novo encaminhamento ou nova mensagem): não marca e atualiza a lista
+                setDone(d => { const n = { ...d }; delete n[k]; return n; });
+                setNotice(`${l.name}: a conversa mudou desde que a tela carregou. A lista foi atualizada; confira antes de marcar.`);
+            } else {
+                console.error('[commercial] falha ao marcar respondido', e);
+                setDone(d => ({ ...d, [k]: 'err' }));
+                return;
+            }
+        }
+        onChanged();
+    };
     const [showAll, setShowAll] = useState(false);
-    const pending = items.filter(i => done[i.leadId] !== 'ok');
+    const pending = items.filter(i => done[keyOf(i)] !== 'ok');
     const amandaText = withAmanda === 1 ? '1 conversa com a Amanda agora' : `${withAmanda} conversas com a Amanda agora`;
     if (pending.length === 0) {
         return withAmanda > 0
@@ -342,6 +367,7 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; withAmanda?: nu
                     )}
                 </span>
             </div>
+            {notice && <p role="status" className="mb-2 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">{notice}</p>}
             <ul className="flex flex-col divide-y divide-red-200/70 dark:divide-red-500/20">
                 {shown.map(l => {
                     const hasPhone = !!waLink(l.phone);
@@ -371,11 +397,11 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; withAmanda?: nu
                                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300">
                                     <MessageCircle size={14} aria-hidden /> {hasPhone ? 'Responder' : 'Sem telefone'}
                                 </button>
-                                <button type="button" disabled={done[l.leadId] === 'saving'}
+                                <button type="button" disabled={done[keyOf(l)] === 'saving'}
                                     title="Use quando respondeu pelo celular, fora do CRM. Vale só para este encaminhamento e fica no histórico como informado pela atendente."
-                                    onClick={async () => { if (await mark('lead', l.leadId, 'lead_reply')) onChanged(); }}
+                                    onClick={() => markReplied(l)}
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-100 disabled:opacity-60 dark:border-red-500/40 dark:bg-gray-900 dark:text-red-200">
-                                    <Check size={14} aria-hidden /> {done[l.leadId] === 'saving' ? 'Salvando…' : 'Marcar como respondido'}
+                                    <Check size={14} aria-hidden /> {done[keyOf(l)] === 'saving' ? 'Salvando…' : done[keyOf(l)] === 'err' ? 'Não salvou. Tentar de novo' : 'Marcar como respondido'}
                                 </button>
                             </span>
                         </li>

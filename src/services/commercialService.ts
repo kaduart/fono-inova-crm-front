@@ -62,6 +62,8 @@ export interface WaitingLead {
     waitingSince: string;
     waitingMinutes: number;
     lastMessage: string | null;
+    /** Referência da espera mostrada na tela; vai junto com "Marcar como respondido". */
+    waitKey?: string | null;
     /** Por que espera: encaminhamento da Amanda ou nova mensagem depois da resposta. */
     reason?: 'handoff' | 'nova_mensagem' | null;
     handoffAt?: string | null;
@@ -79,6 +81,8 @@ export type WaitingAssignee =
 export interface WaitingQueue {
     items: WaitingLead[];
     withAmanda: number;
+    /** Encaminhamentos ainda abertos que começaram antes da janela de dias. */
+    outsideWindow?: number;
 }
 
 export interface EvaluationItem {
@@ -224,7 +228,7 @@ export const commercialService = {
         return unwrap(await API.patch(`/v2/appointments/${appointmentId}/attendance-confirmation`, { status: 'confirmed' }));
     },
     /** `until` só em churn_pause: fim da pausa (até 90 dias). */
-    async registerContact(p: { targetType: 'patient' | 'lead'; targetId: string; kind: ContactKind; note?: string; until?: string }) {
+    async registerContact(p: { targetType: 'patient' | 'lead'; targetId: string; kind: ContactKind; note?: string; until?: string; waitKey?: string }) {
         return unwrap(await API.post('/v2/commercial/contacts', p));
     },
 };
