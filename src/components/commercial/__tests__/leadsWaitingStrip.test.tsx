@@ -1,6 +1,7 @@
 // Fila "Lead sem resposta" (20/11/2026): responsável, motivo e contagem da Amanda. Dados fictícios.
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import type { WaitingLead } from '../../../services/commercialService';
 
 const register = vi.fn(async () => ({}));
 vi.mock('../../../services/commercialService', () => ({
@@ -9,11 +10,11 @@ vi.mock('../../../services/commercialService', () => ({
 
 const { LeadsWaitingStrip, assigneeLabel } = await import('../CommercialParts');
 
-const lead = (over: any) => ({
+const lead = (over: Partial<WaitingLead>): WaitingLead => ({
     leadId: 'l1', name: 'Lead Ana', phone: '62999990000', therapyArea: 'fono', origin: null, status: 'novo',
     waitingSince: new Date(Date.now() - 10 * 60_000).toISOString(), waitingMinutes: 10, lastMessage: 'oi',
-    reason: 'handoff', handoffAt: new Date(Date.now() - 10 * 60_000).toISOString(), handoffMotivo: 'pediu atendente',
-    assignee: { kind: 'atendente', id: 'u1', name: 'Ana Recepção' }, ...over,
+    reason: 'handoff' as const, handoffAt: new Date(Date.now() - 10 * 60_000).toISOString(), handoffMotivo: 'pediu atendente',
+    assignee: { kind: 'atendente' as const, id: 'u1', name: 'Ana Recepção' }, ...over,
 });
 
 describe('assigneeLabel', () => {
@@ -31,7 +32,7 @@ describe('LeadsWaitingStrip', () => {
             lead({}),
             lead({ leadId: 'l2', name: 'Lead Agenda', assignee: { kind: 'nao_identificado' } }),
             lead({ leadId: 'l3', name: 'Lead Novo', assignee: { kind: 'ninguem' }, reason: 'nova_mensagem', handoffMotivo: null }),
-        ] as any} />);
+        ]} />);
         expect(screen.getByText('3 leads esperando resposta da equipe')).toBeTruthy();
         expect(screen.getByText('4 conversas com a Amanda agora')).toBeTruthy();
         expect(screen.getByText('Ana Recepção')).toBeTruthy();
@@ -49,7 +50,7 @@ describe('LeadsWaitingStrip', () => {
 
     it('"Marcar como respondido" registra lead_reply e recarrega a fila', async () => {
         const onChanged = vi.fn();
-        render(<LeadsWaitingStrip onChanged={onChanged} items={[lead({})] as any} />);
+        render(<LeadsWaitingStrip onChanged={onChanged} items={[lead({})]} />);
         fireEvent.click(screen.getByRole('button', { name: 'Marcar como respondido' }));
         await waitFor(() => expect(register).toHaveBeenCalledWith(expect.objectContaining({ targetType: 'lead', targetId: 'l1', kind: 'lead_reply' })));
         await waitFor(() => expect(onChanged).toHaveBeenCalled());
