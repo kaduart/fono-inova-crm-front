@@ -5,7 +5,7 @@ import { createSharedPoll, PollState } from '../../utils/sharedPoll';
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    ChurnItem, commercialService, ContactKind, EvaluationQueue, FitLead, NextDayItem, NextDayQueue, PackageEndingItem, QueuePatient, WaitingLead,
+    ChurnItem, commercialService, ContactKind, EvaluationQueue, FitLead, NextDayItem, NextDayQueue, PackageEndingItem, QueuePatient, WaitingAssignee, WaitingLead, WaitingQueue,
 } from '../../services/commercialService';
 import {
     confirmationNudgeMessage, daysText, evaluationMessage, fitLeadMessage, fitPatientMessage, genericWhen, leadReplyMessage, openWhatsApp,
@@ -307,12 +307,49 @@ const useNow = (ms: number) => {
     return now;
 };
 
-export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: () => void; onChanged: () => void }> = ({ items, onOpenLeads, onChanged }) => {
+// Quem está com o lead (back: leadAssignee). "Não identificado" = pausa sem usuário (token da Agenda Externa).
+export const assigneeLabel = (a?: WaitingAssignee): string => {
+    if (!a || a.kind === 'ninguem') return 'Ninguém assumiu';
+    if (a.kind === 'nao_identificado') return 'Responsável não identificado';
+    return a.name || 'Atendente sem nome';
+};
+
+export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; withAmanda?: number; onOpenLeads?: () => void; onChanged: () => void }> = ({ items, withAmanda = 0, onOpenLeads, onChanged }) => {
     const now = useNow(30_000);
-    const { done, mark } = useContact();
+    // Marcação guardada pela ESPERA (waitKey), não só pelo lead: se a Amanda encaminhar o
+    // mesmo lead de novo, a nova espera tem outra chave e reaparece sem recarregar a página.
+    const [done, setDone] = useState<Record<string, 'saving' | 'ok' | 'err'>>({});
+    const [notice, setNotice] = useState<string | null>(null);
+    const keyOf = (l: WaitingLead) => l.waitKey || `${l.leadId}|${l.waitingSince}`;
+    const markReplied = async (l: WaitingLead) => {
+        const k = keyOf(l);
+        setDone(d => ({ ...d, [k]: 'saving' }));
+        setNotice(null);
+        try {
+            await commercialService.registerContact({ targetType: 'lead', targetId: l.leadId, kind: 'lead_reply', ...(l.waitKey ? { waitKey: l.waitKey } : {}) });
+            setDone(d => ({ ...d, [k]: 'ok' }));
+        } catch (e) {
+            const status = (e as { response?: { status?: number } })?.response?.status;
+            if (status === 409) {
+                // A espera mudou (novo encaminhamento ou nova mensagem): não marca e atualiza a lista
+                setDone(d => { const n = { ...d }; delete n[k]; return n; });
+                setNotice(`${l.name}: a conversa mudou desde que a tela carregou. A lista foi atualizada; confira antes de marcar.`);
+            } else {
+                console.error('[commercial] falha ao marcar respondido', e);
+                setDone(d => ({ ...d, [k]: 'err' }));
+                return;
+            }
+        }
+        onChanged();
+    };
     const [showAll, setShowAll] = useState(false);
-    const pending = items.filter(i => done[i.leadId] !== 'ok');
-    if (pending.length === 0) return null;
+    const pending = items.filter(i => done[keyOf(i)] !== 'ok');
+    const amandaText = withAmanda === 1 ? '1 conversa com a Amanda agora' : `${withAmanda} conversas com a Amanda agora`;
+    if (pending.length === 0) {
+        return withAmanda > 0
+            ? <p className="text-sm text-gray-600 dark:text-gray-400">Nenhum lead esperando a equipe · {amandaText}</p>
+            : null;
+    }
     const shown = showAll ? pending : pending.slice(0, 3);
     const minutesOf = (l: WaitingLead) => Math.max(l.waitingMinutes, Math.floor((now - new Date(l.waitingSince).getTime()) / 60_000));
 
@@ -321,12 +358,16 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: (
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h2 id="leads-esperando" className="flex items-center gap-2 text-base font-bold text-red-900 dark:text-red-200">
                     <Clock size={18} aria-hidden />
-                    {pending.length === 1 ? '1 lead novo esperando resposta há mais de 2h' : `${pending.length} leads novos esperando resposta há mais de 2h`}
+                    {pending.length === 1 ? '1 lead esperando resposta da equipe' : `${pending.length} leads esperando resposta da equipe`}
                 </h2>
-                {onOpenLeads && (
-                    <button type="button" onClick={onOpenLeads} className="text-sm font-semibold text-red-800 hover:underline dark:text-red-300">Abrir leads</button>
-                )}
+                <span className="flex items-center gap-3">
+                    {withAmanda > 0 && <span className="text-sm text-red-800/80 dark:text-red-300/80">{amandaText}</span>}
+                    {onOpenLeads && (
+                        <button type="button" onClick={onOpenLeads} className="text-sm font-semibold text-red-800 hover:underline dark:text-red-300">Abrir leads</button>
+                    )}
+                </span>
             </div>
+            {notice && <p role="status" className="mb-2 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">{notice}</p>}
             <ul className="flex flex-col divide-y divide-red-200/70 dark:divide-red-500/20">
                 {shown.map(l => {
                     const hasPhone = !!waLink(l.phone);
@@ -335,8 +376,18 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: (
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate font-semibold text-gray-900 dark:text-gray-50">{l.name}</span>
                                 <span className="block truncate text-sm text-gray-700 dark:text-gray-300">
-                                    {[specialtyText(l.therapyArea), l.lastMessage ? `“${l.lastMessage}”` : 'ainda sem mensagem'].filter(Boolean).join(' · ')}
+                                    {[
+                                        l.reason === 'handoff' ? `Encaminhado pela Amanda${l.handoffMotivo ? `: ${l.handoffMotivo}` : ''}` : l.reason === 'nova_mensagem' ? 'Nova mensagem' : null,
+                                        specialtyText(l.therapyArea),
+                                        l.lastMessage ? `“${l.lastMessage}”` : 'ainda sem mensagem',
+                                    ].filter(Boolean).join(' · ')}
                                 </span>
+                            </span>
+                            <span data-assignee={l.assignee?.kind || 'ninguem'}
+                                className={`rounded-full px-2 py-0.5 text-sm font-medium ${l.assignee?.kind === 'atendente'
+                                    ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
+                                    : 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'}`}>
+                                {assigneeLabel(l.assignee)}
                             </span>
                             <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-sm font-semibold tabular-nums text-red-800 dark:bg-gray-900 dark:text-red-300" title={`Esperando desde ${new Date(l.waitingSince).toLocaleString('pt-BR')}`}>
                                 <Clock size={13} aria-hidden /> {waitingText(minutesOf(l))}
@@ -346,10 +397,11 @@ export const LeadsWaitingStrip: React.FC<{ items: WaitingLead[]; onOpenLeads?: (
                                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300">
                                     <MessageCircle size={14} aria-hidden /> {hasPhone ? 'Responder' : 'Sem telefone'}
                                 </button>
-                                <button type="button" disabled={done[l.leadId] === 'saving'}
-                                    onClick={async () => { if (await mark('lead', l.leadId, 'lead_reply')) onChanged(); }}
+                                <button type="button" disabled={done[keyOf(l)] === 'saving'}
+                                    title="Use quando respondeu pelo celular, fora do CRM. Vale só para este encaminhamento e fica no histórico como informado pela atendente."
+                                    onClick={() => markReplied(l)}
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-100 disabled:opacity-60 dark:border-red-500/40 dark:bg-gray-900 dark:text-red-200">
-                                    <Check size={14} aria-hidden /> {done[l.leadId] === 'saving' ? 'Salvando…' : 'Respondido'}
+                                    <Check size={14} aria-hidden /> {done[keyOf(l)] === 'saving' ? 'Salvando…' : done[keyOf(l)] === 'err' ? 'Não salvou. Tentar de novo' : 'Marcar como respondido'}
                                 </button>
                             </span>
                         </li>
@@ -552,7 +604,8 @@ export const NextDayConfirmPanel: React.FC<{ queue: NextDayQueue; onClose: () =>
 // ── Dados das filas do Dashboard ────────────────────────────────────────────
 
 // Lead esperando muda rápido: uma busca a cada 2 min, compartilhada e pausada com a aba oculta.
-const leadsWaitingPoll = createSharedPoll<WaitingLead[]>(() => commercialService.leadsWaiting(2), 120_000);
+// Espera por resposta humana desde o encaminhamento da Amanda (sem mínimo de tempo).
+const leadsWaitingPoll = createSharedPoll<WaitingQueue>(() => commercialService.leadsWaitingQueue(0), 120_000);
 
 export function useCommercialQueues() {
     const [packageEnding, setPackageEnding] = useState<PackageEndingItem[] | null>(null);
@@ -562,7 +615,7 @@ export function useCommercialQueues() {
     const [evaluation, setEvaluation] = useState<EvaluationQueue | null>(null);
     const [nextDay, setNextDay] = useState<NextDayQueue | null>(null);
     const [queueErrors, setQueueErrors] = useState<{ packageEnding: boolean; reactivation: boolean; churn: boolean; evaluation: boolean; nextDay: boolean }>({ packageEnding: false, reactivation: false, churn: false, evaluation: false, nextDay: false });
-    const [leadsState, setLeadsState] = useState<PollState<WaitingLead[]>>(leadsWaitingPoll.getState());
+    const [leadsState, setLeadsState] = useState<PollState<WaitingQueue>>(leadsWaitingPoll.getState());
 
     const loadQueues = useCallback(() => {
         commercialService.packageEnding()
@@ -593,5 +646,5 @@ export function useCommercialQueues() {
         const inChurn = new Set(churn.map(c => c.patientId));
         return reactivation.filter(r => !inChurn.has(r.patientId));
     }, [reactivation, churn]);
-    return { packageEnding, reactivation: reactivationOnly, churn, evaluation, nextDay, leadsWaiting: leadsState.data || [], queueErrors, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
+    return { packageEnding, reactivation: reactivationOnly, churn, evaluation, nextDay, leadsWaiting: leadsState.data?.items || [], leadsWithAmanda: leadsState.data?.withAmanda || 0, queueErrors, reload, reloadQueues: loadQueues, reloadLeads: loadLeads };
 }

@@ -926,7 +926,7 @@ const DashboardContentOptimized: React.FC<DashboardContentOptimizedProps> = ({
             </div>
 
             {/* 0. Lead novo esperando resposta (aprovado em 30/10) */}
-            <LeadsWaitingStrip items={commercial.leadsWaiting} onOpenLeads={onNavigate ? () => onNavigate('Leads') : undefined} onChanged={commercial.reloadLeads} />
+            <LeadsWaitingStrip items={commercial.leadsWaiting} withAmanda={commercial.leadsWithAmanda} onOpenLeads={onNavigate ? () => onNavigate('Leads') : undefined} onChanged={commercial.reloadLeads} />
 
             {/* Evasão acima do normal (pico mensal de pacientes que pararam, 07/11) */}
             <StoppedAlertStrip alert={stopped.data?.alert ?? null} onOpen={openStopped} />
