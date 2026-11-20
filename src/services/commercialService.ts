@@ -62,6 +62,23 @@ export interface WaitingLead {
     waitingSince: string;
     waitingMinutes: number;
     lastMessage: string | null;
+    /** Por que espera: encaminhamento da Amanda ou nova mensagem depois da resposta. */
+    reason?: 'handoff' | 'nova_mensagem' | null;
+    handoffAt?: string | null;
+    handoffMotivo?: string | null;
+    /** Quem está com o lead: atendente identificado, ninguém assumiu ou responsável não identificado. */
+    assignee?: WaitingAssignee;
+}
+
+export type WaitingAssignee =
+    | { kind: 'atendente'; id: string; name: string | null }
+    | { kind: 'ninguem' }
+    | { kind: 'nao_identificado' };
+
+/** Fila "Lead sem resposta": quem espera resposta humana + contagem à parte de quem ainda está com a Amanda. */
+export interface WaitingQueue {
+    items: WaitingLead[];
+    withAmanda: number;
 }
 
 export interface EvaluationItem {
@@ -179,6 +196,11 @@ export const commercialService = {
     async leadsWaiting(hours = 2) {
         const d = unwrap<{ items?: WaitingLead[] }>(await API.get('/v2/commercial/leads-waiting', { params: { hours } }));
         return Array.isArray(d?.items) ? d.items : [];
+    },
+    /** Espera por resposta humana desde o encaminhamento da Amanda; `minutes` = espera mínima para aparecer. */
+    async leadsWaitingQueue(minutes = 0): Promise<WaitingQueue> {
+        const d = unwrap<Partial<WaitingQueue>>(await API.get('/v2/commercial/leads-waiting', { params: { minutes } }));
+        return { items: Array.isArray(d?.items) ? d.items : [], withAmanda: Number(d?.withAmanda) || 0 };
     },
     async evaluationNoPackage(): Promise<EvaluationQueue> {
         const d = unwrap<Partial<EvaluationQueue>>(await API.get('/v2/commercial/evaluation-no-package'));
