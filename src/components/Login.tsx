@@ -150,12 +150,19 @@ const Login = () => {
       });
       const data = await resp.json();
 
-      if (!resp.ok || !data?.resetUrl) {
-        throw new Error(data?.message || 'Erro ao gerar link de redefinição');
+      if (!resp.ok) {
+        throw new Error(data?.message || 'Erro ao solicitar redefinição');
       }
 
-      toast.info('Abrindo tela de redefinição...');
-      window.location.href = data.resetUrl; // 🔹 sem e-mail, vai direto
+      // O link de redefinição chega por e-mail. A API só devolve o link
+      // direto para um admin logado (suporte à equipe).
+      if (data?.resetUrl) {
+        toast.info('Abrindo tela de redefinição...');
+        window.location.href = data.resetUrl;
+        return;
+      }
+      toast.success('Se o e-mail estiver cadastrado, enviamos o link para redefinir a senha.');
+      setShowForgotPassword(false);
     } catch (err: any) {
       toast.error(err.message || 'Falha ao solicitar redefinição');
     }
